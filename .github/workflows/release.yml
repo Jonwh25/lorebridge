@@ -1,0 +1,58 @@
+name: Release Foundry Module
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify tag matches module version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./packages/foundry-module/module.json').version")
+          if [ "v${VERSION}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match module version v${VERSION}."
+            exit 1
+          fi
+
+      - name: Validate project
+        run: npm run validate
+
+      - name: Package Foundry module
+        run: npm run package:foundry
+
+      - name: Verify release archive layout
+        shell: bash
+        run: |
+          unzip -l release/lorebridge.zip
+          unzip -Z1 release/lorebridge.zip | grep -qx "module.json"
+          unzip -Z1 release/lorebridge.zip | grep -qx "dist/main.js"
+          unzip -Z1 release/lorebridge.zip | grep -qx "styles/lorebridge.css"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            release/module.json \
+            release/lorebridge.zip \
+            --title "LoreBridge ${GITHUB_REF_NAME}" \
+            --generate-notes
