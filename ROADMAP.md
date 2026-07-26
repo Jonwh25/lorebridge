@@ -6,18 +6,21 @@ The roadmap favors small, testable milestones. Each milestone must work end to e
 
 - [x] Create repository
 - [x] Define vision and guiding principles
-- [x] Document the initial architecture
-- [ ] Create the TypeScript workspace
-- [ ] Add formatting, linting, tests, and continuous integration
+- [x] Document the platform architecture
+- [x] Create the TypeScript workspace
+- [x] Add continuous validation
+- [ ] Add formatting, linting, and tests
 - [ ] Define contribution and security practices
 
-## Phase 1 — Foundry module skeleton
+## Phase 1 — Foundry adapter foundation
 
 Goal: a Foundry VTT v14 module that installs, loads, and reports its status safely.
 
-- [ ] Create `module.json`
-- [ ] Add `init` and `ready` lifecycle hooks
-- [ ] Restrict operation to an authenticated GM
+- [x] Create and validate `module.json`
+- [x] Add `init` and `ready` lifecycle hooks
+- [x] Restrict operation to a GM
+- [ ] Install the module in the v14 test environment
+- [ ] Confirm it loads with no console errors
 - [ ] Add module settings
 - [ ] Add a compact connection-status interface
 - [ ] Add structured logging with secret redaction
@@ -25,60 +28,67 @@ Goal: a Foundry VTT v14 module that installs, loads, and reports its status safe
 
 Success test: the module loads in the v14 test world with no console errors and displays world metadata locally.
 
-## Phase 2 — Shared contracts
+## Phase 2 — Public capability contract
 
-Goal: define stable, validated messages before connecting external services.
+Goal: define stable, platform-neutral capabilities before connecting external services.
 
+- [x] Establish initial capability naming and design rules
 - [ ] Define protocol version and capability handshake
-- [ ] Define request, response, and error envelopes
-- [ ] Define schemas for `get_world_info`
-- [ ] Define schemas for journal, actor, and scene operations
+- [ ] Define source and document identifiers
+- [ ] Define request, response, pagination, and error envelopes
+- [ ] Define schemas for `getWorldSummary`
+- [ ] Define schemas for journal operations
+- [ ] Define schemas for actor operations
+- [ ] Define schemas for scene operations
+- [ ] Define schemas for compendium operations
 - [ ] Add schema validation tests
-- [ ] Add response-size and pagination conventions
+- [ ] Add response-size conventions
 
-Success test: test fixtures validate consistently in both server and module packages.
+Success test: fixtures validate consistently in the service, shared-contract, and Foundry packages.
 
-## Phase 3 — Secure bridge
+## Phase 3 — LoreBridge service
 
-Goal: connect the Foundry module to a Node.js service without exposing Foundry internals publicly.
+Goal: connect adapters to a central service without exposing platform internals publicly.
 
-- [ ] Create the bridge/MCP server package
-- [ ] Add authenticated persistent module connections
-- [ ] Add world registration and connection status
+- [ ] Create the service package
+- [ ] Add authenticated persistent adapter connections
+- [ ] Add source registration and capability negotiation
 - [ ] Route correlated requests and responses
 - [ ] Add timeouts, rate limits, and audit logs
+- [ ] Add normalized structured errors
 - [ ] Keep the service private or locally tunneled during development
 
-Success test: a local command can request real world metadata through the server and receive a validated response from Foundry.
+Success test: a local command requests real world metadata through the service and receives a validated response from Foundry.
 
-## Phase 4 — Read-only campaign tools
+## Phase 4 — Read-only campaign capabilities
 
-Goal: retrieve useful campaign data safely.
+Goal: retrieve useful campaign data safely through the public contract.
 
-- [ ] `get_world_info`
-- [ ] `list_journals`
-- [ ] `search_journals`
-- [ ] `get_journal`
-- [ ] `list_actors`
-- [ ] `get_actor`
-- [ ] `list_scenes`
-- [ ] `get_scene`
-- [ ] `list_compendiums`
-- [ ] `search_compendium`
-- [ ] `get_compendium_entry`
+- [ ] `getWorldSummary`
+- [ ] `listJournals`
+- [ ] `searchJournals`
+- [ ] `getJournal`
+- [ ] `listActors`
+- [ ] `getActor`
+- [ ] `listScenes`
+- [ ] `getScene`
+- [ ] `listCompendiums`
+- [ ] `searchCompendium`
+- [ ] `getCompendiumEntry`
 
-Success test: an external client can answer a campaign question using retrieved Foundry data and identify the documents used.
+Success test: an external client can answer a campaign question using retrieved Foundry data and identify every supporting source.
 
-## Phase 5 — ChatGPT/MCP connection
+## Phase 5 — ChatGPT and client connections
 
-Goal: interact with Foundry from ChatGPT or another remote MCP client.
+Goal: interact with connected campaign sources from ChatGPT or another remote client.
 
-- [ ] Expose the approved read-only tools through MCP
+- [ ] Expose approved capabilities through MCP
 - [ ] Configure authenticated HTTPS transport
 - [ ] Connect through the available ChatGPT developer/app workflow
 - [ ] Verify tool discovery and invocation
 - [ ] Test offline and timeout behavior
 - [ ] Document installation and connection steps
+- [ ] Keep the core service independent of any single AI provider
 
 Success test: ask ChatGPT what world is connected and search its journals without entering the question inside Foundry.
 
@@ -86,22 +96,22 @@ Success test: ask ChatGPT what world is connected and search its journals withou
 
 Goal: add higher-level tools built on reliable retrieval.
 
-Potential tools:
+Potential capabilities:
 
-- [ ] `summarize_current_scene`
-- [ ] `find_npc_relationships`
-- [ ] `find_location_mentions`
-- [ ] `find_unresolved_plot_threads`
-- [ ] `build_session_brief`
-- [ ] `summarize_party_history`
+- [ ] `summarizeCurrentScene`
+- [ ] `findNpcRelationships`
+- [ ] `findLocationMentions`
+- [ ] `findUnresolvedPlotThreads`
+- [ ] `buildSessionBrief`
+- [ ] `summarizePartyHistory`
 
-These tools must return supporting document references and distinguish sourced facts from inference.
+These capabilities must return supporting source references and distinguish sourced facts from inference.
 
 ## Phase 7 — Controlled writes
 
 Goal: permit useful changes without surrendering GM control.
 
-Potential tools:
+Potential capabilities:
 
 - [ ] create a journal entry
 - [ ] update a selected journal page
@@ -116,15 +126,27 @@ Required safeguards:
 - narrow document targeting
 - before-and-after summary
 - audit record
-- bounded rollback strategy where Foundry supports it
+- bounded rollback strategy where supported
+
+## Phase 8 — Additional adapters
+
+Goal: connect more campaign platforms without changing the public capability model.
+
+Potential adapters:
+
+- [ ] LegendKeeper
+- [ ] Obsidian
+- [ ] additional VTTs
+- [ ] transcript and session-summary sources
+- [ ] D&D Beyond where technically and legally appropriate
+
+Each adapter may implement a negotiated subset of LoreBridge capabilities.
 
 ## Later possibilities
 
-- LegendKeeper connector
-- transcript and session-summary ingestion
 - semantic campaign search
-- multi-world support
-- additional VTTs and campaign platforms
+- multi-source and multi-world campaigns
+- provider-specific client packages
 - optional in-Foundry assistant panel
 - packaged installers and automatic updates
 
