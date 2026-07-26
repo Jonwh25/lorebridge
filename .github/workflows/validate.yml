@@ -24,11 +24,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
-      - name: Verify Foundry module output
-        run: test -f packages/foundry-module/dist/main.js
+      - name: Validate project
+        run: npm run validate
