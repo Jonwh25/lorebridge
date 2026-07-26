@@ -1,36 +1,11 @@
+import {
+  GET_WORLD_SUMMARY_CAPABILITY,
+  GET_WORLD_SUMMARY_DECLARATION
+} from "@lorebridge/shared/capabilities";
+
+import { getWorldSummary } from "./capabilities/get-world-summary.js";
+
 const MODULE_ID = "lorebridge";
-
-interface WorldSummary {
-  foundryVersion: string;
-  worldId: string;
-  worldTitle: string;
-  systemId: string;
-  systemTitle: string;
-  systemVersion: string;
-  actorCount: number;
-  sceneCount: number;
-  journalCount: number;
-  installedModuleCount: number;
-  activeModuleCount: number;
-}
-
-function getWorldSummary(): WorldSummary {
-  const modules = Array.from(game.modules.values());
-
-  return {
-    foundryVersion: game.version,
-    worldId: game.world?.id ?? "unknown",
-    worldTitle: game.world?.title ?? "Unknown World",
-    systemId: game.system.id,
-    systemTitle: game.system.title,
-    systemVersion: game.system.version,
-    actorCount: game.actors.size,
-    sceneCount: game.scenes.size,
-    journalCount: game.journal.size,
-    installedModuleCount: modules.length,
-    activeModuleCount: modules.filter((module) => module.active).length
-  };
-}
 
 Hooks.once("init", () => {
   console.info(`${MODULE_ID} | Initializing LoreBridge 0.1.0`);
@@ -44,17 +19,21 @@ Hooks.once("ready", () => {
 
   const summary = getWorldSummary();
 
-  console.info(`${MODULE_ID} | GM bridge ready`, summary);
+  console.info(`${MODULE_ID} | GM bridge ready`, {
+    summary,
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION]
+  });
   ui.notifications.info(
-    `LoreBridge is ready for ${summary.worldTitle}. Open the browser console for world details.`
+    `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
   );
 
-  // Temporary development API. This will be replaced by a typed, authenticated
-  // request dispatcher before any external connection is introduced.
+  // Temporary local development API. It exposes only explicitly approved,
+  // typed capabilities and will be replaced by an authenticated dispatcher.
   Object.defineProperty(globalThis, "LoreBridge", {
     value: Object.freeze({
       version: "0.1.0",
-      getWorldSummary
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION]),
+      [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary
     }),
     configurable: true,
     writable: false
