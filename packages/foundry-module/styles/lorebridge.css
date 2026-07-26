@@ -1,0 +1,10 @@
+/* LoreBridge Foundry module styles.
+ * The initial release has no custom interface yet. This file reserves a
+ * stable stylesheet path for the connection and approval panels to come.
+ */
+
+.lorebridge-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
