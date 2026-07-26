@@ -10,7 +10,9 @@
     "build": "npm run build --workspaces --if-present",
     "build:foundry": "npm run build --workspace=@lorebridge/foundry-module",
     "clean": "npm run clean --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify:foundry": "node scripts/verify-foundry-module.mjs",
+    "validate": "npm run typecheck && npm run build && npm run verify:foundry"
   },
   "engines": {
     "node": ">=20",
