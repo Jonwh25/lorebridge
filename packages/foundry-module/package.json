@@ -1,10 +1,10 @@
 {
   "name": "@lorebridge/foundry-module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "esbuild src/main.ts --bundle --format=esm --platform=browser --target=es2022 --sourcemap --outfile=dist/main.js",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -12,6 +12,7 @@
     "@lorebridge/shared": "0.1.0"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "typescript": "^5.9.2"
   }
 }
