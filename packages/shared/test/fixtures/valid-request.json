@@ -1,0 +1,10 @@
+{
+  "kind": "request",
+  "messageId": "msg-001",
+  "correlationId": "corr-001",
+  "protocolVersion": "0.1",
+  "timestamp": "2026-07-26T23:05:00.000Z",
+  "sourceId": "foundry:curse-of-strahd",
+  "capability": "getWorldSummary",
+  "input": {}
+}
