@@ -28,21 +28,30 @@ Goal: a Foundry VTT v14 module that installs, loads, and reports its status safe
 
 Success test: the module loads in the v14 test world with no console errors and displays world metadata locally.
 
-## Phase 2 — Public capability contract
+## Phase 2 — Internal protocol and public capability contract
 
-Goal: define stable, platform-neutral capabilities before connecting external services.
+Goal: define stable, platform-neutral communication and capabilities before connecting external services.
 
 - [x] Establish initial capability naming and design rules
-- [ ] Define protocol version and capability handshake
-- [ ] Define source and document identifiers
-- [ ] Define request, response, pagination, and error envelopes
+- [x] Draft `docs/LOREBRIDGE_PROTOCOL.md`
+- [x] Define connection lifecycle and adapter registration
+- [x] Define protocol version negotiation
+- [x] Define capability negotiation
+- [x] Define request, response, event, cancellation, and error envelopes
+- [x] Define source and document identifier rules
+- [x] Define pagination and response-size conventions
+- [x] Define read-only policy and future write approval flow
+- [ ] Implement shared TypeScript protocol types
+- [ ] Implement runtime validation schemas
 - [ ] Define schemas for `getWorldSummary`
 - [ ] Define schemas for journal operations
 - [ ] Define schemas for actor operations
 - [ ] Define schemas for scene operations
 - [ ] Define schemas for compendium operations
+- [ ] Add protocol and capability fixtures
 - [ ] Add schema validation tests
-- [ ] Add response-size conventions
+
+Implementation gate: production service routing and additional platform handlers must wait until the shared protocol envelopes and handshake fixtures validate in both the service and adapter packages.
 
 Success test: fixtures validate consistently in the service, shared-contract, and Foundry packages.
 
@@ -54,7 +63,8 @@ Goal: connect adapters to a central service without exposing platform internals 
 - [ ] Add authenticated persistent adapter connections
 - [ ] Add source registration and capability negotiation
 - [ ] Route correlated requests and responses
-- [ ] Add timeouts, rate limits, and audit logs
+- [ ] Add cancellation and timeout handling
+- [ ] Add rate limits and audit logs
 - [ ] Add normalized structured errors
 - [ ] Keep the service private or locally tunneled during development
 
@@ -82,7 +92,7 @@ Success test: an external client can answer a campaign question using retrieved 
 
 Goal: interact with connected campaign sources from ChatGPT or another remote client.
 
-- [ ] Expose approved capabilities through MCP
+- [ ] Expose approved capabilities through an MCP client adapter
 - [ ] Configure authenticated HTTPS transport
 - [ ] Connect through the available ChatGPT developer/app workflow
 - [ ] Verify tool discovery and invocation
@@ -121,9 +131,10 @@ Potential capabilities:
 
 Required safeguards:
 
-- preview before commit
-- explicit confirmation token
+- dry-run preview before commit
+- explicit, short-lived, single-use confirmation token
 - narrow document targeting
+- revision or conflict check
 - before-and-after summary
 - audit record
 - bounded rollback strategy where supported
