@@ -7,11 +7,14 @@ import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
 
 const MODULE_ID = "lorebridge";
-const MODULE_VERSION = "0.1.1";
+
+function getModuleVersion(): string {
+  return game.modules.get(MODULE_ID)?.version ?? "unknown";
+}
 
 Hooks.once("init", () => {
   console.info(
-    `${MODULE_ID} | Initializing LoreBridge ${MODULE_VERSION} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
+    `${MODULE_ID} | Initializing LoreBridge ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
   );
 });
 
@@ -21,10 +24,11 @@ Hooks.once("ready", () => {
     return;
   }
 
+  const moduleVersion = getModuleVersion();
   const summary = getWorldSummary();
 
   console.info(`${MODULE_ID} | GM bridge ready`, {
-    moduleVersion: MODULE_VERSION,
+    moduleVersion,
     protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
     summary,
     capabilities: [GET_WORLD_SUMMARY_DECLARATION]
@@ -37,8 +41,8 @@ Hooks.once("ready", () => {
   // typed capabilities and will be replaced by an authenticated dispatcher.
   Object.defineProperty(globalThis, "LoreBridge", {
     value: Object.freeze({
-      version: MODULE_VERSION,
-      moduleVersion: MODULE_VERSION,
+      version: moduleVersion,
+      moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
       capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION]),
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary
