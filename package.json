@@ -7,13 +7,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@lorebridge/shared && npm run build --workspace=@lorebridge/foundry-module",
+    "build": "npm run build --workspace=@lorebridge/shared && npm run build --workspace=@lorebridge/foundry-module && npm run build --workspace=@lorebridge/backend",
     "build:foundry": "npm run build --workspace=@lorebridge/shared && npm run build --workspace=@lorebridge/foundry-module",
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "npm run build --workspace=@lorebridge/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "verify:foundry": "node scripts/verify-foundry-module.mjs",
     "package:foundry": "npm run build:foundry && node scripts/package-foundry.mjs",
+    "start:backend": "npm run start --workspace=@lorebridge/backend",
     "validate": "npm run typecheck && npm run build && npm run test && npm run verify:foundry"
   },
   "engines": {
