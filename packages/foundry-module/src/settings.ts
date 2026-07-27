@@ -1,10 +1,13 @@
+import { LoreBridgeConfigurationApp } from "./configuration-app.js";
+
 const MODULE_ID = "lorebridge";
 
 export const LOREBRIDGE_SETTINGS = Object.freeze({
   capabilityApiEnabled: "capabilityApiEnabled",
   remoteIntegrationEnabled: "remoteIntegrationEnabled",
   provider: "provider",
-  backendUrl: "backendUrl"
+  backendUrl: "backendUrl",
+  clientToken: "clientToken",
 });
 
 export type LoreBridgeProvider = "none" | "openai";
@@ -14,9 +17,19 @@ export type LoreBridgeSettings = {
   remoteIntegrationEnabled: boolean;
   provider: LoreBridgeProvider;
   backendUrl: string;
+  clientToken: string;
 };
 
 export function registerLoreBridgeSettings(): void {
+  game.settings.registerMenu(MODULE_ID, "configuration", {
+    name: "Configure LoreBridge",
+    label: "Configure LoreBridge",
+    hint: "Check the backend connection and pair this GM browser.",
+    icon: "fas fa-bridge",
+    type: LoreBridgeConfigurationApp,
+    restricted: true,
+  });
+
   game.settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.capabilityApiEnabled, {
     name: "Enable LoreBridge Capability API",
     hint: "Expose approved LoreBridge capabilities to the GM browser session.",
@@ -24,7 +37,7 @@ export function registerLoreBridgeSettings(): void {
     config: true,
     type: Boolean,
     default: true,
-    requiresReload: true
+    requiresReload: true,
   });
 
   game.settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.remoteIntegrationEnabled, {
@@ -34,7 +47,7 @@ export function registerLoreBridgeSettings(): void {
     config: true,
     type: Boolean,
     default: false,
-    requiresReload: true
+    requiresReload: true,
   });
 
   game.settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.provider, {
@@ -45,37 +58,48 @@ export function registerLoreBridgeSettings(): void {
     type: String,
     choices: {
       none: "None",
-      openai: "OpenAI"
+      openai: "OpenAI",
     },
     default: "none",
-    requiresReload: true
+    requiresReload: true,
   });
 
   game.settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
-    hint: "WebSocket URL for the LoreBridge backend, for example wss://lorebridge.example.com/ws.",
+    hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "",
-    requiresReload: true
+  });
+
+  game.settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, {
+    name: "LoreBridge Client Token",
+    hint: "Signed pairing token for this GM browser.",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "",
   });
 }
 
 export function getLoreBridgeSettings(): LoreBridgeSettings {
   return {
     capabilityApiEnabled: Boolean(
-      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.capabilityApiEnabled)
+      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.capabilityApiEnabled),
     ),
     remoteIntegrationEnabled: Boolean(
-      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)
+      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.remoteIntegrationEnabled),
     ),
     provider: normalizeProvider(
-      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.provider)
+      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.provider),
     ),
     backendUrl: String(
-      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl) ?? ""
-    ).trim()
+      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl) ?? "",
+    ).trim(),
+    clientToken: String(
+      game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken) ?? "",
+    ),
   };
 }
 
