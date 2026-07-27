@@ -20,7 +20,9 @@ export class LoreBridgeCapabilityError extends Error {
     this.name = "LoreBridgeCapabilityError";
     this.code = code;
     this.retryable = options.retryable ?? false;
-    this.details = options.details;
+    if (options.details !== undefined) {
+      this.details = options.details;
+    }
   }
 }
 
@@ -39,22 +41,29 @@ function requireFoundryRuntime(): void {
       "LoreBridge getWorldSummary requires an active GM user."
     );
   }
-
-  if (!game.world || !game.system || !game.modules || !game.actors || !game.scenes || !game.journal) {
-    throw new LoreBridgeCapabilityError(
-      "ADAPTER_UNAVAILABLE",
-      "The Foundry world is not fully initialized.",
-      { retryable: true }
-    );
-  }
 }
 
 export function getWorldSummary(): GetWorldSummaryOutput {
   try {
     requireFoundryRuntime();
 
-    const worldId = game.world.id;
-    const modules = Array.from(game.modules.values());
+    const world = game.world;
+    const system = game.system;
+    const modulesCollection = game.modules;
+    const actors = game.actors;
+    const scenes = game.scenes;
+    const journals = game.journal;
+
+    if (!world || !system || !modulesCollection || !actors || !scenes || !journals) {
+      throw new LoreBridgeCapabilityError(
+        "ADAPTER_UNAVAILABLE",
+        "The Foundry world is not fully initialized.",
+        { retryable: true }
+      );
+    }
+
+    const worldId = world.id;
+    const modules = Array.from(modulesCollection.values());
     const summary: GetWorldSummaryOutput = {
       source: {
         sourceId: `${SOURCE_PREFIX}:${worldId}`,
@@ -62,18 +71,18 @@ export function getWorldSummary(): GetWorldSummaryOutput {
       },
       world: {
         id: worldId,
-        title: game.world.title,
+        title: world.title,
         foundryVersion: game.version
       },
       system: {
-        id: game.system.id,
-        title: game.system.title,
-        version: game.system.version
+        id: system.id,
+        title: system.title,
+        version: system.version
       },
       counts: {
-        actors: game.actors.size,
-        scenes: game.scenes.size,
-        journals: game.journal.size,
+        actors: actors.size,
+        scenes: scenes.size,
+        journals: journals.size,
         installedModules: modules.length,
         activeModules: modules.filter((module) => module.active).length
       }
