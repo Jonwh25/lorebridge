@@ -6,6 +6,16 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.1.4] - 2026-07-26
+
+### Added
+
 - GM/world-scoped Foundry settings for capability exposure, remote integration, provider selection, and backend URL.
 - Runtime policy tests covering GM-only and disabled capability API behavior.
 - Provider configuration security guidance that keeps provider secrets out of the Foundry browser.
@@ -14,8 +24,6 @@ All notable changes to LoreBridge are documented here.
 
 - The LoreBridge browser API now respects the world-level capability enable toggle.
 - Remote AI configuration is provider-neutral and reports incomplete configuration without opening a connection.
-
-### Fixed
 
 ### Security
 
