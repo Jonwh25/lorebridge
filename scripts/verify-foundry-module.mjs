@@ -6,9 +6,11 @@ const repositoryRoot = process.cwd();
 const moduleRoot = path.join(repositoryRoot, "packages", "foundry-module");
 const manifestPath = path.join(moduleRoot, "module.json");
 const packagePath = path.join(moduleRoot, "package.json");
+const rootPackagePath = path.join(repositoryRoot, "package.json");
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
+const rootPackageJson = JSON.parse(await readFile(rootPackagePath, "utf8"));
 
 if (manifest.id !== "lorebridge") {
   throw new Error(`Unexpected Foundry module id: ${String(manifest.id)}`);
@@ -18,19 +20,25 @@ if (manifest.compatibility?.minimum !== "14") {
   throw new Error("LoreBridge must declare Foundry v14 as its minimum supported version.");
 }
 
-if (manifest.version !== packageJson.version) {
-  throw new Error(`Manifest version ${manifest.version} does not match package version ${packageJson.version}.`);
+if (manifest.version !== packageJson.version || manifest.version !== rootPackageJson.version) {
+  throw new Error(
+    `Version mismatch: manifest=${manifest.version}, foundry package=${packageJson.version}, root package=${rootPackageJson.version}.`
+  );
 }
 
-const expectedManifest = "https://github.com/Jonwh25/lorebridge/releases/latest/download/module.json";
-const expectedDownload = `https://github.com/Jonwh25/lorebridge/releases/download/v${manifest.version}/lorebridge.zip`;
+const expectedMetadata = {
+  manifest: "https://github.com/Jonwh25/lorebridge/releases/latest/download/module.json",
+  download: `https://github.com/Jonwh25/lorebridge/releases/download/v${manifest.version}/lorebridge.zip`,
+  license: "https://github.com/Jonwh25/lorebridge/blob/main/LICENSE",
+  readme: "https://github.com/Jonwh25/lorebridge/blob/main/README.md",
+  bugs: "https://github.com/Jonwh25/lorebridge/issues",
+  changelog: "https://github.com/Jonwh25/lorebridge/blob/main/CHANGELOG.md"
+};
 
-if (manifest.manifest !== expectedManifest) {
-  throw new Error(`Manifest URL must be ${expectedManifest}.`);
-}
-
-if (manifest.download !== expectedDownload) {
-  throw new Error(`Download URL must be ${expectedDownload}.`);
+for (const [field, expected] of Object.entries(expectedMetadata)) {
+  if (manifest[field] !== expected) {
+    throw new Error(`Manifest field ${field} must be ${expected}.`);
+  }
 }
 
 const referencedFiles = [
@@ -53,4 +61,4 @@ if (bundle.includes("@lorebridge/shared")) {
 
 console.log(`Verified Foundry module ${manifest.id} ${manifest.version}.`);
 console.log(`Verified ${referencedFiles.length} manifest-referenced files.`);
-console.log("Verified release URLs and browser-safe bundle.");
+console.log("Verified official Foundry release URLs, metadata, and browser-safe bundle.");
