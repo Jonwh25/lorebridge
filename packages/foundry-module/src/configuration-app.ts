@@ -41,12 +41,23 @@ type DialogConstructor = new (config: {
 }) => { render(force?: boolean): unknown };
 
 const foundryUi = globalThis as unknown as {
-  FormApplication: FormApplicationConstructor;
-  Dialog: DialogConstructor;
+  FormApplication?: FormApplicationConstructor;
+  Dialog?: DialogConstructor;
 };
 
-const FormApplicationBase = foundryUi.FormApplication;
-const DialogClass = foundryUi.Dialog;
+const TestSafeFormApplication = class implements FormApplicationInstance {
+  static defaultOptions: Record<string, unknown> = {};
+  element?: { 0?: HTMLElement };
+
+  activateListeners(_html: JQueryLike): void {}
+
+  render(_force?: boolean): unknown {
+    return undefined;
+  }
+};
+
+const FormApplicationBase: FormApplicationConstructor =
+  foundryUi.FormApplication ?? TestSafeFormApplication;
 
 interface ConfigurationData {
   backendUrl: string;
@@ -162,7 +173,13 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
   }
 
   private async promptForCode(suggestedCode: string, expiresAt: string): Promise<string | undefined> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      const DialogClass = foundryUi.Dialog;
+      if (!DialogClass) {
+        reject(new Error("Foundry Dialog API is unavailable."));
+        return;
+      }
+
       new DialogClass({
         title: "Pair LoreBridge",
         content: `
