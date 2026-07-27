@@ -10,6 +10,8 @@ All notable changes to LoreBridge are documented here.
 
 ### Fixed
 
+- The browser API now reads the installed module version from Foundry instead of using a hardcoded release number.
+
 ### Security
 
 ## [0.1.2] - 2026-07-26
