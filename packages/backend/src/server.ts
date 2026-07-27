@@ -1,11 +1,14 @@
 import { createLoreBridgeServer } from "./app.js";
 import { loadConfig } from "./config.js";
+import { loadOrCreateIdentity } from "./identity.js";
 
 const config = loadConfig();
-const server = createLoreBridgeServer(config);
+const identity = await loadOrCreateIdentity(config.dataDir);
+const server = createLoreBridgeServer(config, identity);
 
 server.listen(config.port, config.host, () => {
   console.log(`LoreBridge backend listening on http://${config.host}:${config.port}`);
+  console.log(`LoreBridge backend identity ${identity.id} (${identity.fingerprint})`);
 });
 
 function shutdown(signal: string): void {
