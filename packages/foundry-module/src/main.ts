@@ -5,6 +5,7 @@ import {
 import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
+import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
   registerLoreBridgeSettings
@@ -30,14 +31,15 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", () => {
-  if (!game.user?.isGM) {
-    console.info(`${MODULE_ID} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
-    return;
-  }
-
   const settings = getLoreBridgeSettings();
-  if (!settings.capabilityApiEnabled) {
-    console.info(`${MODULE_ID} | Capability API disabled in world settings`);
+  const isGM = Boolean(game.user?.isGM);
+
+  if (!shouldExposeCapabilityApi(isGM, settings)) {
+    if (!isGM) {
+      console.info(`${MODULE_ID} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
+    } else {
+      console.info(`${MODULE_ID} | Capability API disabled in world settings`);
+    }
     return;
   }
 
