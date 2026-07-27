@@ -1,10 +1,52 @@
 import { LoreBridgeBackendClient } from "./backend-client.js";
-import { LOREBRIDGE_SETTINGS, getLoreBridgeSettings } from "./settings.js";
+import {
+  LOREBRIDGE_SETTINGS,
+  getFoundrySettingsApi,
+  getLoreBridgeSettings,
+} from "./settings.js";
 
 const MODULE_ID = "lorebridge";
-const FormApplicationBase = (globalThis as unknown as {
-  FormApplication: new (...args: any[]) => any;
-}).FormApplication;
+
+type JQueryLike = {
+  find(selector: string): {
+    on(event: string, callback: () => void): void;
+    val(): unknown;
+  };
+};
+
+type FormApplicationInstance = {
+  element?: { 0?: HTMLElement };
+  activateListeners(html: JQueryLike): void;
+  render(force?: boolean): Promise<unknown> | unknown;
+};
+
+type FormApplicationConstructor = {
+  new (...args: unknown[]): FormApplicationInstance;
+  defaultOptions: Record<string, unknown>;
+};
+
+type DialogConstructor = new (config: {
+  title: string;
+  content: string;
+  buttons: Record<
+    string,
+    {
+      icon: string;
+      label: string;
+      callback: (html: JQueryLike) => void;
+    }
+  >;
+  default: string;
+  close: () => void;
+}) => { render(force?: boolean): unknown };
+
+const foundryUi = globalThis as unknown as {
+  FormApplication: FormApplicationConstructor;
+  Dialog: DialogConstructor;
+};
+
+const FormApplicationBase = foundryUi.FormApplication;
+const DialogClass = foundryUi.Dialog;
 
 interface ConfigurationData {
   backendUrl: string;
@@ -17,7 +59,7 @@ interface ConfigurationData {
 export class LoreBridgeConfigurationApp extends FormApplicationBase {
   static get defaultOptions(): Record<string, unknown> {
     return {
-      ...super.defaultOptions,
+      ...FormApplicationBase.defaultOptions,
       id: "lorebridge-configuration",
       title: "Configure LoreBridge",
       template: "modules/lorebridge/templates/configuration.hbs",
@@ -55,7 +97,7 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
     return data;
   }
 
-  activateListeners(html: any): void {
+  activateListeners(html: JQueryLike): void {
     super.activateListeners(html);
     html.find("[data-action='check']").on("click", () => void this.checkConnection());
     html.find("[data-action='pair']").on("click", () => void this.pair());
@@ -64,7 +106,7 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
 
   protected async _updateObject(_event: Event, formData: Record<string, unknown>): Promise<void> {
     const backendUrl = String(formData.backendUrl ?? "").trim();
-    await game.settings.set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
+    await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
     ui.notifications.info("LoreBridge backend URL saved.");
     await this.render(false);
   }
@@ -91,7 +133,7 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
       if (!code) return;
 
       const result = await client.completePairing(code, `Foundry ${game.version ?? "v14"}`);
-      await game.settings.set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, result.token);
+      await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, result.token);
       ui.notifications.info(`LoreBridge paired with ${result.backendId}.`);
       await this.render(false);
     } catch (error) {
@@ -100,26 +142,28 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
   }
 
   private async unpair(): Promise<void> {
-    await game.settings.set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, "");
+    await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, "");
     ui.notifications.info("LoreBridge pairing removed from this browser.");
     await this.render(false);
   }
 
   private async saveBackendUrlFromForm(): Promise<string> {
-    const element = this.element?.[0] as HTMLElement | undefined;
+    const element = this.element?.[0];
     const input = element?.querySelector<HTMLInputElement>("input[name='backendUrl']");
     const url = input?.value.trim() ?? getLoreBridgeSettings().backendUrl;
-    await game.settings.set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, url);
+    await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, url);
     return url;
   }
 
   private clientToken(): string {
-    return String(game.settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken) ?? "");
+    return String(
+      getFoundrySettingsApi().get(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken) ?? "",
+    );
   }
 
   private async promptForCode(suggestedCode: string, expiresAt: string): Promise<string | undefined> {
     return new Promise((resolve) => {
-      new Dialog({
+      new DialogClass({
         title: "Pair LoreBridge",
         content: `
           <p>The backend created pairing code <strong>${suggestedCode}</strong>.</p>
@@ -132,7 +176,8 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
           pair: {
             icon: '<i class="fas fa-link"></i>',
             label: "Pair",
-            callback: (html: any) => resolve(String(html.find("input[name='pairingCode']").val() ?? "").trim()),
+            callback: (html) =>
+              resolve(String(html.find("input[name='pairingCode']").val() ?? "").trim()),
           },
           cancel: {
             icon: '<i class="fas fa-times"></i>',
