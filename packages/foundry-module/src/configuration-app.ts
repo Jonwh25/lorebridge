@@ -15,7 +15,7 @@ interface ConfigurationData {
 }
 
 export class LoreBridgeConfigurationApp extends FormApplicationBase {
-  static override get defaultOptions(): Record<string, unknown> {
+  static get defaultOptions(): Record<string, unknown> {
     return {
       ...super.defaultOptions,
       id: "lorebridge-configuration",
@@ -27,7 +27,7 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
     };
   }
 
-  override async getData(): Promise<ConfigurationData> {
+  async getData(): Promise<ConfigurationData> {
     const settings = getLoreBridgeSettings();
     const data: ConfigurationData = {
       backendUrl: settings.backendUrl,
@@ -55,14 +55,14 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
     return data;
   }
 
-  override activateListeners(html: any): void {
+  activateListeners(html: any): void {
     super.activateListeners(html);
     html.find("[data-action='check']").on("click", () => void this.checkConnection());
     html.find("[data-action='pair']").on("click", () => void this.pair());
     html.find("[data-action='unpair']").on("click", () => void this.unpair());
   }
 
-  protected override async _updateObject(_event: Event, formData: Record<string, unknown>): Promise<void> {
+  protected async _updateObject(_event: Event, formData: Record<string, unknown>): Promise<void> {
     const backendUrl = String(formData.backendUrl ?? "").trim();
     await game.settings.set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
     ui.notifications.info("LoreBridge backend URL saved.");
