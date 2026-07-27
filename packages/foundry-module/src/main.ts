@@ -8,8 +8,13 @@ import { getWorldSummary } from "./capabilities/get-world-summary.js";
 
 const MODULE_ID = "lorebridge";
 
+type FoundryModuleMetadata = {
+  version?: string;
+};
+
 function getModuleVersion(): string {
-  return game.modules.get(MODULE_ID)?.version ?? "unknown";
+  const moduleMetadata = game.modules.get(MODULE_ID) as FoundryModuleMetadata | undefined;
+  return moduleMetadata?.version ?? "unknown";
 }
 
 Hooks.once("init", () => {
