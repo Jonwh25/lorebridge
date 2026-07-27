@@ -1,4 +1,4 @@
-import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import type { BackendIdentity } from "./identity.js";
 
 interface PairingAttempt {
@@ -6,7 +6,7 @@ interface PairingAttempt {
   expiresAt: number;
 }
 
-interface TokenPayload {
+export interface PairingTokenPayload {
   backendId: string;
   clientId: string;
   clientName: string;
@@ -33,12 +33,12 @@ export class PairingService {
     if (!this.attempt || this.attempt.expiresAt < now || normalized !== this.attempt.code) return undefined;
     this.attempt = undefined;
 
-    const clientId = `client_${crypto.randomUUID()}`;
-    const payload: TokenPayload = { backendId: this.identity.id, clientId, clientName, issuedAt: now };
+    const clientId = `client_${randomUUID()}`;
+    const payload: PairingTokenPayload = { backendId: this.identity.id, clientId, clientName, issuedAt: now };
     return { token: this.sign(payload), clientId };
   }
 
-  verify(token: string): TokenPayload | undefined {
+  verify(token: string): PairingTokenPayload | undefined {
     const [encodedPayload, signature] = token.split(".");
     if (!encodedPayload || !signature) return undefined;
     const expected = this.signature(encodedPayload);
@@ -47,14 +47,14 @@ export class PairingService {
     if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return undefined;
 
     try {
-      const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as TokenPayload;
+      const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as PairingTokenPayload;
       return payload.backendId === this.identity.id ? payload : undefined;
     } catch {
       return undefined;
     }
   }
 
-  private sign(payload: TokenPayload): string {
+  private sign(payload: PairingTokenPayload): string {
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
     return `${encodedPayload}.${this.signature(encodedPayload)}`;
   }
