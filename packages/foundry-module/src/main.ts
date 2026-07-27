@@ -5,6 +5,11 @@ import {
 import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
+import { shouldExposeCapabilityApi } from "./runtime-policy.js";
+import {
+  getLoreBridgeSettings,
+  registerLoreBridgeSettings
+} from "./settings.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -18,15 +23,37 @@ function getModuleVersion(): string {
 }
 
 Hooks.once("init", () => {
+  registerLoreBridgeSettings();
+
   console.info(
     `${MODULE_ID} | Initializing LoreBridge ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
   );
 });
 
 Hooks.once("ready", () => {
-  if (!game.user?.isGM) {
-    console.info(`${MODULE_ID} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
+  const settings = getLoreBridgeSettings();
+  const isGM = Boolean(game.user?.isGM);
+
+  if (!shouldExposeCapabilityApi(isGM, settings)) {
+    if (!isGM) {
+      console.info(`${MODULE_ID} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
+    } else {
+      console.info(`${MODULE_ID} | Capability API disabled in world settings`);
+    }
     return;
+  }
+
+  if (settings.remoteIntegrationEnabled) {
+    if (settings.provider === "none") {
+      ui.notifications.warn("LoreBridge remote integration is enabled, but no provider is selected.");
+    } else if (!settings.backendUrl) {
+      ui.notifications.warn("LoreBridge remote integration is enabled, but no backend URL is configured.");
+    } else {
+      console.info(`${MODULE_ID} | Remote integration configured`, {
+        provider: settings.provider,
+        backendUrl: settings.backendUrl
+      });
+    }
   }
 
   const moduleVersion = getModuleVersion();
@@ -35,6 +62,12 @@ Hooks.once("ready", () => {
   console.info(`${MODULE_ID} | GM bridge ready`, {
     moduleVersion,
     protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+    settings: {
+      capabilityApiEnabled: settings.capabilityApiEnabled,
+      remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
+      provider: settings.provider,
+      backendConfigured: Boolean(settings.backendUrl)
+    },
     summary,
     capabilities: [GET_WORLD_SUMMARY_DECLARATION]
   });
@@ -50,6 +83,7 @@ Hooks.once("ready", () => {
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
       capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION]),
+      settings: Object.freeze({ ...settings, backendUrl: settings.backendUrl ? "configured" : "" }),
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary
     }),
     configurable: true,
