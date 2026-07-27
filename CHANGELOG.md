@@ -6,9 +6,20 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.1.2] - 2026-07-26
+
+### Added
+
 - Automated Foundry-adapter tests for GM access, non-GM rejection, and unavailable runtime state.
 - Browser-console documentation for the temporary LoreBridge development API.
 - Structured capability errors with LoreBridge protocol error codes.
+- Official Foundry manifest links for the license, readme, issue tracker, and changelog.
 
 ### Changed
 
