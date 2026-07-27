@@ -1,6 +1,6 @@
 {
   "name": "lorebridge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "A secure AI bridge for tabletop RPG campaign tools and knowledge.",
   "workspaces": [
