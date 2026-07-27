@@ -6,6 +6,7 @@
   "scripts": {
     "build": "esbuild src/main.ts --bundle --format=esm --platform=browser --target=es2022 --sourcemap --outfile=dist/main.js",
     "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "test": "tsx --test test/**/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -13,6 +14,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.9.2"
   }
 }

@@ -6,11 +6,23 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+- Automated Foundry-adapter tests for GM access, non-GM rejection, and unavailable runtime state.
+- Browser-console documentation for the temporary LoreBridge development API.
+- Structured capability errors with LoreBridge protocol error codes.
+
 ### Changed
+
+- `getWorldSummary` now validates its normalized result against the shared runtime schema before returning it.
+- Initialization logging now identifies both the Foundry module version and LoreBridge protocol version.
 
 ### Fixed
 
+- Non-GM calls no longer throw an unstructured generic error.
+- Unavailable or incomplete Foundry runtime state now produces a retryable adapter error.
+
 ### Security
+
+- Non-GM users are rejected before campaign summary data is assembled or returned.
 
 ## [0.1.1] - 2026-07-26
 
