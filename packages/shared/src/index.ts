@@ -206,3 +206,5 @@ export function validateProtocolMessage(value: unknown): ValidationResult<Protoc
     ? { valid: true, value: value as unknown as ProtocolMessage, errors }
     : { valid: false, errors };
 }
+
+export * from "./contract.js";
