@@ -51,7 +51,8 @@ Hooks.once("ready", () => {
     } else {
       console.info(`${MODULE_ID} | Remote integration configured`, {
         provider: settings.provider,
-        backendUrl: settings.backendUrl
+        backendUrl: settings.backendUrl,
+        paired: Boolean(settings.clientToken)
       });
     }
   }
@@ -66,7 +67,8 @@ Hooks.once("ready", () => {
       capabilityApiEnabled: settings.capabilityApiEnabled,
       remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
       provider: settings.provider,
-      backendConfigured: Boolean(settings.backendUrl)
+      backendConfigured: Boolean(settings.backendUrl),
+      paired: Boolean(settings.clientToken)
     },
     summary,
     capabilities: [GET_WORLD_SUMMARY_DECLARATION]
@@ -83,7 +85,13 @@ Hooks.once("ready", () => {
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
       capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION]),
-      settings: Object.freeze({ ...settings, backendUrl: settings.backendUrl ? "configured" : "" }),
+      settings: Object.freeze({
+        capabilityApiEnabled: settings.capabilityApiEnabled,
+        remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
+        provider: settings.provider,
+        backendUrl: settings.backendUrl ? "configured" : "",
+        paired: Boolean(settings.clientToken)
+      }),
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary
     }),
     configurable: true,
