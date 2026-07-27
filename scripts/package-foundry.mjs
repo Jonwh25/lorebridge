@@ -14,6 +14,7 @@ await rm(releaseRoot, { recursive: true, force: true });
 
 await mkdir(path.join(stagingRoot, "dist"), { recursive: true });
 await mkdir(path.join(stagingRoot, "styles"), { recursive: true });
+await mkdir(path.join(stagingRoot, "templates"), { recursive: true });
 
 await cp(manifestPath, path.join(stagingRoot, "module.json"));
 
@@ -25,6 +26,11 @@ await cp(
 await cp(
   path.join(moduleRoot, "styles", "lorebridge.css"),
   path.join(stagingRoot, "styles", "lorebridge.css")
+);
+
+await cp(
+  path.join(moduleRoot, "templates", "configuration.hbs"),
+  path.join(stagingRoot, "templates", "configuration.hbs")
 );
 
 await cp(manifestPath, path.join(releaseRoot, "module.json"));
