@@ -58,6 +58,7 @@ test("authenticates and records a welcomed adapter session", async () => {
     "https://foundry.example/lorebridge-api/",
     "signed-token",
     registration,
+    undefined,
     () => socket as unknown as WebSocket,
   );
 
@@ -80,4 +81,62 @@ test("authenticates and records a welcomed adapter session", async () => {
     sessionId: "session_test",
     backendId: "lb_test",
   });
+});
+
+test("executes an allowlisted backend request and returns a correlated response", async () => {
+  const socket = new FakeWebSocket();
+  const transport = new LoreBridgeAdapterTransport(
+    "https://foundry.example/lorebridge-api/",
+    "signed-token",
+    registration,
+    (request) => {
+      assert.equal(request.sourceId, "foundry:cos");
+      assert.equal(request.capability, "getWorldSummary");
+      return {
+        source: { sourceId: "foundry:cos", adapterType: "foundry" },
+        world: { id: "cos", title: "Curse of Strahd", foundryVersion: "14.365" },
+        system: { id: "dnd5e", title: "D&D 5e", version: "5.3.3" },
+        counts: {
+          actors: 686,
+          scenes: 624,
+          journals: 842,
+          installedModules: 20,
+          activeModules: 20,
+        },
+      };
+    },
+    () => socket as unknown as WebSocket,
+  );
+
+  const connection = transport.connect();
+  socket.open();
+  socket.receive({
+    kind: "adapter.welcome",
+    protocolVersion: "0.1",
+    sessionId: "session_test",
+    backendId: "lb_test",
+    acceptedAt: "2026-07-29T00:00:00.000Z",
+  });
+  await connection;
+
+  socket.receive({
+    kind: "request",
+    messageId: "message_request",
+    correlationId: "correlation_test",
+    protocolVersion: "0.1",
+    timestamp: "2026-07-29T00:00:01.000Z",
+    sourceId: "foundry:cos",
+    capability: "getWorldSummary",
+    input: {},
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const response = JSON.parse(socket.sent.at(-1) ?? "{}") as {
+    kind: string;
+    correlationId: string;
+    output: { world: { title: string } };
+  };
+  assert.equal(response.kind, "response");
+  assert.equal(response.correlationId, "correlation_test");
+  assert.equal(response.output.world.title, "Curse of Strahd");
 });

@@ -1,5 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
+  GET_WORLD_SUMMARY_CAPABILITY,
+  validateGetWorldSummaryOutput,
   validateGetJournalOutput,
   validateGetJournalPageOutput,
   validateSearchJournalsInput,
@@ -10,6 +12,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import {
+  AdapterInvocationError,
   AdapterSessionRegistry,
   attachAdapterSessionServer,
 } from "./adapter-sessions.js";
@@ -98,6 +101,44 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   if (method === "GET" && url.pathname === "/v1/adapters") {
     if (!authenticate(pairing, request, response)) return;
     sendJson(response, 200, { adapters: adapterSessions.list() });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/world-summary") {
+    if (!authenticate(pairing, request, response)) return;
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(
+        sourceId,
+        GET_WORLD_SUMMARY_CAPABILITY,
+        {},
+      );
+      const validation = validateGetWorldSummaryOutput(result);
+      if (!validation.valid || !validation.value) {
+        throw new AdapterInvocationError(
+          "INTERNAL_ERROR",
+          "The Foundry adapter returned an invalid world summary.",
+          false,
+          { validationErrors: validation.errors },
+        );
+      }
+      sendJson(response, 200, validation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      const status = error.code === "REQUEST_TIMEOUT" ? 504
+        : error.code === "NOT_AUTHORIZED" ? 403
+        : error.code === "INVALID_REQUEST" ? 400
+        : error.code === "ADAPTER_UNAVAILABLE" || error.code === "CAPABILITY_UNAVAILABLE" ? 503
+        : 502;
+      sendJson(response, status, {
+        error: {
+          code: error.code.toLowerCase(),
+          message: error.message,
+          retryable: error.retryable,
+          ...(error.details ? { details: error.details } : {}),
+        },
+      });
+    }
     return;
   }
 

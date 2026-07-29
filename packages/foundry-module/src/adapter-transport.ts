@@ -1,9 +1,15 @@
 import {
+  createErrorEnvelope,
+  createResponseEnvelope,
   LOREBRIDGE_PROTOCOL_VERSION,
   type AdapterHelloMessage,
   type AdapterRegistration,
   type AdapterSessionControlMessage,
+  type ProtocolMessage,
+  type RequestEnvelope,
+  validateProtocolMessage,
 } from "@lorebridge/shared";
+import { LoreBridgeCapabilityError } from "./capabilities/errors.js";
 
 export type AdapterConnectionState =
   | { state: "disconnected" }
@@ -12,6 +18,7 @@ export type AdapterConnectionState =
   | { state: "error"; message: string };
 
 type WebSocketFactory = (url: string) => WebSocket;
+type CapabilityDispatcher = (request: RequestEnvelope) => unknown | Promise<unknown>;
 
 export function createAdapterWebSocketUrl(baseUrl: string): string {
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -30,6 +37,7 @@ export class LoreBridgeAdapterTransport {
     private readonly backendUrl: string,
     private readonly token: string,
     private readonly registration: AdapterRegistration,
+    private readonly dispatchCapability?: CapabilityDispatcher,
     private readonly webSocketFactory: WebSocketFactory = (url) => new WebSocket(url),
   ) {}
 
@@ -65,9 +73,9 @@ export class LoreBridgeAdapterTransport {
       });
 
       socket.addEventListener("message", (event) => {
-        let message: AdapterSessionControlMessage;
+        let message: AdapterSessionControlMessage | ProtocolMessage;
         try {
-          message = JSON.parse(String(event.data)) as AdapterSessionControlMessage;
+          message = JSON.parse(String(event.data)) as AdapterSessionControlMessage | ProtocolMessage;
         } catch {
           clearTimeout(timeout);
           this.#state = { state: "error", message: "LoreBridge backend returned an invalid message." };
@@ -76,7 +84,9 @@ export class LoreBridgeAdapterTransport {
           return;
         }
 
-        if (message.kind === "adapter.welcome") {
+        if (message.kind === "request") {
+          void this.#handleRequest(socket, message);
+        } else if (message.kind === "adapter.welcome") {
           clearTimeout(timeout);
           this.#state = {
             state: "connected",
@@ -102,6 +112,42 @@ export class LoreBridgeAdapterTransport {
         if (this.#state.state === "connected") this.#state = { state: "disconnected" };
       });
     });
+  }
+
+  async #handleRequest(socket: WebSocket, value: unknown): Promise<void> {
+    const validation = validateProtocolMessage(value);
+    if (!validation.valid || validation.value?.kind !== "request") return;
+    const request = validation.value;
+    const metadata = {
+      messageId: crypto.randomUUID(),
+      correlationId: request.correlationId,
+    };
+
+    try {
+      if (!this.dispatchCapability) {
+        throw new LoreBridgeCapabilityError(
+          "CAPABILITY_UNAVAILABLE",
+          "No Foundry capability dispatcher is configured.",
+        );
+      }
+      const output = await this.dispatchCapability(request);
+      socket.send(JSON.stringify(createResponseEnvelope(metadata, output)));
+    } catch (error) {
+      const capabilityError = error instanceof LoreBridgeCapabilityError
+        ? error
+        : new LoreBridgeCapabilityError(
+          "INTERNAL_ERROR",
+          "LoreBridge could not execute the requested Foundry capability.",
+          { cause: error },
+        );
+      socket.send(JSON.stringify(createErrorEnvelope(
+        metadata,
+        capabilityError.code,
+        capabilityError.message,
+        capabilityError.retryable,
+        capabilityError.details,
+      )));
+    }
   }
 
   disconnect(): void {
