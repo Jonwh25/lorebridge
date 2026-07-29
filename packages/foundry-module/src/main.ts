@@ -102,6 +102,9 @@ Hooks.once("ready", () => {
             }
             return getWorldSummary();
           }
+          if (request.capability === SEARCH_JOURNALS_CAPABILITY) {
+            return searchJournals(request.input as Parameters<typeof searchJournals>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,

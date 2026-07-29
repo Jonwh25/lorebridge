@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
   GET_WORLD_SUMMARY_CAPABILITY,
+  SEARCH_JOURNALS_CAPABILITY,
   validateGetWorldSummaryOutput,
   validateGetJournalOutput,
   validateGetJournalPageOutput,
@@ -42,6 +43,23 @@ function authenticate(pairing: PairingService, request: IncomingMessage, respons
   return false;
 }
 
+function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvocationError): void {
+  const status = error.code === "REQUEST_TIMEOUT" ? 504
+    : error.code === "NOT_AUTHORIZED" ? 403
+    : error.code === "INVALID_REQUEST" ? 400
+    : error.code === "NOT_FOUND" ? 404
+    : error.code === "ADAPTER_UNAVAILABLE" || error.code === "CAPABILITY_UNAVAILABLE" ? 503
+    : 502;
+  sendJson(response, status, {
+    error: {
+      code: error.code.toLowerCase(),
+      message: error.message,
+      retryable: error.retryable,
+      ...(error.details ? { details: error.details } : {}),
+    },
+  });
+}
+
 async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
@@ -54,6 +72,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   if (method === "GET" && url.pathname === "/v1") {
     const capabilities = config.pairingEnabled ? ["health", "identity", "pairing"] : ["health", "identity"];
     if (services.journals) capabilities.push("searchJournals", "getJournal", "getJournalPage");
+    else if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
   }
@@ -125,36 +144,36 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 200, validation.value);
     } catch (error) {
       if (!(error instanceof AdapterInvocationError)) throw error;
-      const status = error.code === "REQUEST_TIMEOUT" ? 504
-        : error.code === "NOT_AUTHORIZED" ? 403
-        : error.code === "INVALID_REQUEST" ? 400
-        : error.code === "ADAPTER_UNAVAILABLE" || error.code === "CAPABILITY_UNAVAILABLE" ? 503
-        : 502;
-      sendJson(response, status, {
-        error: {
-          code: error.code.toLowerCase(),
-          message: error.message,
-          retryable: error.retryable,
-          ...(error.details ? { details: error.details } : {}),
-        },
-      });
+      sendAdapterInvocationError(response, error);
     }
     return;
   }
 
   if (method === "POST" && url.pathname === "/v1/journals/search") {
     if (!authenticate(pairing, request, response)) return;
-    if (!services.journals) {
-      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
-      return;
-    }
     const body = await readJson(request);
     const validation = validateSearchJournalsInput(body);
     if (!validation.valid || !validation.value) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Journal search input is invalid.", details: validation.errors } });
       return;
     }
-    const result = await services.journals.search(validation.value);
+    let result: unknown;
+    if (services.journals) {
+      result = await services.journals.search(validation.value);
+    } else {
+      const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+      try {
+        result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_JOURNALS_CAPABILITY,
+          validation.value,
+        );
+      } catch (error) {
+        if (!(error instanceof AdapterInvocationError)) throw error;
+        sendAdapterInvocationError(response, error);
+        return;
+      }
+    }
     const outputValidation = validateSearchJournalsOutput(result);
     if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid search output: ${outputValidation.errors.join(", ")}`);
     sendJson(response, 200, outputValidation.value);
