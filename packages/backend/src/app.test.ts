@@ -5,6 +5,11 @@ import { createLoreBridgeServer } from "./app.js";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
+import {
+  LOREBRIDGE_PROTOCOL_VERSION,
+  type AdapterWelcomeMessage,
+} from "@lorebridge/shared";
+import { WebSocket } from "ws";
 
 const config: BackendConfig = {
   host: "127.0.0.1",
@@ -190,5 +195,92 @@ test("journal routes require authentication and a connected journal service", as
       body: JSON.stringify({ query: "Tser Falls" }),
     });
     assert.equal(unavailable.status, 503);
+  });
+});
+
+test("paired Foundry adapter registers an authenticated live session", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+
+    const welcome = await new Promise<AdapterWelcomeMessage>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token,
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [{
+              sourceId: "foundry:cos",
+              adapterId: "foundry-vtt",
+              sourceType: "foundry-world",
+              name: "Curse of Strahd",
+            }],
+            capabilities: [{
+              name: "getWorldSummary",
+              mode: "read",
+              version: "0.1",
+            }],
+          },
+        }));
+      });
+      webSocket.once("message", (data) => resolve(JSON.parse(data.toString()) as AdapterWelcomeMessage));
+    });
+
+    assert.equal(welcome.kind, "adapter.welcome");
+    assert.equal(welcome.backendId, identity.id);
+
+    const adaptersResponse = await fetch(`${baseUrl}/v1/adapters`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const adaptersBody = await adaptersResponse.json() as {
+      adapters: Array<{ registration: { sources: Array<{ sourceId: string }> } }>;
+    };
+    assert.equal(adaptersResponse.status, 200);
+    assert.equal(adaptersBody.adapters[0]?.registration.sources[0]?.sourceId, "foundry:cos");
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
+
+test("adapter sessions reject an invalid pairing token", async () => {
+  await withServer(async (baseUrl) => {
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+    const error = await new Promise<{ kind: string; code: string }>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token: "invalid-token",
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [],
+            capabilities: [],
+          },
+        }));
+      });
+      webSocket.once("message", (data) => resolve(JSON.parse(data.toString()) as { kind: string; code: string }));
+    });
+
+    assert.equal(error.kind, "adapter.error");
+    assert.equal(error.code, "AUTHENTICATION_FAILED");
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
+
+test("adapter session inventory requires authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/adapters`);
+    assert.equal(response.status, 401);
   });
 });

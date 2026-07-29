@@ -81,6 +81,18 @@ A normal adapter session follows this order:
 
 Normal capability traffic must not begin before `ready`.
 
+### Current transport implementation
+
+The first implemented transport slice combines authentication, version
+negotiation, source metadata, and capability advertisement in an
+`adapter.hello` WebSocket message. The backend validates the signed pairing
+token and replies with `adapter.welcome`, including the backend and session
+identifiers. This smaller handshake is an incremental implementation of the
+lifecycle above; capability traffic is not enabled yet.
+
+The token is a limited LoreBridge pairing credential, never an AI-provider
+credential. Public deployments must use `wss://`.
+
 ## 6. Adapter and source identity
 
 Every connection identifies both the adapter implementation and the connected campaign source.

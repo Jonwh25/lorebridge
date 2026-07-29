@@ -9,6 +9,10 @@ import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
+import {
+  AdapterSessionRegistry,
+  attachAdapterSessionServer,
+} from "./adapter-sessions.js";
 
 const serviceVersion = "0.2.0";
 
@@ -35,7 +39,7 @@ function authenticate(pairing: PairingService, request: IncomingMessage, respons
   return false;
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, services: BackendServices, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -88,6 +92,12 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       return;
     }
     sendJson(response, 200, { paired: true, backendId: identity.id, clientId: pairedClient.clientId, clientName: pairedClient.clientName });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/adapters") {
+    if (!authenticate(pairing, request, response)) return;
+    sendJson(response, 200, { adapters: adapterSessions.list() });
     return;
   }
 
@@ -154,11 +164,14 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
 
 export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity, services: BackendServices = {}): Server {
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
-  return createServer((request, response) => {
-    void handleRequest(config, identity, pairing, services, request, response).catch((error) => {
+  const adapterSessions = new AdapterSessionRegistry();
+  const server = createServer((request, response) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();
     });
   });
+  attachAdapterSessionServer(server, identity.id, pairing, adapterSessions);
+  return server;
 }

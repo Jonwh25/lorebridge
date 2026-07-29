@@ -6,7 +6,12 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+- An authenticated WebSocket session between a paired Foundry GM client and the LoreBridge backend.
+- Live adapter registration for the active Foundry world and its read-only capabilities.
+
 ### Changed
+
+- Remote integration no longer requires selecting an AI provider; LoreBridge remains client- and provider-neutral.
 
 ### Fixed
 
