@@ -125,6 +125,14 @@ test("authenticated journal routes validate and delegate to the journal service"
           pages: [{ id: "p1", uuid: "JournalEntry.j1.JournalEntryPage.p1", name: "Overview", type: "text", sort: 0, text: { format: 1, html: "<p>Mist.</p>", plainText: "Mist." } }],
         };
       },
+      async getPage(journalId, pageId) {
+        if (journalId !== "j1" || pageId !== "p1") return undefined;
+        return {
+          sourceId: "foundry:cos",
+          journal: { id: "j1", uuid: "JournalEntry.j1", name: "Locations & NPCs" },
+          page: { id: "p1", uuid: "JournalEntry.j1.JournalEntryPage.p1", name: "Tser Falls", type: "text", sort: 0, text: { format: 1, html: "<p>Mist.</p>", plainText: "Mist." } },
+        };
+      },
     },
   };
 
@@ -146,10 +154,23 @@ test("authenticated journal routes validate and delegate to the journal service"
     assert.equal(getResponse.status, 200);
     assert.equal(getBody.name, "Tser Falls");
 
+    const pageResponse = await fetch(`${baseUrl}/v1/journals/j1/pages/p1`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const pageBody = await pageResponse.json() as { journal: { name: string }; page: { name: string } };
+    assert.equal(pageResponse.status, 200);
+    assert.equal(pageBody.journal.name, "Locations & NPCs");
+    assert.equal(pageBody.page.name, "Tser Falls");
+
     const missingResponse = await fetch(`${baseUrl}/v1/journals/missing`, {
       headers: { authorization: `Bearer ${token}` },
     });
     assert.equal(missingResponse.status, 404);
+
+    const missingPageResponse = await fetch(`${baseUrl}/v1/journals/j1/pages/missing`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(missingPageResponse.status, 404);
   }, services);
 });
 

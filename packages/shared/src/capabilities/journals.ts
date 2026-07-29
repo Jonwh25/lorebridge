@@ -2,6 +2,7 @@ import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 
 export const SEARCH_JOURNALS_CAPABILITY = "searchJournals" as const;
 export const GET_JOURNAL_CAPABILITY = "getJournal" as const;
+export const GET_JOURNAL_PAGE_CAPABILITY = "getJournalPage" as const;
 
 export interface SearchJournalsInput { query: string; limit?: number }
 export interface JournalSearchMatch {
@@ -16,6 +17,7 @@ export interface JournalSearchMatch {
 }
 export interface SearchJournalsOutput { sourceId: string; query: string; results: JournalSearchMatch[] }
 export interface GetJournalInput { journalId: string }
+export interface GetJournalPageInput { journalId: string; pageId: string }
 export interface JournalPage {
   id: string;
   uuid: string;
@@ -27,9 +29,15 @@ export interface JournalPage {
 }
 export interface JournalDocument { sourceId: string; id: string; uuid: string; name: string; pages: JournalPage[] }
 export type GetJournalOutput = JournalDocument;
+export interface GetJournalPageOutput {
+  sourceId: string;
+  journal: { id: string; uuid: string; name: string };
+  page: JournalPage;
+}
 
 export const SEARCH_JOURNALS_DECLARATION: CapabilityDeclaration = { name: SEARCH_JOURNALS_CAPABILITY, mode: "read", version: "0.1" };
 export const GET_JOURNAL_DECLARATION: CapabilityDeclaration = { name: GET_JOURNAL_CAPABILITY, mode: "read", version: "0.1" };
+export const GET_JOURNAL_PAGE_DECLARATION: CapabilityDeclaration = { name: GET_JOURNAL_PAGE_CAPABILITY, mode: "read", version: "0.1" };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
@@ -62,6 +70,14 @@ export function validateGetJournalInput(value: unknown): ValidationResult<GetJou
   return { valid: true, value: value as unknown as GetJournalInput, errors: [] };
 }
 
+export function validateGetJournalPageInput(value: unknown): ValidationResult<GetJournalPageInput> {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (!isNonEmptyString(value.journalId)) errors.push("journalId must be a non-empty string");
+  if (!isNonEmptyString(value.pageId)) errors.push("pageId must be a non-empty string");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalPageInput, errors };
+}
+
 export function validateGetJournalOutput(value: unknown): ValidationResult<GetJournalOutput> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
@@ -73,4 +89,18 @@ export function validateGetJournalOutput(value: unknown): ValidationResult<GetJo
     if (typeof page.sort !== "number") errors.push(`pages[${index}].sort must be a number`);
   });
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalOutput, errors };
+}
+
+export function validateGetJournalPageOutput(value: unknown): ValidationResult<GetJournalPageOutput> {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
+  if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isRecord(value.journal)) errors.push("journal must be an object");
+  else for (const key of ["id", "uuid", "name"] as const) if (!isNonEmptyString(value.journal[key])) errors.push(`journal.${key} is required`);
+  if (!isRecord(value.page)) errors.push("page must be an object");
+  else {
+    for (const key of ["id", "uuid", "name", "type"] as const) if (!isNonEmptyString(value.page[key])) errors.push(`page.${key} is required`);
+    if (typeof value.page.sort !== "number") errors.push("page.sort must be a number");
+  }
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalPageOutput, errors };
 }

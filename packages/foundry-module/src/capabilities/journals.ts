@@ -1,9 +1,13 @@
 import {
   validateGetJournalInput,
   validateGetJournalOutput,
+  validateGetJournalPageInput,
+  validateGetJournalPageOutput,
   validateSearchJournalsInput,
   validateSearchJournalsOutput,
   type GetJournalOutput,
+  type GetJournalPageInput,
+  type GetJournalPageOutput,
   type JournalPage,
   type JournalSearchMatch,
   type SearchJournalsInput,
@@ -127,5 +131,37 @@ export function getJournal(input: { journalId: string }): GetJournalOutput {
   };
   const outputValidation = validateGetJournalOutput(output);
   if (!outputValidation.valid || !outputValidation.value) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned an invalid journal.", { details: { validationErrors: outputValidation.errors } });
+  return outputValidation.value;
+}
+
+export function getJournalPage(input: GetJournalPageInput): GetJournalPageOutput {
+  requireFoundryGm("getJournalPage");
+  const validated = validateGetJournalPageInput(input);
+  if (!validated.valid || !validated.value) {
+    throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Journal page retrieval input is invalid.", { details: { validationErrors: validated.errors } });
+  }
+  if (!game.journal) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry journal collection is unavailable.", { retryable: true });
+
+  const journalId = validated.value.journalId.startsWith("JournalEntry.")
+    ? validated.value.journalId.split(".")[1] ?? ""
+    : validated.value.journalId;
+  const journal = game.journal.get(journalId);
+  if (!journal) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested journal was not found.");
+
+  const pageId = validated.value.pageId.includes("JournalEntryPage.")
+    ? validated.value.pageId.split("JournalEntryPage.")[1]?.split(".")[0] ?? ""
+    : validated.value.pageId;
+  const page = journal.pages.get(pageId);
+  if (!page) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested journal page was not found.");
+
+  const output: GetJournalPageOutput = {
+    sourceId: sourceId(),
+    journal: { id: journal.id, uuid: journal.uuid, name: journal.name },
+    page: serializePage(page),
+  };
+  const outputValidation = validateGetJournalPageOutput(output);
+  if (!outputValidation.valid || !outputValidation.value) {
+    throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned an invalid journal page.", { details: { validationErrors: outputValidation.errors } });
+  }
   return outputValidation.value;
 }

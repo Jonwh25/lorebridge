@@ -27,7 +27,9 @@ type FoundryJournalEntry = {
   id: string;
   uuid: string;
   name: string;
-  pages: Iterable<FoundryJournalPage>;
+  pages: Iterable<FoundryJournalPage> & {
+    get(id: string): FoundryJournalPage | undefined;
+  };
 };
 
 type FoundryJournalCollection = Iterable<FoundryJournalEntry> & {
