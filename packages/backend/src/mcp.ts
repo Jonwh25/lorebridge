@@ -3,12 +3,16 @@ import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { z } from "zod";
 import {
+  GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
+  SEARCH_ACTORS_CAPABILITY,
+  validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetWorldSummaryOutput,
   validateSearchJournalsOutput,
+  validateSearchActorsOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -18,6 +22,8 @@ import {
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
 const journalPageToolName = "get_journal_page";
+const actorSearchToolName = "search_actors";
+const actorToolName = "get_actor";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -194,6 +200,104 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
           error,
           "LoreBridge could not retrieve the Foundry journal page.",
         );
+      }
+    },
+  );
+
+  server.registerTool(
+    actorSearchToolName,
+    {
+      title: "Search Foundry actors",
+      description: "Search connected Foundry VTT world actors by name or description, with optional actor-type filtering. Returns lightweight matches.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Text to find in actor names or descriptions."),
+        limit: z.number().int().min(1).max(50).optional(),
+        types: z.array(z.string().trim().min(1)).min(1).max(20).optional().describe(
+          "Optional Foundry actor types to include, such as npc or character.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, types, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_ACTORS_CAPABILITY,
+          {
+            query,
+            ...(limit === undefined ? {} : { limit }),
+            ...(types === undefined ? {} : { types }),
+          },
+        );
+        const validation = validateSearchActorsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid actor search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry actors.");
+      }
+    },
+  );
+
+  server.registerTool(
+    actorToolName,
+    {
+      title: "Get a Foundry actor",
+      description: "Retrieve focused identity and descriptive information for one world actor. Use actorId from search_actors.",
+      inputSchema: z.object({
+        actorId: z.string().trim().min(1).describe(
+          "The Foundry Actor ID or UUID returned by search_actors.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ actorId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_ACTOR_CAPABILITY,
+          { actorId },
+        );
+        const validation = validateGetActorOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid actor.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the Foundry actor.");
       }
     },
   );

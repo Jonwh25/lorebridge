@@ -1,13 +1,18 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
+  GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
+  SEARCH_ACTORS_CAPABILITY,
+  validateGetActorOutput,
   validateGetWorldSummaryOutput,
   validateGetJournalOutput,
   validateGetJournalPageOutput,
   validateSearchJournalsInput,
   validateSearchJournalsOutput,
+  validateSearchActorsInput,
+  validateSearchActorsOutput,
 } from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
@@ -88,6 +93,8 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     else {
       if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
       if (adapterSessions.hasCapability(GET_JOURNAL_PAGE_CAPABILITY)) capabilities.push("getJournalPage");
+      if (adapterSessions.hasCapability(SEARCH_ACTORS_CAPABILITY)) capabilities.push("searchActors");
+      if (adapterSessions.hasCapability(GET_ACTOR_CAPABILITY)) capabilities.push("getActor");
     }
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
@@ -193,6 +200,72 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const outputValidation = validateSearchJournalsOutput(result);
     if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid search output: ${outputValidation.errors.join(", ")}`);
     sendJson(response, 200, outputValidation.value);
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/actors/search") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const validation = validateSearchActorsInput(body);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, {
+        error: {
+          code: "invalid_request",
+          message: "Actor search input is invalid.",
+          details: validation.errors,
+        },
+      });
+      return;
+    }
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(
+        sourceId,
+        SEARCH_ACTORS_CAPABILITY,
+        validation.value,
+      );
+      const outputValidation = validateSearchActorsOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new AdapterInvocationError(
+          "INTERNAL_ERROR",
+          "The Foundry adapter returned invalid actor search results.",
+          false,
+          { validationErrors: outputValidation.errors },
+        );
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+    }
+    return;
+  }
+
+  const actorMatch = method === "GET" ? url.pathname.match(/^\/v1\/actors\/([^/]+)$/) : null;
+  if (actorMatch) {
+    if (!authenticate(pairing, request, response)) return;
+    const actorId = decodeURIComponent(actorMatch[1] ?? "");
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(
+        sourceId,
+        GET_ACTOR_CAPABILITY,
+        { actorId },
+      );
+      const outputValidation = validateGetActorOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new AdapterInvocationError(
+          "INTERNAL_ERROR",
+          "The Foundry adapter returned an invalid actor.",
+          false,
+          { validationErrors: outputValidation.errors },
+        );
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+    }
     return;
   }
 

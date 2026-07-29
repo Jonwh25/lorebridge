@@ -375,6 +375,107 @@ test("GET /v1/world-summary reports an unavailable adapter", async () => {
   });
 });
 
+test("actor search and retrieval routes through the authenticated Foundry adapter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+
+    await new Promise<AdapterWelcomeMessage>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token,
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [{
+              sourceId: "foundry:cos",
+              adapterId: "foundry-vtt",
+              sourceType: "foundry-world",
+              name: "Curse of Strahd",
+            }],
+            capabilities: [
+              { name: "searchActors", mode: "read", version: "0.1" },
+              { name: "getActor", mode: "read", version: "0.1" },
+            ],
+          },
+        }));
+      });
+      webSocket.once("message", (data) =>
+        resolve(JSON.parse(data.toString()) as AdapterWelcomeMessage));
+    });
+
+    webSocket.on("message", (data) => {
+      const message = JSON.parse(data.toString()) as AdapterWelcomeMessage | RequestEnvelope;
+      if (message.kind !== "request") return;
+      const output = message.capability === "searchActors"
+        ? {
+            sourceId: "foundry:cos",
+            query: "Strahd",
+            results: [{
+              actorId: "actor_strahd",
+              actorUuid: "Actor.actor_strahd",
+              actorName: "Strahd von Zarovich",
+              actorType: "npc",
+              matchedField: "actorName",
+            }],
+          }
+        : {
+            sourceId: "foundry:cos",
+            systemId: "dnd5e",
+            id: "actor_strahd",
+            uuid: "Actor.actor_strahd",
+            name: "Strahd von Zarovich",
+            type: "npc",
+            description: { plainText: "The vampire lord of Barovia." },
+          };
+      webSocket.send(JSON.stringify(createResponseEnvelope(
+        {
+          messageId: "message_actor_response",
+          correlationId: message.correlationId,
+        },
+        output,
+      )));
+    });
+
+    const searchResponse = await fetch(
+      `${baseUrl}/v1/actors/search?sourceId=${encodeURIComponent("foundry:cos")}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query: "Strahd", limit: 10 }),
+      },
+    );
+    const search = await searchResponse.json() as {
+      results: Array<{ actorId: string; actorUuid: string }>;
+    };
+    assert.equal(searchResponse.status, 200);
+    assert.equal(search.results[0]?.actorUuid, "Actor.actor_strahd");
+
+    const actorResponse = await fetch(
+      `${baseUrl}/v1/actors/${encodeURIComponent(search.results[0]?.actorId ?? "")}?sourceId=${encodeURIComponent("foundry:cos")}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const actor = await actorResponse.json() as {
+      name: string;
+      description: { plainText: string };
+    };
+    assert.equal(actorResponse.status, 200);
+    assert.equal(actor.name, "Strahd von Zarovich");
+    assert.equal(actor.description.plainText, "The vampire lord of Barovia.");
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
+
 test("POST /v1/journals/search routes through the live Foundry adapter", async () => {
   await withServer(async (baseUrl) => {
     const token = await pair(baseUrl);

@@ -12,9 +12,11 @@ import {
   type RequestEnvelope,
 } from "@lorebridge/shared";
 import type {
+  GetActorOutput,
   GetJournalPageOutput,
   GetWorldSummaryOutput,
   SearchJournalsOutput,
+  SearchActorsOutput,
 } from "@lorebridge/shared/capabilities";
 import { WebSocket } from "ws";
 import { createLoreBridgeServer } from "./app.js";
@@ -106,6 +108,16 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 mode: "read",
                 version: "0.1",
               },
+              {
+                name: "searchActors",
+                mode: "read",
+                version: "0.1",
+              },
+              {
+                name: "getActor",
+                mode: "read",
+                version: "0.1",
+              },
             ],
           },
         }));
@@ -127,6 +139,10 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
           journalId: "journal_locations",
           pageId: "page_tser_falls",
         });
+      } else if (message.capability === "searchActors") {
+        assert.deepEqual(message.input, { query: "Strahd", limit: 10, types: ["npc"] });
+      } else if (message.capability === "getActor") {
+        assert.deepEqual(message.input, { actorId: "actor_strahd" });
       }
       const output = message.capability === "searchJournals"
         ? {
@@ -162,6 +178,28 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                   plainText: "The falls plunge into mist.",
                 },
               },
+            }
+        : message.capability === "searchActors"
+          ? {
+              sourceId: "foundry:cos",
+              query: "Strahd",
+              results: [{
+                actorId: "actor_strahd",
+                actorUuid: "Actor.actor_strahd",
+                actorName: "Strahd von Zarovich",
+                actorType: "npc",
+                matchedField: "actorName",
+              }],
+            }
+        : message.capability === "getActor"
+          ? {
+              sourceId: "foundry:cos",
+              systemId: "dnd5e",
+              id: "actor_strahd",
+              uuid: "Actor.actor_strahd",
+              name: "Strahd von Zarovich",
+              type: "npc",
+              description: { plainText: "The vampire lord of Barovia." },
             }
         : {
             source: { sourceId: "foundry:cos", adapterType: "foundry" },
@@ -204,7 +242,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_journals", "get_journal_page"],
+      ["get_world_summary", "search_journals", "get_journal_page", "search_actors", "get_actor"],
     );
     assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 
@@ -244,6 +282,31 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(page.journal.name, "Locations & NPCs");
     assert.equal(page.page.name, "Tser Falls");
     assert.equal(page.page.text?.plainText, "The falls plunge into mist.");
+
+    const actorSearchResult = await client.callTool({
+      name: "search_actors",
+      arguments: {
+        query: "Strahd",
+        limit: 10,
+        types: ["npc"],
+        sourceId: "foundry:cos",
+      },
+    });
+    const actorSearch = actorSearchResult.structuredContent as unknown as SearchActorsOutput;
+    assert.equal(actorSearchResult.isError, undefined);
+    assert.equal(actorSearch.results[0]?.actorUuid, "Actor.actor_strahd");
+
+    const actorResult = await client.callTool({
+      name: "get_actor",
+      arguments: {
+        actorId: actorSearch.results[0]?.actorId,
+        sourceId: "foundry:cos",
+      },
+    });
+    const actor = actorResult.structuredContent as unknown as GetActorOutput;
+    assert.equal(actorResult.isError, undefined);
+    assert.equal(actor.name, "Strahd von Zarovich");
+    assert.equal(actor.description?.plainText, "The vampire lord of Barovia.");
   } finally {
     await client?.close();
     webSocket?.close();
