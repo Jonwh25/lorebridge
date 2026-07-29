@@ -205,6 +205,7 @@ test("reports a bounded error after all startup attempts time out", async () => 
     timeoutMs: 2,
     maxAttempts: 2,
     retryDelayMs: 1,
+    autoReconnect: false,
   });
 
   assert.equal(sockets.length, 2);
@@ -213,4 +214,104 @@ test("reports a bounded error after all startup attempts time out", async () => 
     state: "error",
     message: "LoreBridge backend connection timed out. (2 attempts.)",
   });
+});
+
+test("reconnects automatically after an established backend session closes", async () => {
+  const sockets: FakeWebSocket[] = [];
+  let notifySecondSocket: (() => void) | undefined;
+  const secondSocketCreated = new Promise<void>((resolve) => {
+    notifySecondSocket = resolve;
+  });
+  const transport = new LoreBridgeAdapterTransport(
+    "https://foundry.example/lorebridge-api/",
+    "signed-token",
+    registration,
+    undefined,
+    () => {
+      const socket = new FakeWebSocket();
+      sockets.push(socket);
+      if (sockets.length === 2) notifySecondSocket?.();
+      return socket as unknown as WebSocket;
+    },
+  );
+
+  const initialConnection = transport.connect({
+    timeoutMs: 50,
+    maxAttempts: 1,
+    retryDelayMs: 1,
+    maxReconnectDelayMs: 5,
+  });
+  const initialSocket = sockets[0];
+  assert.ok(initialSocket);
+  initialSocket.open();
+  initialSocket.receive({
+    kind: "adapter.welcome",
+    protocolVersion: "0.1",
+    sessionId: "session_initial",
+    backendId: "lb_test",
+    acceptedAt: "2026-07-29T00:00:00.000Z",
+  });
+  assert.equal((await initialConnection).state, "connected");
+
+  initialSocket.close();
+  assert.deepEqual(transport.state, { state: "disconnected" });
+  await secondSocketCreated;
+
+  const reconnectSocket = sockets[1];
+  assert.ok(reconnectSocket);
+  reconnectSocket.open();
+  reconnectSocket.receive({
+    kind: "adapter.welcome",
+    protocolVersion: "0.1",
+    sessionId: "session_reconnected",
+    backendId: "lb_test",
+    acceptedAt: "2026-07-29T00:00:01.000Z",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(transport.state, {
+    state: "connected",
+    sessionId: "session_reconnected",
+    backendId: "lb_test",
+  });
+  transport.disconnect();
+});
+
+test("does not reconnect after an intentional disconnect", async () => {
+  const sockets: FakeWebSocket[] = [];
+  const transport = new LoreBridgeAdapterTransport(
+    "https://foundry.example/lorebridge-api/",
+    "signed-token",
+    registration,
+    undefined,
+    () => {
+      const socket = new FakeWebSocket();
+      sockets.push(socket);
+      return socket as unknown as WebSocket;
+    },
+  );
+
+  const connection = transport.connect({
+    timeoutMs: 50,
+    maxAttempts: 1,
+    retryDelayMs: 1,
+    maxReconnectDelayMs: 5,
+  });
+  const socket = sockets[0];
+  assert.ok(socket);
+  socket.open();
+  socket.receive({
+    kind: "adapter.welcome",
+    protocolVersion: "0.1",
+    sessionId: "session_test",
+    backendId: "lb_test",
+    acceptedAt: "2026-07-29T00:00:00.000Z",
+  });
+  await connection;
+
+  transport.disconnect();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  assert.equal(sockets.length, 1);
+  assert.deepEqual(transport.state, { state: "disconnected" });
 });
