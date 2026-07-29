@@ -37,6 +37,7 @@ tmp/
 # Foundry development links and packaged releases
 packages/foundry-module/.foundry-data/
 releases/
+release/
 *.zip
 
 # Test artifacts

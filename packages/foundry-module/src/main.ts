@@ -17,8 +17,10 @@ import {
   getLoreBridgeSettings,
   registerLoreBridgeSettings
 } from "./settings.js";
+import { LoreBridgeAdapterTransport } from "./adapter-transport.js";
 
 const MODULE_ID = "lorebridge";
+let adapterTransport: LoreBridgeAdapterTransport | undefined;
 
 type FoundryModuleMetadata = {
   version?: string;
@@ -51,15 +53,45 @@ Hooks.once("ready", () => {
   }
 
   if (settings.remoteIntegrationEnabled) {
-    if (settings.provider === "none") {
-      ui.notifications.warn("LoreBridge remote integration is enabled, but no provider is selected.");
-    } else if (!settings.backendUrl) {
+    if (!settings.backendUrl) {
       ui.notifications.warn("LoreBridge remote integration is enabled, but no backend URL is configured.");
+    } else if (!settings.clientToken) {
+      ui.notifications.warn("LoreBridge remote integration is enabled, but this browser is not paired.");
     } else {
-      console.info(`${MODULE_ID} | Remote integration configured`, {
-        provider: settings.provider,
-        backendUrl: settings.backendUrl,
-        paired: Boolean(settings.clientToken)
+      const registration = {
+        adapterId: "foundry-vtt",
+        adapterType: "foundry",
+        adapterVersion: getModuleVersion(),
+        protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+        sources: [{
+          sourceId: `foundry:${game.world?.id ?? "unknown"}`,
+          adapterId: "foundry-vtt",
+          sourceType: "foundry-world",
+          name: game.world?.title ?? "Unknown Foundry World",
+        }],
+        capabilities: [
+          GET_WORLD_SUMMARY_DECLARATION,
+          SEARCH_JOURNALS_DECLARATION,
+          GET_JOURNAL_DECLARATION,
+          GET_JOURNAL_PAGE_DECLARATION,
+        ],
+      };
+      adapterTransport = new LoreBridgeAdapterTransport(
+        settings.backendUrl,
+        settings.clientToken,
+        registration,
+      );
+      void adapterTransport.connect().then((state) => {
+        if (state.state === "connected") {
+          console.info(`${MODULE_ID} | Connected to backend ${state.backendId}`, {
+            sessionId: state.sessionId,
+            sourceId: registration.sources[0]?.sourceId,
+          });
+          ui.notifications.info("LoreBridge connected to the backend.");
+        } else if (state.state === "error") {
+          console.error(`${MODULE_ID} | Backend connection failed: ${state.message}`);
+          ui.notifications.error(`LoreBridge backend connection failed: ${state.message}`);
+        }
       });
     }
   }
@@ -99,6 +131,7 @@ Hooks.once("ready", () => {
         backendUrl: settings.backendUrl ? "configured" : "",
         paired: Boolean(settings.clientToken)
       }),
+      getConnectionStatus: () => adapterTransport?.state ?? { state: "disconnected" },
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary,
       [SEARCH_JOURNALS_CAPABILITY]: searchJournals,
       [GET_JOURNAL_CAPABILITY]: getJournal,
