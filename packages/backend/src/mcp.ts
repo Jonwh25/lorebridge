@@ -3,8 +3,10 @@ import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 import { z } from "zod";
 import {
+  GET_JOURNAL_PAGE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
+  validateGetJournalPageOutput,
   validateGetWorldSummaryOutput,
   validateSearchJournalsOutput,
 } from "@lorebridge/shared/capabilities";
@@ -15,6 +17,7 @@ import {
 
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
+const journalPageToolName = "get_journal_page";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -135,6 +138,61 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         return toolError(
           error,
           "LoreBridge could not search Foundry journals.",
+        );
+      }
+    },
+  );
+
+  server.registerTool(
+    journalPageToolName,
+    {
+      title: "Get a Foundry journal page",
+      description: "Retrieve one focused journal page from a connected Foundry VTT world. Use journalId and pageId from search_journals results.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe(
+          "The Foundry JournalEntry ID returned by search_journals.",
+        ),
+        pageId: z.string().trim().min(1).describe(
+          "The Foundry JournalEntryPage ID returned by search_journals.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ journalId, pageId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_JOURNAL_PAGE_CAPABILITY,
+          { journalId, pageId },
+        );
+        const validation = validateGetJournalPageOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid journal page.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(validation.value),
+          }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(
+          error,
+          "LoreBridge could not retrieve the Foundry journal page.",
         );
       }
     },

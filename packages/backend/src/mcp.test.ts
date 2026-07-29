@@ -12,6 +12,7 @@ import {
   type RequestEnvelope,
 } from "@lorebridge/shared";
 import type {
+  GetJournalPageOutput,
   GetWorldSummaryOutput,
   SearchJournalsOutput,
 } from "@lorebridge/shared/capabilities";
@@ -100,6 +101,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 mode: "read",
                 version: "0.1",
               },
+              {
+                name: "getJournalPage",
+                mode: "read",
+                version: "0.1",
+              },
             ],
           },
         }));
@@ -116,6 +122,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
       if (message.kind !== "request") return;
       if (message.capability === "searchJournals") {
         assert.deepEqual(message.input, { query: "Tser Falls", limit: 10 });
+      } else if (message.capability === "getJournalPage") {
+        assert.deepEqual(message.input, {
+          journalId: "journal_locations",
+          pageId: "page_tser_falls",
+        });
       }
       const output = message.capability === "searchJournals"
         ? {
@@ -131,6 +142,27 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
               matchedField: "pageName",
             }],
           }
+        : message.capability === "getJournalPage"
+          ? {
+              sourceId: "foundry:cos",
+              journal: {
+                id: "journal_locations",
+                uuid: "JournalEntry.journal_locations",
+                name: "Locations & NPCs",
+              },
+              page: {
+                id: "page_tser_falls",
+                uuid: "JournalEntry.journal_locations.JournalEntryPage.page_tser_falls",
+                name: "Tser Falls",
+                type: "text",
+                sort: 0,
+                text: {
+                  format: 1,
+                  html: "<p>The falls plunge into mist.</p>",
+                  plainText: "The falls plunge into mist.",
+                },
+              },
+            }
         : {
             source: { sourceId: "foundry:cos", adapterType: "foundry" },
             world: {
@@ -172,7 +204,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_journals"],
+      ["get_world_summary", "search_journals", "get_journal_page"],
     );
     assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 
@@ -198,6 +230,20 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(search.query, "Tser Falls");
     assert.equal(search.results[0]?.journalName, "Locations & NPCs");
     assert.equal(search.results[0]?.matchedPageName, "Tser Falls");
+
+    const pageResult = await client.callTool({
+      name: "get_journal_page",
+      arguments: {
+        journalId: search.results[0]?.journalId,
+        pageId: search.results[0]?.matchedPageId,
+        sourceId: "foundry:cos",
+      },
+    });
+    const page = pageResult.structuredContent as unknown as GetJournalPageOutput;
+    assert.equal(pageResult.isError, undefined);
+    assert.equal(page.journal.name, "Locations & NPCs");
+    assert.equal(page.page.name, "Tser Falls");
+    assert.equal(page.page.text?.plainText, "The falls plunge into mist.");
   } finally {
     await client?.close();
     webSocket?.close();

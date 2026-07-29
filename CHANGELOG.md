@@ -13,6 +13,7 @@ All notable changes to LoreBridge are documented here.
 - Authenticated live `getJournalPage` routing for focused retrieval from the connected Foundry world.
 - An authenticated Streamable HTTP MCP endpoint with a read-only `get_world_summary` tool.
 - A read-only MCP `search_journals` tool backed by the connected Foundry world.
+- A focused, read-only MCP `get_journal_page` tool for retrieving journal content selected from search results.
 
 ### Changed
 
