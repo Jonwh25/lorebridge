@@ -16,6 +16,7 @@ All notable changes to LoreBridge are documented here.
 ### Fixed
 
 - Removed a Windows-generated dependency lockfile that prevented npm from installing esbuild's Linux binary on Ubuntu.
+- Preserved configured reverse-proxy path prefixes for backend health, identity, and pairing requests.
 
 ### Security
 

@@ -25,6 +25,13 @@ interface ErrorBody {
   };
 }
 
+export function createBackendRequestUrl(baseUrl: string, path: string): URL {
+  const trimmed = baseUrl.trim();
+  if (!trimmed) throw new Error("Configure the LoreBridge Backend URL first.");
+  const normalizedBase = trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
+  return new URL(path.replace(/^\/+/, ""), normalizedBase);
+}
+
 export class LoreBridgeBackendClient {
   constructor(
     private readonly baseUrl: string,
@@ -59,7 +66,7 @@ export class LoreBridgeBackendClient {
     path: string,
     options: RequestInit & { authenticated?: boolean } = {},
   ): Promise<T> {
-    const url = new URL(path, this.normalizedBaseUrl());
+    const url = createBackendRequestUrl(this.baseUrl, path);
     const headers = new Headers(options.headers);
     if (options.authenticated) {
       if (!this.token) throw new Error("LoreBridge is not paired with this backend.");
@@ -83,9 +90,4 @@ export class LoreBridgeBackendClient {
     return body;
   }
 
-  private normalizedBaseUrl(): string {
-    const trimmed = this.baseUrl.trim();
-    if (!trimmed) throw new Error("Configure the LoreBridge Backend URL first.");
-    return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
-  }
 }
