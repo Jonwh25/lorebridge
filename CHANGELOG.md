@@ -6,6 +6,9 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+- Shared, Foundry, and backend support for focused `getJournalPage` retrieval.
+- An authenticated journal-page API route that returns one page and its parent journal reference.
+
 ### Changed
 
 ### Fixed

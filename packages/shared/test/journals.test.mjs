@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   GET_JOURNAL_CAPABILITY,
+  GET_JOURNAL_PAGE_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   validateGetJournalInput,
   validateGetJournalOutput,
+  validateGetJournalPageInput,
+  validateGetJournalPageOutput,
   validateSearchJournalsInput,
   validateSearchJournalsOutput,
 } from "../dist/capabilities.js";
@@ -12,6 +15,24 @@ import {
 test("exports canonical journal capabilities", () => {
   assert.equal(SEARCH_JOURNALS_CAPABILITY, "searchJournals");
   assert.equal(GET_JOURNAL_CAPABILITY, "getJournal");
+  assert.equal(GET_JOURNAL_PAGE_CAPABILITY, "getJournalPage");
+});
+
+test("validates focused journal-page retrieval contracts", () => {
+  assert.equal(validateGetJournalPageInput({ journalId: "j1", pageId: "p1" }).valid, true);
+  assert.equal(validateGetJournalPageInput({ journalId: "j1", pageId: "" }).valid, false);
+  assert.equal(validateGetJournalPageOutput({
+    sourceId: "foundry:cos",
+    journal: { id: "j1", uuid: "JournalEntry.j1", name: "Locations & NPCs" },
+    page: {
+      id: "p1",
+      uuid: "JournalEntry.j1.JournalEntryPage.p1",
+      name: "Tser Falls",
+      type: "text",
+      sort: 0,
+      text: { format: 1, html: "<p>Mist.</p>", plainText: "Mist." },
+    },
+  }).valid, true);
 });
 
 test("validates bounded journal search input", () => {

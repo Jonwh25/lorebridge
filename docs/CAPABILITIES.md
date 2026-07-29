@@ -141,6 +141,17 @@ Private GM information must remain governed by world settings and the authentica
 
 The Foundry implementation accepts a native JournalEntry ID or `JournalEntry.<id>` UUID and returns a JSON-only normalized document. Text pages include original HTML plus normalized plain text. Media pages may include their source path. Foundry flags, ownership records, executable values, and raw Document instances are not serialized.
 
+### `getJournalPage`
+
+Returns one selected page with a compact reference to its parent journal.
+
+Typical inputs:
+
+- journal ID or JournalEntry UUID
+- page ID or JournalEntryPage UUID
+
+This capability uses the same normalized page representation as `getJournal`, but avoids returning unrelated pages from a large parent journal. It is the preferred follow-up to a `searchJournals` result containing `matchedPageId`.
+
 ### `listScenes`
 
 Returns a bounded list of scene summaries.

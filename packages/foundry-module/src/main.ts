@@ -1,6 +1,8 @@
 import {
   GET_JOURNAL_CAPABILITY,
   GET_JOURNAL_DECLARATION,
+  GET_JOURNAL_PAGE_CAPABILITY,
+  GET_JOURNAL_PAGE_DECLARATION,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_WORLD_SUMMARY_DECLARATION,
   SEARCH_JOURNALS_CAPABILITY,
@@ -9,7 +11,7 @@ import {
 import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
-import { getJournal, searchJournals } from "./capabilities/journals.js";
+import { getJournal, getJournalPage, searchJournals } from "./capabilities/journals.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -76,7 +78,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION]
   });
   ui.notifications.info(
     `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
@@ -89,7 +91,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -99,7 +101,8 @@ Hooks.once("ready", () => {
       }),
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary,
       [SEARCH_JOURNALS_CAPABILITY]: searchJournals,
-      [GET_JOURNAL_CAPABILITY]: getJournal
+      [GET_JOURNAL_CAPABILITY]: getJournal,
+      [GET_JOURNAL_PAGE_CAPABILITY]: getJournalPage
     }),
     configurable: true,
     writable: false

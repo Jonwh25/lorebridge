@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
   validateGetJournalOutput,
+  validateGetJournalPageOutput,
   validateSearchJournalsInput,
   validateSearchJournalsOutput,
 } from "@lorebridge/shared/capabilities";
@@ -45,7 +46,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
 
   if (method === "GET" && url.pathname === "/v1") {
     const capabilities = config.pairingEnabled ? ["health", "identity", "pairing"] : ["health", "identity"];
-    if (services.journals) capabilities.push("searchJournals", "getJournal");
+    if (services.journals) capabilities.push("searchJournals", "getJournal", "getJournalPage");
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
   }
@@ -105,6 +106,26 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const result = await services.journals.search(validation.value);
     const outputValidation = validateSearchJournalsOutput(result);
     if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid search output: ${outputValidation.errors.join(", ")}`);
+    sendJson(response, 200, outputValidation.value);
+    return;
+  }
+
+  const journalPageMatch = method === "GET" ? url.pathname.match(/^\/v1\/journals\/([^/]+)\/pages\/([^/]+)$/) : null;
+  if (journalPageMatch) {
+    if (!authenticate(pairing, request, response)) return;
+    if (!services.journals) {
+      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
+      return;
+    }
+    const journalId = decodeURIComponent(journalPageMatch[1] ?? "");
+    const pageId = decodeURIComponent(journalPageMatch[2] ?? "");
+    const page = await services.journals.getPage(journalId, pageId);
+    if (!page) {
+      sendJson(response, 404, { error: { code: "journal_page_not_found", message: "The requested journal page was not found." } });
+      return;
+    }
+    const outputValidation = validateGetJournalPageOutput(page);
+    if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid journal page output: ${outputValidation.errors.join(", ")}`);
     sendJson(response, 200, outputValidation.value);
     return;
   }
