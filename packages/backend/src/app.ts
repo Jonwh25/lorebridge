@@ -1,6 +1,12 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import {
+  validateGetJournalOutput,
+  validateSearchJournalsInput,
+  validateSearchJournalsOutput,
+} from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
+import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 
 const serviceVersion = "0.2.0";
@@ -20,7 +26,15 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   return chunks.length === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, request: IncomingMessage, response: ServerResponse): Promise<void> {
+function authenticate(pairing: PairingService, request: IncomingMessage, response: ServerResponse): boolean {
+  const authorization = request.headers.authorization ?? "";
+  const pairedClient = authorization.startsWith("Bearer ") ? pairing.verify(authorization.slice(7)) : undefined;
+  if (pairedClient) return true;
+  sendJson(response, 401, { error: { code: "unauthorized", message: "A valid LoreBridge pairing token is required." } });
+  return false;
+}
+
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, services: BackendServices, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -30,7 +44,9 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   }
 
   if (method === "GET" && url.pathname === "/v1") {
-    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities: config.pairingEnabled ? ["health", "identity", "pairing"] : ["health", "identity"] });
+    const capabilities = config.pairingEnabled ? ["health", "identity", "pairing"] : ["health", "identity"];
+    if (services.journals) capabilities.push("searchJournals", "getJournal");
+    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
   }
 
@@ -74,13 +90,51 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/journals/search") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!services.journals) {
+      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
+      return;
+    }
+    const body = await readJson(request);
+    const validation = validateSearchJournalsInput(body);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Journal search input is invalid.", details: validation.errors } });
+      return;
+    }
+    const result = await services.journals.search(validation.value);
+    const outputValidation = validateSearchJournalsOutput(result);
+    if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid search output: ${outputValidation.errors.join(", ")}`);
+    sendJson(response, 200, outputValidation.value);
+    return;
+  }
+
+  const journalMatch = method === "GET" ? url.pathname.match(/^\/v1\/journals\/([^/]+)$/) : null;
+  if (journalMatch) {
+    if (!authenticate(pairing, request, response)) return;
+    if (!services.journals) {
+      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
+      return;
+    }
+    const journalId = decodeURIComponent(journalMatch[1] ?? "");
+    const journal = await services.journals.get(journalId);
+    if (!journal) {
+      sendJson(response, 404, { error: { code: "journal_not_found", message: "The requested journal was not found." } });
+      return;
+    }
+    const outputValidation = validateGetJournalOutput(journal);
+    if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid journal output: ${outputValidation.errors.join(", ")}`);
+    sendJson(response, 200, outputValidation.value);
+    return;
+  }
+
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 
-export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity): Server {
+export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity, services: BackendServices = {}): Server {
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
   return createServer((request, response) => {
-    void handleRequest(config, identity, pairing, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, services, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

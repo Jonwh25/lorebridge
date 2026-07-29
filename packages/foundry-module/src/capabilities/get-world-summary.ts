@@ -2,50 +2,15 @@ import {
   validateGetWorldSummaryOutput,
   type GetWorldSummaryOutput
 } from "@lorebridge/shared/capabilities";
-import type { ProtocolErrorCode } from "@lorebridge/shared";
+import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 
 const SOURCE_PREFIX = "foundry";
 
-export class LoreBridgeCapabilityError extends Error {
-  readonly code: ProtocolErrorCode;
-  readonly retryable: boolean;
-  readonly details?: Record<string, unknown>;
-
-  constructor(
-    code: ProtocolErrorCode,
-    message: string,
-    options: { retryable?: boolean; details?: Record<string, unknown>; cause?: unknown } = {}
-  ) {
-    super(message, { cause: options.cause });
-    this.name = "LoreBridgeCapabilityError";
-    this.code = code;
-    this.retryable = options.retryable ?? false;
-    if (options.details !== undefined) {
-      this.details = options.details;
-    }
-  }
-}
-
-function requireFoundryRuntime(): void {
-  if (typeof game === "undefined" || !game) {
-    throw new LoreBridgeCapabilityError(
-      "ADAPTER_UNAVAILABLE",
-      "The Foundry runtime is not available.",
-      { retryable: true }
-    );
-  }
-
-  if (!game.user?.isGM) {
-    throw new LoreBridgeCapabilityError(
-      "NOT_AUTHORIZED",
-      "LoreBridge getWorldSummary requires an active GM user."
-    );
-  }
-}
+export { LoreBridgeCapabilityError } from "./errors.js";
 
 export function getWorldSummary(): GetWorldSummaryOutput {
   try {
-    requireFoundryRuntime();
+    requireFoundryGm("getWorldSummary");
 
     const world = game.world;
     const system = game.system;

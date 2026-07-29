@@ -116,6 +116,15 @@ Typical result fields:
 
 Search must identify the exact supporting journal and page. It must not return unlimited page content.
 
+Implemented in the Foundry adapter with:
+
+- case-insensitive matching against journal names, page names, and text-page content
+- one best match per journal
+- exact-name matches ranked before partial names and page text
+- a default limit of 10 and a hard maximum of 50
+- page-text excerpts bounded to 240 characters
+- GM-only execution
+
 ### `getJournal`
 
 Returns one journal or selected journal page by stable reference.
@@ -129,6 +138,8 @@ Typical result fields:
 - content truncation metadata
 
 Private GM information must remain governed by world settings and the authenticated GM context.
+
+The Foundry implementation accepts a native JournalEntry ID or `JournalEntry.<id>` UUID and returns a JSON-only normalized document. Text pages include original HTML plus normalized plain text. Media pages may include their source path. Foundry flags, ownership records, executable values, and raw Document instances are not serialized.
 
 ### `listScenes`
 

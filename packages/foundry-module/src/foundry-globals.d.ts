@@ -13,6 +13,28 @@ type FoundrySettingConfig = {
   requiresReload?: boolean;
 };
 
+type FoundryJournalPage = {
+  id: string;
+  uuid: string;
+  name: string;
+  type: string;
+  sort: number;
+  text?: { content?: string; format?: number };
+  src?: string;
+};
+
+type FoundryJournalEntry = {
+  id: string;
+  uuid: string;
+  name: string;
+  pages: Iterable<FoundryJournalPage>;
+};
+
+type FoundryJournalCollection = Iterable<FoundryJournalEntry> & {
+  size: number;
+  get(id: string): FoundryJournalEntry | undefined;
+};
+
 declare const game: {
   version: string;
   user: {
@@ -30,7 +52,7 @@ declare const game: {
   };
   actors: { size: number };
   scenes: { size: number };
-  journal: { size: number };
+  journal: FoundryJournalCollection;
   modules: Map<string, { active: boolean; version?: string }>;
   settings: {
     register(moduleId: string, key: string, config: FoundrySettingConfig): void;

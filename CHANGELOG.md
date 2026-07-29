@@ -6,6 +6,13 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+- Shared `searchJournals` and `getJournal` capability contracts and validators.
+- GM-only Foundry v14 journal search and normalized journal retrieval.
+- Authenticated backend journal HTTP routes backed by an injected journal service.
+- Shared, Foundry-adapter, and backend API tests for the journal vertical slice.
+
+### Added
+
 ### Changed
 
 ### Fixed
