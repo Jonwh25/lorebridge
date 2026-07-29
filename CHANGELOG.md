@@ -15,6 +15,8 @@ All notable changes to LoreBridge are documented here.
 
 ### Fixed
 
+- Removed a Windows-generated dependency lockfile that prevented npm from installing esbuild's Linux binary on Ubuntu.
+
 ### Security
 
 ## [0.1.6] - 2026-07-29
