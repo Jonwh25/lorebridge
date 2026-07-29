@@ -10,6 +10,7 @@ All notable changes to LoreBridge are documented here.
 - Live adapter registration for the active Foundry world and its read-only capabilities.
 - Authenticated live `getWorldSummary` routing from the backend through the connected Foundry adapter.
 - Authenticated live `searchJournals` routing with bounded, validated search input and output.
+- Authenticated live `getJournalPage` routing for focused retrieval from the connected Foundry world.
 
 ### Changed
 

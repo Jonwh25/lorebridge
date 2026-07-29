@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import {
+  GET_JOURNAL_PAGE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   validateGetWorldSummaryOutput,
@@ -72,7 +73,10 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   if (method === "GET" && url.pathname === "/v1") {
     const capabilities = config.pairingEnabled ? ["health", "identity", "pairing"] : ["health", "identity"];
     if (services.journals) capabilities.push("searchJournals", "getJournal", "getJournalPage");
-    else if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
+    else {
+      if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
+      if (adapterSessions.hasCapability(GET_JOURNAL_PAGE_CAPABILITY)) capabilities.push("getJournalPage");
+    }
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
   }
@@ -183,13 +187,25 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   const journalPageMatch = method === "GET" ? url.pathname.match(/^\/v1\/journals\/([^/]+)\/pages\/([^/]+)$/) : null;
   if (journalPageMatch) {
     if (!authenticate(pairing, request, response)) return;
-    if (!services.journals) {
-      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
-      return;
-    }
     const journalId = decodeURIComponent(journalPageMatch[1] ?? "");
     const pageId = decodeURIComponent(journalPageMatch[2] ?? "");
-    const page = await services.journals.getPage(journalId, pageId);
+    let page: unknown;
+    if (services.journals) {
+      page = await services.journals.getPage(journalId, pageId);
+    } else {
+      const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+      try {
+        page = await adapterSessions.invoke(
+          sourceId,
+          GET_JOURNAL_PAGE_CAPABILITY,
+          { journalId, pageId },
+        );
+      } catch (error) {
+        if (!(error instanceof AdapterInvocationError)) throw error;
+        sendAdapterInvocationError(response, error);
+        return;
+      }
+    }
     if (!page) {
       sendJson(response, 404, { error: { code: "journal_page_not_found", message: "The requested journal page was not found." } });
       return;
