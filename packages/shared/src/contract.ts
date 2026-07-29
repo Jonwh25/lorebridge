@@ -15,6 +15,8 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   searchJournals: "searchJournals",
   getJournal: "getJournal",
   getJournalPage: "getJournalPage",
+  searchActors: "searchActors",
+  getActor: "getActor",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({

@@ -1,17 +1,22 @@
 import {
+  GET_ACTOR_CAPABILITY,
+  GET_ACTOR_DECLARATION,
   GET_JOURNAL_CAPABILITY,
   GET_JOURNAL_DECLARATION,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_JOURNAL_PAGE_DECLARATION,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_WORLD_SUMMARY_DECLARATION,
+  SEARCH_ACTORS_CAPABILITY,
+  SEARCH_ACTORS_DECLARATION,
   SEARCH_JOURNALS_CAPABILITY,
-  SEARCH_JOURNALS_DECLARATION
+  SEARCH_JOURNALS_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
 import { getJournal, getJournalPage, searchJournals } from "./capabilities/journals.js";
+import { getActor, searchActors } from "./capabilities/actors.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -75,6 +80,8 @@ Hooks.once("ready", () => {
           SEARCH_JOURNALS_DECLARATION,
           GET_JOURNAL_DECLARATION,
           GET_JOURNAL_PAGE_DECLARATION,
+          SEARCH_ACTORS_DECLARATION,
+          GET_ACTOR_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -107,6 +114,12 @@ Hooks.once("ready", () => {
           }
           if (request.capability === GET_JOURNAL_PAGE_CAPABILITY) {
             return getJournalPage(request.input as Parameters<typeof getJournalPage>[0]);
+          }
+          if (request.capability === SEARCH_ACTORS_CAPABILITY) {
+            return searchActors(request.input as Parameters<typeof searchActors>[0]);
+          }
+          if (request.capability === GET_ACTOR_CAPABILITY) {
+            return getActor(request.input as Parameters<typeof getActor>[0]);
           }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
@@ -143,7 +156,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION]
   });
   ui.notifications.info(
     `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
@@ -156,7 +169,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -168,7 +181,9 @@ Hooks.once("ready", () => {
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary,
       [SEARCH_JOURNALS_CAPABILITY]: searchJournals,
       [GET_JOURNAL_CAPABILITY]: getJournal,
-      [GET_JOURNAL_PAGE_CAPABILITY]: getJournalPage
+      [GET_JOURNAL_PAGE_CAPABILITY]: getJournalPage,
+      [SEARCH_ACTORS_CAPABILITY]: searchActors,
+      [GET_ACTOR_CAPABILITY]: getActor,
     }),
     configurable: true,
     writable: false
