@@ -11,6 +11,7 @@ All notable changes to LoreBridge are documented here.
 - Authenticated live `getWorldSummary` routing from the backend through the connected Foundry adapter.
 - Authenticated live `searchJournals` routing with bounded, validated search input and output.
 - Authenticated live `getJournalPage` routing for focused retrieval from the connected Foundry world.
+- An authenticated Streamable HTTP MCP endpoint with a read-only `get_world_summary` tool.
 
 ### Changed
 
@@ -22,6 +23,8 @@ All notable changes to LoreBridge are documented here.
 - Preserved configured reverse-proxy path prefixes for backend health, identity, and pairing requests.
 
 ### Security
+
+- MCP requests require a valid LoreBridge pairing token before protocol handling.
 
 ## [0.1.6] - 2026-07-29
 
