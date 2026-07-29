@@ -6,7 +6,9 @@ import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import {
+  createResponseEnvelope,
   LOREBRIDGE_PROTOCOL_VERSION,
+  type RequestEnvelope,
   type AdapterWelcomeMessage,
 } from "@lorebridge/shared";
 import { WebSocket } from "ws";
@@ -282,5 +284,93 @@ test("adapter session inventory requires authentication", async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/v1/adapters`);
     assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/world-summary routes through the authenticated live Foundry adapter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+
+    await new Promise<AdapterWelcomeMessage>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token,
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [{
+              sourceId: "foundry:cos",
+              adapterId: "foundry-vtt",
+              sourceType: "foundry-world",
+              name: "Curse of Strahd",
+            }],
+            capabilities: [{
+              name: "getWorldSummary",
+              mode: "read",
+              version: "0.1",
+            }],
+          },
+        }));
+      });
+      webSocket.once("message", (data) => resolve(JSON.parse(data.toString()) as AdapterWelcomeMessage));
+    });
+
+    webSocket.on("message", (data) => {
+      const message = JSON.parse(data.toString()) as AdapterWelcomeMessage | RequestEnvelope;
+      if (message.kind !== "request") return;
+      webSocket.send(JSON.stringify(createResponseEnvelope(
+        {
+          messageId: "message_response",
+          correlationId: message.correlationId,
+        },
+        {
+          source: { sourceId: "foundry:cos", adapterType: "foundry" },
+          world: { id: "cos", title: "Curse of Strahd", foundryVersion: "14.365" },
+          system: { id: "dnd5e", title: "Dungeons & Dragons Fifth Edition", version: "5.3.3" },
+          counts: {
+            actors: 686,
+            scenes: 624,
+            journals: 842,
+            installedModules: 20,
+            activeModules: 20,
+          },
+        },
+      )));
+    });
+
+    const response = await fetch(
+      `${baseUrl}/v1/world-summary?sourceId=${encodeURIComponent("foundry:cos")}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const body = await response.json() as {
+      source: { sourceId: string };
+      world: { title: string };
+    };
+    assert.equal(response.status, 200);
+    assert.equal(body.source.sourceId, "foundry:cos");
+    assert.equal(body.world.title, "Curse of Strahd");
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
+
+test("GET /v1/world-summary reports an unavailable adapter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(
+      `${baseUrl}/v1/world-summary?sourceId=${encodeURIComponent("foundry:cos")}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const body = await response.json() as { error: { code: string; retryable: boolean } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "adapter_unavailable");
+    assert.equal(body.error.retryable, true);
   });
 });

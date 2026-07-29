@@ -8,6 +8,7 @@ All notable changes to LoreBridge are documented here.
 
 - An authenticated WebSocket session between a paired Foundry GM client and the LoreBridge backend.
 - Live adapter registration for the active Foundry world and its read-only capabilities.
+- Authenticated live `getWorldSummary` routing from the backend through the connected Foundry adapter.
 
 ### Changed
 

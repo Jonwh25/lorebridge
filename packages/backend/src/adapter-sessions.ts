@@ -1,11 +1,18 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import {
+  createRequestEnvelope,
   LOREBRIDGE_PROTOCOL_VERSION,
   type AdapterHelloMessage,
   type AdapterRegistration,
   type AdapterSessionErrorMessage,
   type AdapterWelcomeMessage,
+  type ErrorEnvelope,
+  type LoreBridgeCapability,
+  type ProtocolErrorCode,
+  type ProtocolMessage,
+  type ResponseEnvelope,
+  validateProtocolMessage,
   validateAdapterHelloMessage,
 } from "@lorebridge/shared";
 import { WebSocket, WebSocketServer } from "ws";
@@ -19,19 +26,138 @@ export interface AdapterSessionSummary {
   registration: AdapterRegistration;
 }
 
-export class AdapterSessionRegistry {
-  readonly #sessions = new Map<string, AdapterSessionSummary>();
+interface AdapterSession {
+  summary: AdapterSessionSummary;
+  socket: WebSocket;
+}
 
-  add(session: AdapterSessionSummary): void {
-    this.#sessions.set(session.sessionId, session);
+interface PendingRequest {
+  sessionId: string;
+  resolve: (message: ResponseEnvelope) => void;
+  reject: (error: AdapterInvocationError) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+export class AdapterInvocationError extends Error {
+  constructor(
+    readonly code: ProtocolErrorCode,
+    message: string,
+    readonly retryable = false,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "AdapterInvocationError";
+  }
+}
+
+export class AdapterSessionRegistry {
+  readonly #sessions = new Map<string, AdapterSession>();
+  readonly #pendingRequests = new Map<string, PendingRequest>();
+
+  add(summary: AdapterSessionSummary, socket: WebSocket): void {
+    this.#sessions.set(summary.sessionId, { summary, socket });
   }
 
   remove(sessionId: string): void {
     this.#sessions.delete(sessionId);
+    for (const [correlationId, pending] of this.#pendingRequests) {
+      if (pending.sessionId !== sessionId) continue;
+      clearTimeout(pending.timeout);
+      pending.reject(new AdapterInvocationError(
+        "ADAPTER_UNAVAILABLE",
+        "The Foundry adapter disconnected before responding.",
+        true,
+      ));
+      this.#pendingRequests.delete(correlationId);
+    }
   }
 
   list(): AdapterSessionSummary[] {
-    return [...this.#sessions.values()];
+    return [...this.#sessions.values()].map(({ summary }) => summary);
+  }
+
+  async invoke<TOutput>(
+    sourceId: string | undefined,
+    capability: LoreBridgeCapability,
+    input: unknown,
+    timeoutMs = 5_000,
+  ): Promise<TOutput> {
+    const candidates = [...this.#sessions.values()].filter(({ summary, socket }) => {
+      if (socket.readyState !== WebSocket.OPEN) return false;
+      const hasSource = sourceId
+        ? summary.registration.sources.some((source) => source.sourceId === sourceId)
+        : true;
+      const hasCapability = summary.registration.capabilities.some(
+        (declaration) => declaration.name === capability,
+      );
+      return hasSource && hasCapability;
+    });
+
+    if (candidates.length !== 1) {
+      throw new AdapterInvocationError(
+        "ADAPTER_UNAVAILABLE",
+        sourceId
+          ? `No connected adapter provides ${capability} for ${sourceId}.`
+          : candidates.length === 0
+            ? `No connected adapter provides ${capability}.`
+            : `Multiple connected adapters provide ${capability}; sourceId is required.`,
+        true,
+      );
+    }
+
+    const session = candidates[0]!;
+    const resolvedSourceId = sourceId ?? session.summary.registration.sources[0]?.sourceId;
+    if (!resolvedSourceId) {
+      throw new AdapterInvocationError("ADAPTER_UNAVAILABLE", "The adapter has no registered source.");
+    }
+
+    const correlationId = `correlation_${randomUUID()}`;
+    const request = createRequestEnvelope(
+      { messageId: `message_${randomUUID()}`, correlationId },
+      resolvedSourceId,
+      capability,
+      input,
+    );
+
+    return new Promise<TOutput>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.#pendingRequests.delete(correlationId);
+        reject(new AdapterInvocationError(
+          "REQUEST_TIMEOUT",
+          `The Foundry adapter did not respond within ${timeoutMs}ms.`,
+          true,
+        ));
+      }, timeoutMs);
+
+      this.#pendingRequests.set(correlationId, {
+        sessionId: session.summary.sessionId,
+        timeout,
+        resolve: (message) => resolve(message.output as TOutput),
+        reject,
+      });
+      session.socket.send(JSON.stringify(request));
+    });
+  }
+
+  accept(sessionId: string, message: ProtocolMessage): void {
+    if (message.kind !== "response" && message.kind !== "error") return;
+    const pending = this.#pendingRequests.get(message.correlationId);
+    if (!pending || pending.sessionId !== sessionId) return;
+
+    clearTimeout(pending.timeout);
+    this.#pendingRequests.delete(message.correlationId);
+    if (message.kind === "response") {
+      pending.resolve(message);
+      return;
+    }
+
+    const error = message as ErrorEnvelope;
+    pending.reject(new AdapterInvocationError(
+      error.error.code,
+      error.error.message,
+      error.error.retryable,
+      error.error.details,
+    ));
   }
 }
 
@@ -114,13 +240,27 @@ export function attachAdapterSessionServer(
         clientName: pairedClient.clientName,
         connectedAt,
         registration: hello.registration,
-      });
+      }, socket);
       send(socket, {
         kind: "adapter.welcome",
         protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
         sessionId,
         backendId,
         acceptedAt: connectedAt,
+      });
+
+      socket.on("message", (nextData, nextIsBinary) => {
+        if (nextIsBinary || !sessionId) return;
+        let nextMessage: unknown;
+        try {
+          nextMessage = JSON.parse(nextData.toString());
+        } catch {
+          return;
+        }
+        const nextValidation = validateProtocolMessage(nextMessage);
+        if (nextValidation.valid && nextValidation.value) {
+          registry.accept(sessionId, nextValidation.value);
+        }
       });
     });
 

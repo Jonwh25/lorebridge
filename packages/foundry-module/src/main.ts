@@ -18,6 +18,7 @@ import {
   registerLoreBridgeSettings
 } from "./settings.js";
 import { LoreBridgeAdapterTransport } from "./adapter-transport.js";
+import { LoreBridgeCapabilityError } from "./capabilities/errors.js";
 
 const MODULE_ID = "lorebridge";
 let adapterTransport: LoreBridgeAdapterTransport | undefined;
@@ -80,6 +81,32 @@ Hooks.once("ready", () => {
         settings.backendUrl,
         settings.clientToken,
         registration,
+        (request) => {
+          if (request.sourceId !== registration.sources[0]?.sourceId) {
+            throw new LoreBridgeCapabilityError(
+              "NOT_FOUND",
+              `Foundry source ${request.sourceId} is not available.`,
+            );
+          }
+          if (request.capability === GET_WORLD_SUMMARY_CAPABILITY) {
+            if (
+              typeof request.input !== "object"
+              || request.input === null
+              || Array.isArray(request.input)
+              || Object.keys(request.input).length > 0
+            ) {
+              throw new LoreBridgeCapabilityError(
+                "INVALID_REQUEST",
+                "getWorldSummary input must be an empty object.",
+              );
+            }
+            return getWorldSummary();
+          }
+          throw new LoreBridgeCapabilityError(
+            "CAPABILITY_UNAVAILABLE",
+            `Foundry capability ${request.capability} is not remotely available.`,
+          );
+        },
       );
       void adapterTransport.connect().then((state) => {
         if (state.state === "connected") {
