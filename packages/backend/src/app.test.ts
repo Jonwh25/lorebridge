@@ -466,3 +466,100 @@ test("POST /v1/journals/search routes through the live Foundry adapter", async (
     await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
   });
 });
+
+test("GET /v1/journals/:journalId/pages/:pageId routes through the live Foundry adapter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+
+    await new Promise<AdapterWelcomeMessage>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token,
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [{
+              sourceId: "foundry:cos",
+              adapterId: "foundry-vtt",
+              sourceType: "foundry-world",
+              name: "Curse of Strahd",
+            }],
+            capabilities: [{
+              name: "getJournalPage",
+              mode: "read",
+              version: "0.1",
+            }],
+          },
+        }));
+      });
+      webSocket.once("message", (data) => resolve(JSON.parse(data.toString()) as AdapterWelcomeMessage));
+    });
+
+    webSocket.on("message", (data) => {
+      const message = JSON.parse(data.toString()) as AdapterWelcomeMessage | RequestEnvelope<{
+        journalId: string;
+        pageId: string;
+      }>;
+      if (message.kind !== "request") return;
+      assert.equal(message.capability, "getJournalPage");
+      assert.deepEqual(message.input, {
+        journalId: "journal_locations",
+        pageId: "page_tser_falls",
+      });
+      webSocket.send(JSON.stringify(createResponseEnvelope(
+        {
+          messageId: "message_page_response",
+          correlationId: message.correlationId,
+        },
+        {
+          sourceId: "foundry:cos",
+          journal: {
+            id: "journal_locations",
+            uuid: "JournalEntry.journal_locations",
+            name: "Locations & NPCs",
+          },
+          page: {
+            id: "page_tser_falls",
+            uuid: "JournalEntry.journal_locations.JournalEntryPage.page_tser_falls",
+            name: "Tser Falls",
+            type: "text",
+            sort: 0,
+            text: {
+              format: 1,
+              html: "<p>The falls plunge into mist.</p>",
+              plainText: "The falls plunge into mist.",
+            },
+          },
+        },
+      )));
+    });
+
+    const discoveryResponse = await fetch(`${baseUrl}/v1`);
+    const discovery = await discoveryResponse.json() as { capabilities: string[] };
+    assert.ok(discovery.capabilities.includes("getJournalPage"));
+
+    const response = await fetch(
+      `${baseUrl}/v1/journals/journal_locations/pages/page_tser_falls?sourceId=${encodeURIComponent("foundry:cos")}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    );
+    const body = await response.json() as {
+      sourceId: string;
+      journal: { name: string };
+      page: { name: string; text?: { plainText: string } };
+    };
+    assert.equal(response.status, 200);
+    assert.equal(body.sourceId, "foundry:cos");
+    assert.equal(body.journal.name, "Locations & NPCs");
+    assert.equal(body.page.name, "Tser Falls");
+    assert.equal(body.page.text?.plainText, "The falls plunge into mist.");
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
