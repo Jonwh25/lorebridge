@@ -9,12 +9,14 @@ import {
 
 class FakeWebSocket extends EventTarget {
   readonly sent: string[] = [];
+  closed = false;
 
   send(value: string): void {
     this.sent.push(value);
   }
 
   close(): void {
+    this.closed = true;
     this.dispatchEvent(new Event("close"));
   }
 
@@ -139,4 +141,76 @@ test("executes an allowlisted backend request and returns a correlated response"
   assert.equal(response.kind, "response");
   assert.equal(response.correlationId, "correlation_test");
   assert.equal(response.output.world.title, "Curse of Strahd");
+});
+
+test("retries a timed-out startup connection and accepts a later handshake", async () => {
+  const sockets: FakeWebSocket[] = [];
+  let notifySecondSocket: (() => void) | undefined;
+  const secondSocketCreated = new Promise<void>((resolve) => {
+    notifySecondSocket = resolve;
+  });
+  const transport = new LoreBridgeAdapterTransport(
+    "https://foundry.example/lorebridge-api/",
+    "signed-token",
+    registration,
+    undefined,
+    () => {
+      const socket = new FakeWebSocket();
+      sockets.push(socket);
+      if (sockets.length === 2) notifySecondSocket?.();
+      return socket as unknown as WebSocket;
+    },
+  );
+
+  const connection = transport.connect({
+    timeoutMs: 50,
+    maxAttempts: 2,
+    retryDelayMs: 1,
+  });
+  await secondSocketCreated;
+
+  const retrySocket = sockets[1];
+  assert.ok(retrySocket);
+  retrySocket.open();
+  retrySocket.receive({
+    kind: "adapter.welcome",
+    protocolVersion: "0.1",
+    sessionId: "session_retry",
+    backendId: "lb_retry",
+    acceptedAt: "2026-07-29T00:00:00.000Z",
+  });
+
+  assert.deepEqual(await connection, {
+    state: "connected",
+    sessionId: "session_retry",
+    backendId: "lb_retry",
+  });
+});
+
+test("reports a bounded error after all startup attempts time out", async () => {
+  const sockets: FakeWebSocket[] = [];
+  const transport = new LoreBridgeAdapterTransport(
+    "https://foundry.example/lorebridge-api/",
+    "signed-token",
+    registration,
+    undefined,
+    () => {
+      const socket = new FakeWebSocket();
+      sockets.push(socket);
+      return socket as unknown as WebSocket;
+    },
+  );
+
+  const state = await transport.connect({
+    timeoutMs: 2,
+    maxAttempts: 2,
+    retryDelayMs: 1,
+  });
+
+  assert.equal(sockets.length, 2);
+  assert.ok(sockets.every((socket) => socket.closed));
+  assert.deepEqual(state, {
+    state: "error",
+    message: "LoreBridge backend connection timed out. (2 attempts.)",
+  });
 });
