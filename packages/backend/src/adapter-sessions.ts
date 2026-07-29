@@ -76,6 +76,15 @@ export class AdapterSessionRegistry {
     return [...this.#sessions.values()].map(({ summary }) => summary);
   }
 
+  hasCapability(capability: LoreBridgeCapability): boolean {
+    return [...this.#sessions.values()].some(({ summary, socket }) =>
+      socket.readyState === WebSocket.OPEN
+      && summary.registration.capabilities.some(
+        (declaration) => declaration.name === capability,
+      ),
+    );
+  }
+
   async invoke<TOutput>(
     sourceId: string | undefined,
     capability: LoreBridgeCapability,

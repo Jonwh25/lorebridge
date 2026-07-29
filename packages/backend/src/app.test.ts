@@ -374,3 +374,95 @@ test("GET /v1/world-summary reports an unavailable adapter", async () => {
     assert.equal(body.error.retryable, true);
   });
 });
+
+test("POST /v1/journals/search routes through the live Foundry adapter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+
+    await new Promise<AdapterWelcomeMessage>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => {
+        webSocket.send(JSON.stringify({
+          kind: "adapter.hello",
+          protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+          token,
+          registration: {
+            adapterId: "foundry-vtt",
+            adapterType: "foundry",
+            adapterVersion: "0.1.6",
+            protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+            sources: [{
+              sourceId: "foundry:cos",
+              adapterId: "foundry-vtt",
+              sourceType: "foundry-world",
+              name: "Curse of Strahd",
+            }],
+            capabilities: [{
+              name: "searchJournals",
+              mode: "read",
+              version: "0.1",
+            }],
+          },
+        }));
+      });
+      webSocket.once("message", (data) => resolve(JSON.parse(data.toString()) as AdapterWelcomeMessage));
+    });
+
+    webSocket.on("message", (data) => {
+      const message = JSON.parse(data.toString()) as AdapterWelcomeMessage | RequestEnvelope<{
+        query: string;
+        limit?: number;
+      }>;
+      if (message.kind !== "request") return;
+      assert.equal(message.capability, "searchJournals");
+      assert.deepEqual(message.input, { query: "Tser Falls", limit: 10 });
+      webSocket.send(JSON.stringify(createResponseEnvelope(
+        {
+          messageId: "message_search_response",
+          correlationId: message.correlationId,
+        },
+        {
+          sourceId: "foundry:cos",
+          query: message.input.query,
+          results: [{
+            journalId: "journal_locations",
+            journalUuid: "JournalEntry.journal_locations",
+            journalName: "Locations & NPCs",
+            pageCount: 30,
+            matchedPageId: "page_tser_falls",
+            matchedPageName: "Tser Falls",
+            matchedField: "pageName",
+          }],
+        },
+      )));
+    });
+
+    const discoveryResponse = await fetch(`${baseUrl}/v1`);
+    const discovery = await discoveryResponse.json() as { capabilities: string[] };
+    assert.ok(discovery.capabilities.includes("searchJournals"));
+
+    const response = await fetch(
+      `${baseUrl}/v1/journals/search?sourceId=${encodeURIComponent("foundry:cos")}`,
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query: "Tser Falls", limit: 10 }),
+      },
+    );
+    const body = await response.json() as {
+      sourceId: string;
+      results: Array<{ journalName: string; matchedPageName?: string }>;
+    };
+    assert.equal(response.status, 200);
+    assert.equal(body.sourceId, "foundry:cos");
+    assert.equal(body.results[0]?.journalName, "Locations & NPCs");
+    assert.equal(body.results[0]?.matchedPageName, "Tser Falls");
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
