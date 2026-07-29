@@ -11,7 +11,10 @@ import {
   type AdapterWelcomeMessage,
   type RequestEnvelope,
 } from "@lorebridge/shared";
-import type { GetWorldSummaryOutput } from "@lorebridge/shared/capabilities";
+import type {
+  GetWorldSummaryOutput,
+  SearchJournalsOutput,
+} from "@lorebridge/shared/capabilities";
 import { WebSocket } from "ws";
 import { createLoreBridgeServer } from "./app.js";
 import type { BackendConfig } from "./config.js";
@@ -45,7 +48,7 @@ async function pair(baseUrl: string): Promise<string> {
   return (await completeResponse.json() as { token: string }).token;
 }
 
-test("MCP endpoint requires pairing and exposes the live world summary tool", async () => {
+test("MCP endpoint requires pairing and exposes live read-only Foundry tools", async () => {
   const server = createLoreBridgeServer(config, identity);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as AddressInfo;
@@ -86,11 +89,18 @@ test("MCP endpoint requires pairing and exposes the live world summary tool", as
               sourceType: "foundry-world",
               name: "Curse of Strahd",
             }],
-            capabilities: [{
-              name: "getWorldSummary",
-              mode: "read",
-              version: "0.1",
-            }],
+            capabilities: [
+              {
+                name: "getWorldSummary",
+                mode: "read",
+                version: "0.1",
+              },
+              {
+                name: "searchJournals",
+                mode: "read",
+                version: "0.1",
+              },
+            ],
           },
         }));
       });
@@ -104,31 +114,49 @@ test("MCP endpoint requires pairing and exposes the live world summary tool", as
         | AdapterWelcomeMessage
         | RequestEnvelope;
       if (message.kind !== "request") return;
+      if (message.capability === "searchJournals") {
+        assert.deepEqual(message.input, { query: "Tser Falls", limit: 10 });
+      }
+      const output = message.capability === "searchJournals"
+        ? {
+            sourceId: "foundry:cos",
+            query: (message.input as { query: string }).query,
+            results: [{
+              journalId: "journal_locations",
+              journalUuid: "JournalEntry.journal_locations",
+              journalName: "Locations & NPCs",
+              pageCount: 30,
+              matchedPageId: "page_tser_falls",
+              matchedPageName: "Tser Falls",
+              matchedField: "pageName",
+            }],
+          }
+        : {
+            source: { sourceId: "foundry:cos", adapterType: "foundry" },
+            world: {
+              id: "cos",
+              title: "Curse of Strahd",
+              foundryVersion: "14.365",
+            },
+            system: {
+              id: "dnd5e",
+              title: "Dungeons & Dragons Fifth Edition",
+              version: "5.3.3",
+            },
+            counts: {
+              actors: 686,
+              scenes: 624,
+              journals: 851,
+              installedModules: 43,
+              activeModules: 20,
+            },
+          };
       webSocket!.send(JSON.stringify(createResponseEnvelope(
         {
           messageId: "message_mcp_response",
           correlationId: message.correlationId,
         },
-        {
-          source: { sourceId: "foundry:cos", adapterType: "foundry" },
-          world: {
-            id: "cos",
-            title: "Curse of Strahd",
-            foundryVersion: "14.365",
-          },
-          system: {
-            id: "dnd5e",
-            title: "Dungeons & Dragons Fifth Edition",
-            version: "5.3.3",
-          },
-          counts: {
-            actors: 686,
-            scenes: 624,
-            journals: 851,
-            installedModules: 43,
-            activeModules: 20,
-          },
-        },
+        output,
       )));
     });
 
@@ -142,8 +170,11 @@ test("MCP endpoint requires pairing and exposes the live world summary tool", as
     await client.connect(transport);
 
     const tools = await client.listTools();
-    assert.deepEqual(tools.tools.map((tool) => tool.name), ["get_world_summary"]);
-    assert.equal(tools.tools[0]?.annotations?.readOnlyHint, true);
+    assert.deepEqual(
+      tools.tools.map((tool) => tool.name),
+      ["get_world_summary", "search_journals"],
+    );
+    assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 
     const result = await client.callTool({
       name: "get_world_summary",
@@ -153,6 +184,20 @@ test("MCP endpoint requires pairing and exposes the live world summary tool", as
     assert.equal(result.isError, undefined);
     assert.equal(summary.world.title, "Curse of Strahd");
     assert.equal(summary.counts.journals, 851);
+
+    const searchResult = await client.callTool({
+      name: "search_journals",
+      arguments: {
+        query: "Tser Falls",
+        limit: 10,
+        sourceId: "foundry:cos",
+      },
+    });
+    const search = searchResult.structuredContent as unknown as SearchJournalsOutput;
+    assert.equal(searchResult.isError, undefined);
+    assert.equal(search.query, "Tser Falls");
+    assert.equal(search.results[0]?.journalName, "Locations & NPCs");
+    assert.equal(search.results[0]?.matchedPageName, "Tser Falls");
   } finally {
     await client?.close();
     webSocket?.close();
