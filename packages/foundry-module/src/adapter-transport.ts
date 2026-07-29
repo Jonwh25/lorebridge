@@ -20,6 +20,18 @@ export type AdapterConnectionState =
 type WebSocketFactory = (url: string) => WebSocket;
 type CapabilityDispatcher = (request: RequestEnvelope) => unknown | Promise<unknown>;
 
+export type AdapterConnectionOptions = {
+  timeoutMs?: number;
+  maxAttempts?: number;
+  retryDelayMs?: number;
+};
+
+const DEFAULT_CONNECTION_OPTIONS = {
+  timeoutMs: 15_000,
+  maxAttempts: 3,
+  retryDelayMs: 1_000,
+} as const;
+
 export function createAdapterWebSocketUrl(baseUrl: string): string {
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const url = new URL("v1/adapter", normalizedBase);
@@ -32,6 +44,7 @@ export function createAdapterWebSocketUrl(baseUrl: string): string {
 export class LoreBridgeAdapterTransport {
   #socket?: WebSocket;
   #state: AdapterConnectionState = { state: "disconnected" };
+  #connectionGeneration = 0;
 
   constructor(
     private readonly backendUrl: string,
@@ -45,24 +58,75 @@ export class LoreBridgeAdapterTransport {
     return this.#state;
   }
 
-  connect(timeoutMs = 5_000): Promise<AdapterConnectionState> {
+  async connect(options: AdapterConnectionOptions = {}): Promise<AdapterConnectionState> {
     if (!this.token) {
       this.#state = { state: "error", message: "LoreBridge is not paired with this backend." };
-      return Promise.resolve(this.#state);
+      return this.#state;
     }
 
+    const timeoutMs = options.timeoutMs ?? DEFAULT_CONNECTION_OPTIONS.timeoutMs;
+    const maxAttempts = options.maxAttempts ?? DEFAULT_CONNECTION_OPTIONS.maxAttempts;
+    const retryDelayMs = options.retryDelayMs ?? DEFAULT_CONNECTION_OPTIONS.retryDelayMs;
+    if (timeoutMs <= 0 || maxAttempts < 1 || retryDelayMs < 0) {
+      this.#state = { state: "error", message: "LoreBridge connection options are invalid." };
+      return this.#state;
+    }
+
+    const generation = ++this.#connectionGeneration;
+    this.#socket?.close(1000, "LoreBridge connection replaced.");
     this.#state = { state: "connecting" };
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const result = await this.#connectAttempt(generation, timeoutMs);
+      if (generation !== this.#connectionGeneration) return this.#state;
+      if (result.state === "connected") return result;
+      if (attempt === maxAttempts) {
+        this.#state = {
+          state: "error",
+          message: `${result.message} (${maxAttempts} attempts.)`,
+        };
+        return this.#state;
+      }
+
+      this.#state = { state: "connecting" };
+      await new Promise((resolve) => {
+        setTimeout(resolve, retryDelayMs * (2 ** (attempt - 1)));
+      });
+      if (generation !== this.#connectionGeneration) return this.#state;
+    }
+
+    return this.#state;
+  }
+
+  #connectAttempt(
+    generation: number,
+    timeoutMs: number,
+  ): Promise<Extract<AdapterConnectionState, { state: "connected" | "error" }>> {
     const socket = this.webSocketFactory(createAdapterWebSocketUrl(this.backendUrl));
     this.#socket = socket;
 
     return new Promise((resolve) => {
+      let settled = false;
+      const finish = (
+        state: Extract<AdapterConnectionState, { state: "connected" | "error" }>,
+        closeSocket = false,
+      ): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (generation === this.#connectionGeneration) this.#state = state;
+        if (closeSocket) socket.close();
+        resolve(state);
+      };
       const timeout = setTimeout(() => {
-        this.#state = { state: "error", message: "LoreBridge backend connection timed out." };
-        socket.close();
-        resolve(this.#state);
+        finish(
+          { state: "error", message: "LoreBridge backend connection timed out." },
+          true,
+        );
       }, timeoutMs);
 
       socket.addEventListener("open", () => {
+        if (generation !== this.#connectionGeneration) return;
         const hello: AdapterHelloMessage = {
           kind: "adapter.hello",
           protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
@@ -77,39 +141,37 @@ export class LoreBridgeAdapterTransport {
         try {
           message = JSON.parse(String(event.data)) as AdapterSessionControlMessage | ProtocolMessage;
         } catch {
-          clearTimeout(timeout);
-          this.#state = { state: "error", message: "LoreBridge backend returned an invalid message." };
-          socket.close();
-          resolve(this.#state);
+          finish(
+            { state: "error", message: "LoreBridge backend returned an invalid message." },
+            true,
+          );
           return;
         }
 
         if (message.kind === "request") {
           void this.#handleRequest(socket, message);
         } else if (message.kind === "adapter.welcome") {
-          clearTimeout(timeout);
-          this.#state = {
+          finish({
             state: "connected",
             sessionId: message.sessionId,
             backendId: message.backendId,
-          };
-          resolve(this.#state);
+          });
         } else if (message.kind === "adapter.error") {
-          clearTimeout(timeout);
-          this.#state = { state: "error", message: message.message };
-          socket.close();
-          resolve(this.#state);
+          finish({ state: "error", message: message.message }, true);
         }
       });
 
       socket.addEventListener("error", () => {
-        clearTimeout(timeout);
-        this.#state = { state: "error", message: "Could not connect to the LoreBridge backend." };
-        resolve(this.#state);
+        finish({ state: "error", message: "Could not connect to the LoreBridge backend." });
       });
 
       socket.addEventListener("close", () => {
-        if (this.#state.state === "connected") this.#state = { state: "disconnected" };
+        if (generation !== this.#connectionGeneration || socket !== this.#socket) return;
+        if (!settled) {
+          finish({ state: "error", message: "LoreBridge backend closed the connection." });
+        } else if (this.#state.state === "connected") {
+          this.#state = { state: "disconnected" };
+        }
       });
     });
   }
@@ -151,6 +213,7 @@ export class LoreBridgeAdapterTransport {
   }
 
   disconnect(): void {
+    this.#connectionGeneration += 1;
     this.#socket?.close(1000, "LoreBridge module disconnected.");
     this.#state = { state: "disconnected" };
   }
