@@ -4,14 +4,27 @@ import { toNodeHandler } from "@modelcontextprotocol/node";
 import { z } from "zod";
 import {
   GET_WORLD_SUMMARY_CAPABILITY,
+  SEARCH_JOURNALS_CAPABILITY,
   validateGetWorldSummaryOutput,
+  validateSearchJournalsOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 
-const toolName = "get_world_summary";
+const worldSummaryToolName = "get_world_summary";
+const journalSearchToolName = "search_journals";
+
+function toolError(error: unknown, fallback: string) {
+  return {
+    isError: true as const,
+    content: [{
+      type: "text" as const,
+      text: error instanceof Error ? error.message : fallback,
+    }],
+  };
+}
 
 function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
   const server = new McpServer({
@@ -20,7 +33,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
   });
 
   server.registerTool(
-    toolName,
+    worldSummaryToolName,
     {
       title: "Get Foundry world summary",
       description: "Return metadata and document counts for a connected Foundry VTT world.",
@@ -60,13 +73,69 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
           structuredContent: validation.value,
         };
       } catch (error) {
-        const message = error instanceof Error
-          ? error.message
-          : "LoreBridge could not retrieve the Foundry world summary.";
-        return {
-          isError: true,
-          content: [{ type: "text", text: message }],
+        return toolError(
+          error,
+          "LoreBridge could not retrieve the Foundry world summary.",
+        );
+      }
+    },
+  );
+
+  server.registerTool(
+    journalSearchToolName,
+    {
+      title: "Search Foundry journals",
+      description: "Search connected Foundry VTT journal names, page names, and page text. Returns lightweight matches; use focused page retrieval to read a result.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe(
+          "Text to find in journal names, page names, or page content.",
+        ),
+        limit: z.number().int().min(1).max(50).optional().describe(
+          "Maximum number of matches to return. Defaults to the adapter limit.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, sourceId }) => {
+      try {
+        const input = {
+          query,
+          ...(limit === undefined ? {} : { limit }),
         };
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_JOURNALS_CAPABILITY,
+          input,
+        );
+        const validation = validateSearchJournalsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid journal search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(validation.value),
+          }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(
+          error,
+          "LoreBridge could not search Foundry journals.",
+        );
       }
     },
   );
