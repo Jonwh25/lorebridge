@@ -1,164 +1,178 @@
 # LoreBridge Roadmap
 
-The roadmap favors small, testable milestones. Each milestone must work end to end before the next layer is added.
+LoreBridge is developed in small, testable vertical slices. Each slice must
+work through the complete path—shared contract, Foundry adapter, authenticated
+backend, MCP tool, automated tests, and live Foundry verification—before it is
+considered complete.
 
-## Phase 0 — Foundation
+GitHub Issues are the source of truth for planned work. This file records the
+stable direction and milestone order rather than duplicating every task.
 
-- [x] Create repository
-- [x] Define vision and guiding principles
-- [x] Document the platform architecture
-- [x] Create the TypeScript workspace
-- [x] Add continuous validation
-- [ ] Add formatting, linting, and tests
-- [ ] Define contribution and security practices
+## Current state
 
-## Phase 1 — Foundry adapter foundation
+The first complete read-only integration is working:
 
-Goal: a Foundry VTT v14 module that installs, loads, and reports its status safely.
+```text
+Codex
+  → authenticated HTTPS/MCP
+  → LoreBridge backend
+  → authenticated WebSocket adapter session
+  → LoreBridge Foundry v14 module
+  → loaded GM world
+```
 
-- [x] Create and validate `module.json`
-- [x] Add `init` and `ready` lifecycle hooks
-- [x] Restrict operation to a GM
-- [ ] Install the module in the v14 test environment
-- [ ] Confirm it loads with no console errors
-- [ ] Add module settings
-- [ ] Add a compact connection-status interface
-- [ ] Add structured logging with secret redaction
-- [ ] Package the module for manual installation
+Completed foundations include:
 
-Success test: the module loads in the v14 test world with no console errors and displays world metadata locally.
+- Foundry v14 module packaging and automatic releases
+- GM-only capability exposure and world settings
+- Backend identity, pairing, and client authentication
+- Caddy HTTPS reverse-proxy deployment
+- Persistent authenticated Foundry adapter sessions
+- Automatic adapter startup retry and reconnection
+- Shared protocol envelopes and runtime validation
+- MCP discovery and authenticated tool invocation
+- `get_world_summary`
+- `search_journals`
+- `get_journal_page`
+- End-to-end retrieval from Codex against the live Curse of Strahd world
+- Installation, operation, upgrade, and troubleshooting documentation
 
-## Phase 2 — Internal protocol and public capability contract
+All current capabilities are read-only.
 
-Goal: define stable, platform-neutral communication and capabilities before connecting external services.
+## Delivery order
 
-- [x] Establish initial capability naming and design rules
-- [x] Draft `docs/LOREBRIDGE_PROTOCOL.md`
-- [x] Define connection lifecycle and adapter registration
-- [x] Define protocol version negotiation
-- [x] Define capability negotiation
-- [x] Define request, response, event, cancellation, and error envelopes
-- [x] Define source and document identifier rules
-- [x] Define pagination and response-size conventions
-- [x] Define read-only policy and future write approval flow
-- [ ] Implement shared TypeScript protocol types
-- [ ] Implement runtime validation schemas
-- [ ] Define schemas for `getWorldSummary`
-- [ ] Define schemas for journal operations
-- [ ] Define schemas for actor operations
-- [ ] Define schemas for scene operations
-- [ ] Define schemas for compendium operations
-- [ ] Add protocol and capability fixtures
-- [ ] Add schema validation tests
+### Milestone 1 — Campaign Retrieval
 
-Implementation gate: production service routing and additional platform handlers must wait until the shared protocol envelopes and handshake fixtures validate in both the service and adapter packages.
+Complete the focused read-only Foundry document surface needed for everyday
+campaign questions.
 
-Success test: fixtures validate consistently in the service, shared-contract, and Foundry packages.
+1. [Actor search and focused actor retrieval](https://github.com/Jonwh25/lorebridge/issues/44)
+2. [Complete UUIDs and source citations](https://github.com/Jonwh25/lorebridge/issues/45)
+3. [Scene search and focused scene retrieval](https://github.com/Jonwh25/lorebridge/issues/46)
+4. [Active-scene context](https://github.com/Jonwh25/lorebridge/issues/47)
 
-## Phase 3 — LoreBridge service
+Success test: Codex can answer a location or NPC question from live Foundry
+actors, journals, and scenes while identifying every supporting source.
 
-Goal: connect adapters to a central service without exposing platform internals publicly.
+### Milestone 2 — Connected Knowledge
 
-- [ ] Create the service package
-- [ ] Add authenticated persistent adapter connections
-- [ ] Add source registration and capability negotiation
-- [ ] Route correlated requests and responses
-- [ ] Add cancellation and timeout handling
-- [ ] Add rate limits and audit logs
-- [ ] Add normalized structured errors
-- [ ] Keep the service private or locally tunneled during development
+Connect campaign documents without introducing embeddings or an external
+search database.
 
-Success test: a local command requests real world metadata through the service and receives a validated response from Foundry.
+1. [Resolve Foundry UUID links](https://github.com/Jonwh25/lorebridge/issues/48)
+2. [Unified campaign search](https://github.com/Jonwh25/lorebridge/issues/49)
+3. [Related-document traversal](https://github.com/Jonwh25/lorebridge/issues/50)
+4. [Player-safe and GM-only context modes](https://github.com/Jonwh25/lorebridge/issues/51)
 
-## Phase 4 — Read-only campaign capabilities
+Success test: a query about a location returns ranked, connected journal,
+actor, and scene context while respecting the requested visibility mode.
 
-Goal: retrieve useful campaign data safely through the public contract.
+### Milestone 3 — Foundry AI Generation
 
-- [ ] `getWorldSummary`
-- [ ] `listJournals`
-- [ ] `searchJournals`
-- [ ] `getJournal`
-- [ ] `listActors`
-- [ ] `getActor`
-- [ ] `listScenes`
-- [ ] `getScene`
-- [ ] `listCompendiums`
-- [ ] `searchCompendium`
-- [ ] `getCompendiumEntry`
+Add optional AI generation inside Foundry without coupling MCP retrieval to one
+provider or placing provider credentials in the browser.
 
-Success test: an external client can answer a campaign question using retrieved Foundry data and identify every supporting source.
+1. [Optional backend AI-provider configuration](https://github.com/Jonwh25/lorebridge/issues/52)
+2. [Preview-only boxed-text generation](https://github.com/Jonwh25/lorebridge/issues/53)
 
-## Phase 5 — ChatGPT and client connections
+Success test: a GM selects a scene or journal page, requests a room
+description, and receives a source-aware preview without changing the world.
 
-Goal: interact with connected campaign sources from ChatGPT or another remote client.
+### Milestone 4 — Campaign Intelligence
 
-- [ ] Expose approved capabilities through an MCP client adapter
-- [ ] Configure authenticated HTTPS transport
-- [ ] Connect through the available ChatGPT developer/app workflow
-- [ ] Verify tool discovery and invocation
-- [ ] Test offline and timeout behavior
-- [ ] Document installation and connection steps
-- [ ] Keep the core service independent of any single AI provider
+Expand retrieval into the campaign's equipment, history, and reference
+material.
 
-Success test: ask ChatGPT what world is connected and search its journals without entering the question inside Foundry.
+1. [Item and actor-inventory retrieval](https://github.com/Jonwh25/lorebridge/issues/54)
+2. [Session-log and campaign timeline retrieval](https://github.com/Jonwh25/lorebridge/issues/55)
+3. [Compendium search and focused entry retrieval](https://github.com/Jonwh25/lorebridge/issues/56)
 
-## Phase 6 — Campaign intelligence
+Success test: Codex can answer questions about party equipment, past events,
+and approved compendium material with supporting sources.
 
-Goal: add higher-level tools built on reliable retrieval.
+### Milestone 5 — Controlled Writes
 
-Potential capabilities:
+Introduce narrowly scoped Foundry mutations only after the read-only model is
+stable.
 
-- [ ] `summarizeCurrentScene`
-- [ ] `findNpcRelationships`
-- [ ] `findLocationMentions`
-- [ ] `findUnresolvedPlotThreads`
-- [ ] `buildSessionBrief`
-- [ ] `summarizePartyHistory`
-
-These capabilities must return supporting source references and distinguish sourced facts from inference.
-
-## Phase 7 — Controlled writes
-
-Goal: permit useful changes without surrendering GM control.
-
-Potential capabilities:
-
-- [ ] create a journal entry
-- [ ] update a selected journal page
-- [ ] append a private GM note
-- [ ] create a proposed session recap
-- [ ] create or update a selected actor
+1. [Previewed, GM-approved write operations](https://github.com/Jonwh25/lorebridge/issues/57)
 
 Required safeguards:
 
-- dry-run preview before commit
-- explicit, short-lived, single-use confirmation token
+- writes disabled by default
+- per-capability enablement
+- dry-run preview
+- explicit, short-lived, single-use GM approval
 - narrow document targeting
-- revision or conflict check
+- revision and conflict checks
 - before-and-after summary
 - audit record
-- bounded rollback strategy where supported
+- no arbitrary JavaScript execution
 
-## Phase 8 — Additional adapters
+Success test: no write occurs until the GM approves the exact proposed change,
+and stale or reused approval tokens are rejected.
 
-Goal: connect more campaign platforms without changing the public capability model.
+## Deferred work
 
-Potential adapters:
+The following remain intentionally outside the current milestones:
 
-- [ ] LegendKeeper
-- [ ] Obsidian
-- [ ] additional VTTs
-- [ ] transcript and session-summary sources
-- [ ] D&D Beyond where technically and legally appropriate
+- embeddings and vector databases
+- autonomous background campaign indexing
+- unrestricted workflow or macro execution
+- automatic document mutations
+- additional VTT adapters
+- LegendKeeper, Obsidian, Notion, and Discord adapters
+- multi-world federation
+- semantic campaign memory not grounded in attributable sources
 
-Each adapter may implement a negotiated subset of LoreBridge capabilities.
+These may become useful later, but they are not prerequisites for a dependable
+Foundry campaign assistant.
 
-## Later possibilities
+## Planning workflow
 
-- semantic campaign search
-- multi-source and multi-world campaigns
-- provider-specific client packages
-- optional in-Foundry assistant panel
-- packaged installers and automatic updates
+LoreBridge uses a lightweight workflow:
 
-Items in this section are not commitments for the first release.
+1. Capture each concrete feature, bug, or engineering improvement as a GitHub
+   Issue.
+2. Assign one priority label, the relevant area labels, and a milestone.
+3. Move only well-defined work into **Ready**.
+4. Create a feature branch linked to the issue.
+5. Open a draft pull request and keep it in **In Progress**.
+6. Run automated validation and a proportionate live Foundry test.
+7. Move the work to **Testing**, then merge only after it passes.
+8. Close the linked issue and move it to **Done**.
+9. Group several verified incremental changes into a release instead of
+   versioning every merge.
+
+Recommended project-board columns:
+
+```text
+Backlog → Ready → In Progress → Testing → Done
+```
+
+Recommended metadata:
+
+- Priority: critical, high, medium, later
+- Area: Foundry, backend, MCP, protocol, security, documentation
+- Milestone: one of the five delivery milestones above
+
+## Tooling strategy
+
+GitHub remains the canonical home for:
+
+- source code
+- issues and backlog
+- roadmap
+- pull requests and reviews
+- releases
+
+Azure DevOps may be added as complementary engineering infrastructure when it
+becomes available:
+
+- self-hosted validation pipelines
+- Test Plans for repeatable live Foundry acceptance tests
+- Artifacts for retained build and test outputs
+
+Azure DevOps should not become a second manually maintained backlog. GitHub
+Issues remain the planning source of truth unless an explicit migration is
+chosen later.
