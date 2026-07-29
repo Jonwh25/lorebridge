@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { createLoreBridgeServer } from "./app.js";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
+import type { BackendServices } from "./journal-service.js";
 
 const config: BackendConfig = {
   host: "127.0.0.1",
@@ -20,8 +21,8 @@ const identity: BackendIdentity = {
   fingerprint: "test:fingerprint",
 };
 
-async function withServer(run: (baseUrl: string) => Promise<void>): Promise<void> {
-  const server = createLoreBridgeServer(config, identity);
+async function withServer(run: (baseUrl: string) => Promise<void>, services: BackendServices = {}): Promise<void> {
+  const server = createLoreBridgeServer(config, identity, services);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as AddressInfo;
   try {
@@ -29,6 +30,17 @@ async function withServer(run: (baseUrl: string) => Promise<void>): Promise<void
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+}
+
+async function pair(baseUrl: string): Promise<string> {
+  const startResponse = await fetch(`${baseUrl}/v1/pairing/start`, { method: "POST" });
+  const startBody = await startResponse.json() as { code: string };
+  const completeResponse = await fetch(`${baseUrl}/v1/pairing/complete`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: startBody.code, clientName: "Foundry Test" }),
+  });
+  return (await completeResponse.json() as { token: string }).token;
 }
 
 test("GET /health reports service health without caching", async () => {
@@ -90,5 +102,72 @@ test("unknown routes return a structured 404", async () => {
     const body = await response.json() as { error: { code: string } };
     assert.equal(response.status, 404);
     assert.equal(body.error.code, "route_not_found");
+  });
+});
+
+test("authenticated journal routes validate and delegate to the journal service", async () => {
+  const services: BackendServices = {
+    journals: {
+      async search(input) {
+        return {
+          sourceId: "foundry:cos",
+          query: input.query,
+          results: [{ journalId: "j1", journalUuid: "JournalEntry.j1", journalName: "Tser Falls", pageCount: 1, matchedField: "journalName" }],
+        };
+      },
+      async get(journalId) {
+        if (journalId !== "j1") return undefined;
+        return {
+          sourceId: "foundry:cos",
+          id: "j1",
+          uuid: "JournalEntry.j1",
+          name: "Tser Falls",
+          pages: [{ id: "p1", uuid: "JournalEntry.j1.JournalEntryPage.p1", name: "Overview", type: "text", sort: 0, text: { format: 1, html: "<p>Mist.</p>", plainText: "Mist." } }],
+        };
+      },
+    },
+  };
+
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const searchResponse = await fetch(`${baseUrl}/v1/journals/search`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ query: "Tser Falls", limit: 5 }),
+    });
+    const searchBody = await searchResponse.json() as { results: Array<{ journalId: string }> };
+    assert.equal(searchResponse.status, 200);
+    assert.equal(searchBody.results[0]?.journalId, "j1");
+
+    const getResponse = await fetch(`${baseUrl}/v1/journals/j1`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const getBody = await getResponse.json() as { name: string };
+    assert.equal(getResponse.status, 200);
+    assert.equal(getBody.name, "Tser Falls");
+
+    const missingResponse = await fetch(`${baseUrl}/v1/journals/missing`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(missingResponse.status, 404);
+  }, services);
+});
+
+test("journal routes require authentication and a connected journal service", async () => {
+  await withServer(async (baseUrl) => {
+    const unauthorized = await fetch(`${baseUrl}/v1/journals/search`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "Tser Falls" }),
+    });
+    assert.equal(unauthorized.status, 401);
+
+    const token = await pair(baseUrl);
+    const unavailable = await fetch(`${baseUrl}/v1/journals/search`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ query: "Tser Falls" }),
+    });
+    assert.equal(unavailable.status, 503);
   });
 });
