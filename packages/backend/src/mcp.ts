@@ -5,14 +5,18 @@ import { z } from "zod";
 import {
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
+  GET_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
+  SEARCH_SCENES_CAPABILITY,
   validateGetActorOutput,
   validateGetJournalPageOutput,
+  validateGetSceneOutput,
   validateGetWorldSummaryOutput,
   validateSearchJournalsOutput,
   validateSearchActorsOutput,
+  validateSearchScenesOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -24,6 +28,8 @@ const journalSearchToolName = "search_journals";
 const journalPageToolName = "get_journal_page";
 const actorSearchToolName = "search_actors";
 const actorToolName = "get_actor";
+const sceneSearchToolName = "search_scenes";
+const sceneToolName = "get_scene";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -298,6 +304,97 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the Foundry actor.");
+      }
+    },
+  );
+
+  server.registerTool(
+    sceneSearchToolName,
+    {
+      title: "Search Foundry scenes",
+      description: "Search connected Foundry VTT world scenes by name. Returns lightweight matches including active and navigation state.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Text to find in scene names."),
+        limit: z.number().int().min(1).max(50).optional(),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_SCENES_CAPABILITY,
+          { query, ...(limit === undefined ? {} : { limit }) },
+        );
+        const validation = validateSearchScenesOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid scene search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry scenes.");
+      }
+    },
+  );
+
+  server.registerTool(
+    sceneToolName,
+    {
+      title: "Get a Foundry scene",
+      description: "Retrieve focused metadata for one world scene, including dimensions, navigation state, linked journal, and bounded token and map-note summaries. Use sceneId from search_scenes.",
+      inputSchema: z.object({
+        sceneId: z.string().trim().min(1).describe(
+          "The Foundry Scene ID or UUID returned by search_scenes.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ sceneId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_SCENE_CAPABILITY,
+          { sceneId },
+        );
+        const validation = validateGetSceneOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid scene.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the Foundry scene.");
       }
     },
   );
