@@ -9,6 +9,7 @@ import {
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   RESOLVE_UUID_CAPABILITY,
+  SEARCH_CAMPAIGN_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_SCENES_CAPABILITY,
@@ -18,6 +19,7 @@ import {
   validateGetActiveSceneOutput,
   validateGetWorldSummaryOutput,
   validateResolveUuidOutput,
+  validateSearchCampaignOutput,
   validateSearchJournalsOutput,
   validateSearchActorsOutput,
   validateSearchScenesOutput,
@@ -27,6 +29,7 @@ import {
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 
+const searchCampaignToolName = "search_campaign";
 const resolveUuidToolName = "resolve_uuid";
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
@@ -98,6 +101,62 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
           error,
           "LoreBridge could not retrieve the Foundry world summary.",
         );
+      }
+    },
+  );
+
+  server.registerTool(
+    searchCampaignToolName,
+    {
+      title: "Search the Foundry campaign",
+      description: "Search journals, actors, and scenes in a connected Foundry VTT world through a single ranked request. Returns typed, source-attributed results. Use the focused per-document tools to retrieve full content after finding a match.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe(
+          "Text to find across journal names, page names, page content, actor names, actor descriptions, and scene names.",
+        ),
+        limit: z.number().int().min(1).max(50).optional().describe(
+          "Maximum total results to return across all document types. Defaults to 20.",
+        ),
+        types: z.array(z.enum(["journal", "actor", "scene"])).min(1).max(3).optional().describe(
+          "Document types to include. Defaults to all: journal, actor, scene.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, types, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_CAMPAIGN_CAPABILITY,
+          {
+            query,
+            ...(limit === undefined ? {} : { limit }),
+            ...(types === undefined ? {} : { types }),
+          },
+        );
+        const validation = validateSearchCampaignOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid campaign search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search the Foundry campaign.");
       }
     },
   );
