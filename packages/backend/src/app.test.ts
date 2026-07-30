@@ -530,6 +530,7 @@ test("POST /v1/journals/search routes through the live Foundry adapter", async (
         },
         {
           sourceId: "foundry:cos",
+          sourceName: "Curse of Strahd",
           query: message.input.query,
           results: [{
             journalId: "journal_locations",
@@ -537,6 +538,7 @@ test("POST /v1/journals/search routes through the live Foundry adapter", async (
             journalName: "Locations & NPCs",
             pageCount: 30,
             matchedPageId: "page_tser_falls",
+            matchedPageUuid: "JournalEntry.journal_locations.JournalEntryPage.page_tser_falls",
             matchedPageName: "Tser Falls",
             matchedField: "pageName",
           }],
@@ -625,6 +627,7 @@ test("GET /v1/journals/:journalId/pages/:pageId routes through the live Foundry 
         },
         {
           sourceId: "foundry:cos",
+          sourceName: "Curse of Strahd",
           journal: {
             id: "journal_locations",
             uuid: "JournalEntry.journal_locations",
