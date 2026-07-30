@@ -147,6 +147,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
       const output = message.capability === "searchJournals"
         ? {
             sourceId: "foundry:cos",
+            sourceName: "Curse of Strahd",
             query: (message.input as { query: string }).query,
             results: [{
               journalId: "journal_locations",
@@ -154,6 +155,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
               journalName: "Locations & NPCs",
               pageCount: 30,
               matchedPageId: "page_tser_falls",
+              matchedPageUuid: "JournalEntry.journal_locations.JournalEntryPage.page_tser_falls",
               matchedPageName: "Tser Falls",
               matchedField: "pageName",
             }],
@@ -161,6 +163,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
         : message.capability === "getJournalPage"
           ? {
               sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
               journal: {
                 id: "journal_locations",
                 uuid: "JournalEntry.journal_locations",
@@ -182,6 +185,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
         : message.capability === "searchActors"
           ? {
               sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
               query: "Strahd",
               results: [{
                 actorId: "actor_strahd",
@@ -194,6 +198,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
         : message.capability === "getActor"
           ? {
               sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
               systemId: "dnd5e",
               id: "actor_strahd",
               uuid: "Actor.actor_strahd",

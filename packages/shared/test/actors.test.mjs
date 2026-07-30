@@ -17,6 +17,7 @@ test("validates bounded actor search input", () => {
 test("validates actor search and focused retrieval output", () => {
   assert.equal(validateSearchActorsOutput({
     sourceId: "foundry:cos",
+    sourceName: "Curse of Strahd",
     query: "Strahd",
     results: [{
       actorId: "a1",
@@ -26,10 +27,16 @@ test("validates actor search and focused retrieval output", () => {
       matchedField: "actorName",
     }],
   }).valid, true);
+  assert.equal(validateSearchActorsOutput({
+    sourceId: "foundry:cos",
+    query: "Strahd",
+    results: [],
+  }).valid, false, "missing sourceName should be invalid");
 
   assert.equal(validateGetActorInput({ actorId: "Actor.a1" }).valid, true);
   assert.equal(validateGetActorOutput({
     sourceId: "foundry:cos",
+    sourceName: "Curse of Strahd",
     systemId: "dnd5e",
     id: "a1",
     uuid: "Actor.a1",
@@ -37,4 +44,12 @@ test("validates actor search and focused retrieval output", () => {
     type: "npc",
     description: { plainText: "The vampire lord of Barovia." },
   }).valid, true);
+  assert.equal(validateGetActorOutput({
+    sourceId: "foundry:cos",
+    systemId: "dnd5e",
+    id: "a1",
+    uuid: "Actor.a1",
+    name: "Strahd von Zarovich",
+    type: "npc",
+  }).valid, false, "missing sourceName should be invalid");
 });

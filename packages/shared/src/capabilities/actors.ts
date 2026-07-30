@@ -22,6 +22,7 @@ export interface ActorSearchMatch {
 
 export interface SearchActorsOutput {
   sourceId: string;
+  sourceName: string;
   query: string;
   results: ActorSearchMatch[];
 }
@@ -32,6 +33,7 @@ export interface GetActorInput {
 
 export interface ActorDocument {
   sourceId: string;
+  sourceName: string;
   systemId: string;
   id: string;
   uuid: string;
@@ -94,6 +96,7 @@ export function validateSearchActorsOutput(
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
   if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isNonEmptyString(value.sourceName)) errors.push("sourceName is required");
   if (!isNonEmptyString(value.query)) errors.push("query is required");
   if (!Array.isArray(value.results)) errors.push("results must be an array");
   else {
@@ -131,7 +134,7 @@ export function validateGetActorInput(value: unknown): ValidationResult<GetActor
 export function validateGetActorOutput(value: unknown): ValidationResult<GetActorOutput> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
-  for (const key of ["sourceId", "systemId", "id", "uuid", "name", "type"] as const) {
+  for (const key of ["sourceId", "sourceName", "systemId", "id", "uuid", "name", "type"] as const) {
     if (!isNonEmptyString(value[key])) errors.push(`${key} is required`);
   }
   if (value.img !== undefined && typeof value.img !== "string") errors.push("img must be a string");

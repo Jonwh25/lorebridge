@@ -23,6 +23,11 @@ function sourceId(): string {
   return `foundry:${game.world.id}`;
 }
 
+function sourceName(): string {
+  if (!game.world) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry world is not fully initialized.", { retryable: true });
+  return game.world.title;
+}
+
 function plainText(html: string): string {
   if (typeof DOMParser !== "undefined") {
     return new DOMParser().parseFromString(html, "text/html").body.textContent?.replace(/\s+/g, " ").trim() ?? "";
@@ -83,14 +88,14 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
       if (pageName.includes(needle) && (!best || best.score > 2)) {
         best = {
           score: pageName === needle ? 2 : 3,
-          value: { journalId: journal.id, journalUuid: journal.uuid, journalName: journal.name, pageCount: pages.length, matchedPageId: page.id, matchedPageName: page.name, matchedField: "pageName" },
+          value: { journalId: journal.id, journalUuid: journal.uuid, journalName: journal.name, pageCount: pages.length, matchedPageId: page.id, matchedPageUuid: page.uuid, matchedPageName: page.name, matchedField: "pageName" },
         };
       }
       const text = page.text?.content ? plainText(page.text.content) : "";
       if (text.toLocaleLowerCase().includes(needle) && (!best || best.score > 4)) {
         best = {
           score: 4,
-          value: { journalId: journal.id, journalUuid: journal.uuid, journalName: journal.name, pageCount: pages.length, matchedPageId: page.id, matchedPageName: page.name, matchedField: "pageText", excerpt: excerptAround(text, query) },
+          value: { journalId: journal.id, journalUuid: journal.uuid, journalName: journal.name, pageCount: pages.length, matchedPageId: page.id, matchedPageUuid: page.uuid, matchedPageName: page.name, matchedField: "pageText", excerpt: excerptAround(text, query) },
         };
       }
     }
@@ -99,6 +104,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
 
   const output: SearchJournalsOutput = {
     sourceId: sourceId(),
+    sourceName: sourceName(),
     query,
     results: matches
       .sort((left, right) => left.score - right.score || left.value.journalName.localeCompare(right.value.journalName))
@@ -124,6 +130,7 @@ export function getJournal(input: { journalId: string }): GetJournalOutput {
 
   const output: GetJournalOutput = {
     sourceId: sourceId(),
+    sourceName: sourceName(),
     id: journal.id,
     uuid: journal.uuid,
     name: journal.name,
@@ -156,6 +163,7 @@ export function getJournalPage(input: GetJournalPageInput): GetJournalPageOutput
 
   const output: GetJournalPageOutput = {
     sourceId: sourceId(),
+    sourceName: sourceName(),
     journal: { id: journal.id, uuid: journal.uuid, name: journal.name },
     page: serializePage(page),
   };
