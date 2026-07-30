@@ -2,6 +2,11 @@
 
 LoreBridge is at an early stage. Changes should remain small, understandable, and directly tied to the documented roadmap.
 
+The canonical planning, implementation, validation, acceptance, and release
+process is documented in
+[`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md). Coding assistants
+must also read [`AGENTS.md`](AGENTS.md).
+
 ## Development principles
 
 - Protect campaign data before adding convenience.
@@ -14,11 +19,14 @@ LoreBridge is at an early stage. Changes should remain small, understandable, an
 ## Workflow
 
 1. Create or select a GitHub issue describing the change.
-2. Create a short-lived branch from `main`.
-3. Make the smallest change that satisfies the issue.
-4. Add or update tests and documentation.
-5. Run formatting, linting, type checking, and tests.
-6. Open a pull request explaining the behavior and security impact.
+2. Move its project workflow to In Progress.
+3. Create a short-lived branch from `main`.
+4. Implement the smallest complete vertical slice that satisfies the issue.
+5. Add or update tests and documentation.
+6. Run `npm run validate`.
+7. Open a pull request explaining behavior, exclusions, security impact, and
+   manual acceptance.
+8. After merge, complete the live acceptance test before closing the issue.
 
 Direct commits to `main` may be used during initial repository scaffolding. Once the workspace and CI are established, normal development should use pull requests.
 
