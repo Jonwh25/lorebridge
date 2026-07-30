@@ -52,6 +52,45 @@ type FoundryActorCollection = Iterable<FoundryActor> & {
   get(id: string): FoundryActor | undefined;
 };
 
+type FoundryTokenDocument = {
+  id: string;
+  name: string;
+  actorId?: string | null;
+  actor?: { uuid: string } | null;
+};
+
+type FoundryNoteDocument = {
+  id: string;
+  label?: string;
+  entryId?: string | null;
+  pageId?: string | null;
+  entry?: { id: string; uuid: string; name: string } | null;
+  page?: { id: string; uuid: string; name: string } | null;
+};
+
+type FoundryScene = {
+  id: string;
+  uuid: string;
+  name: string;
+  active: boolean;
+  navigation: boolean;
+  navName?: string;
+  thumb?: string;
+  background?: { src?: string };
+  width?: number;
+  height?: number;
+  folder?: { id: string; name: string } | null;
+  journal?: { id: string; uuid: string; name: string } | null;
+  journalEntryPage?: { id: string; uuid: string; name: string } | null;
+  tokens: Iterable<FoundryTokenDocument> & { size: number };
+  notes: Iterable<FoundryNoteDocument> & { size: number };
+};
+
+type FoundrySceneCollection = Iterable<FoundryScene> & {
+  size: number;
+  get(id: string): FoundryScene | undefined;
+};
+
 declare const game: {
   version: string;
   user: {
@@ -68,7 +107,7 @@ declare const game: {
     version: string;
   };
   actors: FoundryActorCollection;
-  scenes: { size: number };
+  scenes: FoundrySceneCollection;
   journal: FoundryJournalCollection;
   modules: Map<string, { active: boolean; version?: string }>;
   settings: {

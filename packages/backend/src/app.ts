@@ -2,10 +2,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import {
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
+  GET_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
+  SEARCH_SCENES_CAPABILITY,
   validateGetActorOutput,
+  validateGetSceneOutput,
   validateGetWorldSummaryOutput,
   validateGetJournalOutput,
   validateGetJournalPageOutput,
@@ -13,6 +16,8 @@ import {
   validateSearchJournalsOutput,
   validateSearchActorsInput,
   validateSearchActorsOutput,
+  validateSearchScenesInput,
+  validateSearchScenesOutput,
 } from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
@@ -95,6 +100,8 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (adapterSessions.hasCapability(GET_JOURNAL_PAGE_CAPABILITY)) capabilities.push("getJournalPage");
       if (adapterSessions.hasCapability(SEARCH_ACTORS_CAPABILITY)) capabilities.push("searchActors");
       if (adapterSessions.hasCapability(GET_ACTOR_CAPABILITY)) capabilities.push("getActor");
+      if (adapterSessions.hasCapability(SEARCH_SCENES_CAPABILITY)) capabilities.push("searchScenes");
+      if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
     }
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
@@ -260,6 +267,48 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
           false,
           { validationErrors: outputValidation.errors },
         );
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/scenes/search") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const validation = validateSearchScenesInput(body);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Scene search input is invalid.", details: validation.errors } });
+      return;
+    }
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(sourceId, SEARCH_SCENES_CAPABILITY, validation.value);
+      const outputValidation = validateSearchScenesOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid scene search results.", false, { validationErrors: outputValidation.errors });
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+    }
+    return;
+  }
+
+  const sceneMatch = method === "GET" ? url.pathname.match(/^\/v1\/scenes\/([^/]+)$/) : null;
+  if (sceneMatch) {
+    if (!authenticate(pairing, request, response)) return;
+    const sceneId = decodeURIComponent(sceneMatch[1] ?? "");
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(sourceId, GET_SCENE_CAPABILITY, { sceneId });
+      const outputValidation = validateGetSceneOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid scene.", false, { validationErrors: outputValidation.errors });
       }
       sendJson(response, 200, outputValidation.value);
     } catch (error) {
