@@ -59,8 +59,8 @@ actors, journals, and scenes while identifying every supporting source.
 Connect campaign documents without introducing embeddings or an external
 search database.
 
-1. [Resolve Foundry UUID links](https://github.com/Jonwh25/lorebridge/issues/48)
-2. [Unified campaign search](https://github.com/Jonwh25/lorebridge/issues/49)
+1. ✅ [Resolve Foundry UUID links](https://github.com/Jonwh25/lorebridge/issues/48)
+2. ✅ [Unified campaign search](https://github.com/Jonwh25/lorebridge/issues/49)
 3. [Related-document traversal](https://github.com/Jonwh25/lorebridge/issues/50)
 4. [Player-safe and GM-only context modes](https://github.com/Jonwh25/lorebridge/issues/51)
 

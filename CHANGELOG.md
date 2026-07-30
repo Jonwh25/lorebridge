@@ -4,6 +4,8 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-30
+
 ### Added
 
 - An authenticated WebSocket session between a paired Foundry GM client and the LoreBridge backend.
@@ -16,6 +18,15 @@ All notable changes to LoreBridge are documented here.
 - A focused, read-only MCP `get_journal_page` tool for retrieving journal content selected from search results.
 - Shared, Foundry, backend HTTP, and MCP support for bounded actor search and focused actor retrieval.
 - Actor results include stable Foundry IDs and UUIDs while excluding raw system data and embedded documents.
+- Shared, Foundry, backend HTTP, and MCP support for bounded scene search and focused scene retrieval.
+- Scene results include the active and navigation flags alongside stable Foundry IDs and UUIDs.
+- Active-scene context via `get_active_scene`, which returns the currently viewed scene for GM location questions.
+- Every capability result now includes a `sourceId` and `sourceName` so Codex can cite the Foundry world behind each answer.
+- Matched journal pages now include a `matchedPageUuid` field for direct UUID-based retrieval.
+- Shared, Foundry, backend HTTP, and MCP support for `resolve_uuid`, resolving a Foundry UUID to a fully normalized actor, journal, journal page, or scene document.
+- Shared, Foundry, backend HTTP, and MCP support for `search_campaign`, a unified cross-type search that ranks actors, journals, and scenes together when the document type is unknown.
+- `search_campaign` accepts an optional `types` filter and a `limit`, merges sub-search results, and ranks by match quality then document-type priority.
+- Developer workflow documentation: `CLAUDE.md`, `AGENTS.md`, and `docs/DEVELOPMENT_WORKFLOW.md` capturing the vertical-slice process, branching conventions, and validation steps.
 
 ### Changed
 
@@ -25,6 +36,7 @@ All notable changes to LoreBridge are documented here.
 
 - Removed a Windows-generated dependency lockfile that prevented npm from installing esbuild's Linux binary on Ubuntu.
 - Preserved configured reverse-proxy path prefixes for backend health, identity, and pairing requests.
+- Scene background image now uses the Foundry v14 Level API (`scene.background.src`) instead of the removed `scene.img` property.
 
 ### Security
 
