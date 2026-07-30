@@ -3,12 +3,14 @@ import {
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_SCENE_CAPABILITY,
+  GET_ACTIVE_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_SCENES_CAPABILITY,
   validateGetActorOutput,
   validateGetSceneOutput,
+  validateGetActiveSceneOutput,
   validateGetWorldSummaryOutput,
   validateGetJournalOutput,
   validateGetJournalPageOutput,
@@ -102,6 +104,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (adapterSessions.hasCapability(GET_ACTOR_CAPABILITY)) capabilities.push("getActor");
       if (adapterSessions.hasCapability(SEARCH_SCENES_CAPABILITY)) capabilities.push("searchScenes");
       if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
+      if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     }
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
     return;
@@ -290,6 +293,23 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       const outputValidation = validateSearchScenesOutput(result);
       if (!outputValidation.valid || !outputValidation.value) {
         throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid scene search results.", false, { validationErrors: outputValidation.errors });
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+    }
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/scenes/active") {
+    if (!authenticate(pairing, request, response)) return;
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
+    try {
+      const result = await adapterSessions.invoke(sourceId, GET_ACTIVE_SCENE_CAPABILITY, {});
+      const outputValidation = validateGetActiveSceneOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid active scene.", false, { validationErrors: outputValidation.errors });
       }
       sendJson(response, 200, outputValidation.value);
     } catch (error) {

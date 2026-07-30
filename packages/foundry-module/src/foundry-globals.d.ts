@@ -90,6 +90,7 @@ type FoundryScene = {
 
 type FoundrySceneCollection = Iterable<FoundryScene> & {
   size: number;
+  active: FoundryScene | null;
   get(id: string): FoundryScene | undefined;
 };
 

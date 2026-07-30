@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { afterEach } from "node:test";
-import { getScene, searchScenes } from "../src/capabilities/scenes.js";
+import { getActiveScene, getScene, searchScenes } from "../src/capabilities/scenes.js";
 import { LoreBridgeCapabilityError } from "../src/capabilities/errors.js";
 
 const originalGame = Object.getOwnPropertyDescriptor(globalThis, "game");
@@ -59,7 +59,7 @@ function setGame(isGM = true): void {
     value: {
       user: { isGM, name: isGM ? "GM" : "Player" },
       world: { id: "cos", title: "Curse of Strahd" },
-      scenes: Object.assign(scenes, { size: scenes.length, get: (id: string) => scenes.find((s) => s.id === id) }),
+      scenes: Object.assign(scenes, { size: scenes.length, active: scenes.find((s) => s.active) ?? null, get: (id: string) => scenes.find((s) => s.id === id) }),
     },
   });
 }
@@ -138,4 +138,30 @@ test("returns safe capability errors", () => {
   assert.throws(() => searchScenes({ query: "Tser" }), (e: unknown) => e instanceof LoreBridgeCapabilityError && e.code === "NOT_AUTHORIZED");
   setGame();
   assert.throws(() => getScene({ sceneId: "missing" }), (e: unknown) => e instanceof LoreBridgeCapabilityError && e.code === "NOT_FOUND");
+});
+
+test("getActiveScene returns the active scene", () => {
+  setGame();
+  const scene = getActiveScene({});
+  assert.equal(scene.id, "s1");
+  assert.equal(scene.uuid, "Scene.s1");
+  assert.equal(scene.name, "Tser Falls");
+  assert.equal(scene.active, true);
+  assert.equal(scene.sourceId, "foundry:cos");
+  assert.equal(scene.sourceName, "Curse of Strahd");
+  assert.equal(scene.background?.src, "worlds/cos/tser-falls.webp");
+  assert.equal(scene.tokens?.length, 2);
+  assert.equal(scene.notes?.length, 1);
+});
+
+test("getActiveScene throws NOT_FOUND when no scene is active", () => {
+  setGame();
+  // Make no scene active
+  (game.scenes as unknown as { active: null }).active = null;
+  assert.throws(() => getActiveScene({}), (e: unknown) => e instanceof LoreBridgeCapabilityError && e.code === "NOT_FOUND");
+});
+
+test("getActiveScene throws NOT_AUTHORIZED for non-GM", () => {
+  setGame(false);
+  assert.throws(() => getActiveScene({}), (e: unknown) => e instanceof LoreBridgeCapabilityError && e.code === "NOT_AUTHORIZED");
 });

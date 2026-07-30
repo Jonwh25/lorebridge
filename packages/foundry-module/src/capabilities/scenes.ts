@@ -1,10 +1,14 @@
 import {
   validateGetSceneInput,
   validateGetSceneOutput,
+  validateGetActiveSceneInput,
+  validateGetActiveSceneOutput,
   validateSearchScenesInput,
   validateSearchScenesOutput,
   type GetSceneInput,
   type GetSceneOutput,
+  type GetActiveSceneInput,
+  type GetActiveSceneOutput,
   type SceneNote,
   type SceneSearchMatch,
   type SceneToken,
@@ -78,20 +82,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
   return outputValidation.value;
 }
 
-export function getScene(input: GetSceneInput): GetSceneOutput {
-  requireFoundryGm("getScene");
-  const validated = validateGetSceneInput(input);
-  if (!validated.valid || !validated.value) {
-    throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Scene retrieval input is invalid.", { details: { validationErrors: validated.errors } });
-  }
-  if (!game.scenes) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry scene collection is unavailable.", { retryable: true });
-
-  const nativeId = validated.value.sceneId.startsWith("Scene.")
-    ? validated.value.sceneId.split(".")[1] ?? ""
-    : validated.value.sceneId;
-  const scene = game.scenes.get(nativeId);
-  if (!scene) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested scene was not found.");
-
+function buildSceneOutput(scene: FoundryScene): GetSceneOutput {
   const output: GetSceneOutput = {
     sourceId: sourceId(),
     sourceName: sourceName(),
@@ -156,9 +147,46 @@ export function getScene(input: GetSceneInput): GetSceneOutput {
   }
   if (notes.length > 0) output.notes = notes;
 
+  return output;
+}
+
+export function getScene(input: GetSceneInput): GetSceneOutput {
+  requireFoundryGm("getScene");
+  const validated = validateGetSceneInput(input);
+  if (!validated.valid || !validated.value) {
+    throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Scene retrieval input is invalid.", { details: { validationErrors: validated.errors } });
+  }
+  if (!game.scenes) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry scene collection is unavailable.", { retryable: true });
+
+  const nativeId = validated.value.sceneId.startsWith("Scene.")
+    ? validated.value.sceneId.split(".")[1] ?? ""
+    : validated.value.sceneId;
+  const scene = game.scenes.get(nativeId);
+  if (!scene) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested scene was not found.");
+
+  const output = buildSceneOutput(scene);
   const outputValidation = validateGetSceneOutput(output);
   if (!outputValidation.valid || !outputValidation.value) {
     throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned an invalid scene.", { details: { validationErrors: outputValidation.errors } });
+  }
+  return outputValidation.value;
+}
+
+export function getActiveScene(input: GetActiveSceneInput): GetActiveSceneOutput {
+  requireFoundryGm("getActiveScene");
+  const validated = validateGetActiveSceneInput(input);
+  if (!validated.valid || !validated.value) {
+    throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Active scene input is invalid.", { details: { validationErrors: validated.errors } });
+  }
+  if (!game.scenes) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry scene collection is unavailable.", { retryable: true });
+
+  const scene = game.scenes.active;
+  if (!scene) throw new LoreBridgeCapabilityError("NOT_FOUND", "No scene is currently active in this Foundry world.");
+
+  const output = buildSceneOutput(scene);
+  const outputValidation = validateGetActiveSceneOutput(output);
+  if (!outputValidation.valid || !outputValidation.value) {
+    throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned an invalid active scene.", { details: { validationErrors: outputValidation.errors } });
   }
   return outputValidation.value;
 }

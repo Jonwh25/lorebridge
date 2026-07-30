@@ -2,6 +2,7 @@ import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 
 export const SEARCH_SCENES_CAPABILITY = "searchScenes" as const;
 export const GET_SCENE_CAPABILITY = "getScene" as const;
+export const GET_ACTIVE_SCENE_CAPABILITY = "getActiveScene" as const;
 
 export interface SearchScenesInput { query: string; limit?: number }
 
@@ -24,6 +25,7 @@ export interface SearchScenesOutput {
 }
 
 export interface GetSceneInput { sceneId: string }
+export interface GetActiveSceneInput { sourceId?: string }
 
 export interface SceneToken {
   id: string;
@@ -70,9 +72,11 @@ export interface SceneDocument {
 }
 
 export type GetSceneOutput = SceneDocument;
+export type GetActiveSceneOutput = SceneDocument;
 
 export const SEARCH_SCENES_DECLARATION: CapabilityDeclaration = { name: SEARCH_SCENES_CAPABILITY, mode: "read", version: "0.1" };
 export const GET_SCENE_DECLARATION: CapabilityDeclaration = { name: GET_SCENE_CAPABILITY, mode: "read", version: "0.1" };
+export const GET_ACTIVE_SCENE_DECLARATION: CapabilityDeclaration = { name: GET_ACTIVE_SCENE_CAPABILITY, mode: "read", version: "0.1" };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
@@ -111,6 +115,18 @@ export function validateGetSceneInput(value: unknown): ValidationResult<GetScene
     return { valid: false, errors: ["sceneId must be a non-empty string"] };
   }
   return { valid: true, value: value as unknown as GetSceneInput, errors: [] };
+}
+
+export function validateGetActiveSceneInput(value: unknown): ValidationResult<GetActiveSceneInput> {
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (value.sourceId !== undefined && !isNonEmptyString(value.sourceId)) {
+    return { valid: false, errors: ["sourceId must be a non-empty string if provided"] };
+  }
+  return { valid: true, value: value as unknown as GetActiveSceneInput, errors: [] };
+}
+
+export function validateGetActiveSceneOutput(value: unknown): ValidationResult<GetActiveSceneOutput> {
+  return validateGetSceneOutput(value) as ValidationResult<GetActiveSceneOutput>;
 }
 
 function validateSceneToken(token: unknown, index: number, errors: string[]): void {
