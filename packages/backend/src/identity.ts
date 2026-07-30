@@ -14,6 +14,7 @@ function fingerprint(secret: string): string {
 }
 
 export async function loadOrCreateIdentity(dataDir: string): Promise<BackendIdentity> {
+  // mode is applied on POSIX only; on Windows, restrict access via folder ACLs
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const identityPath = path.join(dataDir, "identity.json");
 
@@ -40,6 +41,7 @@ export async function loadOrCreateIdentity(dataDir: string): Promise<BackendIden
     fingerprint: fingerprint(secret),
   };
 
+  // mode is applied on POSIX only; on Windows, restrict access via folder ACLs
   await writeFile(identityPath, `${JSON.stringify(identity, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
   return identity;
 }

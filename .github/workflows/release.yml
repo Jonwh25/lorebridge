@@ -40,12 +40,7 @@ jobs:
         run: npm run package:foundry
 
       - name: Verify release archive layout
-        shell: bash
-        run: |
-          unzip -l release/lorebridge.zip
-          unzip -Z1 release/lorebridge.zip | grep -qx "module.json"
-          unzip -Z1 release/lorebridge.zip | grep -qx "dist/main.js"
-          unzip -Z1 release/lorebridge.zip | grep -qx "styles/lorebridge.css"
+        run: node scripts/verify-release-archive.mjs
 
       - name: Create GitHub Release
         env:

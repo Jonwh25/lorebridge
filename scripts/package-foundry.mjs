@@ -1,7 +1,11 @@
+import { createRequire } from "node:module";
+import { createWriteStream } from "node:fs";
 import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { execFileSync } from "node:child_process";
+
+const require = createRequire(import.meta.url);
+const { ZipArchive } = require("archiver");
 
 const root = process.cwd();
 const moduleRoot = path.join(root, "packages", "foundry-module");
@@ -17,27 +21,19 @@ await mkdir(path.join(stagingRoot, "styles"), { recursive: true });
 await mkdir(path.join(stagingRoot, "templates"), { recursive: true });
 
 await cp(manifestPath, path.join(stagingRoot, "module.json"));
-
-await cp(
-  path.join(moduleRoot, "dist", "main.js"),
-  path.join(stagingRoot, "dist", "main.js")
-);
-
-await cp(
-  path.join(moduleRoot, "styles", "lorebridge.css"),
-  path.join(stagingRoot, "styles", "lorebridge.css")
-);
-
-await cp(
-  path.join(moduleRoot, "templates", "configuration.hbs"),
-  path.join(stagingRoot, "templates", "configuration.hbs")
-);
-
+await cp(path.join(moduleRoot, "dist", "main.js"), path.join(stagingRoot, "dist", "main.js"));
+await cp(path.join(moduleRoot, "styles", "lorebridge.css"), path.join(stagingRoot, "styles", "lorebridge.css"));
+await cp(path.join(moduleRoot, "templates", "configuration.hbs"), path.join(stagingRoot, "templates", "configuration.hbs"));
 await cp(manifestPath, path.join(releaseRoot, "module.json"));
 
-execFileSync("zip", ["-qr", "../lorebridge.zip", "."], {
-  cwd: stagingRoot,
-  stdio: "inherit"
+await new Promise((resolve, reject) => {
+  const output = createWriteStream(path.join(releaseRoot, "lorebridge.zip"));
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  output.on("close", resolve);
+  archive.on("error", reject);
+  archive.pipe(output);
+  archive.directory(stagingRoot, false);
+  archive.finalize();
 });
 
 console.log(`Packaged LoreBridge ${manifest.version}.`);
