@@ -41,15 +41,15 @@ All current capabilities are read-only.
 
 ## Delivery order
 
-### Milestone 1 — Campaign Retrieval
+### Milestone 1 — Campaign Retrieval ✅
 
 Complete the focused read-only Foundry document surface needed for everyday
 campaign questions.
 
-1. [Actor search and focused actor retrieval](https://github.com/Jonwh25/lorebridge/issues/44)
-2. [Complete UUIDs and source citations](https://github.com/Jonwh25/lorebridge/issues/45)
-3. [Scene search and focused scene retrieval](https://github.com/Jonwh25/lorebridge/issues/46)
-4. [Active-scene context](https://github.com/Jonwh25/lorebridge/issues/47)
+1. ✅ [Actor search and focused actor retrieval](https://github.com/Jonwh25/lorebridge/issues/44)
+2. ✅ [Complete UUIDs and source citations](https://github.com/Jonwh25/lorebridge/issues/45)
+3. ✅ [Scene search and focused scene retrieval](https://github.com/Jonwh25/lorebridge/issues/46)
+4. ✅ [Active-scene context](https://github.com/Jonwh25/lorebridge/issues/47)
 
 Success test: Codex can answer a location or NPC question from live Foundry
 actors, journals, and scenes while identifying every supporting source.
