@@ -76,7 +76,9 @@ type FoundryScene = {
   navigation: boolean;
   navName?: string;
   thumb?: string;
+  /** @deprecated since v14 — use firstLevel.background.src instead */
   background?: { src?: string };
+  firstLevel?: { background?: { src?: string }; foreground?: { src?: string } } | null;
   width?: number;
   height?: number;
   folder?: { id: string; name: string } | null;

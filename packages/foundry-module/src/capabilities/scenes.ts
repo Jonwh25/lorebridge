@@ -104,7 +104,8 @@ export function getScene(input: GetSceneInput): GetSceneOutput {
 
   if (scene.navName) output.navName = scene.navName;
   if (scene.thumb) output.thumb = scene.thumb;
-  if (scene.background?.src) output.background = { src: scene.background.src };
+  const backgroundSrc = scene.firstLevel?.background?.src;
+  if (backgroundSrc) output.background = { src: backgroundSrc };
   if (typeof scene.width === "number") output.width = scene.width;
   if (typeof scene.height === "number") output.height = scene.height;
   if (scene.folder) output.folder = { id: scene.folder.id, name: scene.folder.name };
