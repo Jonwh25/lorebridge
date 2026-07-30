@@ -3,15 +3,19 @@ import test from "node:test";
 import {
   SEARCH_SCENES_CAPABILITY,
   GET_SCENE_CAPABILITY,
+  GET_ACTIVE_SCENE_CAPABILITY,
   validateSearchScenesInput,
   validateSearchScenesOutput,
   validateGetSceneInput,
   validateGetSceneOutput,
+  validateGetActiveSceneInput,
+  validateGetActiveSceneOutput,
 } from "../dist/capabilities.js";
 
 test("exports canonical scene capabilities", () => {
   assert.equal(SEARCH_SCENES_CAPABILITY, "searchScenes");
   assert.equal(GET_SCENE_CAPABILITY, "getScene");
+  assert.equal(GET_ACTIVE_SCENE_CAPABILITY, "getActiveScene");
 });
 
 test("validates scene search input", () => {
@@ -133,4 +137,31 @@ test("validates get scene output — rejects invalid", () => {
     navigation: true,
     tokens: [{ id: "t1" }],
   }).valid, false, "token missing name");
+});
+
+test("validates get active scene input", () => {
+  assert.equal(validateGetActiveSceneInput({}).valid, true, "empty object is valid");
+  assert.equal(validateGetActiveSceneInput({ sourceId: "foundry:cos" }).valid, true, "sourceId is optional");
+  assert.equal(validateGetActiveSceneInput({ sourceId: "" }).valid, false, "empty sourceId is invalid");
+  assert.equal(validateGetActiveSceneInput(null).valid, false, "null is invalid");
+});
+
+test("validates get active scene output — delegates to getScene validator", () => {
+  assert.equal(validateGetActiveSceneOutput({
+    sourceId: "foundry:cos",
+    sourceName: "Curse of Strahd",
+    id: "s1",
+    uuid: "Scene.s1",
+    name: "Tser Falls",
+    active: true,
+    navigation: true,
+  }).valid, true, "minimal valid output");
+  assert.equal(validateGetActiveSceneOutput({
+    sourceId: "foundry:cos",
+    id: "s1",
+    uuid: "Scene.s1",
+    name: "Tser Falls",
+    active: true,
+    navigation: true,
+  }).valid, false, "missing sourceName is invalid");
 });

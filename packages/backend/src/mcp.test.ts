@@ -128,6 +128,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 mode: "read",
                 version: "0.1",
               },
+              {
+                name: "getActiveScene",
+                mode: "read",
+                version: "0.1",
+              },
             ],
           },
         }));
@@ -257,7 +262,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene"],
+      ["get_world_summary", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene"],
     );
     assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 

@@ -6,6 +6,7 @@ import {
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_SCENE_CAPABILITY,
+  GET_ACTIVE_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
@@ -13,6 +14,7 @@ import {
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
+  validateGetActiveSceneOutput,
   validateGetWorldSummaryOutput,
   validateSearchJournalsOutput,
   validateSearchActorsOutput,
@@ -30,6 +32,7 @@ const actorSearchToolName = "search_actors";
 const actorToolName = "get_actor";
 const sceneSearchToolName = "search_scenes";
 const sceneToolName = "get_scene";
+const activeSceneToolName = "get_active_scene";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -395,6 +398,49 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the Foundry scene.");
+      }
+    },
+  );
+
+  server.registerTool(
+    activeSceneToolName,
+    {
+      title: "Get the active Foundry scene",
+      description: "Retrieve the scene currently active in the GM's Foundry session, including its name, UUID, dimensions, linked journal, and bounded token and map-note summaries. Returns an error if no scene is active.",
+      inputSchema: z.object({
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_ACTIVE_SCENE_CAPABILITY,
+          {},
+        );
+        const validation = validateGetActiveSceneOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid active scene.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the active Foundry scene.");
       }
     },
   );
