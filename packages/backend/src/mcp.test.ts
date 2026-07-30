@@ -15,6 +15,7 @@ import type {
   GetActorOutput,
   GetJournalPageOutput,
   GetWorldSummaryOutput,
+  ResolveUuidOutput,
   SearchJournalsOutput,
   SearchActorsOutput,
 } from "@lorebridge/shared/capabilities";
@@ -133,6 +134,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 mode: "read",
                 version: "0.1",
               },
+              {
+                name: "resolveUuid",
+                mode: "read",
+                version: "0.1",
+              },
             ],
           },
         }));
@@ -221,6 +227,23 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
               type: "npc",
               description: { plainText: "The vampire lord of Barovia." },
             }
+        : message.capability === "resolveUuid"
+          ? {
+              sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
+              uuid: "Actor.actor_strahd",
+              documentType: "actor",
+              document: {
+                sourceId: "foundry:cos",
+                sourceName: "Curse of Strahd",
+                systemId: "dnd5e",
+                id: "actor_strahd",
+                uuid: "Actor.actor_strahd",
+                name: "Strahd von Zarovich",
+                type: "npc",
+                description: { plainText: "The vampire lord of Barovia." },
+              },
+            }
         : {
             source: { sourceId: "foundry:cos", adapterType: "foundry" },
             world: {
@@ -262,7 +285,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene"],
+      ["get_world_summary", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene", "resolve_uuid"],
     );
     assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 
@@ -327,6 +350,19 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(actorResult.isError, undefined);
     assert.equal(actor.name, "Strahd von Zarovich");
     assert.equal(actor.description?.plainText, "The vampire lord of Barovia.");
+
+    const resolveResult = await client.callTool({
+      name: "resolve_uuid",
+      arguments: {
+        uuid: "Actor.actor_strahd",
+        sourceId: "foundry:cos",
+      },
+    });
+    const resolved = resolveResult.structuredContent as unknown as ResolveUuidOutput;
+    assert.equal(resolveResult.isError, undefined);
+    assert.equal(resolved.documentType, "actor");
+    assert.equal(resolved.uuid, "Actor.actor_strahd");
+    assert.equal((resolved.document as GetActorOutput).name, "Strahd von Zarovich");
   } finally {
     await client?.close();
     webSocket?.close();
