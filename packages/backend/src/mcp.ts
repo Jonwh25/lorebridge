@@ -8,6 +8,7 @@ import {
   GET_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
+  RESOLVE_UUID_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_SCENES_CAPABILITY,
@@ -16,6 +17,7 @@ import {
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
   validateGetWorldSummaryOutput,
+  validateResolveUuidOutput,
   validateSearchJournalsOutput,
   validateSearchActorsOutput,
   validateSearchScenesOutput,
@@ -25,6 +27,7 @@ import {
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 
+const resolveUuidToolName = "resolve_uuid";
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
 const journalPageToolName = "get_journal_page";
@@ -441,6 +444,52 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the active Foundry scene.");
+      }
+    },
+  );
+
+  server.registerTool(
+    resolveUuidToolName,
+    {
+      title: "Resolve a Foundry UUID link",
+      description: "Resolve a Foundry VTT UUID to its full document. Use this to follow @UUID[...] links embedded in journal text, scene notes, or actor descriptions. Supports Actor, JournalEntry, JournalEntryPage, and Scene UUIDs.",
+      inputSchema: z.object({
+        uuid: z.string().trim().min(1).describe(
+          "A Foundry VTT UUID string such as Actor.abc123, JournalEntry.abc123, JournalEntry.abc123.JournalEntryPage.def456, or Scene.abc123.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ uuid, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          RESOLVE_UUID_CAPABILITY,
+          { uuid },
+        );
+        const validation = validateResolveUuidOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid resolved document.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not resolve the Foundry UUID.");
       }
     },
   );

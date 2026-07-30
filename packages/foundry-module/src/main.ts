@@ -11,6 +11,8 @@ import {
   GET_ACTIVE_SCENE_DECLARATION,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_WORLD_SUMMARY_DECLARATION,
+  RESOLVE_UUID_CAPABILITY,
+  RESOLVE_UUID_DECLARATION,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_ACTORS_DECLARATION,
   SEARCH_JOURNALS_CAPABILITY,
@@ -24,6 +26,7 @@ import { getWorldSummary } from "./capabilities/get-world-summary.js";
 import { getJournal, getJournalPage, searchJournals } from "./capabilities/journals.js";
 import { getActor, searchActors } from "./capabilities/actors.js";
 import { getActiveScene, getScene, searchScenes } from "./capabilities/scenes.js";
+import { resolveUuid } from "./capabilities/resolve-uuid.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -92,6 +95,7 @@ Hooks.once("ready", () => {
           SEARCH_SCENES_DECLARATION,
           GET_SCENE_DECLARATION,
           GET_ACTIVE_SCENE_DECLARATION,
+          RESOLVE_UUID_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -140,6 +144,9 @@ Hooks.once("ready", () => {
           if (request.capability === GET_ACTIVE_SCENE_CAPABILITY) {
             return getActiveScene(request.input as Parameters<typeof getActiveScene>[0]);
           }
+          if (request.capability === RESOLVE_UUID_CAPABILITY) {
+            return resolveUuid(request.input as Parameters<typeof resolveUuid>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -175,7 +182,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION]
   });
   ui.notifications.info(
     `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
@@ -188,7 +195,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -206,6 +213,7 @@ Hooks.once("ready", () => {
       [SEARCH_SCENES_CAPABILITY]: searchScenes,
       [GET_SCENE_CAPABILITY]: getScene,
       [GET_ACTIVE_SCENE_CAPABILITY]: getActiveScene,
+      [RESOLVE_UUID_CAPABILITY]: resolveUuid,
     }),
     configurable: true,
     writable: false
