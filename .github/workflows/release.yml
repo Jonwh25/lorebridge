@@ -40,17 +40,7 @@ jobs:
         run: npm run package:foundry
 
       - name: Verify release archive layout
-        run: node -e "
-          import('node:fs').then(({readFileSync}) => {
-            const data = readFileSync('release/lorebridge.zip');
-            const str = data.toString('binary');
-            const required = ['module.json', 'dist/main.js', 'styles/lorebridge.css'];
-            for (const f of required) {
-              if (!str.includes(f)) { console.error('Missing from zip: ' + f); process.exit(1); }
-            }
-            console.log('Archive contains all required files.');
-          });
-        "
+        run: node scripts/verify-release-archive.mjs
 
       - name: Create GitHub Release
         env:
