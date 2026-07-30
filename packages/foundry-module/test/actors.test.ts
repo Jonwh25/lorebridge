@@ -60,6 +60,8 @@ test("searches actor names and descriptions with optional type filtering", () =>
   assert.equal(byName.results[0]?.actorId, "a1");
   assert.equal(byName.results[0]?.actorUuid, "Actor.a1");
   assert.equal(byName.results[0]?.matchedField, "actorName");
+  assert.equal(byName.sourceId, "foundry:cos");
+  assert.equal(byName.sourceName, "Curse of Strahd");
 
   const byDescription = searchActors({ query: "vampire lord", types: ["character"] });
   assert.equal(byDescription.results.length, 1);
@@ -72,6 +74,8 @@ test("retrieves a focused actor without raw system or embedded data", () => {
   const actor = getActor({ actorId: "Actor.a1" });
   assert.equal(actor.name, "Strahd von Zarovich");
   assert.equal(actor.uuid, "Actor.a1");
+  assert.equal(actor.sourceId, "foundry:cos");
+  assert.equal(actor.sourceName, "Curse of Strahd");
   assert.equal(actor.folder?.name, "Villains");
   assert.equal(actor.description?.plainText, "The vampire lord rules Barovia from Castle Ravenloft.");
   assert.equal("system" in actor, false);

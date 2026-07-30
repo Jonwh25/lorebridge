@@ -26,6 +26,17 @@ function sourceId(): string {
   return `foundry:${game.world.id}`;
 }
 
+function sourceName(): string {
+  if (!game.world) {
+    throw new LoreBridgeCapabilityError(
+      "ADAPTER_UNAVAILABLE",
+      "The Foundry world is not fully initialized.",
+      { retryable: true },
+    );
+  }
+  return game.world.title;
+}
+
 function plainText(html: string): string {
   if (typeof DOMParser !== "undefined") {
     return new DOMParser().parseFromString(html, "text/html").body.textContent?.replace(/\s+/g, " ").trim() ?? "";
@@ -134,6 +145,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
 
   const output: SearchActorsOutput = {
     sourceId: sourceId(),
+    sourceName: sourceName(),
     query,
     results: matches
       .sort((left, right) =>
@@ -180,6 +192,7 @@ export function getActor(input: GetActorInput): GetActorOutput {
 
   const output: GetActorOutput = {
     sourceId: sourceId(),
+    sourceName: sourceName(),
     systemId: game.system.id,
     id: actor.id,
     uuid: actor.uuid,

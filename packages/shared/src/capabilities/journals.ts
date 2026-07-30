@@ -11,11 +11,12 @@ export interface JournalSearchMatch {
   journalName: string;
   pageCount: number;
   matchedPageId?: string;
+  matchedPageUuid?: string;
   matchedPageName?: string;
   matchedField: "journalName" | "pageName" | "pageText";
   excerpt?: string;
 }
-export interface SearchJournalsOutput { sourceId: string; query: string; results: JournalSearchMatch[] }
+export interface SearchJournalsOutput { sourceId: string; sourceName: string; query: string; results: JournalSearchMatch[] }
 export interface GetJournalInput { journalId: string }
 export interface GetJournalPageInput { journalId: string; pageId: string }
 export interface JournalPage {
@@ -27,10 +28,11 @@ export interface JournalPage {
   text?: { format: number; html: string; plainText: string };
   src?: string;
 }
-export interface JournalDocument { sourceId: string; id: string; uuid: string; name: string; pages: JournalPage[] }
+export interface JournalDocument { sourceId: string; sourceName: string; id: string; uuid: string; name: string; pages: JournalPage[] }
 export type GetJournalOutput = JournalDocument;
 export interface GetJournalPageOutput {
   sourceId: string;
+  sourceName: string;
   journal: { id: string; uuid: string; name: string };
   page: JournalPage;
 }
@@ -54,6 +56,7 @@ export function validateSearchJournalsOutput(value: unknown): ValidationResult<S
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
   if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isNonEmptyString(value.sourceName)) errors.push("sourceName is required");
   if (!isNonEmptyString(value.query)) errors.push("query is required");
   if (!Array.isArray(value.results)) errors.push("results must be an array");
   else value.results.forEach((result, index) => {
@@ -61,6 +64,7 @@ export function validateSearchJournalsOutput(value: unknown): ValidationResult<S
     for (const key of ["journalId", "journalUuid", "journalName"] as const) if (!isNonEmptyString(result[key])) errors.push(`results[${index}].${key} is required`);
     if (!Number.isInteger(result.pageCount) || (result.pageCount as number) < 0) errors.push(`results[${index}].pageCount must be a non-negative integer`);
     if (!["journalName", "pageName", "pageText"].includes(String(result.matchedField))) errors.push(`results[${index}].matchedField is invalid`);
+    if (result.matchedPageUuid !== undefined && typeof result.matchedPageUuid !== "string") errors.push(`results[${index}].matchedPageUuid must be a string`);
   });
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsOutput, errors };
 }
@@ -81,7 +85,7 @@ export function validateGetJournalPageInput(value: unknown): ValidationResult<Ge
 export function validateGetJournalOutput(value: unknown): ValidationResult<GetJournalOutput> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
-  for (const key of ["sourceId", "id", "uuid", "name"] as const) if (!isNonEmptyString(value[key])) errors.push(`${key} is required`);
+  for (const key of ["sourceId", "sourceName", "id", "uuid", "name"] as const) if (!isNonEmptyString(value[key])) errors.push(`${key} is required`);
   if (!Array.isArray(value.pages)) errors.push("pages must be an array");
   else value.pages.forEach((page, index) => {
     if (!isRecord(page)) return errors.push(`pages[${index}] must be an object`);
@@ -95,6 +99,7 @@ export function validateGetJournalPageOutput(value: unknown): ValidationResult<G
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
   if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isNonEmptyString(value.sourceName)) errors.push("sourceName is required");
   if (!isRecord(value.journal)) errors.push("journal must be an object");
   else for (const key of ["id", "uuid", "name"] as const) if (!isNonEmptyString(value.journal[key])) errors.push(`journal.${key} is required`);
   if (!isRecord(value.page)) errors.push("page must be an object");
