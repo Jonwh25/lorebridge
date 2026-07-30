@@ -257,10 +257,11 @@ Expected:
 The Foundry pairing token is stored as a client-scoped Foundry setting in that
 browser. It is not an OpenAI API key.
 
-## 5. Pair Codex with a dedicated token
+## 5. Pair an AI client with a dedicated token
 
-Use a separate token for Codex instead of copying the Foundry browser token.
-On the backend host, generate and immediately exchange a one-time pairing code:
+Use a separate token for each AI client instead of copying the Foundry browser
+token. On the backend host, generate and immediately exchange a one-time pairing
+code, replacing `"Codex Desktop"` with the name of the client you are pairing:
 
 ```bash
 PAIRING_CODE=$(
@@ -271,7 +272,7 @@ PAIRING_CODE=$(
 PAIRING_RESULT=$(
   curl -s -X POST http://127.0.0.1:3210/v1/pairing/complete \
     -H 'Content-Type: application/json' \
-    -d "{\"code\":\"${PAIRING_CODE}\",\"clientName\":\"Codex Desktop\"}"
+    -d "{\"code\":\"${PAIRING_CODE}\",\"clientName\":\"Claude Desktop\"}"
 )
 
 TOKEN=$(
@@ -291,52 +292,87 @@ unset PAIRING_CODE PAIRING_RESULT TOKEN
 Treat the token like a password. Do not paste it into chat, screenshots, issue
 reports, shell history, or repository files.
 
-### Store the token on Windows
+### Configure Codex
 
-In PowerShell:
+Store the token as a user environment variable on Windows:
 
 ```powershell
 [Environment]::SetEnvironmentVariable(
-  "LOREBRIDGE_CODEX_TOKEN",
-  "PASTE_TOKEN_HERE",
-  "User"
+  “LOREBRIDGE_CODEX_TOKEN”,
+  “PASTE_TOKEN_HERE”,
+  “User”
 )
 ```
 
 Close and reopen Codex after setting the environment variable.
-
-### Configure the MCP server
 
 Add this project-scoped configuration to `.codex/config.toml`, replacing the
 hostname:
 
 ```toml
 [mcp_servers.lorebridge]
-url = "https://foundry.example.com/lorebridge-api/mcp"
-bearer_token_env_var = "LOREBRIDGE_CODEX_TOKEN"
+url = “https://foundry.example.com/lorebridge-api/mcp”
+bearer_token_env_var = “LOREBRIDGE_CODEX_TOKEN”
 enabled = true
 required = false
 enabled_tools = [
-  "get_world_summary",
-  "search_journals",
-  "get_journal_page",
+  “get_world_summary”,
+  “search_journals”,
+  “get_journal_page”,
+  “search_actors”,
+  “get_actor”,
 ]
-default_tools_approval_mode = "auto"
+default_tools_approval_mode = “auto”
 ```
 
 Restart Codex so it reloads the environment and MCP configuration.
 
+### Configure Claude Desktop
+
+Claude Desktop supports MCP servers configured as local processes. A small
+proxy script included in this repository bridges Claude Desktop's stdio
+transport to the LoreBridge HTTP endpoint.
+
+Add the following entry to `%APPDATA%\Claude\claude_desktop_config.json` on
+Windows, replacing the hostname and token:
+
+```json
+{
+  “mcpServers”: {
+    “lorebridge”: {
+      “command”: “node”,
+      “args”: [“C:\\path\\to\\lorebridge\\scripts\\mcp-proxy.mjs”],
+      “env”: {
+        “LOREBRIDGE_URL”: “https://foundry.example.com/lorebridge-api/mcp”,
+        “LOREBRIDGE_TOKEN”: “PASTE_TOKEN_HERE”
+      }
+    }
+  }
+}
+```
+
+Replace `C:\\path\\to\\lorebridge` with the absolute path to the cloned
+repository on your machine. If the file does not exist, create it. Fully quit
+and restart Claude Desktop after saving.
+
+The proxy script requires Node.js 18 or newer, which is already present if you
+followed the backend installation steps. The token is read from the environment
+and never written to disk beyond this config file; treat the file as you would
+any file containing credentials.
+
 ## 6. Use LoreBridge
 
-Keep the Foundry world open in a paired GM browser. You can then ask Codex:
+Keep the Foundry world open in a paired GM browser. You can then ask your AI
+client:
 
 - “Use Foundry to tell me about Tser Falls.”
 - “Search my Foundry journals for Vallaki and summarize the relevant pages.”
 - “How many actors, scenes, and journals are in the loaded world?”
 - “Find journal pages that mention the Sunsword.”
+- “Search for NPCs named Ireena.”
 
 The client chooses the appropriate LoreBridge tools, retrieves the live data,
-and cites the relevant journal and page in its answer.
+and cites the relevant journal, page, or actor in its answer.
 
 ## Updating LoreBridge
 
