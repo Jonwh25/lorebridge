@@ -1,6 +1,22 @@
 import { createHash, randomBytes } from "node:crypto";
+import { exec } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
+
+async function restrictWindowsAcl(targetPath: string, isDirectory: boolean): Promise<void> {
+  const username = process.env["USERNAME"];
+  if (!username) return;
+  const inherit = isDirectory ? "(OI)(CI)" : "";
+  try {
+    await execAsync(`icacls "${targetPath}" /inheritance:r /grant:r "${username}:${inherit}F"`);
+  } catch {
+    // icacls failure is non-fatal — POSIX mode bits already protect POSIX hosts
+    console.warn(`LoreBridge | Could not restrict ACL on ${targetPath}. Restrict it manually with icacls or folder properties.`);
+  }
+}
 
 export interface BackendIdentity {
   id: string;
@@ -14,8 +30,8 @@ function fingerprint(secret: string): string {
 }
 
 export async function loadOrCreateIdentity(dataDir: string): Promise<BackendIdentity> {
-  // mode is applied on POSIX only; on Windows, restrict access via folder ACLs
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
+  if (process.platform === "win32") await restrictWindowsAcl(dataDir, true);
   const identityPath = path.join(dataDir, "identity.json");
 
   try {
@@ -41,7 +57,7 @@ export async function loadOrCreateIdentity(dataDir: string): Promise<BackendIden
     fingerprint: fingerprint(secret),
   };
 
-  // mode is applied on POSIX only; on Windows, restrict access via folder ACLs
   await writeFile(identityPath, `${JSON.stringify(identity, null, 2)}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  if (process.platform === "win32") await restrictWindowsAcl(identityPath, false);
   return identity;
 }
