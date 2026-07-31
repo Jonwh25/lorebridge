@@ -28,7 +28,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -472,6 +472,89 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (error instanceof WriteTokenError) {
         const status = error.reason === "not_found" ? 404 : 410;
         sendJson(response, status, { error: { code: `write_token_${error.reason}`, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/chat/ask") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const question = typeof body["question"] === "string" ? body["question"].trim() : "";
+    const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
+    const context = Array.isArray(body["context"]) ? body["context"] as Array<{ type: string; name: string; excerpt: string }> : [];
+    if (!question) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty question string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateChatAnswer(provider, { question, context, worldName });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/npc-profile") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const name = typeof body["name"] === "string" ? body["name"].trim() : "";
+    const type = typeof body["type"] === "string" ? body["type"].trim() : "npc";
+    const biography = typeof body["biography"] === "string" ? body["biography"] : "";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    if (!name) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty name string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateNpcProfile(provider, { name, type, biography, tone });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/session-recap") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const sessionContent = typeof body["sessionContent"] === "string" ? body["sessionContent"].trim() : "";
+    const sessionName = typeof body["sessionName"] === "string" ? body["sessionName"] : "Session";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    const length = typeof body["length"] === "string" ? body["length"] : "medium";
+    if (!sessionContent) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include non-empty sessionContent." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateSessionRecap(provider, { sessionContent, sessionName, tone, length });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
         return;
       }
       throw error;
