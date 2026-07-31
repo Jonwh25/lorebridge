@@ -89,8 +89,8 @@ export function registerLoreBridgeSettings(): void {
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.sessionLogFolder, {
-    name: "Session Log Folder",
-    hint: "Name of the journal folder that contains session log entries. Journals in this folder are searchable as session logs.",
+    name: "Session Log Journal",
+    hint: "Name of the journal that contains session log pages. Each page in this journal is treated as one session entry.",
     scope: "world",
     config: true,
     type: String,

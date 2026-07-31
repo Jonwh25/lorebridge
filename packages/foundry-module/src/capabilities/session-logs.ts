@@ -64,7 +64,7 @@ function extractSessionNumber(name: string): number | undefined {
   return Number.isFinite(num) ? num : undefined;
 }
 
-function sessionLogFolderName(): string {
+function sessionLogJournalName(): string {
   try {
     return getLoreBridgeSettings().sessionLogFolder || "Session Logs";
   } catch {
@@ -72,11 +72,7 @@ function sessionLogFolderName(): string {
   }
 }
 
-type SessionLogJournal = {
-  journal: FoundryJournalEntry;
-};
-
-function getSessionLogJournals(): { journals: SessionLogJournal[]; folderName: string } {
+function getSessionLogJournal(): { journal: FoundryJournalEntry; journalName: string } {
   if (!game.journal) {
     throw new LoreBridgeCapabilityError(
       "ADAPTER_UNAVAILABLE",
@@ -84,15 +80,16 @@ function getSessionLogJournals(): { journals: SessionLogJournal[]; folderName: s
       { retryable: true },
     );
   }
-  const folderName = sessionLogFolderName();
-  const journals: SessionLogJournal[] = [];
+  const journalName = sessionLogJournalName();
   for (const journal of game.journal) {
-    const folder = (journal as unknown as { folder?: { name?: string } | null }).folder;
-    if (folder?.name?.trim().toLocaleLowerCase() === folderName.toLocaleLowerCase()) {
-      journals.push({ journal });
+    if (journal.name.trim().toLocaleLowerCase() === journalName.toLocaleLowerCase()) {
+      return { journal, journalName: journal.name };
     }
   }
-  return { journals, folderName };
+  throw new LoreBridgeCapabilityError(
+    "NOT_FOUND",
+    `No journal named "${journalName}" was found. Set the Session Log Journal name in LoreBridge world settings.`,
+  );
 }
 
 export function searchSessionLogs(input: SearchSessionLogsInput): SearchSessionLogsOutput {
@@ -106,14 +103,13 @@ export function searchSessionLogs(input: SearchSessionLogsInput): SearchSessionL
     );
   }
 
-  const { journals, folderName } = getSessionLogJournals();
+  const { journal, journalName } = getSessionLogJournal();
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const limit = validated.value.limit ?? DEFAULT_LIMIT;
   const matches: Array<{ score: number; sessionNumber: number | undefined; value: SessionLogMatch }> = [];
 
-  for (const { journal } of journals) {
-    for (const page of journal.pages) {
+  for (const page of journal.pages) {
       if (page.type !== "text") continue;
       const pageName = page.name;
       const sessionNumber = extractSessionNumber(pageName);
@@ -129,7 +125,7 @@ export function searchSessionLogs(input: SearchSessionLogsInput): SearchSessionL
           value: {
             journalId: journal.id,
             journalUuid: journal.uuid,
-            journalName: journal.name,
+            journalName,
             pageId: page.id,
             pageUuid: page.uuid,
             pageName,
@@ -143,7 +139,7 @@ export function searchSessionLogs(input: SearchSessionLogsInput): SearchSessionL
           value: {
             journalId: journal.id,
             journalUuid: journal.uuid,
-            journalName: journal.name,
+            journalName,
             pageId: page.id,
             pageUuid: page.uuid,
             pageName,
@@ -157,14 +153,13 @@ export function searchSessionLogs(input: SearchSessionLogsInput): SearchSessionL
         if (sessionNumber !== undefined) match.value.sessionNumber = sessionNumber;
         matches.push(match);
       }
-    }
   }
 
   const output: SearchSessionLogsOutput = {
     sourceId: sourceId(),
     sourceName: sourceName(),
     query,
-    folderName,
+    folderName: journalName,
     results: matches
       .sort((a, b) => {
         if (a.score !== b.score) return a.score - b.score;
@@ -207,21 +202,10 @@ export function getSessionLog(input: GetSessionLogInput): GetSessionLogOutput {
     );
   }
 
-  const { journals, folderName } = getSessionLogJournals();
-  const journalId = validated.value.journalId.startsWith("JournalEntry.")
-    ? validated.value.journalId.split(".")[1] ?? ""
-    : validated.value.journalId;
-
-  const found = journals.find(({ journal }) => journal.id === journalId);
-  if (!found) {
-    throw new LoreBridgeCapabilityError(
-      "NOT_FOUND",
-      `Journal "${journalId}" was not found in the "${folderName}" folder.`,
-    );
-  }
+  const { journal, journalName } = getSessionLogJournal();
 
   const pageId = validated.value.pageId;
-  const page = found.journal.pages.get(pageId);
+  const page = journal.pages.get(pageId);
   if (!page || page.type !== "text") {
     throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested session log page was not found.");
   }
@@ -232,9 +216,9 @@ export function getSessionLog(input: GetSessionLogInput): GetSessionLogOutput {
   const output: GetSessionLogOutput = {
     sourceId: sourceId(),
     sourceName: sourceName(),
-    journalId: found.journal.id,
-    journalUuid: found.journal.uuid,
-    journalName: found.journal.name,
+    journalId: journal.id,
+    journalUuid: journal.uuid,
+    journalName,
     pageId: page.id,
     pageUuid: page.uuid,
     pageName: page.name,
