@@ -28,6 +28,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   provider: "provider",
   backendUrl: "backendUrl",
   clientToken: "clientToken",
+  sessionLogFolder: "sessionLogFolder",
 });
 
 export type LoreBridgeProvider = "none" | "openai";
@@ -38,6 +39,7 @@ export type LoreBridgeSettings = {
   provider: LoreBridgeProvider;
   backendUrl: string;
   clientToken: string;
+  sessionLogFolder: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -86,6 +88,15 @@ export function registerLoreBridgeSettings(): void {
     requiresReload: true,
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.sessionLogFolder, {
+    name: "Session Log Folder",
+    hint: "Name of the journal folder that contains session log entries. Journals in this folder are searchable as session logs.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "Session Logs",
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -124,6 +135,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     clientToken: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken) ?? "",
     ),
+    sessionLogFolder: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.sessionLogFolder) ?? "Session Logs",
+    ).trim(),
   };
 }
 

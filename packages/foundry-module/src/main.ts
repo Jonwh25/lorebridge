@@ -23,6 +23,10 @@ import {
   SEARCH_ITEMS_DECLARATION,
   GET_ACTOR_INVENTORY_CAPABILITY,
   GET_ACTOR_INVENTORY_DECLARATION,
+  SEARCH_SESSION_LOGS_CAPABILITY,
+  SEARCH_SESSION_LOGS_DECLARATION,
+  GET_SESSION_LOG_CAPABILITY,
+  GET_SESSION_LOG_DECLARATION,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_JOURNALS_DECLARATION,
   SEARCH_SCENES_CAPABILITY,
@@ -38,6 +42,7 @@ import { resolveUuid } from "./capabilities/resolve-uuid.js";
 import { searchCampaign } from "./capabilities/search-campaign.js";
 import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
+import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -112,6 +117,8 @@ Hooks.once("ready", () => {
           GET_RELATED_DOCUMENTS_DECLARATION,
           SEARCH_ITEMS_DECLARATION,
           GET_ACTOR_INVENTORY_DECLARATION,
+          SEARCH_SESSION_LOGS_DECLARATION,
+          GET_SESSION_LOG_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -175,6 +182,12 @@ Hooks.once("ready", () => {
           if (request.capability === GET_ACTOR_INVENTORY_CAPABILITY) {
             return getActorInventory(request.input as Parameters<typeof getActorInventory>[0]);
           }
+          if (request.capability === SEARCH_SESSION_LOGS_CAPABILITY) {
+            return searchSessionLogs(request.input as Parameters<typeof searchSessionLogs>[0]);
+          }
+          if (request.capability === GET_SESSION_LOG_CAPABILITY) {
+            return getSessionLog(request.input as Parameters<typeof getSessionLog>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -210,7 +223,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION]
   });
   ui.notifications.info(
     `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
@@ -223,7 +236,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -246,6 +259,8 @@ Hooks.once("ready", () => {
       [GET_RELATED_DOCUMENTS_CAPABILITY]: getRelatedDocuments,
       [SEARCH_ITEMS_CAPABILITY]: searchItems,
       [GET_ACTOR_INVENTORY_CAPABILITY]: getActorInventory,
+      [SEARCH_SESSION_LOGS_CAPABILITY]: searchSessionLogs,
+      [GET_SESSION_LOG_CAPABILITY]: getSessionLog,
       generateBoxedText,
     }),
     configurable: true,
