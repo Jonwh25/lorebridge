@@ -221,35 +221,6 @@ Hooks.once("ready", () => {
         },
       );
 
-      Hooks.on("renderChatMessage", (message: unknown, html: unknown) => {
-        const msgDoc = message as { flags?: Record<string, Record<string, unknown>> };
-        const token = msgDoc.flags?.["lorebridge"]?.["writeToken"];
-        if (typeof token !== "string") return;
-
-        const htmlEl = (html as { find?: (sel: string) => { on?: (ev: string, fn: (e: Event) => void) => void } }).find;
-        if (!htmlEl) return;
-
-        htmlEl("[data-action='approve']")?.on?.("click", (e: Event) => {
-          e.preventDefault();
-          void approveWrite(token).then(() => {
-            ui.notifications.info("LoreBridge: Write approved and applied.");
-          }).catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            ui.notifications.error(`LoreBridge: Approve failed — ${msg}`);
-          });
-        });
-
-        htmlEl("[data-action='reject']")?.on?.("click", (e: Event) => {
-          e.preventDefault();
-          void rejectWrite(token).then(() => {
-            ui.notifications.info("LoreBridge: Write proposal rejected.");
-          }).catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            ui.notifications.error(`LoreBridge: Reject failed — ${msg}`);
-          });
-        });
-      });
-
       void adapterTransport.connect().then((state) => {
         if (state.state === "connected") {
           console.info(`${MODULE_ID} | Connected to backend ${state.backendId}`, {

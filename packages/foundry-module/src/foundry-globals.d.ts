@@ -149,6 +149,21 @@ type FoundryUser = {
   isGM: boolean;
 };
 
+declare class Dialog {
+  constructor(data: {
+    title: string;
+    content: string;
+    buttons: Record<string, {
+      icon?: string;
+      label: string;
+      callback?: () => void;
+    }>;
+    default?: string;
+    close?: () => void;
+  });
+  render(force: boolean): void;
+}
+
 declare const ChatMessage: {
   create(data: {
     content: string;

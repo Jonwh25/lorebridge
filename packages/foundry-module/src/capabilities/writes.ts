@@ -24,30 +24,64 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
   const expiresDate = new Date(payload.expiresAt);
   const expiresStr = expiresDate.toLocaleTimeString();
 
-  const content = `
-    <div class="lorebridge-write-approval">
-      <h3>LoreBridge — AI Write Proposal</h3>
-      <p><strong>Journal:</strong> ${payload.journalName}</p>
-      <p><strong>Page:</strong> ${payload.pageName}</p>
-      <p><strong>Rationale:</strong> ${payload.rationale}</p>
-      <details>
-        <summary>View proposed changes</summary>
-        <div style="max-height:200px;overflow-y:auto;background:#1a1a1a;color:#eee;padding:8px;border-radius:4px;margin-top:4px;font-size:0.85em;white-space:pre-wrap;">${payload.proposedContent}</div>
-      </details>
-      <p style="font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button type="button" data-action="approve" data-token="${payload.token}" style="flex:1;background:#2d6a2d;color:#fff;border:none;padding:6px;border-radius:4px;cursor:pointer;">Approve</button>
-        <button type="button" data-action="reject" data-token="${payload.token}" style="flex:1;background:#6a2d2d;color:#fff;border:none;padding:6px;border-radius:4px;cursor:pointer;">Reject</button>
-      </div>
-    </div>
+  const whisperContent = `
+    <p><strong>LoreBridge — AI Write Proposal</strong></p>
+    <p><strong>Journal:</strong> ${payload.journalName} / ${payload.pageName}</p>
+    <p><strong>Rationale:</strong> ${payload.rationale}</p>
+    <p style="font-size:0.8em;color:#888;">Expires at ${expiresStr} — respond via the popup dialog.</p>
   `;
 
   await ChatMessage.create({
-    content,
+    content: whisperContent,
     whisper: gmIds,
     speaker: { alias: "LoreBridge" },
     flags: { [MODULE_ID]: { [FLAG_WRITE_TOKEN]: payload.token } },
   });
+
+  const dialogContent = `
+    <div style="margin-bottom:8px;">
+      <p><strong>Journal:</strong> ${payload.journalName}</p>
+      <p><strong>Page:</strong> ${payload.pageName}</p>
+      <p><strong>Rationale:</strong> ${payload.rationale}</p>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;">View proposed changes</summary>
+        <div style="max-height:200px;overflow-y:auto;background:var(--color-bg-alt,#1a1a1a);padding:8px;border-radius:4px;margin-top:4px;font-size:0.85em;white-space:pre-wrap;">${payload.proposedContent}</div>
+      </details>
+      <p style="margin-top:8px;font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
+    </div>
+  `;
+
+  new Dialog({
+    title: "LoreBridge — AI Write Proposal",
+    content: dialogContent,
+    buttons: {
+      approve: {
+        icon: '<i class="fas fa-check"></i>',
+        label: "Approve",
+        callback: () => {
+          void approveWrite(payload.token).then(() => {
+            ui.notifications.info(`LoreBridge: "${payload.pageName}" updated.`);
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            ui.notifications.error(`LoreBridge: Approve failed — ${msg}`);
+          });
+        },
+      },
+      reject: {
+        icon: '<i class="fas fa-times"></i>',
+        label: "Reject",
+        callback: () => {
+          void rejectWrite(payload.token).then(() => {
+            ui.notifications.info("LoreBridge: Write proposal rejected.");
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            ui.notifications.error(`LoreBridge: Reject failed — ${msg}`);
+          });
+        },
+      },
+    },
+    default: "reject",
+  }).render(true);
 }
 
 export async function rejectWrite(token: string): Promise<void> {
