@@ -45,7 +45,7 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
       <p><strong>Rationale:</strong> ${payload.rationale}</p>
       <details style="margin-top:8px;">
         <summary style="cursor:pointer;">View proposed changes</summary>
-        <div style="max-height:200px;overflow-y:auto;background:var(--color-bg-alt,#1a1a1a);padding:8px;border-radius:4px;margin-top:4px;font-size:0.85em;white-space:pre-wrap;">${payload.proposedContent}</div>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--color-border-light-primary,#999);padding:8px;border-radius:4px;margin-top:4px;font-size:0.85em;">${payload.proposedContent}</div>
       </details>
       <p style="margin-top:8px;font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
     </div>
@@ -81,7 +81,7 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
       },
     },
     default: "reject",
-  }).render(true);
+  }, { resizable: true, width: 480 }).render(true);
 }
 
 export async function rejectWrite(token: string): Promise<void> {

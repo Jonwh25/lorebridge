@@ -150,17 +150,24 @@ type FoundryUser = {
 };
 
 declare class Dialog {
-  constructor(data: {
-    title: string;
-    content: string;
-    buttons: Record<string, {
-      icon?: string;
-      label: string;
-      callback?: () => void;
-    }>;
-    default?: string;
-    close?: () => void;
-  });
+  constructor(
+    data: {
+      title: string;
+      content: string;
+      buttons: Record<string, {
+        icon?: string;
+        label: string;
+        callback?: () => void;
+      }>;
+      default?: string;
+      close?: () => void;
+    },
+    options?: {
+      resizable?: boolean;
+      width?: number;
+      height?: number;
+    },
+  );
   render(force: boolean): void;
 }
 
