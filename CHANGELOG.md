@@ -4,6 +4,21 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-31
+
+### Added
+
+- `search_items` MCP tool: keyword search across world items by name and description, with optional type and visibility-mode filtering.
+- `get_actor_inventory` MCP tool: list all items carried by a named actor with system-agnostic quantity, weight, price, rarity, identified, and description fields.
+- `search_session_logs` MCP tool: keyword search across pages of the GM-designated session log journal, with session-number extraction and excerpt support.
+- `get_session_log` MCP tool: retrieve the full plain-text content of one session log page by journal and page ID.
+- `list_compendiums` MCP tool: list all compendium packs available in the world with document type and entry count; respects the new Excluded Compendiums setting.
+- `search_compendium` MCP tool: search compendium pack indexes by entry name without importing documents; supports filtering by pack ID or document type.
+- `get_compendium_entry` MCP tool: retrieve a specific compendium index entry by pack ID and entry ID, returning its UUID, name, type, and image.
+- **Session Log Journal** world setting: name of the journal that holds session log pages (default `Session Logs`).
+- **Excluded Compendiums** world setting: comma-separated pack IDs hidden from LoreBridge compendium tools.
+- `LoreBridge.searchItems`, `LoreBridge.getActorInventory`, `LoreBridge.searchSessionLogs`, `LoreBridge.getSessionLog`, `LoreBridge.listCompendiums`, `LoreBridge.searchCompendium`, and `LoreBridge.getCompendiumEntry` exposed on the Foundry GM console API.
+
 ## [0.4.0] - 2026-07-31
 
 ### Added
