@@ -7,6 +7,37 @@ live campaign information from a loaded Foundry Virtual Tabletop world.
 > LoreBridge is an early developer preview. The authentication, configuration,
 > and deployment process may still change between releases.
 
+## What you can ask
+
+Once LoreBridge is connected, your AI client has live access to everything in
+your Foundry world. Here are a few things you can ask during a session or while
+prepping:
+
+**Before the session**
+> *"Summarize what happened in the last three sessions and remind me what loose ends the players left open."*
+
+> *"What do I need to know about Strahd before tonight? Give me his personality, his goals, and where the players last saw him."*
+
+> *"The party is heading to the Blue Water Inn. What's in my journal about it — layout, key NPCs, anything I've already written?"*
+
+**During the session**
+> *"The players just asked about the symbol on the door. Search my journals for anything about that symbol."*
+
+> *"What items does Ireena have in her inventory right now?"*
+
+> *"Roll a d20 and describe what the rogue finds when they search the body."*  *(with dice tool enabled)*
+
+**Writing content**
+> *"Write a gothic, atmospheric room description for the entrance hall of Castle Ravenloft. Use what's in my journal for the details."*
+
+> *"Update my Blue Water Inn journal page to note that the players burned down the kitchen and are now banned from the common room."*
+
+The last example triggers the write approval flow — a dialog pops up in
+Foundry showing you exactly what will change, and nothing is written until you
+click **Approve**.
+
+---
+
 ## How it works
 
 ```text
