@@ -31,10 +31,26 @@ export class WriteRegistry {
   }
 
   /**
+   * Explicitly rejects a token without executing a write.
+   * Marks the token as used so it cannot be approved later.
+   */
+  reject(token: string): PendingWrite {
+    const entry = this.#validate(token);
+    entry.usedAt = new Date();
+    return entry;
+  }
+
+  /**
    * Validates and consumes a token. Returns the entry on success, throws on failure.
    * A consumed or expired token cannot be reused.
    */
   consume(token: string): PendingWrite {
+    const entry = this.#validate(token);
+    entry.usedAt = new Date();
+    return entry;
+  }
+
+  #validate(token: string): PendingWrite {
     const entry = this.pending.get(token);
     if (!entry) throw new WriteTokenError("not_found", "Write token not found.");
     if (entry.usedAt) throw new WriteTokenError("already_used", "This write token has already been used.");
@@ -42,7 +58,6 @@ export class WriteRegistry {
       this.pending.delete(token);
       throw new WriteTokenError("expired", "This write token has expired.");
     }
-    entry.usedAt = new Date();
     return entry;
   }
 

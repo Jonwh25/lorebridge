@@ -5,6 +5,7 @@ import {
   type AdapterHelloMessage,
   type AdapterRegistration,
   type AdapterSessionControlMessage,
+  type EventEnvelope,
   type ProtocolMessage,
   type RequestEnvelope,
   validateProtocolMessage,
@@ -19,6 +20,7 @@ export type AdapterConnectionState =
 
 type WebSocketFactory = (url: string) => WebSocket;
 type CapabilityDispatcher = (request: RequestEnvelope) => unknown | Promise<unknown>;
+type EventHandler = (event: EventEnvelope) => void;
 
 export type AdapterConnectionOptions = {
   timeoutMs?: number;
@@ -61,6 +63,7 @@ export class LoreBridgeAdapterTransport {
     private readonly registration: AdapterRegistration,
     private readonly dispatchCapability?: CapabilityDispatcher,
     private readonly webSocketFactory: WebSocketFactory = (url) => new WebSocket(url),
+    private readonly onEvent?: EventHandler,
   ) {}
 
   get state(): AdapterConnectionState {
@@ -199,6 +202,8 @@ export class LoreBridgeAdapterTransport {
 
         if (message.kind === "request") {
           void this.#handleRequest(socket, message);
+        } else if (message.kind === "event") {
+          if (this.onEvent) this.onEvent(message as EventEnvelope);
         } else if (message.kind === "adapter.welcome") {
           finish({
             state: "connected",
