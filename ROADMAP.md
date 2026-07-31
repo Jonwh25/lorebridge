@@ -54,15 +54,15 @@ campaign questions.
 Success test: Codex can answer a location or NPC question from live Foundry
 actors, journals, and scenes while identifying every supporting source.
 
-### Milestone 2 — Connected Knowledge
+### Milestone 2 — Connected Knowledge ✅
 
 Connect campaign documents without introducing embeddings or an external
 search database.
 
 1. ✅ [Resolve Foundry UUID links](https://github.com/Jonwh25/lorebridge/issues/48)
 2. ✅ [Unified campaign search](https://github.com/Jonwh25/lorebridge/issues/49)
-3. [Related-document traversal](https://github.com/Jonwh25/lorebridge/issues/50)
-4. [Player-safe and GM-only context modes](https://github.com/Jonwh25/lorebridge/issues/51)
+3. ✅ [Related-document traversal](https://github.com/Jonwh25/lorebridge/issues/50)
+4. ✅ [Player-safe and GM-only context modes](https://github.com/Jonwh25/lorebridge/issues/51)
 
 Success test: a query about a location returns ranked, connected journal,
 actor, and scene context while respecting the requested visibility mode.
