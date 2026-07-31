@@ -78,14 +78,14 @@ provider or placing provider credentials in the browser.
 Success test: a GM selects a scene or journal page, requests a room
 description, and receives a source-aware preview without changing the world.
 
-### Milestone 4 — Campaign Intelligence
+### Milestone 4 — Campaign Intelligence ✅
 
 Expand retrieval into the campaign's equipment, history, and reference
 material.
 
-1. [Item and actor-inventory retrieval](https://github.com/Jonwh25/lorebridge/issues/54)
-2. [Session-log and campaign timeline retrieval](https://github.com/Jonwh25/lorebridge/issues/55)
-3. [Compendium search and focused entry retrieval](https://github.com/Jonwh25/lorebridge/issues/56)
+1. ✅ [Item and actor-inventory retrieval](https://github.com/Jonwh25/lorebridge/issues/54)
+2. ✅ [Session-log and campaign timeline retrieval](https://github.com/Jonwh25/lorebridge/issues/55)
+3. ✅ [Compendium search and focused entry retrieval](https://github.com/Jonwh25/lorebridge/issues/56)
 
 Success test: Codex can answer questions about party equipment, past events,
 and approved compendium material with supporting sources.

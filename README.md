@@ -54,6 +54,13 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `resolve_uuid` | Resolve any Foundry UUID to a normalized actor, journal, journal page, or scene |
 | `search_campaign` | Cross-type search across actors, journals, and scenes when the document type is unknown |
 | `get_related_documents` | Starting from any UUID, return directly related documents one hop away |
+| `search_items` | Search world items by name or description, with optional type filtering |
+| `get_actor_inventory` | List all items carried by a named actor with quantity, weight, price, rarity, and identification status |
+| `search_session_logs` | Search pages in the session log journal by keyword, returning session numbers and excerpts |
+| `get_session_log` | Retrieve the full text of one session log page |
+| `list_compendiums` | List available compendium packs with document type and entry count |
+| `search_compendium` | Search compendium indexes by entry name without importing documents |
+| `get_compendium_entry` | Retrieve a specific compendium entry by pack and entry ID |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.
