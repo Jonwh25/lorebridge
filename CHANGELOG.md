@@ -4,6 +4,20 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-31
+
+### Added
+
+- **Write approval dialog**: when the AI calls `propose_journal_update`, a GM-only chat whisper appears in Foundry and a native dialog popup opens automatically with the journal name, page, rationale, scrollable content preview, and **Approve** / **Reject** buttons. No browser console access required.
+- `LoreBridge.rejectWrite(token)` Foundry GM console fallback for explicit token rejection.
+- `POST /v1/write/reject` backend endpoint: marks a write token as used without executing a write, preventing later approval.
+- Backend pushes an `approval.required` WebSocket event to the connected Foundry module immediately after a write is proposed, delivering the dialog without polling.
+- Write approval dialog uses Foundry v13 `DialogV2` (ApplicationV2 framework) to avoid deprecation warnings and support native theming and resizing.
+
+### Fixed
+
+- Windows data directory now has file ACL restricted to the running user via `icacls`, preventing other local accounts from reading the LoreBridge data directory or key file.
+
 ## [0.6.0] - 2026-07-31
 
 ### Added

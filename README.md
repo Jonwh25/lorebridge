@@ -60,7 +60,7 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `list_compendiums` | List available compendium packs with document type and entry count |
 | `search_compendium` | Search compendium indexes by entry name without importing documents |
 | `get_compendium_entry` | Retrieve a specific compendium entry by pack and entry ID |
-| `propose_journal_update` | Propose a journal page content change; returns a preview and a GM approval token — no write occurs until the GM approves |
+| `propose_journal_update` | Propose a journal page content change; triggers a GM-only Foundry dialog with Approve/Reject buttons — no write occurs until the GM approves |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.

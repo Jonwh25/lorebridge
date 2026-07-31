@@ -112,11 +112,11 @@ Required safeguards:
 Success test: no write occurs until the GM approves the exact proposed change,
 and stale or reused approval tokens are rejected.
 
-### Milestone 6 — Write Approval UI
+### Milestone 6 — Write Approval UI ✅
 
 Replace the console-based approval command with a native Foundry GM experience.
 
-1. [Foundry chat UI for write approval](https://github.com/Jonwh25/lorebridge/issues/87)
+1. ✅ [Foundry chat UI for write approval](https://github.com/Jonwh25/lorebridge/issues/87)
 
 When an AI proposes a journal update, a GM-only chat whisper appears in Foundry
 showing the journal name, rationale, and a before/after summary with clickable
