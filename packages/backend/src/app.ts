@@ -25,6 +25,7 @@ import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
+import { ProviderService } from "./provider.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -77,7 +78,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, mcp: McpRequestHandler, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -106,7 +107,14 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
       if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     }
-    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities });
+    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/provider/status") {
+    if (!authenticate(pairing, request, response)) return;
+    const healthy = provider.enabled ? await provider.validate() : null;
+    sendJson(response, 200, provider.status(healthy));
     return;
   }
 
@@ -395,9 +403,10 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
 export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity, services: BackendServices = {}): Server {
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
   const adapterSessions = new AdapterSessionRegistry();
+  const provider = new ProviderService();
   const mcp = createLoreBridgeMcpHandler(adapterSessions);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, mcp, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();
