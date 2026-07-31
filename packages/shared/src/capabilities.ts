@@ -9,3 +9,4 @@ export * from "./capabilities/related-documents.js";
 export * from "./capabilities/generate-boxed-text.js";
 export * from "./capabilities/items.js";
 export * from "./capabilities/session-logs.js";
+export * from "./capabilities/compendium.js";

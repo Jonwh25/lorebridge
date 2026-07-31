@@ -66,6 +66,33 @@ type FoundryActor = {
   items: FoundryItemCollection;
 };
 
+type FoundryCompendiumIndexEntry = {
+  _id: string;
+  name: string;
+  img?: string;
+  type?: string;
+  sort?: number;
+};
+
+type FoundryCompendiumPack = {
+  metadata: {
+    id: string;
+    label: string;
+    type: string;
+    packageName?: string;
+    packageType?: string;
+  };
+  index: Iterable<FoundryCompendiumIndexEntry> & {
+    size: number;
+    get(id: string): FoundryCompendiumIndexEntry | undefined;
+  };
+};
+
+type FoundryCompendiumCollection = Iterable<FoundryCompendiumPack> & {
+  size: number;
+  get(id: string): FoundryCompendiumPack | undefined;
+};
+
 type FoundryActorCollection = Iterable<FoundryActor> & {
   size: number;
   get(id: string): FoundryActor | undefined;
@@ -133,6 +160,7 @@ declare const game: {
   items: FoundryItemCollection;
   scenes: FoundrySceneCollection;
   journal: FoundryJournalCollection;
+  packs: FoundryCompendiumCollection;
   modules: Map<string, { active: boolean; version?: string }>;
   settings: {
     register(moduleId: string, key: string, config: FoundrySettingConfig): void;
