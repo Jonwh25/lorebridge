@@ -7,3 +7,4 @@ export * from "./capabilities/resolve-uuid.js";
 export * from "./capabilities/search-campaign.js";
 export * from "./capabilities/related-documents.js";
 export * from "./capabilities/generate-boxed-text.js";
+export * from "./capabilities/items.js";

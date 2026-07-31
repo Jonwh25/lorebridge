@@ -14,6 +14,8 @@ import {
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_SCENES_CAPABILITY,
+  SEARCH_ITEMS_CAPABILITY,
+  GET_ACTOR_INVENTORY_CAPABILITY,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -25,6 +27,8 @@ import {
   validateSearchJournalsOutput,
   validateSearchActorsOutput,
   validateSearchScenesOutput,
+  validateSearchItemsOutput,
+  validateGetActorInventoryOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -33,6 +37,8 @@ import {
 
 const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
+const searchItemsToolName = "search_items";
+const actorInventoryToolName = "get_actor_inventory";
 const resolveUuidToolName = "resolve_uuid";
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
@@ -636,6 +642,111 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve related documents.");
+      }
+    },
+  );
+
+  server.registerTool(
+    searchItemsToolName,
+    {
+      title: "Search Foundry world items",
+      description: "Search world-level items in a connected Foundry VTT world by name or description, with optional item-type filtering. Returns lightweight matches; use get_actor_inventory to retrieve items owned by a specific actor.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Text to find in item names or descriptions."),
+        limit: z.number().int().min(1).max(50).optional(),
+        types: z.array(z.string().trim().min(1)).min(1).max(20).optional().describe(
+          "Optional Foundry item types to include, such as weapon, equipment, or consumable.",
+        ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all items. 'player' filters to items visible to players.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, types, mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_ITEMS_CAPABILITY,
+          {
+            query,
+            ...(limit === undefined ? {} : { limit }),
+            ...(types === undefined ? {} : { types }),
+            ...(mode === undefined ? {} : { mode }),
+          },
+        );
+        const validation = validateSearchItemsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid item search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry items.");
+      }
+    },
+  );
+
+  server.registerTool(
+    actorInventoryToolName,
+    {
+      title: "Get a Foundry actor's inventory",
+      description: "Retrieve the bounded item list embedded in a specific Foundry VTT actor. Returns each item's name, type, quantity, weight, price, rarity, and identified state. Use actorId from search_actors or search_campaign.",
+      inputSchema: z.object({
+        actorId: z.string().trim().min(1).describe(
+          "The Foundry Actor ID or UUID returned by search_actors or search_campaign.",
+        ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns the inventory regardless of permissions. 'player' returns NOT_FOUND for GM-only actors.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ actorId, mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_ACTOR_INVENTORY_CAPABILITY,
+          { actorId, ...(mode === undefined ? {} : { mode }) },
+        );
+        const validation = validateGetActorInventoryOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid actor inventory.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the Foundry actor inventory.");
       }
     },
   );

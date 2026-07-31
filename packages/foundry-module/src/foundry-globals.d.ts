@@ -39,6 +39,21 @@ type FoundryJournalCollection = Iterable<FoundryJournalEntry> & {
   get(id: string): FoundryJournalEntry | undefined;
 };
 
+type FoundryItem = {
+  id: string;
+  uuid: string;
+  name: string;
+  type: string;
+  img?: string;
+  system: Record<string, unknown>;
+  ownership?: Record<string, number>;
+};
+
+type FoundryItemCollection = Iterable<FoundryItem> & {
+  size: number;
+  get(id: string): FoundryItem | undefined;
+};
+
 type FoundryActor = {
   id: string;
   uuid: string;
@@ -48,6 +63,7 @@ type FoundryActor = {
   folder?: { id: string; name: string } | null;
   system: Record<string, unknown>;
   ownership?: Record<string, number>;
+  items: FoundryItemCollection;
 };
 
 type FoundryActorCollection = Iterable<FoundryActor> & {
@@ -114,6 +130,7 @@ declare const game: {
     version: string;
   };
   actors: FoundryActorCollection;
+  items: FoundryItemCollection;
   scenes: FoundrySceneCollection;
   journal: FoundryJournalCollection;
   modules: Map<string, { active: boolean; version?: string }>;
