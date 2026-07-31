@@ -14,6 +14,7 @@ import {
 import type {
   GetActorOutput,
   GetJournalPageOutput,
+  GetRelatedDocumentsOutput,
   GetWorldSummaryOutput,
   ResolveUuidOutput,
   SearchCampaignOutput,
@@ -145,6 +146,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 mode: "read",
                 version: "0.1",
               },
+              {
+                name: "getRelatedDocuments",
+                mode: "read",
+                version: "0.1",
+              },
             ],
           },
         }));
@@ -258,6 +264,28 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 },
               ],
             }
+        : message.capability === "getRelatedDocuments"
+          ? {
+              sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
+              uuid: "Scene.scene_tser_falls",
+              documentType: "scene",
+              name: "Tser Falls",
+              related: [
+                {
+                  uuid: "JournalEntry.journal_locations.JournalEntryPage.page_tser_falls",
+                  documentType: "journalPage",
+                  name: "Tser Falls",
+                  relationshipType: "sceneLinkedJournal",
+                },
+                {
+                  uuid: "Actor.actor_vistani",
+                  documentType: "actor",
+                  name: "Vistani Wanderer",
+                  relationshipType: "sceneToken",
+                },
+              ],
+            }
         : message.capability === "resolveUuid"
           ? {
               sourceId: "foundry:cos",
@@ -316,7 +344,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene", "resolve_uuid"],
+      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene", "resolve_uuid", "get_related_documents"],
     );
     assert.ok(tools.tools.every((tool) => tool.annotations?.readOnlyHint));
 
@@ -405,6 +433,18 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(campaignSearch.results.length, 2);
     assert.equal(campaignSearch.results[0]?.documentType, "journal");
     assert.equal(campaignSearch.results[1]?.documentType, "scene");
+
+    const relatedResult = await client.callTool({
+      name: "get_related_documents",
+      arguments: { uuid: "Scene.scene_tser_falls", sourceId: "foundry:cos" },
+    });
+    const related = relatedResult.structuredContent as unknown as GetRelatedDocumentsOutput;
+    assert.equal(relatedResult.isError, undefined);
+    assert.equal(related.documentType, "scene");
+    assert.equal(related.name, "Tser Falls");
+    assert.equal(related.related.length, 2);
+    assert.equal(related.related[0]?.relationshipType, "sceneLinkedJournal");
+    assert.equal(related.related[1]?.relationshipType, "sceneToken");
   } finally {
     await client?.close();
     webSocket?.close();
