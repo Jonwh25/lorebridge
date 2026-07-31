@@ -44,8 +44,10 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
       <p><strong>Page:</strong> ${payload.pageName}</p>
       <p><strong>Rationale:</strong> ${payload.rationale}</p>
       <details style="margin-top:8px;">
-        <summary style="cursor:pointer;">View proposed changes</summary>
-        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--color-border-light-primary,#999);padding:8px;border-radius:4px;margin-top:4px;font-size:0.85em;">${payload.proposedContent}</div>
+        <summary style="cursor:pointer;font-weight:bold;">View proposed changes</summary>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid #999;border-radius:4px;margin-top:4px;padding:8px;font-size:0.85em;background:#f5f5f0;color:#222;">
+          <div style="background:#f5f5f0;color:#222;">${payload.proposedContent}</div>
+        </div>
       </details>
       <p style="margin-top:8px;font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
     </div>
@@ -53,6 +55,7 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
 
   new foundry.applications.api.DialogV2({
     window: { title: "LoreBridge — AI Write Proposal", resizable: true },
+    position: { width: 500, height: "auto" },
     content: dialogContent,
     buttons: [
       {

@@ -155,6 +155,7 @@ declare const foundry: {
       DialogV2: {
         new(config: {
           window?: { title?: string; resizable?: boolean };
+          position?: { width?: number; height?: string | number };
           content: string;
           buttons: Array<{
             action: string;
