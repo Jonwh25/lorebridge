@@ -8,6 +8,7 @@ import {
   GET_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
+  GET_RELATED_DOCUMENTS_CAPABILITY,
   RESOLVE_UUID_CAPABILITY,
   SEARCH_CAMPAIGN_CAPABILITY,
   SEARCH_JOURNALS_CAPABILITY,
@@ -18,6 +19,7 @@ import {
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
   validateGetWorldSummaryOutput,
+  validateGetRelatedDocumentsOutput,
   validateResolveUuidOutput,
   validateSearchCampaignOutput,
   validateSearchJournalsOutput,
@@ -29,6 +31,7 @@ import {
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 
+const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
 const resolveUuidToolName = "resolve_uuid";
 const worldSummaryToolName = "get_world_summary";
@@ -549,6 +552,62 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not resolve the Foundry UUID.");
+      }
+    },
+  );
+
+  server.registerTool(
+    relatedDocumentsToolName,
+    {
+      title: "Get related Foundry documents",
+      description: "Starting from a Foundry VTT UUID, return directly related documents one hop away. Follows explicit @UUID links in journal and actor HTML, scene-linked journals, map-note journal pins, and placed actor tokens. Use this to discover connected campaign content without a full-world search.",
+      inputSchema: z.object({
+        uuid: z.string().trim().min(1).describe(
+          "A Foundry VTT UUID to start from, such as Actor.abc123, JournalEntry.abc123, JournalEntry.abc123.JournalEntryPage.def456, or Scene.abc123.",
+        ),
+        limit: z.number().int().min(1).max(50).optional().describe(
+          "Maximum number of related documents to return. Defaults to 20.",
+        ),
+        types: z.array(z.enum(["actor", "journal", "journalPage", "scene"])).min(1).max(4).optional().describe(
+          "Document types to include in results. Defaults to all: actor, journal, journalPage, scene.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ uuid, limit, types, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_RELATED_DOCUMENTS_CAPABILITY,
+          {
+            uuid,
+            ...(limit === undefined ? {} : { limit }),
+            ...(types === undefined ? {} : { types }),
+          },
+        );
+        const validation = validateGetRelatedDocumentsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid related documents.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve related documents.");
       }
     },
   );
