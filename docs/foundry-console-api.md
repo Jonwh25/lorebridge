@@ -126,6 +126,106 @@ embedded UUID links and map note references.
 await LoreBridge.getRelatedDocuments({ uuid: "JournalEntry.abc123" })
 ```
 
+### `searchItems({ query, type?, mode? })`
+
+Search world items by name or description. Optionally filter by item type
+(e.g. `"weapon"`, `"spell"`, `"equipment"`).
+
+```js
+await LoreBridge.searchItems({ query: "sword", type: "weapon" })
+```
+
+### `getActorInventory({ actorName, mode? })`
+
+List all items carried by a named actor with quantity, weight, price, rarity,
+identification status, and description.
+
+```js
+await LoreBridge.getActorInventory({ actorName: "Ireena Kolyana" })
+```
+
+### `searchSessionLogs({ query, journalName? })`
+
+Search pages in the session log journal by keyword. Returns session numbers,
+excerpts, and page IDs.
+
+```js
+await LoreBridge.searchSessionLogs({ query: "werewolf" })
+await LoreBridge.searchSessionLogs({ query: "tavern", journalName: "Session Logs" })
+```
+
+### `getSessionLog({ journalId, pageId })`
+
+Retrieve the full plain-text content of one session log page.
+
+```js
+await LoreBridge.getSessionLog({ journalId: "...", pageId: "..." })
+```
+
+### `listCompendiums({ mode? })`
+
+List all compendium packs available in the world with document type and entry
+count. Respects the **Excluded Compendiums** world setting.
+
+```js
+await LoreBridge.listCompendiums()
+```
+
+### `searchCompendium({ query, packId?, type? })`
+
+Search compendium pack indexes by entry name without importing documents.
+
+```js
+await LoreBridge.searchCompendium({ query: "fireball" })
+await LoreBridge.searchCompendium({ query: "goblin", packId: "dnd5e.monsters" })
+```
+
+### `getCompendiumEntry({ packId, entryId })`
+
+Retrieve a specific compendium index entry by pack ID and entry ID.
+
+```js
+await LoreBridge.getCompendiumEntry({ packId: "dnd5e.monsters", entryId: "..." })
+```
+
+## GM write approval
+
+Requires **Enable AI-Proposed Writes** to be on in LoreBridge world settings.
+Write tokens are single-use and expire after five minutes.
+
+### `approveWrite(token)`
+
+Validate an approval token and execute the proposed journal page update.
+Returns a before/after audit summary.
+
+```js
+await LoreBridge.approveWrite("a1b2c3d4-...")
+```
+
+```js
+{
+  success: true,
+  journalId: "...",
+  pageId: "...",
+  pageName: "Blue Water Inn",
+  before: "<p>The inn is a two-story building...</p>",
+  after: "<p>The inn is a two-story building... The kitchen was burned down...</p>"
+}
+```
+
+### `rejectWrite(token)`
+
+Mark a write token as used without executing the write. Prevents the token
+from being approved later.
+
+```js
+await LoreBridge.rejectWrite("a1b2c3d4-...")
+```
+
+Both `approveWrite` and `rejectWrite` are also triggered automatically by the
+**Approve** and **Reject** buttons in the GM write approval dialog that appears
+in Foundry when an AI proposes a journal update via `propose_journal_update`.
+
 ## AI generation
 
 Requires a backend AI provider configured with `ANTHROPIC_API_KEY` or
