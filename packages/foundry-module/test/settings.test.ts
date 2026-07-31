@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("configuration")?.restricted, true);
 
-  assert.equal(registrations.size, 5);
+  assert.equal(registrations.size, 6);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -99,6 +99,7 @@ test("reads and normalizes configured values", () => {
     provider: "openai",
     backendUrl: "https://lorebridge.example/api/",
     clientToken: "signed-client-token",
+    sessionLogFolder: "Session Logs",
   });
 });
 

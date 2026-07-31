@@ -16,6 +16,8 @@ import {
   SEARCH_SCENES_CAPABILITY,
   SEARCH_ITEMS_CAPABILITY,
   GET_ACTOR_INVENTORY_CAPABILITY,
+  SEARCH_SESSION_LOGS_CAPABILITY,
+  GET_SESSION_LOG_CAPABILITY,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -29,6 +31,8 @@ import {
   validateSearchScenesOutput,
   validateSearchItemsOutput,
   validateGetActorInventoryOutput,
+  validateSearchSessionLogsOutput,
+  validateGetSessionLogOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -39,6 +43,8 @@ const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
 const searchItemsToolName = "search_items";
 const actorInventoryToolName = "get_actor_inventory";
+const searchSessionLogsToolName = "search_session_logs";
+const getSessionLogToolName = "get_session_log";
 const resolveUuidToolName = "resolve_uuid";
 const worldSummaryToolName = "get_world_summary";
 const journalSearchToolName = "search_journals";
@@ -747,6 +753,104 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the Foundry actor inventory.");
+      }
+    },
+  );
+
+  server.registerTool(
+    searchSessionLogsToolName,
+    {
+      title: "Search Foundry session logs",
+      description: "Search journal pages in the GM-designated session log folder by keyword. Returns matched entries with session numbers and excerpts. Use get_session_log to retrieve the full text of a match. Session log journals must be in the folder named in the LoreBridge world setting (default: 'Session Logs').",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe(
+          "Keyword or phrase to find across session log page names and content — e.g. an NPC name, location, or event.",
+        ),
+        limit: z.number().int().min(1).max(50).optional().describe(
+          "Maximum number of matches to return. Defaults to 20.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_SESSION_LOGS_CAPABILITY,
+          { query, ...(limit === undefined ? {} : { limit }) },
+        );
+        const validation = validateSearchSessionLogsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid session log search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry session logs.");
+      }
+    },
+  );
+
+  server.registerTool(
+    getSessionLogToolName,
+    {
+      title: "Get a Foundry session log page",
+      description: "Retrieve the full text of one session log journal page. Use journalId and pageId from search_session_logs results.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe(
+          "The Foundry JournalEntry ID returned by search_session_logs.",
+        ),
+        pageId: z.string().trim().min(1).describe(
+          "The Foundry JournalEntryPage ID returned by search_session_logs.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ journalId, pageId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_SESSION_LOG_CAPABILITY,
+          { journalId, pageId },
+        );
+        const validation = validateGetSessionLogOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid session log page.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the session log page.");
       }
     },
   );
