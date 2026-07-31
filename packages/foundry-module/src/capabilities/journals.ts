@@ -14,6 +14,7 @@ import {
   type SearchJournalsOutput,
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
+import { isPlayerVisible } from "./visibility.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -71,9 +72,12 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
 
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
+  const playerMode = validated.value.mode === "player";
   const matches: Array<{ score: number; value: JournalSearchMatch }> = [];
+  let hiddenCount = 0;
 
   for (const journal of game.journal) {
+    if (playerMode && !isPlayerVisible(journal.ownership)) { hiddenCount++; continue; }
     const pages = Array.from(journal.pages);
     let best: { score: number; value: JournalSearchMatch } | undefined;
     const journalName = journal.name.toLocaleLowerCase();
@@ -110,6 +114,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
       .sort((left, right) => left.score - right.score || left.value.journalName.localeCompare(right.value.journalName))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)
       .map(({ value }) => value),
+    hiddenCount,
   };
   const outputValidation = validateSearchJournalsOutput(output);
   if (!outputValidation.valid || !outputValidation.value) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned invalid journal search results.", { details: { validationErrors: outputValidation.errors } });
@@ -154,6 +159,10 @@ export function getJournalPage(input: GetJournalPageInput): GetJournalPageOutput
     : validated.value.journalId;
   const journal = game.journal.get(journalId);
   if (!journal) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested journal was not found.");
+
+  if (validated.value.mode === "player" && !isPlayerVisible(journal.ownership)) {
+    throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested journal was not found.");
+  }
 
   const pageId = validated.value.pageId.includes("JournalEntryPage.")
     ? validated.value.pageId.split("JournalEntryPage.")[1]?.split(".")[0] ?? ""

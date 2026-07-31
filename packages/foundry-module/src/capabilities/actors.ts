@@ -10,6 +10,7 @@ import {
   type SearchActorsOutput,
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
+import { isPlayerVisible } from "./visibility.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -105,9 +106,12 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const types = validated.value.types?.map((type) => type.toLocaleLowerCase());
+  const playerMode = validated.value.mode === "player";
   const matches: Array<{ score: number; value: ActorSearchMatch }> = [];
+  let hiddenCount = 0;
 
   for (const actor of game.actors) {
+    if (playerMode && !isPlayerVisible(actor.ownership)) { hiddenCount++; continue; }
     if (types && !types.includes(actor.type.toLocaleLowerCase())) continue;
     const name = actor.name.toLocaleLowerCase();
     const description = actorDescription(actor);
@@ -154,6 +158,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
         || left.value.actorId.localeCompare(right.value.actorId))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)
       .map(({ value }) => value),
+    hiddenCount,
   };
   const outputValidation = validateSearchActorsOutput(output);
   if (!outputValidation.valid || !outputValidation.value) {
@@ -189,6 +194,9 @@ export function getActor(input: GetActorInput): GetActorOutput {
     : validated.value.actorId;
   const actor = game.actors.get(actorId);
   if (!actor) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested actor was not found.");
+  if (validated.value.mode === "player" && !isPlayerVisible(actor.ownership)) {
+    throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested actor was not found.");
+  }
 
   const output: GetActorOutput = {
     sourceId: sourceId(),

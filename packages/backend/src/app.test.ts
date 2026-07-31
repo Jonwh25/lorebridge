@@ -121,6 +121,7 @@ test("authenticated journal routes validate and delegate to the journal service"
           sourceName: "Curse of Strahd",
           query: input.query,
           results: [{ journalId: "j1", journalUuid: "JournalEntry.j1", journalName: "Tser Falls", pageCount: 1, matchedField: "journalName" }],
+          hiddenCount: 0,
         };
       },
       async get(journalId) {
@@ -427,6 +428,7 @@ test("actor search and retrieval routes through the authenticated Foundry adapte
               actorType: "npc",
               matchedField: "actorName",
             }],
+            hiddenCount: 0,
           }
         : {
             sourceId: "foundry:cos",
@@ -542,6 +544,7 @@ test("POST /v1/journals/search routes through the live Foundry adapter", async (
             matchedPageName: "Tser Falls",
             matchedField: "pageName",
           }],
+          hiddenCount: 0,
         },
       )));
     });

@@ -123,6 +123,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         types: z.array(z.enum(["journal", "actor", "scene"])).min(1).max(3).optional().describe(
           "Document types to include. Defaults to all: journal, actor, scene.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all documents. 'player' filters to documents visible to players (OBSERVER permission or higher).",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -134,7 +137,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, sourceId }) => {
+    async ({ query, limit, types, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -143,6 +146,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
             query,
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
+            ...(mode === undefined ? {} : { mode }),
           },
         );
         const validation = validateSearchCampaignOutput(result);
@@ -176,6 +180,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         limit: z.number().int().min(1).max(50).optional().describe(
           "Maximum number of matches to return. Defaults to the adapter limit.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all journals. 'player' filters to journals visible to players.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -187,11 +194,12 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ query, limit, sourceId }) => {
+    async ({ query, limit, mode, sourceId }) => {
       try {
         const input = {
           query,
           ...(limit === undefined ? {} : { limit }),
+          ...(mode === undefined ? {} : { mode }),
         };
         const result = await adapterSessions.invoke(
           sourceId,
@@ -235,6 +243,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         pageId: z.string().trim().min(1).describe(
           "The Foundry JournalEntryPage ID returned by search_journals.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns the page regardless of permissions. 'player' returns NOT_FOUND for GM-only journals.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -246,12 +257,12 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ journalId, pageId, sourceId }) => {
+    async ({ journalId, pageId, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           GET_JOURNAL_PAGE_CAPABILITY,
-          { journalId, pageId },
+          { journalId, pageId, ...(mode === undefined ? {} : { mode }) },
         );
         const validation = validateGetJournalPageOutput(result);
         if (!validation.valid || !validation.value) {
@@ -289,6 +300,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         types: z.array(z.string().trim().min(1)).min(1).max(20).optional().describe(
           "Optional Foundry actor types to include, such as npc or character.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all actors. 'player' filters to actors visible to players.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -300,7 +314,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, sourceId }) => {
+    async ({ query, limit, types, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -309,6 +323,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
             query,
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
+            ...(mode === undefined ? {} : { mode }),
           },
         );
         const validation = validateSearchActorsOutput(result);
@@ -339,6 +354,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         actorId: z.string().trim().min(1).describe(
           "The Foundry Actor ID or UUID returned by search_actors.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns the actor regardless of permissions. 'player' returns NOT_FOUND for GM-only actors.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -350,12 +368,12 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ actorId, sourceId }) => {
+    async ({ actorId, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           GET_ACTOR_CAPABILITY,
-          { actorId },
+          { actorId, ...(mode === undefined ? {} : { mode }) },
         );
         const validation = validateGetActorOutput(result);
         if (!validation.valid || !validation.value) {
@@ -384,6 +402,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
       inputSchema: z.object({
         query: z.string().trim().min(1).describe("Text to find in scene names."),
         limit: z.number().int().min(1).max(50).optional(),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all scenes. 'player' filters to scenes visible to players.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -395,12 +416,12 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ query, limit, sourceId }) => {
+    async ({ query, limit, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           SEARCH_SCENES_CAPABILITY,
-          { query, ...(limit === undefined ? {} : { limit }) },
+          { query, ...(limit === undefined ? {} : { limit }), ...(mode === undefined ? {} : { mode }) },
         );
         const validation = validateSearchScenesOutput(result);
         if (!validation.valid || !validation.value) {
@@ -430,6 +451,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         sceneId: z.string().trim().min(1).describe(
           "The Foundry Scene ID or UUID returned by search_scenes.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns the scene regardless of permissions. 'player' returns NOT_FOUND for GM-only scenes.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -441,12 +465,12 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ sceneId, sourceId }) => {
+    async ({ sceneId, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           GET_SCENE_CAPABILITY,
-          { sceneId },
+          { sceneId, ...(mode === undefined ? {} : { mode }) },
         );
         const validation = validateGetSceneOutput(result);
         if (!validation.valid || !validation.value) {
@@ -571,6 +595,9 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         types: z.array(z.enum(["actor", "journal", "journalPage", "scene"])).min(1).max(4).optional().describe(
           "Document types to include in results. Defaults to all: actor, journal, journalPage, scene.",
         ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all related documents. 'player' filters related documents to those visible to players.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -582,7 +609,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         openWorldHint: false,
       },
     },
-    async ({ uuid, limit, types, sourceId }) => {
+    async ({ uuid, limit, types, mode, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -591,6 +618,7 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
             uuid,
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
+            ...(mode === undefined ? {} : { mode }),
           },
         );
         const validation = validateGetRelatedDocumentsOutput(result);

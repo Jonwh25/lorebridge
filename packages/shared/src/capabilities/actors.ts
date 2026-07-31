@@ -1,4 +1,5 @@
 import type { CapabilityDeclaration, ValidationResult } from "../index.js";
+import type { VisibilityMode } from "./visibility.js";
 
 export const SEARCH_ACTORS_CAPABILITY = "searchActors" as const;
 export const GET_ACTOR_CAPABILITY = "getActor" as const;
@@ -7,6 +8,7 @@ export interface SearchActorsInput {
   query: string;
   limit?: number;
   types?: string[];
+  mode?: VisibilityMode;
 }
 
 export interface ActorSearchMatch {
@@ -25,10 +27,12 @@ export interface SearchActorsOutput {
   sourceName: string;
   query: string;
   results: ActorSearchMatch[];
+  hiddenCount: number;
 }
 
 export interface GetActorInput {
   actorId: string;
+  mode?: VisibilityMode;
 }
 
 export interface ActorDocument {
@@ -62,6 +66,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
+const VISIBILITY_MODES: VisibilityMode[] = ["gm", "player"];
 
 export function validateSearchActorsInput(
   value: unknown,
@@ -85,9 +90,10 @@ export function validateSearchActorsInput(
       errors.push("types must contain between 1 and 20 non-empty strings");
     }
   }
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
   return errors.length
     ? { valid: false, errors }
-    : { valid: true, value: value as unknown as SearchActorsInput, errors };
+    : { valid: true, value: value as unknown as SearchActorsInput, errors: [] };
 }
 
 export function validateSearchActorsOutput(
@@ -119,16 +125,18 @@ export function validateSearchActorsOutput(
       }
     });
   }
+  if (typeof value.hiddenCount !== "number" || !Number.isInteger(value.hiddenCount) || (value.hiddenCount as number) < 0) errors.push("hiddenCount must be a non-negative integer");
   return errors.length
     ? { valid: false, errors }
-    : { valid: true, value: value as unknown as SearchActorsOutput, errors };
+    : { valid: true, value: value as unknown as SearchActorsOutput, errors: [] };
 }
 
 export function validateGetActorInput(value: unknown): ValidationResult<GetActorInput> {
-  if (!isRecord(value) || !isNonEmptyString(value.actorId)) {
-    return { valid: false, errors: ["actorId must be a non-empty string"] };
-  }
-  return { valid: true, value: value as unknown as GetActorInput, errors: [] };
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (!isNonEmptyString(value.actorId)) errors.push("actorId must be a non-empty string");
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetActorInput, errors: [] };
 }
 
 export function validateGetActorOutput(value: unknown): ValidationResult<GetActorOutput> {

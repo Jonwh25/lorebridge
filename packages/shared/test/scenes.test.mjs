@@ -39,12 +39,14 @@ test("validates scene search output", () => {
       navigation: true,
       matchedField: "sceneName",
     }],
+    hiddenCount: 0,
   }).valid, true);
   assert.equal(validateSearchScenesOutput({
     sourceId: "foundry:cos",
     sourceName: "Curse of Strahd",
     query: "Tser Falls",
     results: [],
+    hiddenCount: 0,
   }).valid, true, "empty results is valid");
   assert.equal(validateSearchScenesOutput({
     sourceId: "foundry:cos",

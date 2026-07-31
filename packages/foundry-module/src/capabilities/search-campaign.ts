@@ -43,13 +43,16 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Campaign search input is invalid.", { details: { validationErrors: validated.errors } });
   }
 
-  const { query, limit = DEFAULT_LIMIT, types = ["journal", "actor", "scene"] } = validated.value;
+  const { query, limit = DEFAULT_LIMIT, types = ["journal", "actor", "scene"], mode } = validated.value;
   const needle = query.trim().toLocaleLowerCase();
   const scored: Array<{ key: string; match: CampaignSearchMatch }> = [];
+  let hiddenCount = 0;
 
   if (types.includes("journal")) {
     try {
-      const { results } = searchJournals({ query, limit: INTERNAL_LIMIT });
+      const sub = searchJournals({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
+      hiddenCount += sub.hiddenCount;
+      const { results } = sub;
       for (const r of results) {
         const score = journalScore(r.matchedField, r.journalName, needle);
         scored.push({ key: sortKey(score, "journal", r.journalName), match: { ...r, documentType: "journal" } });
@@ -61,7 +64,9 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
 
   if (types.includes("actor")) {
     try {
-      const { results } = searchActors({ query, limit: INTERNAL_LIMIT });
+      const sub = searchActors({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
+      hiddenCount += sub.hiddenCount;
+      const { results } = sub;
       for (const r of results) {
         const score = actorScore(r.matchedField, r.actorName, needle);
         scored.push({ key: sortKey(score, "actor", r.actorName), match: { ...r, documentType: "actor" } });
@@ -73,7 +78,9 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
 
   if (types.includes("scene")) {
     try {
-      const { results } = searchScenes({ query, limit: INTERNAL_LIMIT });
+      const sub = searchScenes({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
+      hiddenCount += sub.hiddenCount;
+      const { results } = sub;
       for (const r of results) {
         const score = sceneScore(r.sceneName, needle);
         scored.push({ key: sortKey(score, "scene", r.sceneName), match: { ...r, documentType: "scene" } });
@@ -98,7 +105,7 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
   const sourceId = game.world ? `foundry:${game.world.id}` : "foundry:unknown";
   const sourceName = game.world?.title ?? "Unknown Foundry World";
 
-  const output: SearchCampaignOutput = { sourceId, sourceName, query: query.trim(), results };
+  const output: SearchCampaignOutput = { sourceId, sourceName, query: query.trim(), results, hiddenCount };
   const outputValidation = validateSearchCampaignOutput(output);
   if (!outputValidation.valid || !outputValidation.value) {
     throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry returned invalid campaign search results.", { details: { validationErrors: outputValidation.errors } });

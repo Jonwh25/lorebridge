@@ -21,12 +21,14 @@ type FoundryJournalPage = {
   sort: number;
   text?: { content?: string; format?: number };
   src?: string;
+  ownership?: Record<string, number>;
 };
 
 type FoundryJournalEntry = {
   id: string;
   uuid: string;
   name: string;
+  ownership?: Record<string, number>;
   pages: Iterable<FoundryJournalPage> & {
     get(id: string): FoundryJournalPage | undefined;
   };
@@ -45,6 +47,7 @@ type FoundryActor = {
   img?: string;
   folder?: { id: string; name: string } | null;
   system: Record<string, unknown>;
+  ownership?: Record<string, number>;
 };
 
 type FoundryActorCollection = Iterable<FoundryActor> & {
@@ -73,6 +76,7 @@ type FoundryScene = {
   uuid: string;
   name: string;
   active: boolean;
+  ownership?: Record<string, number>;
   navigation: boolean;
   navName?: string;
   thumb?: string;

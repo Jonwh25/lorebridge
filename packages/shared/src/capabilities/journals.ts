@@ -1,10 +1,11 @@
 import type { CapabilityDeclaration, ValidationResult } from "../index.js";
+import type { VisibilityMode } from "./visibility.js";
 
 export const SEARCH_JOURNALS_CAPABILITY = "searchJournals" as const;
 export const GET_JOURNAL_CAPABILITY = "getJournal" as const;
 export const GET_JOURNAL_PAGE_CAPABILITY = "getJournalPage" as const;
 
-export interface SearchJournalsInput { query: string; limit?: number }
+export interface SearchJournalsInput { query: string; limit?: number; mode?: VisibilityMode }
 export interface JournalSearchMatch {
   journalId: string;
   journalUuid: string;
@@ -16,9 +17,9 @@ export interface JournalSearchMatch {
   matchedField: "journalName" | "pageName" | "pageText";
   excerpt?: string;
 }
-export interface SearchJournalsOutput { sourceId: string; sourceName: string; query: string; results: JournalSearchMatch[] }
+export interface SearchJournalsOutput { sourceId: string; sourceName: string; query: string; results: JournalSearchMatch[]; hiddenCount: number }
 export interface GetJournalInput { journalId: string }
-export interface GetJournalPageInput { journalId: string; pageId: string }
+export interface GetJournalPageInput { journalId: string; pageId: string; mode?: VisibilityMode }
 export interface JournalPage {
   id: string;
   uuid: string;
@@ -43,13 +44,15 @@ export const GET_JOURNAL_PAGE_DECLARATION: CapabilityDeclaration = { name: GET_J
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+const VISIBILITY_MODES: VisibilityMode[] = ["gm", "player"];
 
 export function validateSearchJournalsInput(value: unknown): ValidationResult<SearchJournalsInput> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
   if (!isNonEmptyString(value.query)) errors.push("query must be a non-empty string");
   if (value.limit !== undefined && (!Number.isInteger(value.limit) || (value.limit as number) < 1 || (value.limit as number) > 50)) errors.push("limit must be an integer between 1 and 50");
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsInput, errors };
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsInput, errors: [] };
 }
 
 export function validateSearchJournalsOutput(value: unknown): ValidationResult<SearchJournalsOutput> {
@@ -66,7 +69,8 @@ export function validateSearchJournalsOutput(value: unknown): ValidationResult<S
     if (!["journalName", "pageName", "pageText"].includes(String(result.matchedField))) errors.push(`results[${index}].matchedField is invalid`);
     if (result.matchedPageUuid !== undefined && typeof result.matchedPageUuid !== "string") errors.push(`results[${index}].matchedPageUuid must be a string`);
   });
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsOutput, errors };
+  if (typeof value.hiddenCount !== "number" || !Number.isInteger(value.hiddenCount) || (value.hiddenCount as number) < 0) errors.push("hiddenCount must be a non-negative integer");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsOutput, errors: [] };
 }
 
 export function validateGetJournalInput(value: unknown): ValidationResult<GetJournalInput> {
@@ -79,6 +83,7 @@ export function validateGetJournalPageInput(value: unknown): ValidationResult<Ge
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
   if (!isNonEmptyString(value.journalId)) errors.push("journalId must be a non-empty string");
   if (!isNonEmptyString(value.pageId)) errors.push("pageId must be a non-empty string");
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalPageInput, errors };
 }
 
@@ -92,7 +97,7 @@ export function validateGetJournalOutput(value: unknown): ValidationResult<GetJo
     for (const key of ["id", "uuid", "name", "type"] as const) if (!isNonEmptyString(page[key])) errors.push(`pages[${index}].${key} is required`);
     if (typeof page.sort !== "number") errors.push(`pages[${index}].sort must be a number`);
   });
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalOutput, errors };
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalOutput, errors: [] };
 }
 
 export function validateGetJournalPageOutput(value: unknown): ValidationResult<GetJournalPageOutput> {
@@ -107,5 +112,5 @@ export function validateGetJournalPageOutput(value: unknown): ValidationResult<G
     for (const key of ["id", "uuid", "name", "type"] as const) if (!isNonEmptyString(value.page[key])) errors.push(`page.${key} is required`);
     if (typeof value.page.sort !== "number") errors.push("page.sort must be a number");
   }
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalPageOutput, errors };
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetJournalPageOutput, errors: [] };
 }

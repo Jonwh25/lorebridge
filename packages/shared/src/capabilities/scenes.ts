@@ -1,10 +1,11 @@
 import type { CapabilityDeclaration, ValidationResult } from "../index.js";
+import type { VisibilityMode } from "./visibility.js";
 
 export const SEARCH_SCENES_CAPABILITY = "searchScenes" as const;
 export const GET_SCENE_CAPABILITY = "getScene" as const;
 export const GET_ACTIVE_SCENE_CAPABILITY = "getActiveScene" as const;
 
-export interface SearchScenesInput { query: string; limit?: number }
+export interface SearchScenesInput { query: string; limit?: number; mode?: VisibilityMode }
 
 export interface SceneSearchMatch {
   sceneId: string;
@@ -22,9 +23,10 @@ export interface SearchScenesOutput {
   sourceName: string;
   query: string;
   results: SceneSearchMatch[];
+  hiddenCount: number;
 }
 
-export interface GetSceneInput { sceneId: string }
+export interface GetSceneInput { sceneId: string; mode?: VisibilityMode }
 export interface GetActiveSceneInput { sourceId?: string }
 
 export interface SceneToken {
@@ -80,6 +82,7 @@ export const GET_ACTIVE_SCENE_DECLARATION: CapabilityDeclaration = { name: GET_A
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+const VISIBILITY_MODES: VisibilityMode[] = ["gm", "player"];
 
 export function validateSearchScenesInput(value: unknown): ValidationResult<SearchScenesInput> {
   const errors: string[] = [];
@@ -88,7 +91,8 @@ export function validateSearchScenesInput(value: unknown): ValidationResult<Sear
   if (value.limit !== undefined && (!Number.isInteger(value.limit) || (value.limit as number) < 1 || (value.limit as number) > 50)) {
     errors.push("limit must be an integer between 1 and 50");
   }
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchScenesInput, errors };
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchScenesInput, errors: [] };
 }
 
 export function validateSearchScenesOutput(value: unknown): ValidationResult<SearchScenesOutput> {
@@ -107,14 +111,16 @@ export function validateSearchScenesOutput(value: unknown): ValidationResult<Sea
     if (typeof result.navigation !== "boolean") errors.push(`results[${index}].navigation must be a boolean`);
     if (result.matchedField !== "sceneName") errors.push(`results[${index}].matchedField is invalid`);
   });
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchScenesOutput, errors };
+  if (typeof value.hiddenCount !== "number" || !Number.isInteger(value.hiddenCount) || (value.hiddenCount as number) < 0) errors.push("hiddenCount must be a non-negative integer");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchScenesOutput, errors: [] };
 }
 
 export function validateGetSceneInput(value: unknown): ValidationResult<GetSceneInput> {
-  if (!isRecord(value) || !isNonEmptyString(value.sceneId)) {
-    return { valid: false, errors: ["sceneId must be a non-empty string"] };
-  }
-  return { valid: true, value: value as unknown as GetSceneInput, errors: [] };
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (!isNonEmptyString(value.sceneId)) errors.push("sceneId must be a non-empty string");
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetSceneInput, errors: [] };
 }
 
 export function validateGetActiveSceneInput(value: unknown): ValidationResult<GetActiveSceneInput> {

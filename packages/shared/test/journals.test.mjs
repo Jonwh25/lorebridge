@@ -53,12 +53,14 @@ test("validates journal output contracts", () => {
     sourceName: "Curse of Strahd",
     query: "Tser Falls",
     results: [{ journalId: "j1", journalUuid: "JournalEntry.j1", journalName: "Tser Falls", pageCount: 1, matchedField: "journalName" }],
+    hiddenCount: 0,
   }).valid, true);
   assert.equal(validateSearchJournalsOutput({
     sourceId: "foundry:cos",
     sourceName: "Curse of Strahd",
     query: "Tser",
     results: [{ journalId: "j1", journalUuid: "JournalEntry.j1", journalName: "Tser Falls", pageCount: 2, matchedPageId: "p1", matchedPageUuid: "JournalEntry.j1.JournalEntryPage.p1", matchedPageName: "Overview", matchedField: "pageName" }],
+    hiddenCount: 0,
   }).valid, true, "matchedPageUuid is valid when present");
   assert.equal(validateSearchJournalsOutput({
     sourceId: "foundry:cos",
