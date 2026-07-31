@@ -8,6 +8,8 @@ import {
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_ACTORS_CAPABILITY,
   SEARCH_SCENES_CAPABILITY,
+  validateGenerateBoxedTextInput,
+  validateGenerateBoxedTextOutput,
   validateGetActorOutput,
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
@@ -26,6 +28,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
+import { generateBoxedText, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -394,6 +397,35 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const outputValidation = validateGetJournalOutput(journal);
     if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid journal output: ${outputValidation.errors.join(", ")}`);
     sendJson(response, 200, outputValidation.value);
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/boxed-text") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const validation = validateGenerateBoxedTextInput(body);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Boxed text generation input is invalid.", details: validation.errors } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateBoxedText(provider, validation.value);
+      const outputValidation = validateGenerateBoxedTextOutput(result);
+      if (!outputValidation.valid || !outputValidation.value) {
+        throw new Error(`Generation returned invalid output: ${outputValidation.errors.join(", ")}`);
+      }
+      sendJson(response, 200, outputValidation.value);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 

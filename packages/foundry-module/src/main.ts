@@ -33,6 +33,7 @@ import { getActiveScene, getScene, searchScenes } from "./capabilities/scenes.js
 import { resolveUuid } from "./capabilities/resolve-uuid.js";
 import { searchCampaign } from "./capabilities/search-campaign.js";
 import { getRelatedDocuments } from "./capabilities/related-documents.js";
+import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -230,6 +231,7 @@ Hooks.once("ready", () => {
       [RESOLVE_UUID_CAPABILITY]: resolveUuid,
       [SEARCH_CAMPAIGN_CAPABILITY]: searchCampaign,
       [GET_RELATED_DOCUMENTS_CAPABILITY]: getRelatedDocuments,
+      generateBoxedText,
     }),
     configurable: true,
     writable: false
