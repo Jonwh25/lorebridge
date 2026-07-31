@@ -36,6 +36,11 @@ arbitrary JavaScript or provide write access to the world.
 
 ## Current tools
 
+All tools accept an optional `mode` parameter (`"gm"` or `"player"`). In player
+mode, results are filtered to documents with world-level Observer or higher
+ownership and `hiddenCount` reports how many documents were excluded. GM mode
+(the default) returns all documents.
+
 | Tool | Description |
 | --- | --- |
 | `get_world_summary` | World identity, game system, and document counts |
@@ -43,9 +48,42 @@ arbitrary JavaScript or provide write access to the world.
 | `get_journal_page` | Retrieve one journal page by ID |
 | `search_actors` | Search actors by name or description, with optional type filtering |
 | `get_actor` | Retrieve identity and descriptive information for one actor |
+| `search_scenes` | Search scenes by name |
+| `get_scene` | Retrieve one scene with linked journal, map notes, and placed tokens |
+| `get_active_scene` | Return the scene currently viewed by the GM |
+| `resolve_uuid` | Resolve any Foundry UUID to a normalized actor, journal, journal page, or scene |
+| `search_campaign` | Cross-type search across actors, journals, and scenes when the document type is unknown |
+| `get_related_documents` | Starting from any UUID, return directly related documents one hop away |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.
+
+## AI generation
+
+When a backend AI provider is configured, GMs can generate read-aloud boxed
+text from a selected journal page or scene without modifying any Foundry
+document. Generation is GM-initiated from the Foundry browser console:
+
+```js
+const page = await LoreBridge.getJournalPage({ journalId: "...", pageId: "..." });
+
+const result = await LoreBridge.generateBoxedText({
+  content: page.page.text.plainText.slice(0, 2000),
+  documentName: page.page.name,
+  documentType: "journalPage",
+  sourceId: page.sourceId,
+  sourceName: page.sourceName,
+  tone: "gothic",    // gothic | neutral | heroic | mysterious
+  length: "medium",  // short | medium | long
+  audience: "players",
+});
+
+console.log(result.preview);
+```
+
+Provider credentials (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) are set as
+environment variables on the backend and are never stored in Foundry or
+returned by any API. See [Provider setup](docs/provider-security.md).
 
 ## Requirements
 
@@ -87,7 +125,8 @@ Full installation and configuration guides are on the
 - An explicit allowlist controls which Foundry operations the module may execute
 - No arbitrary JavaScript is evaluated; no direct database or filesystem access
   is provided through MCP
-- Provider credentials are never stored in or passed through Foundry
+- Provider API keys are set as backend environment variables and are never stored
+  in Foundry, logged, or returned by any endpoint — only `{ provider, enabled, healthy }` is ever exposed
 
 ## Developer documentation
 
