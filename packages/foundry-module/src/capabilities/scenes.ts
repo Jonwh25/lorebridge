@@ -16,6 +16,7 @@ import {
   type SearchScenesOutput,
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
+import { isPlayerVisible } from "./visibility.js";
 
 const DEFAULT_LIMIT = 10;
 const TOKEN_LIMIT = 20;
@@ -55,9 +56,12 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
 
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
+  const playerMode = validated.value.mode === "player";
   const matches: Array<{ score: number; value: SceneSearchMatch }> = [];
+  let hiddenCount = 0;
 
   for (const scene of game.scenes) {
+    if (playerMode && !isPlayerVisible(scene.ownership)) { hiddenCount++; continue; }
     const name = scene.name.toLocaleLowerCase();
     if (!name.includes(needle)) continue;
     matches.push({
@@ -74,6 +78,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
       .sort((a, b) => a.score - b.score || a.value.sceneName.localeCompare(b.value.sceneName))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)
       .map(({ value }) => value),
+    hiddenCount,
   };
   const outputValidation = validateSearchScenesOutput(output);
   if (!outputValidation.valid || !outputValidation.value) {
@@ -163,6 +168,9 @@ export function getScene(input: GetSceneInput): GetSceneOutput {
     : validated.value.sceneId;
   const scene = game.scenes.get(nativeId);
   if (!scene) throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested scene was not found.");
+  if (validated.value.mode === "player" && !isPlayerVisible(scene.ownership)) {
+    throw new LoreBridgeCapabilityError("NOT_FOUND", "The requested scene was not found.");
+  }
 
   const output = buildSceneOutput(scene);
   const outputValidation = validateGetSceneOutput(output);

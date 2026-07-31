@@ -166,7 +166,8 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
         | RequestEnvelope;
       if (message.kind !== "request") return;
       if (message.capability === "searchJournals") {
-        assert.deepEqual(message.input, { query: "Tser Falls", limit: 10 });
+        const input = message.input as { query: string; limit?: number; mode?: string };
+        assert.equal(input.query, "Tser Falls");
       } else if (message.capability === "getJournalPage") {
         assert.deepEqual(message.input, {
           journalId: "journal_locations",
@@ -192,6 +193,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
               matchedPageName: "Tser Falls",
               matchedField: "pageName",
             }],
+            hiddenCount: 0,
           }
         : message.capability === "getJournalPage"
           ? {
@@ -227,6 +229,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 actorType: "npc",
                 matchedField: "actorName",
               }],
+              hiddenCount: 0,
             }
         : message.capability === "getActor"
           ? {
@@ -263,6 +266,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                   matchedField: "sceneName",
                 },
               ],
+              hiddenCount: 0,
             }
         : message.capability === "getRelatedDocuments"
           ? {
@@ -370,6 +374,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(search.query, "Tser Falls");
     assert.equal(search.results[0]?.journalName, "Locations & NPCs");
     assert.equal(search.results[0]?.matchedPageName, "Tser Falls");
+    assert.equal(search.hiddenCount, 0);
 
     const pageResult = await client.callTool({
       name: "get_journal_page",
@@ -433,6 +438,15 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(campaignSearch.results.length, 2);
     assert.equal(campaignSearch.results[0]?.documentType, "journal");
     assert.equal(campaignSearch.results[1]?.documentType, "scene");
+    assert.equal(campaignSearch.hiddenCount, 0);
+
+    const playerSearchResult = await client.callTool({
+      name: "search_journals",
+      arguments: { query: "Tser Falls", limit: 10, mode: "player", sourceId: "foundry:cos" },
+    });
+    const playerSearch = playerSearchResult.structuredContent as unknown as SearchJournalsOutput;
+    assert.equal(playerSearchResult.isError, undefined);
+    assert.equal(typeof playerSearch.hiddenCount, "number");
 
     const relatedResult = await client.callTool({
       name: "get_related_documents",

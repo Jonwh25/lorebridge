@@ -1,5 +1,6 @@
 import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 import type { ResolvedDocumentType } from "./resolve-uuid.js";
+import type { VisibilityMode } from "./visibility.js";
 
 export const GET_RELATED_DOCUMENTS_CAPABILITY = "getRelatedDocuments" as const;
 
@@ -20,6 +21,7 @@ export interface GetRelatedDocumentsInput {
   uuid: string;
   limit?: number;
   types?: ResolvedDocumentType[];
+  mode?: VisibilityMode;
 }
 
 export interface GetRelatedDocumentsOutput {
@@ -43,6 +45,7 @@ const isNonEmptyString = (v: unknown): v is string =>
   typeof v === "string" && v.trim().length > 0;
 
 const DOCUMENT_TYPES: ResolvedDocumentType[] = ["actor", "journal", "journalPage", "scene"];
+const VISIBILITY_MODES: VisibilityMode[] = ["gm", "player"];
 const RELATIONSHIP_TYPES: RelationshipType[] = [
   "uuidLink",
   "sceneLinkedJournal",
@@ -72,6 +75,7 @@ export function validateGetRelatedDocumentsInput(
       });
     }
   }
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetRelatedDocumentsInput, errors: [] };
 }
 

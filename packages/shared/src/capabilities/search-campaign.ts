@@ -1,4 +1,5 @@
 import type { CapabilityDeclaration, ValidationResult } from "../index.js";
+import type { VisibilityMode } from "./visibility.js";
 import type { JournalSearchMatch } from "./journals.js";
 import type { ActorSearchMatch } from "./actors.js";
 import type { SceneSearchMatch } from "./scenes.js";
@@ -16,6 +17,7 @@ export interface SearchCampaignInput {
   query: string;
   limit?: number;
   types?: CampaignDocumentType[];
+  mode?: VisibilityMode;
 }
 
 export interface SearchCampaignOutput {
@@ -23,6 +25,7 @@ export interface SearchCampaignOutput {
   sourceName: string;
   query: string;
   results: CampaignSearchMatch[];
+  hiddenCount: number;
 }
 
 export const SEARCH_CAMPAIGN_DECLARATION: CapabilityDeclaration = { name: SEARCH_CAMPAIGN_CAPABILITY, mode: "read", version: "0.1" };
@@ -30,6 +33,7 @@ export const SEARCH_CAMPAIGN_DECLARATION: CapabilityDeclaration = { name: SEARCH
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
 const DOCUMENT_TYPES: CampaignDocumentType[] = ["journal", "actor", "scene"];
+const VISIBILITY_MODES: VisibilityMode[] = ["gm", "player"];
 
 export function validateSearchCampaignInput(value: unknown): ValidationResult<SearchCampaignInput> {
   const errors: string[] = [];
@@ -47,7 +51,8 @@ export function validateSearchCampaignInput(value: unknown): ValidationResult<Se
       });
     }
   }
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchCampaignInput, errors };
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchCampaignInput, errors: [] };
 }
 
 export function validateSearchCampaignOutput(value: unknown): ValidationResult<SearchCampaignOutput> {
@@ -87,5 +92,6 @@ export function validateSearchCampaignOutput(value: unknown): ValidationResult<S
       }
     });
   }
-  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchCampaignOutput, errors };
+  if (typeof value.hiddenCount !== "number" || !Number.isInteger(value.hiddenCount) || (value.hiddenCount as number) < 0) errors.push("hiddenCount must be a non-negative integer");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchCampaignOutput, errors: [] };
 }

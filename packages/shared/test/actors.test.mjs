@@ -26,6 +26,7 @@ test("validates actor search and focused retrieval output", () => {
       actorType: "npc",
       matchedField: "actorName",
     }],
+    hiddenCount: 0,
   }).valid, true);
   assert.equal(validateSearchActorsOutput({
     sourceId: "foundry:cos",

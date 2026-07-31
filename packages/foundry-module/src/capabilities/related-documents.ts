@@ -8,6 +8,7 @@ import {
   type ResolvedDocumentType,
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
+import { isPlayerVisible } from "./visibility.js";
 import { getActor } from "./actors.js";
 import { getJournal, getJournalPage } from "./journals.js";
 import { getScene } from "./scenes.js";
@@ -87,15 +88,25 @@ function sourceName(): string {
   return game.world.title;
 }
 
+function ownershipForUuid(uuid: string): Record<string, number> | undefined {
+  const parts = uuid.split(".");
+  if (parts[0] === "Actor" && parts[1]) return game.actors?.get(parts[1])?.ownership;
+  if (parts[0] === "JournalEntry" && parts[1]) return game.journal?.get(parts[1])?.ownership;
+  if (parts[0] === "Scene" && parts[1]) return game.scenes?.get(parts[1])?.ownership;
+  return undefined;
+}
+
 function addRelated(
   map: Map<string, RelatedDocument>,
   uuid: string,
   relationshipType: RelationshipType,
   allowedTypes: ResolvedDocumentType[],
+  playerMode: boolean,
 ): void {
   if (map.has(uuid)) return;
   const documentType = documentTypeFromUuid(uuid);
   if (!documentType || !allowedTypes.includes(documentType)) return;
+  if (playerMode && !isPlayerVisible(ownershipForUuid(uuid))) return;
   const name = nameForUuid(uuid);
   if (!name) return;
   map.set(uuid, { uuid, documentType, name, relationshipType });
@@ -105,9 +116,10 @@ function collectFromHtml(
   html: string,
   map: Map<string, RelatedDocument>,
   allowedTypes: ResolvedDocumentType[],
+  playerMode: boolean,
 ): void {
   for (const uuid of extractUuidLinks(html)) {
-    addRelated(map, uuid, "uuidLink", allowedTypes);
+    addRelated(map, uuid, "uuidLink", allowedTypes, playerMode);
   }
 }
 
@@ -151,14 +163,15 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
     throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Related documents input is invalid.", { details: { validationErrors: validated.errors } });
   }
 
-  const { uuid, limit = DEFAULT_LIMIT, types = ["actor", "journal", "journalPage", "scene"] } = validated.value;
+  const { uuid, limit = DEFAULT_LIMIT, types = ["actor", "journal", "journalPage", "scene"], mode } = validated.value;
   const trimmedUuid = uuid.trim();
+  const playerMode = mode === "player";
 
   const source = resolveSourceDocument(trimmedUuid);
   const related = new Map<string, RelatedDocument>();
 
   if (source.html) {
-    collectFromHtml(source.html, related, types);
+    collectFromHtml(source.html, related, types, playerMode);
   }
 
   if (source.sceneOutput) {
@@ -169,7 +182,11 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
       const journalDocType: ResolvedDocumentType = scene.linkedJournal.pageUuid ? "journalPage" : "journal";
       const journalName = scene.linkedJournal.pageName ?? scene.linkedJournal.name;
       if (types.includes(journalDocType) && !related.has(journalUuid)) {
-        related.set(journalUuid, { uuid: journalUuid, documentType: journalDocType, name: journalName, relationshipType: "sceneLinkedJournal" });
+        const ownerId = scene.linkedJournal.id;
+        const ownership = game.journal?.get(ownerId)?.ownership;
+        if (!playerMode || isPlayerVisible(ownership)) {
+          related.set(journalUuid, { uuid: journalUuid, documentType: journalDocType, name: journalName, relationshipType: "sceneLinkedJournal" });
+        }
       }
     }
 
@@ -179,14 +196,21 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
       const noteDocType: ResolvedDocumentType = note.pageUuid ? "journalPage" : "journal";
       const noteName = note.pageName ?? note.journalName ?? note.label ?? note.journalId ?? noteUuid;
       if (types.includes(noteDocType) && !related.has(noteUuid)) {
-        related.set(noteUuid, { uuid: noteUuid, documentType: noteDocType, name: noteName, relationshipType: "sceneNote" });
+        const ownership = note.journalId ? game.journal?.get(note.journalId)?.ownership : undefined;
+        if (!playerMode || isPlayerVisible(ownership)) {
+          related.set(noteUuid, { uuid: noteUuid, documentType: noteDocType, name: noteName, relationshipType: "sceneNote" });
+        }
       }
     }
 
     for (const token of scene.tokens ?? []) {
       if (!token.actorUuid) continue;
       if (types.includes("actor") && !related.has(token.actorUuid)) {
-        related.set(token.actorUuid, { uuid: token.actorUuid, documentType: "actor", name: token.name, relationshipType: "sceneToken" });
+        const actorId = token.actorId;
+        const ownership = actorId ? game.actors?.get(actorId)?.ownership : undefined;
+        if (!playerMode || isPlayerVisible(ownership)) {
+          related.set(token.actorUuid, { uuid: token.actorUuid, documentType: "actor", name: token.name, relationshipType: "sceneToken" });
+        }
       }
     }
   }
