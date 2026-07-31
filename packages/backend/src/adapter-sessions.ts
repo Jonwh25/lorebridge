@@ -10,6 +10,7 @@ import {
   type AdapterWelcomeMessage,
   type ErrorEnvelope,
   type LoreBridgeCapability,
+  type LoreBridgeEvent,
   type ProtocolErrorCode,
   type ProtocolMessage,
   type ResponseEnvelope,
@@ -100,7 +101,7 @@ export class AdapterSessionRegistry {
     const resolvedSourceId = sourceId
       ?? targets[0]!.summary.registration.sources[0]?.sourceId
       ?? "unknown";
-    const envelope = createEventEnvelope(`message_${randomUUID()}`, resolvedSourceId, event, payload);
+    const envelope = createEventEnvelope(`message_${randomUUID()}`, resolvedSourceId, event as LoreBridgeEvent, payload);
     const json = JSON.stringify(envelope);
     for (const { socket } of targets) socket.send(json);
   }

@@ -50,7 +50,7 @@ export class WriteRegistry {
     return entry;
   }
 
-  private #validate(token: string): PendingWrite {
+  #validate(token: string): PendingWrite {
     const entry = this.pending.get(token);
     if (!entry) throw new WriteTokenError("not_found", "Write token not found.");
     if (entry.usedAt) throw new WriteTokenError("already_used", "This write token has already been used.");
