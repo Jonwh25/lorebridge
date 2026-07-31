@@ -33,7 +33,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   writesEnabled: "writesEnabled",
 });
 
-export type LoreBridgeProvider = "none" | "openai";
+export type LoreBridgeProvider = "none" | "anthropic" | "openai";
 
 export type LoreBridgeSettings = {
   capabilityApiEnabled: boolean;
@@ -86,6 +86,7 @@ export function registerLoreBridgeSettings(): void {
     type: String,
     choices: {
       none: "None",
+      anthropic: "Claude (Anthropic)",
       openai: "OpenAI",
     },
     default: "none",
@@ -170,5 +171,7 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
 }
 
 function normalizeProvider(value: unknown): LoreBridgeProvider {
-  return value === "openai" ? "openai" : "none";
+  if (value === "openai") return "openai";
+  if (value === "anthropic") return "anthropic";
+  return "none";
 }
