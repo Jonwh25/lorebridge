@@ -125,21 +125,93 @@ Approve and Reject buttons. No browser console access required.
 Success test: GM can approve or reject a proposed journal update entirely within
 the Foundry UI; expired and reused tokens are still rejected.
 
+### Milestone 7 — Foundry UI: Chat & Core Buttons
+
+First GM-facing AI controls living inside Foundry — no MCP client or browser
+console required.
+
+1. [/lb chat command for in-world AI Q&A](https://github.com/Jonwh25/lorebridge/issues/97)
+2. [Generate room description button on journal page and scene sheets](https://github.com/Jonwh25/lorebridge/issues/92)
+3. [NPC Quick-Gen button on actor sheets](https://github.com/Jonwh25/lorebridge/issues/93)
+4. [Session Recap Generator on session log journal](https://github.com/Jonwh25/lorebridge/issues/94)
+
+Success test: a GM can type a question or click a button inside Foundry and
+receive an AI-generated result without leaving the application or using the
+browser console.
+
+### Milestone 8 — Foundry UI: Scene, Journal & Roleplay
+
+Complete the Foundry UI surface with scene-level tools and live NPC
+interaction.
+
+1. [Scene Encounter Suggester button on scene sheets](https://github.com/Jonwh25/lorebridge/issues/95)
+2. [Journal Page Q&A chat input on journal page sheets](https://github.com/Jonwh25/lorebridge/issues/96)
+3. [Actor Roleplay: /lb roleplay command for in-character NPC conversations](https://github.com/Jonwh25/lorebridge/issues/99)
+
+Success test: a GM can ask the AI a question scoped to a specific journal or
+scene, and hold a short in-character conversation with an NPC, all from within
+Foundry.
+
+### Milestone 9 — World-Building Generation
+
+AI generates new campaign content and writes it back to Foundry through the
+existing approval flow.
+
+1. [Location and NPC Generator: towns, casts, and plot hooks](https://github.com/Jonwh25/lorebridge/issues/101)
+2. [City and Location Description Generator: districts, landmarks, factions](https://github.com/Jonwh25/lorebridge/issues/102)
+3. [Lazy DM Session Prep Generator](https://github.com/Jonwh25/lorebridge/issues/108)
+4. [MCP tool: generate_roll_table](https://github.com/Jonwh25/lorebridge/issues/113)
+
+Success test: a GM can ask the AI to generate a town, a session plan, or a
+roll table; review the proposed content; and approve it into the world in one
+flow without leaving Foundry.
+
+### Milestone 10 — MCP Tool Expansion
+
+New read-only and utility MCP tools that give AI clients richer live-world
+context.
+
+1. [MCP tool: get_combat_state](https://github.com/Jonwh25/lorebridge/issues/103)
+2. [MCP tool: roll_dice](https://github.com/Jonwh25/lorebridge/issues/104)
+3. [MCP tool: get_chat_messages](https://github.com/Jonwh25/lorebridge/issues/105)
+4. [MCP tool: search_assets](https://github.com/Jonwh25/lorebridge/issues/114)
+
+Success test: an AI client can query active combat state, roll dice, retrieve
+recent chat history, and locate existing image or audio assets in the Foundry
+data directory.
+
+### Milestone 11 — Extensibility & Configuration
+
+Power-user controls that let GMs tailor LoreBridge to their world and workflow
+without requiring code changes.
+
+1. [Per-category feature toggles in LoreBridge world settings](https://github.com/Jonwh25/lorebridge/issues/100)
+2. [Ollama and OpenAI-compatible endpoint support for local AI](https://github.com/Jonwh25/lorebridge/issues/107)
+3. [GM-authored Foundry macros as custom MCP tools](https://github.com/Jonwh25/lorebridge/issues/115)
+
+Success test: a GM can disable individual capability categories, switch to a
+local Ollama model, and expose a custom macro as an MCP tool without touching
+the backend configuration.
+
 ## Deferred work
 
-The following remain intentionally outside the current milestones:
+The following have tracking issues but are intentionally outside the current
+milestones. They may become useful later but are not prerequisites for a
+dependable Foundry campaign assistant.
 
-- embeddings and vector databases
-- autonomous background campaign indexing
-- unrestricted workflow or macro execution
-- automatic document mutations
-- additional VTT adapters
-- LegendKeeper, Obsidian, Notion, and Discord adapters
-- multi-world federation
-- semantic campaign memory not grounded in attributable sources
-
-These may become useful later, but they are not prerequisites for a dependable
-Foundry campaign assistant.
+| Feature | Issue |
+|---------|-------|
+| Vector store indexing for semantic world search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) |
+| Autonomous background campaign indexing | [#117](https://github.com/Jonwh25/lorebridge/issues/117) |
+| Combat write operations (next turn, initiative, end combat) | [#106](https://github.com/Jonwh25/lorebridge/issues/106) |
+| AI image generation for NPC portraits, tokens, and item icons | [#109](https://github.com/Jonwh25/lorebridge/issues/109) |
+| Full D&D 5e NPC stat block generation and actor creation | [#110](https://github.com/Jonwh25/lorebridge/issues/110) |
+| Generation history: save and reuse recent AI output | [#111](https://github.com/Jonwh25/lorebridge/issues/111) |
+| Text-to-speech for NPC dialogue via ElevenLabs | [#112](https://github.com/Jonwh25/lorebridge/issues/112) |
+| @NPC mention in chat for live in-character dialogue | [#116](https://github.com/Jonwh25/lorebridge/issues/116) |
+| Additional VTT adapters (Roll20, Owlbear Rodeo) | [#118](https://github.com/Jonwh25/lorebridge/issues/118) |
+| Multi-world federation | [#119](https://github.com/Jonwh25/lorebridge/issues/119) |
+| Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) |
 
 ## Planning workflow
 
