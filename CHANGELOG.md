@@ -4,6 +4,16 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-07-31
+
+### Added
+
+- `propose_journal_update` MCP tool: AI assistants can propose a replacement for any journal page's HTML content. The tool fetches the current page, stores a pending write with a 5-minute single-use token, and returns a before/after preview and an approval instruction to the AI. No content is modified until the GM explicitly approves.
+- `LoreBridge.approveWrite(token)` Foundry GM console function: validates the approval token with the backend, executes the journal page update, logs a before/after audit to the console, and returns `{ success, journalId, pageId, pageName }`.
+- **Enable AI-Proposed Writes** world setting (default off): gates all write operations. `approveWrite` throws immediately if this setting is disabled.
+- Write tokens are single-use and expire after 5 minutes; expired or reused tokens are rejected with a descriptive error.
+- **Claude (Anthropic)** added to the Remote AI Provider dropdown in Foundry world settings. The backend already supported `ANTHROPIC_API_KEY`; this surfaces the selection in the UI.
+
 ## [0.5.0] - 2026-07-31
 
 ### Added
