@@ -149,27 +149,25 @@ type FoundryUser = {
   isGM: boolean;
 };
 
-declare class Dialog {
-  constructor(
-    data: {
-      title: string;
-      content: string;
-      buttons: Record<string, {
-        icon?: string;
-        label: string;
-        callback?: () => void;
-      }>;
-      default?: string;
-      close?: () => void;
-    },
-    options?: {
-      resizable?: boolean;
-      width?: number;
-      height?: number;
-    },
-  );
-  render(force: boolean): void;
-}
+declare const foundry: {
+  applications: {
+    api: {
+      DialogV2: {
+        new(config: {
+          window?: { title?: string; resizable?: boolean };
+          content: string;
+          buttons: Array<{
+            action: string;
+            label: string;
+            icon?: string;
+            default?: boolean;
+            callback?: (event: Event, button: HTMLElement, dialog: unknown) => void;
+          }>;
+        }): { render(options: { force: boolean }): void };
+      };
+    };
+  };
+};
 
 declare const ChatMessage: {
   create(data: {

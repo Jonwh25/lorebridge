@@ -51,13 +51,14 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
     </div>
   `;
 
-  new Dialog({
-    title: "LoreBridge — AI Write Proposal",
+  new foundry.applications.api.DialogV2({
+    window: { title: "LoreBridge — AI Write Proposal", resizable: true },
     content: dialogContent,
-    buttons: {
-      approve: {
-        icon: '<i class="fas fa-check"></i>',
+    buttons: [
+      {
+        action: "approve",
         label: "Approve",
+        icon: "fas fa-check",
         callback: () => {
           void approveWrite(payload.token).then(() => {
             ui.notifications.info(`LoreBridge: "${payload.pageName}" updated.`);
@@ -67,9 +68,11 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
           });
         },
       },
-      reject: {
-        icon: '<i class="fas fa-times"></i>',
+      {
+        action: "reject",
         label: "Reject",
+        icon: "fas fa-times",
+        default: true,
         callback: () => {
           void rejectWrite(payload.token).then(() => {
             ui.notifications.info("LoreBridge: Write proposal rejected.");
@@ -79,9 +82,8 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
           });
         },
       },
-    },
-    default: "reject",
-  }, { resizable: true, width: 480 }).render(true);
+    ],
+  }).render({ force: true });
 }
 
 export async function rejectWrite(token: string): Promise<void> {
