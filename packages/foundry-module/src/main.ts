@@ -38,7 +38,7 @@ import {
   SEARCH_SCENES_CAPABILITY,
   SEARCH_SCENES_DECLARATION,
 } from "@lorebridge/shared/capabilities";
-import { LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
+import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
 import { getWorldSummary } from "./capabilities/get-world-summary.js";
 import { getJournal, getJournalPage, searchJournals } from "./capabilities/journals.js";
@@ -50,7 +50,7 @@ import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
-import { approveWrite } from "./capabilities/writes.js";
+import { approveWrite, rejectWrite, showWriteApprovalChat, type WriteApprovalPayload } from "./capabilities/writes.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -213,7 +213,43 @@ Hooks.once("ready", () => {
             `Foundry capability ${request.capability} is not remotely available.`,
           );
         },
+        undefined,
+        (event) => {
+          if (event.event === LOREBRIDGE_EVENTS.approvalRequired) {
+            void showWriteApprovalChat(event.payload as WriteApprovalPayload);
+          }
+        },
       );
+
+      Hooks.on("renderChatMessage", (message: unknown, html: unknown) => {
+        const msgDoc = message as { flags?: Record<string, Record<string, unknown>> };
+        const token = msgDoc.flags?.["lorebridge"]?.["writeToken"];
+        if (typeof token !== "string") return;
+
+        const htmlEl = (html as { find?: (sel: string) => { on?: (ev: string, fn: (e: Event) => void) => void } }).find;
+        if (!htmlEl) return;
+
+        htmlEl("[data-action='approve']")?.on?.("click", (e: Event) => {
+          e.preventDefault();
+          void approveWrite(token).then(() => {
+            ui.notifications.info("LoreBridge: Write approved and applied.");
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            ui.notifications.error(`LoreBridge: Approve failed — ${msg}`);
+          });
+        });
+
+        htmlEl("[data-action='reject']")?.on?.("click", (e: Event) => {
+          e.preventDefault();
+          void rejectWrite(token).then(() => {
+            ui.notifications.info("LoreBridge: Write proposal rejected.");
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            ui.notifications.error(`LoreBridge: Reject failed — ${msg}`);
+          });
+        });
+      });
+
       void adapterTransport.connect().then((state) => {
         if (state.state === "connected") {
           console.info(`${MODULE_ID} | Connected to backend ${state.backendId}`, {
@@ -285,6 +321,7 @@ Hooks.once("ready", () => {
       [SEARCH_COMPENDIUM_CAPABILITY]: searchCompendium,
       [GET_COMPENDIUM_ENTRY_CAPABILITY]: getCompendiumEntry,
       approveWrite,
+      rejectWrite,
       generateBoxedText,
     }),
     configurable: true,

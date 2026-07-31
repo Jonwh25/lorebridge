@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import {
+  createEventEnvelope,
   createRequestEnvelope,
   LOREBRIDGE_PROTOCOL_VERSION,
   type AdapterHelloMessage,
@@ -83,6 +84,25 @@ export class AdapterSessionRegistry {
         (declaration) => declaration.name === capability,
       ),
     );
+  }
+
+  sendEvent<TPayload>(
+    sourceId: string | undefined,
+    event: string,
+    payload: TPayload,
+  ): void {
+    const targets = [...this.#sessions.values()].filter(({ summary, socket }) => {
+      if (socket.readyState !== WebSocket.OPEN) return false;
+      if (!sourceId) return true;
+      return summary.registration.sources.some((s) => s.sourceId === sourceId);
+    });
+    if (targets.length === 0) return;
+    const resolvedSourceId = sourceId
+      ?? targets[0]!.summary.registration.sources[0]?.sourceId
+      ?? "unknown";
+    const envelope = createEventEnvelope(`message_${randomUUID()}`, resolvedSourceId, event, payload);
+    const json = JSON.stringify(envelope);
+    for (const { socket } of targets) socket.send(json);
   }
 
   async invoke<TOutput>(

@@ -430,6 +430,28 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/write/reject") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    if (!token) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } });
+      return;
+    }
+    try {
+      writes.reject(token);
+      sendJson(response, 200, { rejected: true });
+    } catch (error) {
+      if (error instanceof WriteTokenError) {
+        const status = error.reason === "not_found" ? 404 : 410;
+        sendJson(response, status, { error: { code: `write_token_${error.reason}`, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/v1/write/approve") {
     if (!authenticate(pairing, request, response)) return;
     const body = await readJson(request);

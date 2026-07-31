@@ -45,6 +45,7 @@ import {
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
+import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 
 const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
@@ -1073,6 +1074,17 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           rationale,
           sourceId,
         });
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.approvalRequired, {
+          token: entry.token,
+          journalId,
+          pageId,
+          pageName: page.name,
+          journalName: journal.name,
+          currentContent,
+          proposedContent,
+          rationale,
+          expiresAt: entry.expiresAt.toISOString(),
+        });
         const preview = {
           token: entry.token,
           journalId,
@@ -1083,7 +1095,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           proposedContent,
           rationale,
           expiresAt: entry.expiresAt.toISOString(),
-          instruction: `To apply this change, run the following in the Foundry GM browser console:\nawait LoreBridge.approveWrite("${entry.token}")`,
+          instruction: `A write approval request has been sent to Foundry chat. If you don't see the whisper, you can approve manually:\nawait LoreBridge.approveWrite("${entry.token}")`,
         };
         return {
           content: [{ type: "text", text: JSON.stringify(preview) }],

@@ -1,5 +1,6 @@
 declare const Hooks: {
   once(hook: string, callback: (...args: unknown[]) => void): void;
+  on(hook: string, callback: (...args: unknown[]) => void): void;
 };
 
 type FoundrySettingConfig = {
@@ -142,12 +143,32 @@ type FoundrySceneCollection = Iterable<FoundryScene> & {
   get(id: string): FoundryScene | undefined;
 };
 
+type FoundryUser = {
+  id: string;
+  name: string;
+  isGM: boolean;
+};
+
+declare const ChatMessage: {
+  create(data: {
+    content: string;
+    whisper?: string[];
+    speaker?: { alias?: string };
+    flags?: Record<string, unknown>;
+  }): Promise<{ id: string } | undefined>;
+};
+
 declare const game: {
   version: string;
+  userId: string | null;
   user: {
     isGM: boolean;
     name: string;
+    id: string;
   } | null;
+  users: Iterable<FoundryUser> & {
+    filter(fn: (u: FoundryUser) => boolean): FoundryUser[];
+  };
   world: {
     id: string;
     title: string;
