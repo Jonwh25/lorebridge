@@ -23,6 +23,8 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   resolveUuid: "resolveUuid",
   searchCampaign: "searchCampaign",
   getRelatedDocuments: "getRelatedDocuments",
+  searchItems: "searchItems",
+  getActorInventory: "getActorInventory",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
