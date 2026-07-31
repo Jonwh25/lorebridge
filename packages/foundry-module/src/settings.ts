@@ -29,6 +29,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   backendUrl: "backendUrl",
   clientToken: "clientToken",
   sessionLogFolder: "sessionLogFolder",
+  excludedCompendiums: "excludedCompendiums",
 });
 
 export type LoreBridgeProvider = "none" | "openai";
@@ -40,6 +41,7 @@ export type LoreBridgeSettings = {
   backendUrl: string;
   clientToken: string;
   sessionLogFolder: string;
+  excludedCompendiums: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -97,6 +99,15 @@ export function registerLoreBridgeSettings(): void {
     default: "Session Logs",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.excludedCompendiums, {
+    name: "Excluded Compendiums",
+    hint: "Comma-separated list of compendium pack IDs to hide from LoreBridge (e.g. dnd5e.spells,world.private).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "",
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -137,6 +148,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ),
     sessionLogFolder: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.sessionLogFolder) ?? "Session Logs",
+    ).trim(),
+    excludedCompendiums: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.excludedCompendiums) ?? "",
     ).trim(),
   };
 }

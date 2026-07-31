@@ -27,6 +27,12 @@ import {
   SEARCH_SESSION_LOGS_DECLARATION,
   GET_SESSION_LOG_CAPABILITY,
   GET_SESSION_LOG_DECLARATION,
+  LIST_COMPENDIUMS_CAPABILITY,
+  LIST_COMPENDIUMS_DECLARATION,
+  SEARCH_COMPENDIUM_CAPABILITY,
+  SEARCH_COMPENDIUM_DECLARATION,
+  GET_COMPENDIUM_ENTRY_CAPABILITY,
+  GET_COMPENDIUM_ENTRY_DECLARATION,
   SEARCH_JOURNALS_CAPABILITY,
   SEARCH_JOURNALS_DECLARATION,
   SEARCH_SCENES_CAPABILITY,
@@ -43,6 +49,7 @@ import { searchCampaign } from "./capabilities/search-campaign.js";
 import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
+import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -119,6 +126,9 @@ Hooks.once("ready", () => {
           GET_ACTOR_INVENTORY_DECLARATION,
           SEARCH_SESSION_LOGS_DECLARATION,
           GET_SESSION_LOG_DECLARATION,
+          LIST_COMPENDIUMS_DECLARATION,
+          SEARCH_COMPENDIUM_DECLARATION,
+          GET_COMPENDIUM_ENTRY_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -188,6 +198,15 @@ Hooks.once("ready", () => {
           if (request.capability === GET_SESSION_LOG_CAPABILITY) {
             return getSessionLog(request.input as Parameters<typeof getSessionLog>[0]);
           }
+          if (request.capability === LIST_COMPENDIUMS_CAPABILITY) {
+            return listCompendiums(request.input as Parameters<typeof listCompendiums>[0]);
+          }
+          if (request.capability === SEARCH_COMPENDIUM_CAPABILITY) {
+            return searchCompendium(request.input as Parameters<typeof searchCompendium>[0]);
+          }
+          if (request.capability === GET_COMPENDIUM_ENTRY_CAPABILITY) {
+            return getCompendiumEntry(request.input as Parameters<typeof getCompendiumEntry>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -223,7 +242,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]
   });
   ui.notifications.info(
     `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
@@ -236,7 +255,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -261,6 +280,9 @@ Hooks.once("ready", () => {
       [GET_ACTOR_INVENTORY_CAPABILITY]: getActorInventory,
       [SEARCH_SESSION_LOGS_CAPABILITY]: searchSessionLogs,
       [GET_SESSION_LOG_CAPABILITY]: getSessionLog,
+      [LIST_COMPENDIUMS_CAPABILITY]: listCompendiums,
+      [SEARCH_COMPENDIUM_CAPABILITY]: searchCompendium,
+      [GET_COMPENDIUM_ENTRY_CAPABILITY]: getCompendiumEntry,
       generateBoxedText,
     }),
     configurable: true,

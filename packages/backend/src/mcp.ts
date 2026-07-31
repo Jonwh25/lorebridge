@@ -18,6 +18,9 @@ import {
   GET_ACTOR_INVENTORY_CAPABILITY,
   SEARCH_SESSION_LOGS_CAPABILITY,
   GET_SESSION_LOG_CAPABILITY,
+  LIST_COMPENDIUMS_CAPABILITY,
+  SEARCH_COMPENDIUM_CAPABILITY,
+  GET_COMPENDIUM_ENTRY_CAPABILITY,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -33,6 +36,9 @@ import {
   validateGetActorInventoryOutput,
   validateSearchSessionLogsOutput,
   validateGetSessionLogOutput,
+  validateListCompendiumsOutput,
+  validateSearchCompendiumOutput,
+  validateGetCompendiumEntryOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -851,6 +857,161 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the session log page.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_compendiums",
+    {
+      title: "List Foundry compendiums",
+      description: "List all compendium packs available in the connected Foundry world, with their document type and entry count. Excluded packs (configured in LoreBridge world settings) are omitted.",
+      inputSchema: z.object({
+        documentType: z.string().trim().min(1).optional().describe(
+          "Filter by document type, e.g. 'Item', 'Actor', 'JournalEntry', 'Scene'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ documentType, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          LIST_COMPENDIUMS_CAPABILITY,
+          { ...(documentType ? { documentType } : {}) },
+        );
+        const validation = validateListCompendiumsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid compendium list.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list compendiums.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "search_compendium",
+    {
+      title: "Search Foundry compendium indexes",
+      description: "Search compendium pack indexes by entry name without loading full documents. Returns matching entries with their UUID, pack, and document type. Use get_compendium_entry to retrieve a specific entry.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe(
+          "Name fragment to search for across compendium entry names.",
+        ),
+        packId: z.string().trim().min(1).optional().describe(
+          "Restrict search to a single compendium pack by ID (e.g. 'dnd5e.spells').",
+        ),
+        documentType: z.string().trim().min(1).optional().describe(
+          "Restrict search to packs of this document type (e.g. 'Item', 'Actor').",
+        ),
+        limit: z.number().int().min(1).max(50).optional().describe(
+          "Maximum results to return (default 20, max 50).",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, packId, documentType, limit, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_COMPENDIUM_CAPABILITY,
+          {
+            query,
+            ...(packId ? { packId } : {}),
+            ...(documentType ? { documentType } : {}),
+            ...(limit !== undefined ? { limit } : {}),
+          },
+        );
+        const validation = validateSearchCompendiumOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid compendium search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search the compendium.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_compendium_entry",
+    {
+      title: "Get a Foundry compendium entry",
+      description: "Retrieve a specific compendium entry by pack ID and entry ID. Returns the entry's name, type, UUID, and image. Use packId and entryId from search_compendium results.",
+      inputSchema: z.object({
+        packId: z.string().trim().min(1).describe(
+          "The compendium pack ID returned by list_compendiums or search_compendium (e.g. 'dnd5e.spells').",
+        ),
+        entryId: z.string().trim().min(1).describe(
+          "The entry ID returned by search_compendium.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ packId, entryId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_COMPENDIUM_ENTRY_CAPABILITY,
+          { packId, entryId },
+        );
+        const validation = validateGetCompendiumEntryOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid compendium entry.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the compendium entry.");
       }
     },
   );

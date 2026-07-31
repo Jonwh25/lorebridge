@@ -27,6 +27,9 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getActorInventory: "getActorInventory",
   searchSessionLogs: "searchSessionLogs",
   getSessionLog: "getSessionLog",
+  listCompendiums: "listCompendiums",
+  searchCompendium: "searchCompendium",
+  getCompendiumEntry: "getCompendiumEntry",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
