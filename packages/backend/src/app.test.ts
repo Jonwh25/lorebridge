@@ -705,3 +705,42 @@ test("GET /v1/provider/status returns disabled when no provider key is configure
     assert.equal(body.healthy, null);
   });
 });
+
+test("POST /v1/generate/boxed-text requires authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/generate/boxed-text`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "test", documentName: "Test", documentType: "journalPage", sourceId: "foundry:cos", sourceName: "CoS" }),
+    });
+    assert.equal(response.status, 401);
+  });
+});
+
+test("POST /v1/generate/boxed-text returns 503 when no provider is configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/generate/boxed-text`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ content: "The falls plunge into mist.", documentName: "Tser Falls", documentType: "journalPage", sourceId: "foundry:cos", sourceName: "Curse of Strahd" }),
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "provider_unavailable");
+  });
+});
+
+test("POST /v1/generate/boxed-text rejects invalid input", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/generate/boxed-text`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ content: "", documentName: "Test", documentType: "unknown", sourceId: "foundry:cos", sourceName: "CoS" }),
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "invalid_request");
+  });
+});
