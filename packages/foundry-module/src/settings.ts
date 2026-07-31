@@ -30,6 +30,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   clientToken: "clientToken",
   sessionLogFolder: "sessionLogFolder",
   excludedCompendiums: "excludedCompendiums",
+  writesEnabled: "writesEnabled",
 });
 
 export type LoreBridgeProvider = "none" | "openai";
@@ -42,6 +43,7 @@ export type LoreBridgeSettings = {
   clientToken: string;
   sessionLogFolder: string;
   excludedCompendiums: string;
+  writesEnabled: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -108,6 +110,15 @@ export function registerLoreBridgeSettings(): void {
     default: "",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled, {
+    name: "Enable AI-Proposed Writes",
+    hint: "Allow AI assistants to propose journal page updates. Each change requires explicit GM approval before any content is modified.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -152,6 +163,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     excludedCompendiums: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.excludedCompendiums) ?? "",
     ).trim(),
+    writesEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled),
+    ),
   };
 }
 

@@ -50,6 +50,7 @@ import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
+import { approveWrite } from "./capabilities/writes.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -283,6 +284,7 @@ Hooks.once("ready", () => {
       [LIST_COMPENDIUMS_CAPABILITY]: listCompendiums,
       [SEARCH_COMPENDIUM_CAPABILITY]: searchCompendium,
       [GET_COMPENDIUM_ENTRY_CAPABILITY]: getCompendiumEntry,
+      approveWrite,
       generateBoxedText,
     }),
     configurable: true,

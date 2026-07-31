@@ -38,6 +38,7 @@ import {
   createLoreBridgeMcpHandler,
   type McpRequestHandler,
 } from "./mcp.js";
+import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 
 const serviceVersion = "0.2.0";
 
@@ -81,7 +82,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -429,6 +430,33 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/write/approve") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    if (!token) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } });
+      return;
+    }
+    try {
+      const entry = writes.consume(token);
+      sendJson(response, 200, {
+        journalId: entry.journalId,
+        pageId: entry.pageId,
+        pageName: entry.pageName,
+        proposedContent: entry.proposedContent,
+      });
+    } catch (error) {
+      if (error instanceof WriteTokenError) {
+        const status = error.reason === "not_found" ? 404 : 410;
+        sendJson(response, status, { error: { code: `write_token_${error.reason}`, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 
@@ -436,9 +464,10 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
-  const mcp = createLoreBridgeMcpHandler(adapterSessions);
+  const writes = new WriteRegistry();
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

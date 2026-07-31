@@ -22,6 +22,7 @@ type FoundryJournalPage = {
   text?: { content?: string; format?: number };
   src?: string;
   ownership?: Record<string, number>;
+  update(data: Record<string, unknown>): Promise<FoundryJournalPage>;
 };
 
 type FoundryJournalEntry = {
