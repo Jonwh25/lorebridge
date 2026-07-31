@@ -67,13 +67,13 @@ search database.
 Success test: a query about a location returns ranked, connected journal,
 actor, and scene context while respecting the requested visibility mode.
 
-### Milestone 3 — Foundry AI Generation
+### Milestone 3 — Foundry AI Generation ✅
 
 Add optional AI generation inside Foundry without coupling MCP retrieval to one
 provider or placing provider credentials in the browser.
 
-1. [Optional backend AI-provider configuration](https://github.com/Jonwh25/lorebridge/issues/52)
-2. [Preview-only boxed-text generation](https://github.com/Jonwh25/lorebridge/issues/53)
+1. ✅ [Optional backend AI-provider configuration](https://github.com/Jonwh25/lorebridge/issues/52)
+2. ✅ [Preview-only boxed-text generation](https://github.com/Jonwh25/lorebridge/issues/53)
 
 Success test: a GM selects a scene or journal page, requests a room
 description, and receives a source-aware preview without changing the world.
