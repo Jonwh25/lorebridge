@@ -44,6 +44,7 @@ import {
   AdapterInvocationError,
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
+import { type WriteRegistry } from "./write-registry.js";
 
 const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
@@ -71,7 +72,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.2.0",
@@ -1016,6 +1017,84 @@ function createServer(adapterSessions: AdapterSessionRegistry): McpServer {
     },
   );
 
+  server.registerTool(
+    "propose_journal_update",
+    {
+      title: "Propose a journal page update",
+      description: "Propose a change to a Foundry VTT journal page. Returns a one-time approval token and a before/after preview. No content is modified until the GM explicitly approves the change by running `await LoreBridge.approveWrite(token)` in the Foundry browser console. Requires the 'Enable AI-Proposed Writes' world setting to be on.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe(
+          "The Foundry journal ID (not UUID). Use search_journals or get_journal_page to find the correct ID.",
+        ),
+        pageId: z.string().trim().min(1).describe(
+          "The Foundry journal page ID (not UUID). Use search_journals or get_journal_page to find the correct ID.",
+        ),
+        proposedContent: z.string().min(1).describe(
+          "The complete proposed HTML content for the journal page. This replaces the current text content.",
+        ),
+        rationale: z.string().min(1).describe(
+          "Why this change is being proposed. Shown to the GM so they can make an informed decision.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ journalId, pageId, proposedContent, rationale, sourceId }) => {
+      try {
+        const pageResult = await adapterSessions.invoke(
+          sourceId,
+          GET_JOURNAL_PAGE_CAPABILITY,
+          { journalId, pageId },
+        );
+        const pageValidation = validateGetJournalPageOutput(pageResult);
+        if (!pageValidation.valid || !pageValidation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid journal page.",
+            false,
+            { validationErrors: pageValidation.errors },
+          );
+        }
+        const { page, journal } = pageValidation.value;
+        const currentContent = page.text?.html ?? "";
+        const entry = writes.register({
+          journalId,
+          pageId,
+          pageName: page.name,
+          currentContent,
+          proposedContent,
+          rationale,
+          sourceId,
+        });
+        const preview = {
+          token: entry.token,
+          journalId,
+          pageId,
+          pageName: page.name,
+          journalName: journal.name,
+          currentContent,
+          proposedContent,
+          rationale,
+          expiresAt: entry.expiresAt.toISOString(),
+          instruction: `To apply this change, run the following in the Foundry GM browser console:\nawait LoreBridge.approveWrite("${entry.token}")`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose the journal update.");
+      }
+    },
+  );
+
   return server;
 }
 
@@ -1026,9 +1105,10 @@ export interface McpRequestHandler {
 
 export function createLoreBridgeMcpHandler(
   adapterSessions: AdapterSessionRegistry,
+  writes: WriteRegistry,
 ): McpRequestHandler {
   const handler = createMcpHandler(
-    () => createServer(adapterSessions),
+    () => createServer(adapterSessions, writes),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
