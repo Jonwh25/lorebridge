@@ -4,6 +4,18 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-31
+
+### Added
+
+- Optional backend AI-provider configuration via environment variables (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`). Anthropic is preferred when both are set. Credentials are never stored in Foundry settings or returned by any API.
+- `GET /v1/provider/status` (authenticated) returns `{ provider, enabled, healthy }` — calls the provider API to confirm the key is valid on first request and caches the result.
+- `providerEnabled` field added to the `GET /v1` discovery response.
+- `POST /v1/generate/boxed-text` (authenticated) accepts a bounded content payload (up to 4000 characters) from a selected journal page or scene and returns AI-generated read-aloud boxed text with tone, length, and audience controls. No Foundry document is modified.
+- `LoreBridge.generateBoxedText({ content, documentName, documentType, sourceId, sourceName, tone?, length?, audience? })` exposed on the Foundry GM console API.
+- Tone options: `gothic`, `neutral`, `heroic`, `mysterious`. Length options: `short`, `medium`, `long`. Audience options: `players`, `gm`.
+- Anthropic backend uses `claude-haiku-4-5-20251001`; OpenAI backend uses `gpt-4o-mini`.
+
 ## [0.3.0] - 2026-07-31
 
 ### Added
