@@ -4,6 +4,16 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-31
+
+### Added
+
+- `get_related_documents` MCP tool: starting from any Foundry UUID, returns directly related actors, journals, journal pages, and scenes one hop away by following `@UUID` links in content, scene-linked journals, map-note pins, and placed actor tokens.
+- Player-safe visibility mode (`mode: "gm" | "player"`) added to all search and retrieval MCP tools: `search_journals`, `get_journal_page`, `search_actors`, `get_actor`, `search_scenes`, `get_scene`, `search_campaign`, and `get_related_documents`.
+- In player mode, search results are filtered to documents with Foundry OBSERVER or higher world-level ownership; `hiddenCount` reports how many documents were excluded.
+- In player mode, focused retrieval (`get_journal_page`, `get_actor`, `get_scene`) returns `NOT_FOUND` for GM-only documents without revealing that they exist.
+- `hiddenCount` field added as a required field on all search outputs (`SearchJournalsOutput`, `SearchActorsOutput`, `SearchScenesOutput`, `SearchCampaignOutput`).
+
 ## [0.2.0] - 2026-07-30
 
 ### Added
