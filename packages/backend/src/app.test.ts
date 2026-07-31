@@ -675,3 +675,33 @@ test("GET /v1/journals/:journalId/pages/:pageId routes through the live Foundry 
     await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
   });
 });
+
+test("GET /v1 discovery includes providerEnabled flag", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1`);
+    const body = await response.json() as { providerEnabled: boolean };
+    assert.equal(response.status, 200);
+    assert.equal(body.providerEnabled, false);
+  });
+});
+
+test("GET /v1/provider/status requires authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/provider/status`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/provider/status returns disabled when no provider key is configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/provider/status`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { provider: string; enabled: boolean; healthy: boolean | null };
+    assert.equal(response.status, 200);
+    assert.equal(body.provider, "none");
+    assert.equal(body.enabled, false);
+    assert.equal(body.healthy, null);
+  });
+});
