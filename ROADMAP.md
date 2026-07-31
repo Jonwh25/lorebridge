@@ -90,12 +90,12 @@ material.
 Success test: Codex can answer questions about party equipment, past events,
 and approved compendium material with supporting sources.
 
-### Milestone 5 — Controlled Writes
+### Milestone 5 — Controlled Writes ✅
 
 Introduce narrowly scoped Foundry mutations only after the read-only model is
 stable.
 
-1. [Previewed, GM-approved write operations](https://github.com/Jonwh25/lorebridge/issues/57)
+1. ✅ [Previewed, GM-approved write operations](https://github.com/Jonwh25/lorebridge/issues/57)
 
 Required safeguards:
 
@@ -111,6 +111,19 @@ Required safeguards:
 
 Success test: no write occurs until the GM approves the exact proposed change,
 and stale or reused approval tokens are rejected.
+
+### Milestone 6 — Write Approval UI
+
+Replace the console-based approval command with a native Foundry GM experience.
+
+1. [Foundry chat UI for write approval](https://github.com/Jonwh25/lorebridge/issues/87)
+
+When an AI proposes a journal update, a GM-only chat whisper appears in Foundry
+showing the journal name, rationale, and a before/after summary with clickable
+Approve and Reject buttons. No browser console access required.
+
+Success test: GM can approve or reject a proposed journal update entirely within
+the Foundry UI; expired and reused tokens are still rejected.
 
 ## Deferred work
 

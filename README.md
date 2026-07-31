@@ -4,9 +4,8 @@ LoreBridge is a secure, GM-controlled bridge that lets an AI assistant retrieve
 live campaign information from a loaded Foundry Virtual Tabletop world.
 
 > [!IMPORTANT]
-> LoreBridge is an early developer preview. The tools are read-only, but the
-> authentication, configuration, and deployment process may still change between
-> releases.
+> LoreBridge is an early developer preview. The authentication, configuration,
+> and deployment process may still change between releases.
 
 ## How it works
 
@@ -61,6 +60,7 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `list_compendiums` | List available compendium packs with document type and entry count |
 | `search_compendium` | Search compendium indexes by entry name without importing documents |
 | `get_compendium_entry` | Retrieve a specific compendium entry by pack and entry ID |
+| `propose_journal_update` | Propose a journal page content change; returns a preview and a GM approval token — no write occurs until the GM approves |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.
@@ -127,8 +127,7 @@ Full installation and configuration guides are on the
   token before any capability is available
 - Each AI client uses its own dedicated token, separate from the Foundry browser
   token
-- Tools are read-only; write capabilities are disabled at both the backend and
-  adapter layer
+- Read tools are read-only; write operations require the **Enable AI-Proposed Writes** world setting to be on, and every proposed change requires explicit single-use GM approval before any document is modified
 - An explicit allowlist controls which Foundry operations the module may execute
 - No arbitrary JavaScript is evaluated; no direct database or filesystem access
   is provided through MCP
