@@ -180,7 +180,7 @@ declare const RollTable: {
     name: string;
     formula?: string;
     results: Array<{
-      type: number;
+      type: "text" | "document" | "pack";
       text: string;
       weight: number;
       range: [number, number];

@@ -144,7 +144,7 @@ export async function showRollTableApprovalChat(payload: RollTableApprovalPayloa
             try {
               const count = payload.entries.length;
               const results = payload.entries.map((e, i) => ({
-                type: 0,
+                type: "text" as const,
                 text: e.text,
                 weight: e.weight,
                 range: [i + 1, i + 1] as [number, number],
