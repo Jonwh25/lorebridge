@@ -3,6 +3,26 @@ import { getLoreBridgeSettings } from "../settings.js";
 const MODULE_ID = "lorebridge";
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type HeaderControl = { icon: string; label: string; action: string; visible?: boolean };
+
+type AppDoc = {
+  id: string;
+  name: string;
+  documentName: string;
+  type?: string;
+  system?: Record<string, unknown>;
+};
+
+type AppWithDoc = {
+  document?: AppDoc;
+  element?: HTMLElement;
+  tabGroups?: Record<string, string | null>;
+};
+
+// ---------------------------------------------------------------------------
 // Backend helpers
 // ---------------------------------------------------------------------------
 
@@ -32,17 +52,14 @@ async function postBackend<T>(path: string, body: Record<string, unknown>): Prom
 }
 
 // ---------------------------------------------------------------------------
-// Config dialog
+// Config dialog (tone + length)
 // ---------------------------------------------------------------------------
 
-type GenerationConfig = {
-  tone: string;
-  length: string;
-};
+type GenerationConfig = { tone: string; length: string };
 
 function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) => void): void {
   const content = `
-    <form class="lorebridge-config-form">
+    <form class="lorebridge-config-form" style="padding:0.5rem">
       <div class="form-group">
         <label>Tone</label>
         <select name="tone">
@@ -52,7 +69,7 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
           <option value="mysterious">Mysterious</option>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="margin-top:0.5rem">
         <label>Length</label>
         <select name="length">
           <option value="short">Short</option>
@@ -93,20 +110,12 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 }
 
 // ---------------------------------------------------------------------------
-// Preview dialog — shown after AI generates content
+// Preview dialog
 // ---------------------------------------------------------------------------
 
-function showPreviewDialog(
-  title: string,
-  preview: string,
-  onPropose: (preview: string) => void,
-): void {
-  const escaped = preview.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const content = `
-    <div class="lorebridge-preview">
-      <p class="lorebridge-preview-text">${escaped.replace(/\n/g, "<br>")}</p>
-    </div>
-  `;
+function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
+  const escaped = preview.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-size:0.9em">${escaped}</div>`;
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
@@ -117,7 +126,7 @@ function showPreviewDialog(
         action: "propose",
         label: "Propose Update",
         icon: "fas fa-paper-plane",
-        callback: () => { onPropose(preview); },
+        callback: () => { onPropose(); },
       },
       {
         action: "dismiss",
@@ -130,13 +139,13 @@ function showPreviewDialog(
 }
 
 // ---------------------------------------------------------------------------
-// NPC Quick-Gen  (actor sheets)
+// NPC Quick-Gen
 // ---------------------------------------------------------------------------
 
-async function runNpcQuickGen(actor: { id: string; name: string; type: string; system: Record<string, unknown> }): Promise<void> {
+function runNpcQuickGen(doc: AppDoc): void {
   const biography = (() => {
-    const bio = (actor.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
-    return bio.replace(/<[^>]+>/g, "").slice(0, 2000);
+    const raw = (doc.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
+    return raw.replace(/<[^>]+>/g, "").slice(0, 2000);
   })();
 
   showConfigDialog("NPC Quick-Gen", (config) => {
@@ -145,19 +154,22 @@ async function runNpcQuickGen(actor: { id: string; name: string; type: string; s
       try {
         const result = await postBackend<{ personality: string; mannerism: string; secret: string }>(
           "v1/generate/npc-profile",
-          { name: actor.name, type: actor.type, biography, tone: config.tone },
+          { name: doc.name, type: doc.type ?? "npc", biography, tone: config.tone },
         );
         const preview = [
-          `**Personality:** ${result.personality}`,
-          `**Mannerism:** ${result.mannerism}`,
-          `**Secret (GM only):** ${result.secret}`,
-        ].join("\n\n");
-        showPreviewDialog(`NPC Profile — ${actor.name}`, preview, (text) => {
-          const existing = (actor.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
-          const appended = `${existing}\n<h3>LoreBridge Profile</h3><p>${text.replace(/\n/g, "<br>")}</p>`;
-          void (game.actors as { get(id: string): { update(data: Record<string, unknown>): Promise<void> } | undefined })
-            .get(actor.id)
-            ?.update({ "system.details.biography.value": appended });
+          `Personality: ${result.personality}`,
+          ``,
+          `Mannerism: ${result.mannerism}`,
+          ``,
+          `Secret (GM only): ${result.secret}`,
+        ].join("\n");
+
+        showPreviewDialog(`NPC Profile — ${doc.name}`, preview, () => {
+          const actor = (game.actors as { get(id: string): { update(d: Record<string, unknown>): Promise<void> } | undefined }).get(doc.id);
+          if (!actor) return;
+          const existing = (doc.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
+          const appended = `${existing}\n<h3>LoreBridge Profile</h3><p>${preview.replace(/\n/g, "<br>")}</p>`;
+          void actor.update({ "system.details.biography.value": appended });
         });
       } catch (error) {
         ui.notifications.error(`LoreBridge NPC Quick-Gen failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -167,32 +179,37 @@ async function runNpcQuickGen(actor: { id: string; name: string; type: string; s
 }
 
 // ---------------------------------------------------------------------------
-// Generate Description  (journal pages and scenes)
+// Generate Description (journal page)
 // ---------------------------------------------------------------------------
 
-type BoxedTextResult = { preview: string };
+function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
+  const pageId = getActivePageId(frame);
+  const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
+  const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
+  const rawHtml = page?.text?.content ?? "";
+  const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000);
+  const pageName = page?.name ?? doc.name;
 
-async function runGenerateDescription(
-  documentName: string,
-  sourceName: string,
-  content: string,
-  onPropose: (preview: string) => void,
-): Promise<void> {
   showConfigDialog("Generate Description", (config) => {
     void (async () => {
       ui.notifications.info("LoreBridge: Generating description…");
       try {
-        const result = await postBackend<BoxedTextResult>("v1/generate/boxed-text", {
-          documentName,
+        const result = await postBackend<{ preview: string }>("v1/generate/boxed-text", {
+          documentName: pageName,
           documentType: "journalPage",
           sourceId: `foundry:${game.world?.id ?? "unknown"}`,
-          sourceName,
-          content: content.slice(0, 3000),
+          sourceName: doc.name,
+          content: plainText || `Journal: ${doc.name}`,
           tone: config.tone,
           length: config.length,
           audience: "players",
         });
-        showPreviewDialog(`Description — ${documentName}`, result.preview, onPropose);
+        showPreviewDialog(`Description — ${pageName}`, result.preview, () => {
+          if (page) {
+            const appended = `${rawHtml}\n<blockquote><em>${result.preview.replace(/\n/g, "<br>")}</em></blockquote>`;
+            void page.update({ "text.content": appended });
+          }
+        });
       } catch (error) {
         ui.notifications.error(`LoreBridge Generate Description failed: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -201,34 +218,32 @@ async function runGenerateDescription(
 }
 
 // ---------------------------------------------------------------------------
-// Session Recap  (journal sheets whose name includes "session")
+// Session Recap
 // ---------------------------------------------------------------------------
 
-async function runSessionRecap(
-  journalId: string,
-  pageId: string,
-  pageName: string,
-  content: string,
-): Promise<void> {
+function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
+  const pageId = getActivePageId(frame);
+  const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
+  const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
+  const rawHtml = page?.text?.content ?? "";
+  const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+  const pageName = page?.name ?? doc.name;
+
   showConfigDialog("Session Recap", (config) => {
     void (async () => {
       ui.notifications.info("LoreBridge: Generating session recap…");
       try {
         const result = await postBackend<{ recap: string }>("v1/generate/session-recap", {
-          sessionContent: content.slice(0, 4000),
+          sessionContent: plainText || `Session: ${pageName}`,
           sessionName: pageName,
           tone: config.tone,
           length: config.length,
         });
         showPreviewDialog(`Session Recap — ${pageName}`, result.recap, () => {
-          const journalEntry = (game.journal as { get(id: string): { pages: { get(id: string): { update(data: Record<string, unknown>): Promise<void> } | undefined } } | undefined }).get(journalId);
-          const page = journalEntry?.pages?.get(pageId);
-          if (!page) {
-            ui.notifications.error("LoreBridge: Journal page not found.");
-            return;
+          if (page) {
+            const appended = `${rawHtml}\n<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
+            void page.update({ "text.content": appended });
           }
-          const appended = `${content}\n<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
-          void page.update({ "text.content": appended });
         });
       } catch (error) {
         ui.notifications.error(`LoreBridge Session Recap failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -238,11 +253,41 @@ async function runSessionRecap(
 }
 
 // ---------------------------------------------------------------------------
-// Plain text extractor
+// Active journal page detection
 // ---------------------------------------------------------------------------
 
-function htmlToText(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+function getActivePageId(frame: HTMLElement): string | undefined {
+  // v14 journal sheets render the page list in a sidebar; the active page has
+  // a data-page-id attribute on the active/selected list item.
+  const selectors = [
+    ".pages-list .page.active[data-page-id]",
+    ".pages-list [data-page-id].active",
+    ".journal-sidebar [data-page-id].active",
+    "[data-page-id].active",
+    "[data-entry-id].active",
+  ];
+  for (const sel of selectors) {
+    const el = frame.querySelector<HTMLElement>(sel);
+    if (el) return el.dataset["pageId"] ?? el.dataset["entryId"];
+  }
+  // Fallback: first page in the list
+  const first = frame.querySelector<HTMLElement>("[data-page-id]");
+  return first?.dataset["pageId"];
+}
+
+// ---------------------------------------------------------------------------
+// Wire a button by data-action — idempotent
+// ---------------------------------------------------------------------------
+
+function wireButton(frame: HTMLElement, action: string, handler: (e: Event) => void): void {
+  const btn = frame.querySelector<HTMLElement>(`[data-action="${action}"]`);
+  if (!btn || btn.dataset["lbWired"]) return;
+  btn.dataset["lbWired"] = "1";
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handler(e);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -250,130 +295,44 @@ function htmlToText(html: string): string {
 // ---------------------------------------------------------------------------
 
 export function registerSheetButtons(): void {
-  // Actor sheet — NPC Quick-Gen button
-  Hooks.on("renderApplicationV2", (app: unknown, html: unknown) => {
-    const appAny = app as { document?: { id?: string; name?: string; type?: string; system?: Record<string, unknown> }; options?: { classes?: string[] } };
-    const doc = appAny.document;
-    if (!doc?.id || !doc.name) return;
+  // Step 1: add controls to the header via the official v14 hook.
+  // These appear as icon buttons in the window title bar.
+  Hooks.on("getHeaderControlsApplicationV2", (app: unknown, controls: unknown) => {
+    const doc = (app as AppWithDoc).document;
+    if (!doc?.documentName) return;
 
-    // Only inject on actor sheets for NPC-type actors
-    const classes = appAny.options?.classes ?? [];
-    if (!classes.includes("actor-sheet") && !classes.includes("ActorSheet")) return;
-    if (doc.type !== "npc") return;
+    const ctls = controls as HeaderControl[];
 
-    const htmlEl = html as HTMLElement;
-    const header = htmlEl.querySelector(".window-header");
-    if (!header) return;
-
-    if (header.querySelector(".lorebridge-npc-gen")) return; // idempotent
-
-    const btn = document.createElement("button");
-    btn.className = "lorebridge-npc-gen header-control";
-    btn.title = "LoreBridge: NPC Quick-Gen";
-    btn.innerHTML = '<i class="fas fa-robot"></i>';
-    btn.type = "button";
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      void runNpcQuickGen(doc as { id: string; name: string; type: string; system: Record<string, unknown> });
-    });
-    header.appendChild(btn);
-  });
-
-  // Journal sheet — Generate Description and Session Recap buttons
-  Hooks.on("renderApplicationV2", (app: unknown, html: unknown) => {
-    const appAny = app as { document?: { id?: string; name?: string; pages?: unknown }; options?: { classes?: string[] } };
-    const doc = appAny.document;
-    if (!doc?.id || !doc.name) return;
-
-    const classes = appAny.options?.classes ?? [];
-    if (!classes.includes("journal-sheet") && !classes.includes("JournalSheet")) return;
-
-    const htmlEl = html as HTMLElement;
-
-    // Find active/visible page content to determine which page is showing
-    const pageEl = htmlEl.querySelector(".journal-entry-page.active, .journal-entry-content");
-    if (!pageEl) return;
-
-    const pageId = (pageEl as HTMLElement).dataset["pageId"] ?? (pageEl as HTMLElement).dataset["entryId"];
-    if (!pageId) return;
-
-    const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
-    if (!journalEntry) return;
-
-    const page = journalEntry.pages.get(pageId);
-    if (!page) return;
-
-    const rawHtml = page.text?.content ?? "";
-    const plainText = htmlToText(rawHtml);
-    const isSessionLog = doc.name.toLowerCase().includes("session") || page.name.toLowerCase().includes("session");
-
-    const header = htmlEl.querySelector(".window-header");
-    if (!header) return;
-
-    // Generate Description button
-    if (!header.querySelector(".lorebridge-gen-desc")) {
-      const btn = document.createElement("button");
-      btn.className = "lorebridge-gen-desc header-control";
-      btn.title = "LoreBridge: Generate Description";
-      btn.innerHTML = '<i class="fas fa-feather-alt"></i>';
-      btn.type = "button";
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void runGenerateDescription(page.name, journalEntry.name, plainText, (preview) => {
-          void page.update({ "text.content": `${rawHtml}\n<blockquote class="lorebridge-boxed-text"><em>${preview.replace(/\n/g, "<br>")}</em></blockquote>` });
-        });
-      });
-      header.appendChild(btn);
+    if (doc.documentName === "Actor" && doc.type === "npc") {
+      ctls.push({ icon: "fas fa-robot", label: "NPC Quick-Gen", action: "lorebridge-npc-gen" });
     }
 
-    // Session Recap button — only on session journals
-    if (isSessionLog && !header.querySelector(".lorebridge-session-recap")) {
-      const btn = document.createElement("button");
-      btn.className = "lorebridge-session-recap header-control";
-      btn.title = "LoreBridge: Session Recap";
-      btn.innerHTML = '<i class="fas fa-scroll"></i>';
-      btn.type = "button";
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void runSessionRecap(doc.id!, pageId, page.name, plainText);
-      });
-      header.appendChild(btn);
+    if (doc.documentName === "JournalEntry") {
+      ctls.push({ icon: "fas fa-feather-alt", label: "Generate Description", action: "lorebridge-gen-desc" });
+      if (doc.name.toLowerCase().includes("session")) {
+        ctls.push({ icon: "fas fa-scroll", label: "Session Recap", action: "lorebridge-session-recap" });
+      }
     }
   });
 
-  // Scene sheet — Generate Description button
-  Hooks.on("renderApplicationV2", (app: unknown, html: unknown) => {
-    const appAny = app as { document?: { id?: string; name?: string }; options?: { classes?: string[] } };
+  // Step 2: attach click handlers in renderApplicationV2.
+  // At this point app.element is the full frame already in the DOM, so we
+  // can query [data-action] buttons that were injected by getHeaderControlsApplicationV2.
+  Hooks.on("renderApplicationV2", (app: unknown) => {
+    const appAny = app as AppWithDoc;
     const doc = appAny.document;
-    if (!doc?.id || !doc.name) return;
+    const frame = appAny.element;
+    if (!doc?.documentName || !frame) return;
 
-    const classes = appAny.options?.classes ?? [];
-    if (!classes.includes("scene-config") && !classes.includes("SceneConfig")) return;
+    if (doc.documentName === "Actor" && doc.type === "npc") {
+      wireButton(frame, "lorebridge-npc-gen", () => runNpcQuickGen(doc));
+    }
 
-    const htmlEl = html as HTMLElement;
-    const header = htmlEl.querySelector(".window-header");
-    if (!header) return;
-
-    if (header.querySelector(".lorebridge-scene-desc")) return;
-
-    const btn = document.createElement("button");
-    btn.className = "lorebridge-scene-desc header-control";
-    btn.title = "LoreBridge: Generate Description";
-    btn.innerHTML = '<i class="fas fa-feather-alt"></i>';
-    btn.type = "button";
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const scene = (game.scenes as { get(id: string): FoundryScene | undefined }).get(doc.id!);
-      const navName = scene?.navName ?? doc.name ?? "";
-      void runGenerateDescription(doc.name!, navName, `Scene: ${doc.name}`, (preview) => {
-        void (game.journal as { get(id: string): { pages: { get(id: string): { update(d: Record<string, unknown>): Promise<void> } | undefined } } | undefined });
-        ui.notifications.info(`LoreBridge: Scene description generated. Copy and paste into your journal:\n\n${preview}`);
-      });
-    });
-    header.appendChild(btn);
+    if (doc.documentName === "JournalEntry") {
+      wireButton(frame, "lorebridge-gen-desc", () => runGenerateDescription(doc, frame));
+      if (doc.name.toLowerCase().includes("session")) {
+        wireButton(frame, "lorebridge-session-recap", () => runSessionRecap(doc, frame));
+      }
+    }
   });
 }
