@@ -28,7 +28,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -669,6 +669,79 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const result = await generateSessionPrep(provider, { sessionName, sessionContent, worldName, tone, context });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/city") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const description = typeof body["description"] === "string" ? body["description"].trim() : "";
+    const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    const context = Array.isArray(body["context"])
+      ? (body["context"] as unknown[]).filter(
+          (c): c is { type: string; name: string; excerpt: string } =>
+            typeof c === "object" && c !== null &&
+            typeof (c as Record<string, unknown>)["type"] === "string" &&
+            typeof (c as Record<string, unknown>)["name"] === "string" &&
+            typeof (c as Record<string, unknown>)["excerpt"] === "string",
+        )
+      : [];
+    if (!description) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty description string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateCityDescription(provider, { description, worldName, tone, context });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/npcs") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const locationDescription = typeof body["locationDescription"] === "string" ? body["locationDescription"].trim() : "";
+    const count = typeof body["count"] === "number" && body["count"] > 0 ? Math.min(body["count"], 10) : 5;
+    const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    const context = Array.isArray(body["context"])
+      ? (body["context"] as unknown[]).filter(
+          (c): c is { type: string; name: string; excerpt: string } =>
+            typeof c === "object" && c !== null &&
+            typeof (c as Record<string, unknown>)["type"] === "string" &&
+            typeof (c as Record<string, unknown>)["name"] === "string" &&
+            typeof (c as Record<string, unknown>)["excerpt"] === "string",
+        )
+      : [];
+    if (!locationDescription) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty locationDescription string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateNpcCast(provider, { locationDescription, count, worldName, tone, context });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {

@@ -488,3 +488,136 @@ export async function generateSessionPrep(
   const prep = await callAI(provider, prompt, 1500);
   return { prep, provider: provider.provider };
 }
+
+// ---------------------------------------------------------------------------
+// City / Location Description Generator (#102)
+// ---------------------------------------------------------------------------
+
+export type CityDescriptionInput = {
+  description: string;
+  worldName: string;
+  tone: string;
+  context: Array<{ type: string; name: string; excerpt: string }>;
+};
+
+export type CityDescriptionOutput = {
+  content: string;
+  provider: string;
+};
+
+export async function generateCityDescription(
+  provider: ProviderService,
+  input: CityDescriptionInput,
+): Promise<CityDescriptionOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+
+  const contextBlock = input.context.length > 0
+    ? input.context.map(c => `[${c.type}] ${c.name}: ${c.excerpt}`).join("\n")
+    : "No existing campaign context found.";
+
+  const prompt = [
+    `You are a creative game master assistant building a detailed location for a tabletop RPG campaign set in "${input.worldName}".`,
+    `Tone: ${toneNote}`,
+    "",
+    `GM's description: ${input.description}`,
+    "",
+    "Existing campaign context (do not contradict this):",
+    "---",
+    contextBlock,
+    "---",
+    "",
+    "Generate a complete location profile using ALL of the following sections.",
+    "Use the exact section headers shown below.",
+    "",
+    "## Overview",
+    "2-3 sentences: overall atmosphere, first impressions, and what makes this place distinctive.",
+    "",
+    "## History",
+    "3-4 sentences: founding story, key past events, and how the location came to be what it is today.",
+    "",
+    "## Districts",
+    "3-5 distinct districts or areas. For each: name, one-sentence character, and what the party might do there.",
+    "",
+    "## Landmarks",
+    "3-4 notable landmarks or points of interest. For each: name and 1-2 sentence description.",
+    "",
+    "## Factions",
+    "2-4 major factions or power groups. For each: name, one-sentence agenda, and how they feel about outsiders.",
+    "",
+    "## Hooks",
+    "4-6 rumors or plot hooks that could draw the party into local affairs. Number them 1-6.",
+    "",
+    "## Sensory Details",
+    "3 bullet points: one vivid sight, one sound, one smell that define this place.",
+    "",
+    "Output rules:",
+    "- Use the exact section headers above (## Overview, etc.)",
+    "- Plain prose and bullet points only. No | characters.",
+    "- Reference existing campaign lore where it fits naturally.",
+    "- Never contradict the existing campaign context.",
+  ].join("\n");
+
+  const content = await callAI(provider, prompt, 1500);
+  return { content, provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
+// NPC Cast Generator (#101)
+// ---------------------------------------------------------------------------
+
+export type NpcCastInput = {
+  locationDescription: string;
+  count: number;
+  worldName: string;
+  tone: string;
+  context: Array<{ type: string; name: string; excerpt: string }>;
+};
+
+export type NpcCastOutput = {
+  content: string;
+  provider: string;
+};
+
+export async function generateNpcCast(
+  provider: ProviderService,
+  input: NpcCastInput,
+): Promise<NpcCastOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+
+  const contextBlock = input.context.length > 0
+    ? input.context.map(c => `[${c.type}] ${c.name}: ${c.excerpt}`).join("\n")
+    : "No existing campaign context found.";
+
+  const prompt = [
+    `You are a creative game master assistant generating a cast of NPCs for a tabletop RPG campaign set in "${input.worldName}".`,
+    `Tone: ${toneNote}`,
+    "",
+    `Location: ${input.locationDescription}`,
+    `Generate exactly ${input.count} NPCs for this location.`,
+    "",
+    "Existing campaign context (weave in existing actors where relevant; do not contradict this):",
+    "---",
+    contextBlock,
+    "---",
+    "",
+    `For each of the ${input.count} NPCs, use this exact format:`,
+    "",
+    "### [NPC Name]",
+    "**Role:** occupation and social position in one sentence.",
+    "**Appearance:** one sentence physical description.",
+    "**Personality:** 2-sentence temperament and manner.",
+    "**Mannerism:** one specific verbal tic or physical habit.",
+    "**Secret:** one thing they are hiding.",
+    "**Hook:** one way the party might get entangled with them.",
+    "",
+    "Output rules:",
+    "- Use the exact format above for every NPC.",
+    "- Plain prose only. No | characters.",
+    "- Names should fit the campaign tone.",
+    "- Secrets and hooks should connect to each other or to existing campaign lore where possible.",
+    "- Never contradict the existing campaign context.",
+  ].join("\n");
+
+  const content = await callAI(provider, prompt, 2000);
+  return { content, provider: provider.provider };
+}
