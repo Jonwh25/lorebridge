@@ -6,7 +6,6 @@ const MODULE_ID = "lorebridge";
 // Types
 // ---------------------------------------------------------------------------
 
-type HeaderControl = { icon: string; label: string; action: string; visible?: boolean };
 
 type AppDoc = {
   id: string;
@@ -279,69 +278,55 @@ function getActivePageId(frame: HTMLElement): string | undefined {
 // Hook registration
 // ---------------------------------------------------------------------------
 
-type AppWithClickAction = AppWithDoc & {
-  _onClickAction?: (event: Event, target: HTMLElement) => Promise<void>;
-  _lbActionsPatched?: boolean;
-};
+function injectHeaderButton(
+  frame: HTMLElement,
+  id: string,
+  icon: string,
+  label: string,
+  handler: () => void,
+): void {
+  if (frame.querySelector(`[data-lb-btn="${id}"]`)) return; // already injected
+
+  const header = frame.querySelector<HTMLElement>(".window-header");
+  if (!header) return;
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.dataset["lbBtn"] = id;
+  btn.title = label;
+  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;opacity:0.8;";
+  btn.innerHTML = `<i class="${icon}"></i>`;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handler();
+  });
+
+  // Insert before the close button so it appears in the header controls area
+  const close = header.querySelector<HTMLElement>(".close, [data-action='close']");
+  if (close) {
+    header.insertBefore(btn, close);
+  } else {
+    header.appendChild(btn);
+  }
+}
 
 export function registerSheetButtons(): void {
-  // Step 1: add controls to the "..." header menu via the official v14 hook.
-  Hooks.on("getHeaderControlsApplicationV2", (app: unknown, controls: unknown) => {
-    const doc = (app as AppWithDoc).document;
-    if (!doc?.documentName) return;
-
-    const ctls = controls as HeaderControl[];
+  Hooks.on("renderApplicationV2", (app: unknown) => {
+    const appAny = app as AppWithDoc;
+    const doc = appAny.document;
+    const frame = appAny.element;
+    if (!doc?.documentName || !frame) return;
 
     if (doc.documentName === "Actor" && doc.type === "npc") {
-      ctls.push({ icon: "fas fa-robot", label: "NPC Quick-Gen", action: "lorebridge-npc-gen" });
+      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Quick-Gen", () => runNpcQuickGen(doc));
     }
 
     if (doc.documentName === "JournalEntry") {
-      ctls.push({ icon: "fas fa-feather-alt", label: "Generate Description", action: "lorebridge-gen-desc" });
+      injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {
-        ctls.push({ icon: "fas fa-scroll", label: "Session Recap", action: "lorebridge-session-recap" });
+        injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", () => runSessionRecap(doc, frame));
       }
     }
-  });
-
-  // Step 2: patch _onClickAction on the specific app instance so our action
-  // strings are handled. Controls dispatch through _onClickAction which looks
-  // for a method of the same name on the app — patching the instance avoids
-  // touching the prototype and only runs for apps that have our controls.
-  Hooks.on("renderApplicationV2", (app: unknown) => {
-    const appAny = app as AppWithClickAction;
-    const doc = appAny.document;
-    const frame = appAny.element;
-    if (!doc?.documentName) return;
-
-    const isNpc = doc.documentName === "Actor" && doc.type === "npc";
-    const isJournal = doc.documentName === "JournalEntry";
-    if (!isNpc && !isJournal) return;
-
-    // Only patch once per instance
-    if (appAny._lbActionsPatched) return;
-    appAny._lbActionsPatched = true;
-
-    const proto = Object.getPrototypeOf(appAny) as { _onClickAction?: (e: Event, t: HTMLElement) => Promise<void> };
-
-    appAny._onClickAction = async function(event: Event, target: HTMLElement): Promise<void> {
-      const action = (target as HTMLElement).dataset["action"] ?? "";
-
-      if (action === "lorebridge-npc-gen" && isNpc) {
-        runNpcQuickGen(doc);
-        return;
-      }
-      if (action === "lorebridge-gen-desc" && isJournal && frame) {
-        runGenerateDescription(doc, frame);
-        return;
-      }
-      if (action === "lorebridge-session-recap" && isJournal && frame) {
-        runSessionRecap(doc, frame);
-        return;
-      }
-
-      // Fall through to original handler
-      return proto._onClickAction?.call(this, event, target);
-    };
   });
 }
