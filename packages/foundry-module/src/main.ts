@@ -76,7 +76,6 @@ function getModuleVersion(): string {
 
 Hooks.once("init", () => {
   registerLoreBridgeSettings();
-  registerChatCommand();
   registerSheetButtons();
 
   console.info(
@@ -87,6 +86,8 @@ Hooks.once("init", () => {
 Hooks.once("ready", () => {
   const settings = getLoreBridgeSettings();
   const isGM = Boolean(game.user?.isGM);
+
+  registerChatCommand();
 
   if (!shouldExposeCapabilityApi(isGM, settings)) {
     if (!isGM) {
