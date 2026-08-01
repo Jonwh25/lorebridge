@@ -226,6 +226,10 @@ Both `approveWrite` and `rejectWrite` are also triggered automatically by the
 **Approve** and **Reject** buttons in the GM write approval dialog that appears
 in Foundry when an AI proposes a journal update via `propose_journal_update`.
 
+Roll table proposals from `generate_roll_table` use a separate approval dialog
+with a **Create Roll Table** button — no token-based approval is needed, the
+RollTable document is created directly on approval.
+
 ## AI generation
 
 Requires a backend AI provider configured with `ANTHROPIC_API_KEY` or
@@ -282,6 +286,31 @@ End the session:
 Responses are whispered to all GM users. The actor's biography is used as
 character context. Conversation history is kept in memory for the session
 (bounded to the last 20 turns) and is not persisted across reloads.
+
+### `/lb city` and `/lb npcs` commands (v0.9.0+)
+
+Generate a city/location profile or NPC cast grounded in existing campaign lore:
+
+```
+/lb city a corrupt port city on the edge of a cursed forest
+/lb npcs 5 the village of Barovia
+/lb npcs the village of Barovia   (defaults to 5 NPCs)
+```
+
+Both commands search campaign context before generating to avoid contradicting
+established lore. A preview dialog shows the result; clicking **Save as Journal**
+creates a new page in "Generated Locations" or "Generated NPCs" and opens the
+journal automatically. The chat input is cleared after each command fires.
+
+### Lazy DM Session Prep wizard-hat button (v0.9.0+)
+
+Session log journals have a wizard-hat (🧙) button in the header. Clicking it
+generates a complete 8-section Lazy DM prep document (Strong Start, Potential
+Scenes, Secrets & Clues, Fantastic Locations, Important NPCs, Monsters,
+Treasure) grounded in the session notes and campaign search results.
+
+The prep is saved to a GM-only "Lazy DM Prep" journal with auto-incremented
+page names (e.g. "Prep Session 2") and the journal opens automatically on save.
 
 ### `generateBoxedText(input)`
 
