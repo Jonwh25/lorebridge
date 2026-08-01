@@ -138,7 +138,7 @@ function showPreviewDialog(title: string, preview: string, onPropose: () => void
 }
 
 // ---------------------------------------------------------------------------
-// NPC Quick-Gen
+// NPC Profile
 // ---------------------------------------------------------------------------
 
 function runNpcQuickGen(doc: AppDoc): void {
@@ -147,7 +147,7 @@ function runNpcQuickGen(doc: AppDoc): void {
     return raw.replace(/<[^>]+>/g, "").slice(0, 2000);
   })();
 
-  showConfigDialog("NPC Quick-Gen", (config) => {
+  showConfigDialog("NPC Profile", (config) => {
     void (async () => {
       ui.notifications.info("LoreBridge: Generating NPC profile…");
       try {
@@ -176,7 +176,7 @@ function runNpcQuickGen(doc: AppDoc): void {
           void actor.update({ "system.details.biography.value": `${existing}\n${html}` });
         });
       } catch (error) {
-        ui.notifications.error(`LoreBridge NPC Quick-Gen failed: ${error instanceof Error ? error.message : String(error)}`);
+        ui.notifications.error(`LoreBridge NPC Profile failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     })();
   });
@@ -336,7 +336,7 @@ export function registerSheetButtons(): void {
     if (!doc?.documentName || !frame) return;
 
     if (doc.documentName === "Actor" && doc.type === "npc") {
-      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Quick-Gen", () => runNpcQuickGen(doc));
+      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Profile", () => runNpcQuickGen(doc));
     }
 
     if (doc.documentName === "JournalEntry") {
