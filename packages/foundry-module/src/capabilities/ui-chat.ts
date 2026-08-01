@@ -428,6 +428,7 @@ export function registerChatCommand(): void {
         ui.notifications.warn("LoreBridge: Usage: /lb city <location description>");
         return false;
       }
+      clearInput();
       void handleCityGeneration(description);
       return false;
     }
@@ -439,6 +440,7 @@ export function registerChatCommand(): void {
         ui.notifications.warn("LoreBridge: Usage: /lb npcs [count] <location description>");
         return false;
       }
+      clearInput();
       void handleNpcGeneration(npcArgs);
       return false;
     }
