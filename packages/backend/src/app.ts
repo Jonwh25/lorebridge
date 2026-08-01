@@ -28,7 +28,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -636,6 +636,39 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const result = await generateRoleplayResponse(provider, { actorName, biography, personality, history, message });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/session-prep") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const sessionName = typeof body["sessionName"] === "string" ? body["sessionName"].trim() : "";
+    const sessionContent = typeof body["sessionContent"] === "string" ? body["sessionContent"] : "";
+    const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    const context = Array.isArray(body["context"])
+      ? (body["context"] as unknown[]).filter(
+          (c): c is { type: string; name: string; excerpt: string } =>
+            typeof c === "object" && c !== null &&
+            typeof (c as Record<string, unknown>)["type"] === "string" &&
+            typeof (c as Record<string, unknown>)["name"] === "string" &&
+            typeof (c as Record<string, unknown>)["excerpt"] === "string",
+        )
+      : [];
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateSessionPrep(provider, { sessionName, sessionContent, worldName, tone, context });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {

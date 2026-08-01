@@ -34,6 +34,7 @@ type FoundryJournalEntry = {
   pages: Iterable<FoundryJournalPage> & {
     get(id: string): FoundryJournalPage | undefined;
   };
+  sheet?: { render(force: boolean): void };
   createEmbeddedDocuments(
     type: string,
     data: Record<string, unknown>[],
@@ -172,6 +173,13 @@ declare const foundry: {
       };
     };
   };
+};
+
+declare const JournalEntry: {
+  create(data: {
+    name: string;
+    ownership?: Record<string, number>;
+  }): Promise<FoundryJournalEntry | undefined>;
 };
 
 declare const ChatMessage: {

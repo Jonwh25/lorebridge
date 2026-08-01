@@ -410,3 +410,81 @@ export async function generateRoleplayResponse(
   const response = await callAI(provider, prompt, 512);
   return { response, provider: provider.provider };
 }
+
+// ---------------------------------------------------------------------------
+// Lazy DM Session Prep (#108)
+// ---------------------------------------------------------------------------
+
+export type SessionPrepInput = {
+  sessionName: string;
+  sessionContent: string;
+  worldName: string;
+  tone: string;
+  context: Array<{ type: string; name: string; excerpt: string }>;
+};
+
+export type SessionPrepOutput = {
+  prep: string;
+  provider: string;
+};
+
+export async function generateSessionPrep(
+  provider: ProviderService,
+  input: SessionPrepInput,
+): Promise<SessionPrepOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+
+  const contextBlock = input.context.length > 0
+    ? input.context.map(c => `[${c.type}] ${c.name}: ${c.excerpt}`).join("\n")
+    : "No additional campaign context available.";
+
+  const prompt = [
+    `You are an expert game master assistant preparing for a tabletop RPG session using the Lazy DM framework from "Return of the Lazy Dungeon Master".`,
+    `Campaign world: ${input.worldName}`,
+    `Tone: ${toneNote}`,
+    "",
+    "Most recent session notes:",
+    "---",
+    input.sessionContent || "(No session notes provided — generate prep based on campaign context.)",
+    "---",
+    "",
+    "Relevant campaign context (NPCs, locations, lore):",
+    "---",
+    contextBlock,
+    "---",
+    "",
+    "Generate a complete Lazy DM prep document with ALL of the following sections.",
+    "Ground every section in the actual campaign content provided above.",
+    "Use the exact section headers shown below.",
+    "",
+    "## Strong Start",
+    "One specific, vivid opening scene or event that launches the session with momentum.",
+    "",
+    "## Potential Scenes",
+    "3-5 scenes or encounters the party might experience this session. Each is one sentence.",
+    "",
+    "## Secrets and Clues",
+    "10 short secrets or clues the party might discover. Each is one sentence. Number them 1-10.",
+    "",
+    "## Fantastic Locations",
+    "2-3 evocative locations. For each: name, then 3 bullet-point sensory details.",
+    "",
+    "## Important NPCs",
+    "3-5 NPCs who might appear. For each: name, one-sentence role, and what they want.",
+    "",
+    "## Monsters",
+    "2-4 monsters or enemy types appropriate for this session. One sentence each.",
+    "",
+    "## Treasure",
+    "2-3 specific rewards, magic items, or valuables the party might find.",
+    "",
+    "Output rules:",
+    "- Use the exact section headers above (## Strong Start, etc.)",
+    "- Plain prose and bullet points only. No | characters.",
+    "- Reference actual NPC names, location names, and lore from the campaign context.",
+    "- Never invent content that contradicts the provided campaign context.",
+  ].join("\n");
+
+  const prep = await callAI(provider, prompt, 1500);
+  return { prep, provider: provider.provider };
+}
