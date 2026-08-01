@@ -292,6 +292,135 @@ function getActivePageId(frame: HTMLElement): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// Scene Encounter Suggester (#95)
+// ---------------------------------------------------------------------------
+
+function runEncounterSuggester(doc: AppDoc): void {
+  const scene = (game.scenes as { get(id: string): FoundryScene | undefined }).get(doc.id);
+  const tokens = scene ? Array.from(scene.tokens).map((t) => t.name).filter(Boolean) : [];
+  const linkedJournal = scene?.journal?.name;
+
+  showConfigDialog("Encounter Suggestions", (config) => {
+    void (async () => {
+      ui.notifications.info("LoreBridge: Generating encounter suggestions…");
+      try {
+        const result = await postBackend<{ suggestions: string[] }>("v1/generate/encounter-suggestions", {
+          sceneName: doc.name,
+          linkedJournal,
+          tokens,
+          tone: config.tone,
+        });
+
+        const listItems = result.suggestions.map((s, i) => `<p><strong>${i + 1}.</strong> ${s}</p>`).join("\n");
+        const content = `<div style="padding:0.5rem;font-size:0.9em">${listItems}</div>`;
+
+        new foundry.applications.api.DialogV2({
+          window: { title: `Encounter Hooks — ${doc.name}`, resizable: true },
+          position: { width: 480, height: "auto", zIndex: 110 },
+          content,
+          buttons: [
+            {
+              action: "close",
+              label: "Close",
+              icon: "fas fa-times",
+              default: true,
+            },
+          ],
+        }).render({ force: true });
+      } catch (error) {
+        ui.notifications.error(`LoreBridge Encounter Suggestions failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Journal Q&A panel (#96)
+// ---------------------------------------------------------------------------
+
+function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
+  const panelId = "lb-qa-panel";
+  if (frame.querySelector(`#${panelId}`)) return;
+
+  const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
+
+  const panel = document.createElement("div");
+  panel.id = panelId;
+  panel.style.cssText = "display:flex;gap:4px;padding:4px 8px;border-top:1px solid var(--color-border-dark,#ccc);background:var(--color-bg-secondary,#f5f5f5);";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Ask about this journal…";
+  input.style.cssText = "flex:1;font-size:0.85em;padding:2px 6px;border:1px solid #aaa;border-radius:3px;background:#f5f0e8;color:#191813;";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.title = "Ask LoreBridge";
+  btn.style.cssText = "background:none;border:1px solid #aaa;cursor:pointer;padding:2px 8px;border-radius:3px;font-size:0.85em;color:#191813;";
+  btn.innerHTML = `<i class="fas fa-question-circle"></i>`;
+
+  const ask = async () => {
+    const question = input.value.trim();
+    if (!question) return;
+
+    const pageId = getActivePageId(frame);
+    const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
+    const rawHtml = page?.text?.content ?? "";
+    const pageContent = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+    const pageName = page?.name ?? doc.name;
+
+    btn.disabled = true;
+    input.disabled = true;
+    try {
+      const result = await postBackend<{ answer: string }>("v1/generate/journal-qa", {
+        question,
+        pageContent,
+        pageName,
+        journalName: doc.name,
+      });
+
+      const content = `
+        <div style="padding:0.5rem;font-size:0.9em">
+          <p><strong>Q:</strong> ${question}</p>
+          <hr>
+          <p>${result.answer.replace(/\n/g, "<br>")}</p>
+        </div>`;
+
+      new foundry.applications.api.DialogV2({
+        window: { title: `LoreBridge — ${pageName}`, resizable: true },
+        position: { width: 480, height: "auto" },
+        content,
+        buttons: [
+          { action: "close", label: "Close", icon: "fas fa-times", default: true },
+        ],
+      }).render({ force: true });
+
+      input.value = "";
+    } catch (error) {
+      ui.notifications.error(`LoreBridge Q&A failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      btn.disabled = false;
+      input.disabled = false;
+    }
+  };
+
+  btn.addEventListener("click", () => { void ask(); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); }
+  });
+
+  panel.appendChild(input);
+  panel.appendChild(btn);
+
+  const content = frame.querySelector(".window-content");
+  if (content) {
+    content.after(panel);
+  } else {
+    frame.appendChild(panel);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hook registration
 // ---------------------------------------------------------------------------
 
@@ -311,7 +440,7 @@ function injectHeaderButton(
   btn.type = "button";
   btn.dataset["lbBtn"] = id;
   btn.title = label;
-  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;opacity:0.8;";
+  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;";
   btn.innerHTML = `<i class="${icon}"></i>`;
   btn.addEventListener("click", (e) => {
     e.preventDefault();
@@ -330,8 +459,9 @@ function injectHeaderButton(
 
 export function registerSheetButtons(): void {
   Hooks.on("renderApplicationV2", (app: unknown) => {
-    const appAny = app as AppWithDoc;
-    const doc = appAny.document;
+    const appAny = app as AppWithDoc & { object?: AppDoc };
+    // DocumentSheetV2 stores the document at app.document; some subclasses use app.object
+    const doc = appAny.document ?? appAny.object;
     const frame = appAny.element;
     if (!doc?.documentName || !frame) return;
 
@@ -344,6 +474,25 @@ export function registerSheetButtons(): void {
       if (doc.name.toLowerCase().includes("session")) {
         injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", () => runSessionRecap(doc, frame));
       }
+      injectQAPanel(doc, frame);
     }
+
+    if (doc.documentName === "Scene") {
+      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
+    }
+  });
+
+  // Fallback: SceneConfig may use v1 Application in some Foundry/system versions
+  // and fires renderSceneConfig with (app, jQuery|HTMLElement, data)
+  Hooks.on("renderSceneConfig", (app: unknown, html: unknown) => {
+    const appAny = app as { object?: AppDoc; document?: AppDoc; element?: HTMLElement };
+    const doc = (appAny.object ?? appAny.document) as AppDoc | undefined;
+    if (!doc) return;
+    // v2: frame is on app.element; v1: html is a jQuery object, html[0] is the root element
+    const frame = appAny.element
+      ?? (html as { length?: number; 0?: HTMLElement })?.[0]
+      ?? (html as HTMLElement);
+    if (!frame) return;
+    injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
   });
 }

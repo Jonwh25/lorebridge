@@ -276,3 +276,137 @@ export async function generateSessionRecap(
 
   return { recap, provider: provider.provider };
 }
+
+// ---------------------------------------------------------------------------
+// Scene encounter suggestions (#95)
+// ---------------------------------------------------------------------------
+
+export type EncounterSuggestionsInput = {
+  sceneName: string;
+  linkedJournal?: string;
+  tokens: string[];
+  tone: string;
+};
+
+export type EncounterSuggestionsOutput = {
+  suggestions: string[];
+  provider: string;
+};
+
+export async function generateEncounterSuggestions(
+  provider: ProviderService,
+  input: EncounterSuggestionsInput,
+): Promise<EncounterSuggestionsOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+  const tokenList = input.tokens.length > 0 ? `Tokens on scene: ${input.tokens.join(", ")}` : "";
+  const journalNote = input.linkedJournal ? `Linked journal: ${input.linkedJournal}` : "";
+
+  const prompt = [
+    "You are a creative game master assistant generating encounter hooks for a tabletop RPG scene.",
+    `Scene: ${input.sceneName}`,
+    journalNote,
+    tokenList,
+    `Tone: ${toneNote}`,
+    "",
+    "Generate exactly 2-3 distinct encounter hooks or complications appropriate for this scene.",
+    "Each suggestion is 1-2 sentences — a specific situation, complication, or event that could occur.",
+    "Output rules:",
+    "- Plain prose only. No markdown, no | characters, no # characters.",
+    "- One suggestion per line, prefixed with a number: 1. 2. 3.",
+    "- Start directly with '1.' — no title or preamble.",
+    "- Never ask for clarification. Always generate suggestions.",
+  ].filter(Boolean).join("\n");
+
+  const raw = await callAI(provider, prompt, 400);
+
+  const suggestions = raw
+    .split("\n")
+    .map(l => l.replace(/^\d+[.)]\s*/, "").trim())
+    .filter(l => l.length > 10);
+
+  return { suggestions, provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
+// Journal page Q&A (#96)
+// ---------------------------------------------------------------------------
+
+export type JournalQAInput = {
+  question: string;
+  pageContent: string;
+  pageName: string;
+  journalName: string;
+};
+
+export type JournalQAOutput = {
+  answer: string;
+  provider: string;
+};
+
+export async function generateJournalAnswer(
+  provider: ProviderService,
+  input: JournalQAInput,
+): Promise<JournalQAOutput> {
+  const prompt = [
+    `You are answering a GM's question about a specific journal page in their tabletop RPG campaign.`,
+    `Journal: ${input.journalName}`,
+    `Page: ${input.pageName}`,
+    "",
+    "Page content:",
+    input.pageContent || "(empty page — answer based on the page name only)",
+    "",
+    `GM's question: ${input.question}`,
+    "",
+    "Answer based only on the page content above. Be concise and direct — the GM is at the table.",
+    "If the page lacks enough information, say so clearly and briefly.",
+    "Plain prose only. No markdown, no special characters.",
+  ].join("\n");
+
+  const answer = await callAI(provider, prompt, 512);
+  return { answer, provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
+// NPC roleplay (#99)
+// ---------------------------------------------------------------------------
+
+export type RoleplayInput = {
+  actorName: string;
+  biography: string;
+  personality: string;
+  history: Array<{ role: "user" | "assistant"; content: string }>;
+  message: string;
+};
+
+export type RoleplayOutput = {
+  response: string;
+  provider: string;
+};
+
+export async function generateRoleplayResponse(
+  provider: ProviderService,
+  input: RoleplayInput,
+): Promise<RoleplayOutput> {
+  const historyText = input.history
+    .map(m => `${m.role === "user" ? "GM" : input.actorName}: ${m.content}`)
+    .join("\n");
+
+  const prompt = [
+    `You are roleplaying as ${input.actorName}, an NPC in a tabletop RPG campaign.`,
+    "Stay completely in character. Respond as this character would speak and think.",
+    "Be concise — 2-4 sentences unless the situation demands more.",
+    "Do not break character, add stage directions, or include narrative descriptions.",
+    "Plain prose only. No markdown, no special characters.",
+    "",
+    "Character background:",
+    input.biography || "(no biography provided)",
+    input.personality ? `\nPersonality: ${input.personality}` : "",
+    historyText ? `\nConversation so far:\n${historyText}` : "",
+    "",
+    `GM: ${input.message}`,
+    `${input.actorName}:`,
+  ].filter(l => l !== undefined).join("\n");
+
+  const response = await callAI(provider, prompt, 512);
+  return { response, provider: provider.provider };
+}
