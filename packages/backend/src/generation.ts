@@ -118,6 +118,7 @@ export async function generateBoxedText(
     "- Plain prose only. No markdown, no special characters, no bullet points.",
     "- No | characters, no # characters, no --- dividers.",
     "- Do not include a title, label, or preamble. Start directly with the descriptive text.",
+    "- If the source content is sparse or empty, invent a vivid, fitting description based on the document name and tone. Never ask for clarification or more information.",
   ].join("\n");
 
   const preview = await callAI(provider, prompt, 512);
