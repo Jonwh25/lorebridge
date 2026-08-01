@@ -145,6 +145,77 @@ After merge:
 
 Passing CI alone does not complete a user-facing capability.
 
+### Deployment runbook (Ubuntu server)
+
+Follow these steps in order every time. Do not combine or reorder them.
+
+**Step 1 — Pull the branch or merge commit**
+
+```bash
+cd <LOREBRIDGE_DIR>
+git fetch origin
+git checkout <branch-or-main>
+git pull
+```
+
+If you are testing a feature branch before merging, check out that branch
+explicitly. Never assume the working directory is already on the right branch.
+
+**Step 2 — Build each package separately**
+
+Build packages one at a time. Do not pass multiple `-w` flags to a single
+`npm run build` call — esbuild interprets extra arguments as additional input
+files and fails.
+
+If backend changed:
+
+```bash
+npm run build -w packages/backend
+```
+
+If the Foundry module changed:
+
+```bash
+npm run build -w packages/foundry-module
+```
+
+If both changed (run sequentially):
+
+```bash
+npm run build -w packages/backend && npm run build -w packages/foundry-module
+```
+
+**Step 3 — Restart the backend**
+
+```bash
+pm2 restart lorebridge-backend
+```
+
+Confirm it is running cleanly:
+
+```bash
+pm2 logs lorebridge-backend --lines 20 --nostream
+```
+
+**Step 4 — Copy the Foundry module bundle**
+
+```bash
+cp <LOREBRIDGE_DIR>/packages/foundry-module/dist/main.js \
+   <FOUNDRY_DATA_DIR>/Data/modules/lorebridge/dist/main.js
+```
+
+Step 4 must come after Step 2. You cannot copy a file that has not been built yet.
+
+**Step 5 — Reload Foundry**
+
+Hard-reload the Foundry browser tab (Ctrl+Shift+R or Cmd+Shift+R) to pick up
+the new module bundle. Confirm the LoreBridge adapter reconnects in the pm2 logs.
+
+**Step 6 — Run the acceptance test**
+
+Perform every step in the issue's acceptance test. Record the result on the
+issue before closing it.
+
 ## Release policy
 
 Do not bump the Foundry module version for every incremental pull request.
