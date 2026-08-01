@@ -621,3 +621,72 @@ export async function generateNpcCast(
   const content = await callAI(provider, prompt, 2000);
   return { content, provider: provider.provider };
 }
+
+// ---------------------------------------------------------------------------
+// Roll Table Generator (#113)
+// ---------------------------------------------------------------------------
+
+export type RollTableInput = {
+  prompt: string;
+  count: number;
+  worldName: string;
+  tone: string;
+};
+
+export type RollTableEntry = {
+  weight: number;
+  text: string;
+};
+
+export type RollTableOutput = {
+  name: string;
+  entries: RollTableEntry[];
+  provider: string;
+};
+
+export async function generateRollTable(
+  provider: ProviderService,
+  input: RollTableInput,
+): Promise<RollTableOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+
+  const prompt = [
+    `You are a creative game master assistant generating a roll table for a tabletop RPG campaign set in "${input.worldName}".`,
+    `Tone: ${toneNote}`,
+    "",
+    `Table theme: ${input.prompt}`,
+    `Generate exactly ${input.count} entries for this roll table.`,
+    "",
+    "First, output a concise table name on its own line, prefixed with 'TABLE NAME: '.",
+    "Then output each entry on its own line, numbered 1 to ${count}, in this format:",
+    "1. Entry text here",
+    "2. Entry text here",
+    "...",
+    "",
+    "Output rules:",
+    "- Table name should be short (3-6 words) and descriptive.",
+    "- Each entry is one sentence — specific, evocative, and useful at the table.",
+    "- Entries should be varied — no two entries should feel the same.",
+    "- Plain text only. No markdown, no | characters.",
+    `- Output exactly ${input.count} numbered entries.`,
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, Math.max(800, input.count * 60));
+
+  const nameMatch = raw.match(/TABLE NAME:\s*(.+)/i);
+  const name = nameMatch?.[1]?.trim() ?? input.prompt.slice(0, 50);
+
+  const entries: RollTableEntry[] = raw
+    .split("\n")
+    .filter(l => /^\d+\./.test(l.trim()))
+    .map(l => l.replace(/^\d+\.\s*/, "").trim())
+    .filter(l => l.length > 0)
+    .slice(0, input.count)
+    .map((text, i) => ({ weight: i + 1, text }));
+
+  if (entries.length === 0) {
+    throw new GenerationError("AI returned no valid roll table entries.");
+  }
+
+  return { name, entries, provider: provider.provider };
+}

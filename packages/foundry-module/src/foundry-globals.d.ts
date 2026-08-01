@@ -175,6 +175,19 @@ declare const foundry: {
   };
 };
 
+declare const RollTable: {
+  create(data: {
+    name: string;
+    formula?: string;
+    results: Array<{
+      type: number;
+      text: string;
+      weight: number;
+      range: [number, number];
+    }>;
+  }): Promise<{ id: string; name: string } | undefined>;
+};
+
 declare const JournalEntry: {
   create(data: {
     name: string;

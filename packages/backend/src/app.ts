@@ -761,7 +761,7 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
   const writes = new WriteRegistry();
-  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes);
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider);
   const server = createServer((request, response) => {
     void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);

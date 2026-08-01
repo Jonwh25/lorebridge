@@ -45,6 +45,8 @@ import {
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
+import { type ProviderService } from "./provider.js";
+import { generateRollTable, GenerationError } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 
 const relatedDocumentsToolName = "get_related_documents";
@@ -73,7 +75,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.2.0",
@@ -1107,6 +1109,68 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  server.registerTool(
+    "generate_roll_table",
+    {
+      title: "Generate a roll table",
+      description: "Ask the AI to generate a themed roll table and propose it for creation in Foundry VTT as a RollTable document. The GM sees a preview dialog and must approve before anything is created.",
+      inputSchema: z.object({
+        prompt: z.string().trim().min(1).describe(
+          "A description of what the roll table should contain, e.g. 'random dungeon loot for level 5 party', 'wilderness encounters in a cursed forest', 'tavern rumors and plot hooks'.",
+        ),
+        count: z.number().int().min(2).max(20).default(10).describe(
+          "Number of entries to generate. Default 10, max 20.",
+        ),
+        tone: z.enum(["gothic", "neutral", "heroic", "mysterious"]).default("neutral").describe(
+          "Tone for the generated entries.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ prompt, count, tone, sourceId }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+
+        const worldSummaryResult = await adapterSessions.invoke(sourceId, GET_WORLD_SUMMARY_CAPABILITY, {}).catch(() => null);
+        const worldName = (worldSummaryResult as { world?: { title?: string } } | null)?.world?.title ?? "Unknown World";
+
+        const result = await generateRollTable(provider, { prompt, count, tone, worldName });
+
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.rollTableApprovalRequired, {
+          name: result.name,
+          entries: result.entries,
+          prompt,
+        });
+
+        const preview = {
+          name: result.name,
+          entryCount: result.entries.length,
+          entries: result.entries,
+          instruction: "A roll table approval request has been sent to Foundry. The GM must approve it before the RollTable is created.",
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not generate the roll table.");
+      }
+    },
+  );
+
   return server;
 }
 
@@ -1118,9 +1182,10 @@ export interface McpRequestHandler {
 export function createLoreBridgeMcpHandler(
   adapterSessions: AdapterSessionRegistry,
   writes: WriteRegistry,
+  provider: ProviderService,
 ): McpRequestHandler {
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes),
+    () => createServer(adapterSessions, writes, provider),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),

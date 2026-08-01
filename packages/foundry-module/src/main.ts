@@ -50,7 +50,7 @@ import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
-import { approveWrite, rejectWrite, showWriteApprovalChat, type WriteApprovalPayload } from "./capabilities/writes.js";
+import { approveWrite, rejectWrite, showWriteApprovalChat, showRollTableApprovalChat, type WriteApprovalPayload, type RollTableApprovalPayload } from "./capabilities/writes.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
@@ -221,6 +221,9 @@ Hooks.once("ready", () => {
         (event) => {
           if (event.event === LOREBRIDGE_EVENTS.approvalRequired) {
             void showWriteApprovalChat(event.payload as WriteApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.rollTableApprovalRequired) {
+            void showRollTableApprovalChat(event.payload as RollTableApprovalPayload);
           }
         },
       );

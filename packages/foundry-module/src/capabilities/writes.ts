@@ -89,6 +89,92 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
   }).render({ force: true });
 }
 
+export type RollTableApprovalPayload = {
+  name: string;
+  entries: Array<{ weight: number; text: string }>;
+  prompt: string;
+};
+
+export async function showRollTableApprovalChat(payload: RollTableApprovalPayload): Promise<void> {
+  if (!game.user?.isGM) return;
+
+  const gmIds = game.users.filter((u) => u.isGM).map((u) => u.id);
+
+  const entriesHtml = payload.entries
+    .map((e, i) => `<li><strong>${i + 1}.</strong> ${e.text}</li>`)
+    .join("\n");
+
+  const whisperContent = `
+    <p><strong>LoreBridge — Roll Table Proposal</strong></p>
+    <p><strong>Table:</strong> ${payload.name}</p>
+    <p><strong>Prompt:</strong> ${payload.prompt}</p>
+    <p style="font-size:0.8em;color:#888;">Respond via the popup dialog.</p>
+  `;
+
+  await ChatMessage.create({
+    content: whisperContent,
+    whisper: gmIds,
+    speaker: { alias: "LoreBridge" },
+  });
+
+  const dialogContent = `
+    <div style="margin-bottom:8px;">
+      <p><strong>Table name:</strong> ${payload.name}</p>
+      <p><strong>Prompt:</strong> ${payload.prompt}</p>
+      <details open style="margin-top:8px;">
+        <summary style="cursor:pointer;font-weight:bold;">Preview entries (${payload.entries.length})</summary>
+        <ol style="max-height:300px;overflow-y:auto;border:1px solid #999;border-radius:4px;margin-top:4px;padding:8px 8px 8px 28px;font-size:0.85em;background:#f5f5f0;color:#222;">
+          ${entriesHtml}
+        </ol>
+      </details>
+    </div>
+  `;
+
+  new foundry.applications.api.DialogV2({
+    window: { title: "LoreBridge — Roll Table Proposal", resizable: true },
+    position: { width: 520, height: "auto" },
+    content: dialogContent,
+    buttons: [
+      {
+        action: "approve",
+        label: "Create Roll Table",
+        icon: "fas fa-dice",
+        callback: () => {
+          void (async () => {
+            try {
+              const count = payload.entries.length;
+              const results = payload.entries.map((e, i) => ({
+                type: 0,
+                text: e.text,
+                weight: e.weight,
+                range: [i + 1, i + 1] as [number, number],
+              }));
+              await RollTable.create({
+                name: payload.name,
+                formula: `1d${count}`,
+                results,
+              });
+              ui.notifications.info(`LoreBridge: Roll table "${payload.name}" created.`);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              ui.notifications.error(`LoreBridge: Roll table creation failed — ${msg}`);
+            }
+          })();
+        },
+      },
+      {
+        action: "reject",
+        label: "Reject",
+        icon: "fas fa-times",
+        default: true,
+        callback: () => {
+          ui.notifications.info("LoreBridge: Roll table proposal rejected.");
+        },
+      },
+    ],
+  }).render({ force: true });
+}
+
 export async function rejectWrite(token: string): Promise<void> {
   requireFoundryGm("rejectWrite");
 
