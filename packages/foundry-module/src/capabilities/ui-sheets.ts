@@ -356,8 +356,8 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.title = "Ask LoreBridge";
-  btn.style.cssText = "background:none;border:1px solid var(--color-border-dark,#ccc);cursor:pointer;padding:2px 8px;border-radius:3px;font-size:0.85em;color:inherit;";
-  btn.innerHTML = `<i class="fas fa-feather-alt"></i>`;
+  btn.style.cssText = "background:none;border:1px solid #aaa;cursor:pointer;padding:2px 8px;border-radius:3px;font-size:0.85em;color:#191813;";
+  btn.innerHTML = `<i class="fas fa-question-circle"></i>`;
 
   const ask = async () => {
     const question = input.value.trim();
