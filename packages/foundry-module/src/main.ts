@@ -52,6 +52,8 @@ import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
 import { approveWrite, rejectWrite, showWriteApprovalChat, type WriteApprovalPayload } from "./capabilities/writes.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
+import { registerChatCommand } from "./capabilities/ui-chat.js";
+import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -74,6 +76,8 @@ function getModuleVersion(): string {
 
 Hooks.once("init", () => {
   registerLoreBridgeSettings();
+  registerChatCommand();
+  registerSheetButtons();
 
   console.info(
     `${MODULE_ID} | Initializing LoreBridge ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
