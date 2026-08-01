@@ -34,6 +34,7 @@ type FoundryJournalEntry = {
   pages: Iterable<FoundryJournalPage> & {
     get(id: string): FoundryJournalPage | undefined;
   };
+  sheet?: { render(force: boolean): void };
   createEmbeddedDocuments(
     type: string,
     data: Record<string, unknown>[],

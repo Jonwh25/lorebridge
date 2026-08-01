@@ -355,7 +355,7 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
                   await prepJournal.createEmbeddedDocuments("JournalEntryPage", [
                     { name: nextPageName, type: "text", text: { content: saveHtml } },
                   ]);
-                  ui.notifications.info(`LoreBridge: Saved "${nextPageName}" to Lazy DM Prep journal.`);
+                  prepJournal.sheet?.render(true);
                 })();
               },
             },
