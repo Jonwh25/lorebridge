@@ -125,14 +125,6 @@ export function registerChatCommand(): void {
       return false;
     }
 
-    // Clear the editor content
-    if ((target as { value?: string }).value !== undefined) {
-      (target as HTMLInputElement).value = "";
-    } else if (target.isContentEditable) {
-      target.textContent = "";
-      target.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-
     void handleQuestion(question);
     return false;
   });
