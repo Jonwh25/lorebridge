@@ -205,6 +205,155 @@ async function startRoleplay(actorName: string): Promise<void> {
   });
 }
 
+function markdownToHtml(text: string): string {
+  return text
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
+    .replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`)
+    .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
+    .replace(/\n{2,}/g, "</p><p>")
+    .replace(/\n/g, "<br>")
+    .replace(/^(?!<[hul])/, "<p>")
+    .replace(/(?<![>])$/, "</p>");
+}
+
+async function callGenerateEndpoint(path: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const settings = getLoreBridgeSettings();
+  if (!settings.backendUrl || !settings.clientToken) {
+    throw new Error("LoreBridge backend is not configured or paired.");
+  }
+  const url = buildBackendUrl(settings.backendUrl, path);
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${settings.clientToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `Backend error ${response.status}`);
+  }
+  return response.json() as Promise<Record<string, unknown>>;
+}
+
+async function saveToJournal(journalName: string, pageName: string, html: string): Promise<void> {
+  let journal = Array.from(game.journal as Iterable<FoundryJournalEntry>).find((j) => j.name === journalName);
+  if (!journal) {
+    journal = await JournalEntry.create({ name: journalName, ownership: { default: 0 } });
+  }
+  if (!journal) throw new Error(`Failed to create journal "${journalName}".`);
+  await journal.createEmbeddedDocuments("JournalEntryPage", [
+    { name: pageName, type: "text", text: { content: html } },
+  ]);
+  journal.sheet?.render(true);
+}
+
+function showGeneratorDialog(title: string, html: string, journalName: string, pageName: string): void {
+  const dialog = new foundry.applications.api.DialogV2({
+    window: { title, resizable: true },
+    position: { width: 680, height: "auto" },
+    content: `
+      <div style="max-height:500px;overflow-y:auto;padding:8px;font-size:13px;line-height:1.5">
+        ${html}
+      </div>
+      <p style="margin-top:8px;font-size:11px;color:#666">
+        Saving to <strong>${journalName}</strong> → page <strong>${pageName}</strong>
+      </p>`,
+    buttons: [
+      {
+        action: "save",
+        label: "Save as Journal",
+        icon: "fas fa-book",
+        default: true,
+        callback: () => {
+          void saveToJournal(journalName, pageName, html).catch((err) => {
+            ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : String(err)}`);
+          });
+        },
+      },
+      { action: "close", label: "Close" },
+    ],
+  });
+  dialog.render({ force: true });
+}
+
+async function handleCityGeneration(description: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb city is only available to GMs.");
+    return;
+  }
+  const worldName = game.world?.title ?? "Unknown World";
+  const tone = "neutral";
+
+  ui.notifications.info("LoreBridge: Generating city description…");
+
+  try {
+    let context: Array<{ type: string; name: string; excerpt: string }> = [];
+    try {
+      const results = await searchCampaign({ query: description, mode: "gm" });
+      context = results.results.slice(0, 8).map((r: CampaignSearchMatch) => {
+        if (r.documentType === "journal") return { type: "journal", name: r.journalName, excerpt: r.excerpt ?? "" };
+        if (r.documentType === "actor") return { type: "actor", name: r.actorName, excerpt: r.excerpt ?? "" };
+        return { type: "scene", name: r.sceneName, excerpt: "" };
+      });
+    } catch { /* best-effort */ }
+
+    const result = await callGenerateEndpoint("v1/generate/city", { description, worldName, tone, context });
+    const content = typeof result["content"] === "string" ? result["content"] : "";
+    const html = markdownToHtml(content);
+    const pageName = description.slice(0, 60).trim();
+    showGeneratorDialog(`City — ${pageName}`, html, "Generated Locations", pageName);
+  } catch (error) {
+    ui.notifications.error(`LoreBridge: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function handleNpcGeneration(args: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb npcs is only available to GMs.");
+    return;
+  }
+
+  // Optional leading number: "/lb npcs 3 corrupt river town"
+  const countMatch = args.match(/^(\d+)\s+(.+)/);
+  const count = countMatch ? parseInt(countMatch[1] ?? "5", 10) : 5;
+  const locationDescription = (countMatch ? countMatch[2] ?? args : args).trim();
+
+  if (!locationDescription) {
+    ui.notifications.warn("LoreBridge: Usage: /lb npcs [count] <location description>");
+    return;
+  }
+
+  const worldName = game.world?.title ?? "Unknown World";
+  const tone = "neutral";
+
+  ui.notifications.info(`LoreBridge: Generating ${count} NPCs…`);
+
+  try {
+    let context: Array<{ type: string; name: string; excerpt: string }> = [];
+    try {
+      const results = await searchCampaign({ query: locationDescription, mode: "gm" });
+      context = results.results.slice(0, 8).map((r: CampaignSearchMatch) => {
+        if (r.documentType === "journal") return { type: "journal", name: r.journalName, excerpt: r.excerpt ?? "" };
+        if (r.documentType === "actor") return { type: "actor", name: r.actorName, excerpt: r.excerpt ?? "" };
+        return { type: "scene", name: r.sceneName, excerpt: "" };
+      });
+    } catch { /* best-effort */ }
+
+    const result = await callGenerateEndpoint("v1/generate/npcs", { locationDescription, count, worldName, tone, context });
+    const content = typeof result["content"] === "string" ? result["content"] : "";
+    const html = markdownToHtml(content);
+    const pageName = locationDescription.slice(0, 60).trim();
+    showGeneratorDialog(`NPCs — ${pageName}`, html, "Generated NPCs", pageName);
+  } catch (error) {
+    ui.notifications.error(`LoreBridge: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function isLbCommand(value: string): boolean {
   const t = value.trim();
   return t === COMMAND_EXACT || t.startsWith(COMMAND_PREFIX);
@@ -269,6 +418,28 @@ export function registerChatCommand(): void {
       clearInput();
       const actorName = args.slice("roleplay ".length).trim();
       void startRoleplay(actorName);
+      return false;
+    }
+
+    // /lb city <description>
+    if (args.startsWith("city ") || args === "city") {
+      const description = args.slice("city".length).trim();
+      if (!description) {
+        ui.notifications.warn("LoreBridge: Usage: /lb city <location description>");
+        return false;
+      }
+      void handleCityGeneration(description);
+      return false;
+    }
+
+    // /lb npcs [count] <description>
+    if (args.startsWith("npcs ") || args === "npcs") {
+      const npcArgs = args.slice("npcs".length).trim();
+      if (!npcArgs) {
+        ui.notifications.warn("LoreBridge: Usage: /lb npcs [count] <location description>");
+        return false;
+      }
+      void handleNpcGeneration(npcArgs);
       return false;
     }
 
