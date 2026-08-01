@@ -50,5 +50,4 @@ jobs:
             release/module.json \
             release/lorebridge.zip \
             --title "LoreBridge ${GITHUB_REF_NAME}" \
-            --generate-notes \
-            --clobber
+            --generate-notes
