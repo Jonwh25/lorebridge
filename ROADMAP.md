@@ -152,15 +152,15 @@ Success test: a GM can ask the AI a question scoped to a specific journal or
 scene, and hold a short in-character conversation with an NPC, all from within
 Foundry.
 
-### Milestone 9 — World-Building Generation
+### Milestone 9 — World-Building Generation ✅
 
 AI generates new campaign content and writes it back to Foundry through the
 existing approval flow.
 
-1. [Location and NPC Generator: towns, casts, and plot hooks](https://github.com/Jonwh25/lorebridge/issues/101)
-2. [City and Location Description Generator: districts, landmarks, factions](https://github.com/Jonwh25/lorebridge/issues/102)
-3. [Lazy DM Session Prep Generator](https://github.com/Jonwh25/lorebridge/issues/108)
-4. [MCP tool: generate_roll_table](https://github.com/Jonwh25/lorebridge/issues/113)
+1. ✅ [Location and NPC Generator: towns, casts, and plot hooks](https://github.com/Jonwh25/lorebridge/issues/101)
+2. ✅ [City and Location Description Generator: districts, landmarks, factions](https://github.com/Jonwh25/lorebridge/issues/102)
+3. ✅ [Lazy DM Session Prep Generator](https://github.com/Jonwh25/lorebridge/issues/108)
+4. ✅ [MCP tool: generate_roll_table](https://github.com/Jonwh25/lorebridge/issues/113)
 
 Success test: a GM can ask the AI to generate a town, a session plan, or a
 roll table; review the proposed content; and approve it into the world in one

@@ -107,6 +107,7 @@ inside Foundry without opening a browser console or MCP client.
 | --- | --- | --- |
 | Any journal page | Feather icon in header | Read-aloud boxed text appended to the active page |
 | Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
+| Session log journals | Wizard-hat icon in header | Lazy DM session prep saved to "Lazy DM Prep" journal (v0.9.0+) |
 | NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
 | Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
 | Any journal page | Question-mark input at bottom | Inline Q&A grounded in the active page content |
@@ -131,6 +132,20 @@ in your campaign. The answer is whispered to GM users only.
 Starts an in-character conversation with any actor in your world. Responses are
 whispered to GM users only and the NPC's biography is used as context. Type
 `/lb end` to exit roleplay mode.
+
+### `/lb city` and `/lb npcs` — world-building generators (v0.9.0+)
+
+```
+/lb city a corrupt port city on the edge of a cursed forest
+/lb npcs 5 the village of Barovia
+```
+
+Generates a full city/location profile or a cast of NPCs grounded in existing
+campaign lore. A preview dialog shows the generated content; clicking **Save as
+Journal** creates a new page in "Generated Locations" or "Generated NPCs"
+and opens the journal automatically.
+
+The optional leading number in `/lb npcs` sets the count (default 5, max 10).
 
 ### Browser console API
 
