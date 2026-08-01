@@ -167,8 +167,13 @@ function runNpcQuickGen(doc: AppDoc): void {
           const actor = (game.actors as { get(id: string): { update(d: Record<string, unknown>): Promise<void> } | undefined }).get(doc.id);
           if (!actor) return;
           const existing = (doc.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
-          const appended = `${existing}\n<h3>LoreBridge Profile</h3><p>${preview.replace(/\n/g, "<br>")}</p>`;
-          void actor.update({ "system.details.biography.value": appended });
+          const html = [
+            `<h3>LoreBridge Profile</h3>`,
+            `<p><strong>Personality:</strong> ${result.personality}</p>`,
+            `<p><strong>Mannerism:</strong> ${result.mannerism}</p>`,
+            `<section class="secret"><p><strong>Secret (GM only):</strong> ${result.secret}</p></section>`,
+          ].join("\n");
+          void actor.update({ "system.details.biography.value": `${existing}\n${html}` });
         });
       } catch (error) {
         ui.notifications.error(`LoreBridge NPC Quick-Gen failed: ${error instanceof Error ? error.message : String(error)}`);
