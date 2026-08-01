@@ -193,6 +193,38 @@ Success test: a GM can disable individual capability categories, switch to a
 local Ollama model, and expose a custom macro as an MCP tool without touching
 the backend configuration.
 
+### Milestone 12 — Portable Campaign Backups
+
+Export selected campaign content to a version-controlled repository and restore
+it through explicit, conflict-aware GM approval. The portable representation is
+based on [The Raven's Eye](https://github.com/Jonwh25/the-ravens-eye), while
+Foundry-specific reconstruction data remains in a versioned extension rather
+than becoming part of the platform-independent core specification.
+
+Implementation begins only after The Raven's Eye publishes an experimental,
+versioned draft covering document identity, visibility, relationships,
+provenance, extensions, and schema evolution.
+
+1. [Tracking epic: Raven's Eye portable campaign backups and restore](https://github.com/Jonwh25/lorebridge/issues/128)
+2. [Define the Raven's Eye interoperability contract](https://github.com/Jonwh25/lorebridge/issues/133)
+3. [Connect the backend to a private GitHub campaign repository](https://github.com/Jonwh25/lorebridge/issues/134)
+4. [Back up and restore Foundry journals](https://github.com/Jonwh25/lorebridge/issues/135)
+5. [Back up and restore Foundry actors and roll tables](https://github.com/Jonwh25/lorebridge/issues/130)
+6. [Back up a Foundry scene folder as a Raven's Eye campaign area](https://github.com/Jonwh25/lorebridge/issues/129)
+7. [Restore a scene folder with UUID remapping and conflict checks](https://github.com/Jonwh25/lorebridge/issues/132)
+8. [Browse, compare, and select point-in-time campaign backups](https://github.com/Jonwh25/lorebridge/issues/131)
+
+GitHub is the first storage adapter, not a requirement of The Raven's Eye.
+Repository credentials stay in the backend, campaign repositories default to
+private, exports remain bounded, and every restore requires a validated preview,
+explicit single-use GM approval, conflict checks, and an audit result.
+
+Success test: a GM backs up a representative campaign folder to a private
+GitHub repository, reviews the resulting commit, changes the world, previews a
+restore from a selected commit, explicitly approves it, and verifies that
+supported documents and references are restored without exposing secrets or
+overwriting unrelated content.
+
 ## Deferred work
 
 The following have tracking issues but are intentionally outside the current
@@ -239,7 +271,7 @@ Recommended metadata:
 
 - Priority: critical, high, medium, later
 - Area: Foundry, backend, MCP, protocol, security, documentation
-- Milestone: one of the five delivery milestones above
+- Milestone: one of the delivery milestones above
 
 ## Tooling strategy
 
