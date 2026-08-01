@@ -276,27 +276,16 @@ function getActivePageId(frame: HTMLElement): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Wire a button by data-action — idempotent
-// ---------------------------------------------------------------------------
-
-function wireButton(frame: HTMLElement, action: string, handler: (e: Event) => void): void {
-  const btn = frame.querySelector<HTMLElement>(`[data-action="${action}"]`);
-  if (!btn || btn.dataset["lbWired"]) return;
-  btn.dataset["lbWired"] = "1";
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handler(e);
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Hook registration
 // ---------------------------------------------------------------------------
 
+type AppWithClickAction = AppWithDoc & {
+  _onClickAction?: (event: Event, target: HTMLElement) => Promise<void>;
+  _lbActionsPatched?: boolean;
+};
+
 export function registerSheetButtons(): void {
-  // Step 1: add controls to the header via the official v14 hook.
-  // These appear as icon buttons in the window title bar.
+  // Step 1: add controls to the "..." header menu via the official v14 hook.
   Hooks.on("getHeaderControlsApplicationV2", (app: unknown, controls: unknown) => {
     const doc = (app as AppWithDoc).document;
     if (!doc?.documentName) return;
@@ -315,24 +304,44 @@ export function registerSheetButtons(): void {
     }
   });
 
-  // Step 2: attach click handlers in renderApplicationV2.
-  // At this point app.element is the full frame already in the DOM, so we
-  // can query [data-action] buttons that were injected by getHeaderControlsApplicationV2.
+  // Step 2: patch _onClickAction on the specific app instance so our action
+  // strings are handled. Controls dispatch through _onClickAction which looks
+  // for a method of the same name on the app — patching the instance avoids
+  // touching the prototype and only runs for apps that have our controls.
   Hooks.on("renderApplicationV2", (app: unknown) => {
-    const appAny = app as AppWithDoc;
+    const appAny = app as AppWithClickAction;
     const doc = appAny.document;
     const frame = appAny.element;
-    if (!doc?.documentName || !frame) return;
+    if (!doc?.documentName) return;
 
-    if (doc.documentName === "Actor" && doc.type === "npc") {
-      wireButton(frame, "lorebridge-npc-gen", () => runNpcQuickGen(doc));
-    }
+    const isNpc = doc.documentName === "Actor" && doc.type === "npc";
+    const isJournal = doc.documentName === "JournalEntry";
+    if (!isNpc && !isJournal) return;
 
-    if (doc.documentName === "JournalEntry") {
-      wireButton(frame, "lorebridge-gen-desc", () => runGenerateDescription(doc, frame));
-      if (doc.name.toLowerCase().includes("session")) {
-        wireButton(frame, "lorebridge-session-recap", () => runSessionRecap(doc, frame));
+    // Only patch once per instance
+    if (appAny._lbActionsPatched) return;
+    appAny._lbActionsPatched = true;
+
+    const proto = Object.getPrototypeOf(appAny) as { _onClickAction?: (e: Event, t: HTMLElement) => Promise<void> };
+
+    appAny._onClickAction = async function(event: Event, target: HTMLElement): Promise<void> {
+      const action = (target as HTMLElement).dataset["action"] ?? "";
+
+      if (action === "lorebridge-npc-gen" && isNpc) {
+        runNpcQuickGen(doc);
+        return;
       }
-    }
+      if (action === "lorebridge-gen-desc" && isJournal && frame) {
+        runGenerateDescription(doc, frame);
+        return;
+      }
+      if (action === "lorebridge-session-recap" && isJournal && frame) {
+        runSessionRecap(doc, frame);
+        return;
+      }
+
+      // Fall through to original handler
+      return proto._onClickAction?.call(this, event, target);
+    };
   });
 }
