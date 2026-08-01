@@ -264,6 +264,12 @@ export function registerChatCommand(): void {
 
     // /lb <message> — route to roleplay or Q&A
     if (activeRoleplay) {
+      // Clear the input so the sent message doesn't linger on screen
+      if ("value" in target) {
+        (target as HTMLInputElement).value = "";
+      } else {
+        target.textContent = "";
+      }
       void handleRoleplayMessage(args);
     } else {
       void handleQuestion(args);

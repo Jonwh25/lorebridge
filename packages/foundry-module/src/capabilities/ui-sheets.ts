@@ -351,7 +351,7 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
   const input = document.createElement("input");
   input.type = "text";
   input.placeholder = "Ask about this journal…";
-  input.style.cssText = "flex:1;font-size:0.85em;padding:2px 6px;border:1px solid var(--color-border-dark,#ccc);border-radius:3px;background:var(--color-bg-primary,#fff);color:inherit;";
+  input.style.cssText = "flex:1;font-size:0.85em;padding:2px 6px;border:1px solid var(--color-border-dark,#aaa);border-radius:3px;background:var(--color-bg,#fff);color:var(--color-text-primary,#191813);";
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -440,7 +440,7 @@ function injectHeaderButton(
   btn.type = "button";
   btn.dataset["lbBtn"] = id;
   btn.title = label;
-  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;opacity:0.8;";
+  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;";
   btn.innerHTML = `<i class="${icon}"></i>`;
   btn.addEventListener("click", (e) => {
     e.preventDefault();
@@ -459,8 +459,9 @@ function injectHeaderButton(
 
 export function registerSheetButtons(): void {
   Hooks.on("renderApplicationV2", (app: unknown) => {
-    const appAny = app as AppWithDoc;
-    const doc = appAny.document;
+    const appAny = app as AppWithDoc & { object?: AppDoc };
+    // DocumentSheetV2 stores the document at app.document; some subclasses use app.object
+    const doc = appAny.document ?? appAny.object;
     const frame = appAny.element;
     if (!doc?.documentName || !frame) return;
 
@@ -475,14 +476,22 @@ export function registerSheetButtons(): void {
       }
       injectQAPanel(doc, frame);
     }
+
+    if (doc.documentName === "Scene") {
+      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
+    }
   });
 
-  // SceneConfig uses the v1 Application class and fires renderSceneConfig, not renderApplicationV2
+  // Fallback: SceneConfig may use v1 Application in some Foundry/system versions
+  // and fires renderSceneConfig with (app, jQuery|HTMLElement, data)
   Hooks.on("renderSceneConfig", (app: unknown, html: unknown) => {
-    const appAny = app as { object?: AppDoc; document?: AppDoc };
+    const appAny = app as { object?: AppDoc; document?: AppDoc; element?: HTMLElement };
     const doc = (appAny.object ?? appAny.document) as AppDoc | undefined;
     if (!doc) return;
-    const frame = (html as { length?: number; 0?: HTMLElement })?.[0] ?? (html as HTMLElement);
+    // v2: frame is on app.element; v1: html is a jQuery object, html[0] is the root element
+    const frame = appAny.element
+      ?? (html as { length?: number; 0?: HTMLElement })?.[0]
+      ?? (html as HTMLElement);
     if (!frame) return;
     injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
   });
