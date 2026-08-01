@@ -204,7 +204,7 @@ function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
           audience: "players",
         });
         showPreviewDialog(`Description — ${pageName}`, result.preview, () => {
-          const html = `<p><strong>Read-Aloud:</strong></p><blockquote><em>${result.preview.replace(/\n/g, "<br>")}</em></blockquote>`;
+          const html = `<p><strong><em>Read-Aloud:</em></strong></p><blockquote><em>${result.preview.replace(/\n/g, "<br>")}</em></blockquote>`;
           if (page) {
             void page.update({ "text.content": `${rawHtml}\n${html}` });
           } else if (journalEntry) {
