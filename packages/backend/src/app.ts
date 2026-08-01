@@ -28,7 +28,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -551,6 +551,91 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const result = await generateSessionRecap(provider, { sessionContent, sessionName, tone, length });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/encounter-suggestions") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const sceneName = typeof body["sceneName"] === "string" ? body["sceneName"].trim() : "";
+    const linkedJournal = typeof body["linkedJournal"] === "string" ? body["linkedJournal"] : undefined;
+    const tokens = Array.isArray(body["tokens"]) ? (body["tokens"] as unknown[]).filter(t => typeof t === "string") as string[] : [];
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    if (!sceneName) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty sceneName string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateEncounterSuggestions(provider, { sceneName, ...(linkedJournal !== undefined && { linkedJournal }), tokens, tone });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/journal-qa") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const question = typeof body["question"] === "string" ? body["question"].trim() : "";
+    const pageContent = typeof body["pageContent"] === "string" ? body["pageContent"] : "";
+    const pageName = typeof body["pageName"] === "string" ? body["pageName"] : "Page";
+    const journalName = typeof body["journalName"] === "string" ? body["journalName"] : "Journal";
+    if (!question) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty question string." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateJournalAnswer(provider, { question, pageContent, pageName, journalName });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/roleplay") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const actorName = typeof body["actorName"] === "string" ? body["actorName"].trim() : "";
+    const biography = typeof body["biography"] === "string" ? body["biography"] : "";
+    const personality = typeof body["personality"] === "string" ? body["personality"] : "";
+    const message = typeof body["message"] === "string" ? body["message"].trim() : "";
+    const history = Array.isArray(body["history"]) ? body["history"] as Array<{ role: "user" | "assistant"; content: string }> : [];
+    if (!actorName || !message) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include actorName and message strings." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generateRoleplayResponse(provider, { actorName, biography, personality, history, message });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {
