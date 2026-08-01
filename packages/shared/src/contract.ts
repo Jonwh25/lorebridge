@@ -35,6 +35,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
 export const LOREBRIDGE_EVENTS = Object.freeze({
   progress: "progress",
   approvalRequired: "approval.required",
+  rollTableApprovalRequired: "roll-table.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 
