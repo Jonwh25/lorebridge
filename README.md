@@ -98,9 +98,30 @@ module connects automatically and reconnects after a backend restart.
 
 ## AI generation
 
-When a backend AI provider is configured, GMs can generate read-aloud boxed
-text from a selected journal page or scene without modifying any Foundry
-document. Generation is GM-initiated from the Foundry browser console:
+When a backend AI provider is configured, GMs can generate content directly
+inside Foundry without opening a browser console or MCP client.
+
+### In-Foundry buttons (v0.7.0+)
+
+| Where | Button | What it generates |
+| --- | --- | --- |
+| Any journal page | Feather icon in header | Read-aloud boxed text appended to the active page |
+| Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
+| NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
+
+### `/lb` chat command (v0.7.0+)
+
+Type `/lb <question>` in the Foundry chat bar to ask the AI a question grounded
+in your campaign. The answer is whispered to GM users only.
+
+```
+/lb Who is Strahd and where did the party last see him?
+```
+
+### Browser console API
+
+Generation is also available from the Foundry developer console for scripting
+or testing:
 
 ```js
 const page = await LoreBridge.getJournalPage({ journalId: "...", pageId: "..." });

@@ -125,15 +125,15 @@ Approve and Reject buttons. No browser console access required.
 Success test: GM can approve or reject a proposed journal update entirely within
 the Foundry UI; expired and reused tokens are still rejected.
 
-### Milestone 7 — Foundry UI: Chat & Core Buttons
+### Milestone 7 — Foundry UI: Chat & Core Buttons ✅
 
 First GM-facing AI controls living inside Foundry — no MCP client or browser
 console required.
 
-1. [/lb chat command for in-world AI Q&A](https://github.com/Jonwh25/lorebridge/issues/97)
-2. [Generate room description button on journal page and scene sheets](https://github.com/Jonwh25/lorebridge/issues/92)
-3. [NPC Quick-Gen button on actor sheets](https://github.com/Jonwh25/lorebridge/issues/93)
-4. [Session Recap Generator on session log journal](https://github.com/Jonwh25/lorebridge/issues/94)
+1. ✅ [/lb chat command for in-world AI Q&A](https://github.com/Jonwh25/lorebridge/issues/97)
+2. ✅ [Generate room description button on journal page and scene sheets](https://github.com/Jonwh25/lorebridge/issues/92)
+3. ✅ [NPC Quick-Gen button on actor sheets](https://github.com/Jonwh25/lorebridge/issues/93)
+4. ✅ [Session Recap Generator on session log journal](https://github.com/Jonwh25/lorebridge/issues/94)
 
 Success test: a GM can type a question or click a button inside Foundry and
 receive an AI-generated result without leaving the application or using the

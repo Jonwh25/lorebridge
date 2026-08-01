@@ -231,6 +231,30 @@ in Foundry when an AI proposes a journal update via `propose_journal_update`.
 Requires a backend AI provider configured with `ANTHROPIC_API_KEY` or
 `OPENAI_API_KEY`. See the [Provider setup](https://github.com/Jonwh25/lorebridge/wiki/Provider-Setup) wiki page.
 
+As of v0.7.0, most generation is available directly inside Foundry via header
+buttons and the `/lb` chat command — no console access required. The console
+methods below remain available for scripting and testing.
+
+### `/lb` chat command
+
+Type `/lb <question>` in the Foundry chat bar. The AI searches campaign
+documents for context and whispers the answer to all GM users.
+
+```
+/lb Who is Strahd and where did the party last see him?
+```
+
+### In-Foundry generation buttons
+
+| Sheet | Button | Action |
+| --- | --- | --- |
+| Journal entry | Feather icon (header) | Generate Description — read-aloud boxed text appended to the active page |
+| Journal entry (name contains "session") | Scroll icon (header) | Session Recap — narrative recap appended to the active page |
+| NPC actor sheet | Robot icon (header) | NPC Profile — personality, mannerism, and GM-only secret appended to biography |
+
+Each button opens a configuration dialog (tone, length), shows a preview, and
+saves to the journal or actor only when the GM clicks **Save to Journal**.
+
 ### `generateBoxedText(input)`
 
 Generate read-aloud boxed text from a journal page or scene without modifying
