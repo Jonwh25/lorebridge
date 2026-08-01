@@ -59,8 +59,14 @@ services, or abstractions merely because they appeared in an earlier proposal.
 ## Foundry rules
 
 - Target Foundry VTT v14 until the roadmap changes.
-- Use documented public Foundry APIs. Check the official v14 API documentation
-  when working with a new document type.
+- **Always consult the official Foundry VTT v14 API as the authoritative source
+  before writing or modifying any Foundry-facing code:**
+  https://foundryvtt.com/api/v14/
+- **For any D&D 5e system-specific work (actor data paths, sheet hooks, item
+  types, etc.), always consult the official dnd5e wiki:**
+  https://github.com/foundryvtt/dnd5e/wiki
+- Do not guess hook names, document properties, or sheet class hierarchies.
+  Look them up in the authoritative sources above before writing code.
 - Do not depend on private members or deprecated compatibility APIs.
 - Prefer stable IDs and UUIDs in returned data.
 - Return normalized JSON, never live Foundry Document instances.
