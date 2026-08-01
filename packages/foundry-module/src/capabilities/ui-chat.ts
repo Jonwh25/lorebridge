@@ -3,8 +3,8 @@ import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
 const MODULE_ID = "lorebridge";
-const COMMAND_PREFIX = "/lb ";
 const COMMAND_EXACT = "/lb";
+const COMMAND_PREFIX = "/lb ";
 
 function buildBackendUrl(base: string, path: string): string {
   return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
@@ -83,35 +83,80 @@ async function handleQuestion(question: string): Promise<void> {
   }
 }
 
-export function registerChatCommand(): void {
-  // Foundry v14 validates slash commands against a registered list before the
-  // chatMessage hook fires. We intercept in the capture phase of keydown on the
-  // chat input so our handler runs before Foundry's command validator.
-  Hooks.on("renderChatLog", (_app: unknown, html: unknown) => {
-    const root = html as HTMLElement;
-    const input = root.querySelector<HTMLInputElement>("#chat-message");
-    if (!input) return;
+function isLbCommand(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed === COMMAND_EXACT || trimmed.startsWith(COMMAND_PREFIX);
+}
 
-    input.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || e.shiftKey) return;
-      const value = input.value.trim();
-      if (!value.startsWith(COMMAND_EXACT)) return;
+function extractQuestion(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.startsWith(COMMAND_PREFIX) ? trimmed.slice(COMMAND_PREFIX.length).trim() : "";
+}
 
-      const question = value.startsWith(COMMAND_PREFIX)
-        ? value.slice(COMMAND_PREFIX.length).trim()
-        : "";
+function attachToChatInput(input: HTMLInputElement | HTMLTextAreaElement): void {
+  if ((input as HTMLElement & { _lbAttached?: boolean })._lbAttached) return;
+  (input as HTMLElement & { _lbAttached?: boolean })._lbAttached = true;
+
+  // Intercept keydown Enter in capture phase — runs before Foundry's handler
+  input.addEventListener("keydown", (e: Event) => {
+    const ke = e as KeyboardEvent;
+    if (ke.key !== "Enter" || ke.shiftKey) return;
+    if (!isLbCommand(input.value)) return;
+
+    ke.preventDefault();
+    ke.stopImmediatePropagation();
+
+    const question = extractQuestion(input.value);
+    input.value = "";
+
+    if (!question) {
+      ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
+      return;
+    }
+
+    void handleQuestion(question);
+  }, { capture: true });
+
+  // Also intercept form submit as a belt-and-suspenders fallback
+  const form = input.closest("form");
+  if (form && !(form as HTMLElement & { _lbAttached?: boolean })._lbAttached) {
+    (form as HTMLElement & { _lbAttached?: boolean })._lbAttached = true;
+    form.addEventListener("submit", (e: Event) => {
+      if (!isLbCommand(input.value)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const question = extractQuestion(input.value);
+      input.value = "";
 
       if (!question) {
-        ui.notifications.warn("LoreBridge: Please include a question after /lb.");
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
         return;
       }
 
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      input.value = "";
       void handleQuestion(question);
     }, { capture: true });
+  }
+}
+
+function findAndAttach(): void {
+  // v14 uses a textarea; v13 and below used an input. Try both.
+  const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+    "#chat-message, #chat-log textarea, #chat-log input[type=text]"
+  );
+  if (input) attachToChatInput(input);
+}
+
+export function registerChatCommand(): void {
+  // The chat log is already rendered when ready fires — attach directly.
+  findAndAttach();
+
+  // Re-attach if the chat log is ever re-rendered.
+  Hooks.on("renderChatLog", (_app: unknown, html: unknown) => {
+    const root = html as HTMLElement;
+    const input = root.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      "#chat-message, textarea, input[type=text]"
+    );
+    if (input) attachToChatInput(input);
   });
 }
