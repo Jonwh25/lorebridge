@@ -231,7 +231,7 @@ Hooks.once("ready", () => {
             sessionId: state.sessionId,
             sourceId: registration.sources[0]?.sourceId,
           });
-          ui.notifications.info("LoreBridge connected to the backend.");
+          console.info(`${MODULE_ID} | LoreBridge connected to the backend.`);
         } else if (state.state === "error") {
           console.error(`${MODULE_ID} | Backend connection failed: ${state.message}`);
           ui.notifications.error(`LoreBridge backend connection failed: ${state.message}`);
@@ -256,9 +256,7 @@ Hooks.once("ready", () => {
     summary,
     capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]
   });
-  ui.notifications.info(
-    `LoreBridge is ready for ${summary.world.title}. Open the browser console for world details.`
-  );
+  console.info(`${MODULE_ID} | LoreBridge is ready for ${summary.world.title}.`);
 
   // Temporary local development API. It exposes only explicitly approved,
   // typed capabilities and will be replaced by an authenticated dispatcher.
