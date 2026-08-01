@@ -4,6 +4,28 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-01
+
+### Added
+
+- **Lazy DM Session Prep Generator**: wizard-hat button on Session Log journal sheets generates a complete 8-section Lazy DM prep document (Strong Start, Potential Scenes, Secrets & Clues, Fantastic Locations, Important NPCs, Monsters, Treasure) grounded in session notes and campaign search results. Saved to a GM-only "Lazy DM Prep" journal with auto-incremented page names (e.g. "Prep Session 2"); journal opens automatically after saving.
+- **`/lb city <description>`** chat command: generates a full city/location profile (overview, history, districts, landmarks, factions, hooks, sensory details) grounded in existing campaign lore. Preview dialog with Save as Journal → creates a page in "Generated Locations" and opens the journal.
+- **`/lb npcs [count] <description>`** chat command: generates a cast of NPCs (default 5, max 10) for a described location, each with role, appearance, personality, mannerism, secret, and hook. Saves to "Generated Locations" journal. Optional leading count: `/lb npcs 3 village of Barovia`.
+- **`generate_roll_table` MCP tool**: AI-callable tool that generates a themed roll table (2–20 entries, default 10) and proposes it to the GM via an approval dialog. On approval, creates a Foundry `RollTable` document with a `1dN` formula and text entries. Uses a new `roll-table.approval.required` event.
+
+### Fixed
+
+- LoreBridge startup info messages moved from Foundry notification toasts to `console.info` only — no more blue banners on every reload.
+- Chat input is now always cleared after `/lb city`, `/lb npcs`, `/lb roleplay`, `/lb end`, and in-roleplay messages.
+
+## [0.8.0] - 2026-07-31
+
+### Added
+
+- **Scene Encounter Suggester**: dice icon button in scene sheet headers generates 2–3 encounter hooks grounded in the scene name, linked journal, and tokens on the scene. Result shown in a dialog (z-index above the scene config panel).
+- **Journal Page Q&A**: question-mark input panel injected at the bottom of journal sheets. Type a question and click the button to get an AI answer grounded in the active page content; result displayed in a GM-only chat whisper.
+- **`/lb roleplay <name>`** chat command: starts an in-character NPC conversation using the actor's biography as context. Type `/lb <message>` to speak with the NPC; type `/lb end` to exit. History bounded to last 20 turns. Responses whispered to GM users only.
+
 ## [0.7.0] - 2026-07-31
 
 ### Added
