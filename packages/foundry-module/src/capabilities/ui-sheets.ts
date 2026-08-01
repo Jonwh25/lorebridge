@@ -326,6 +326,11 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
 
         const previewContent = `<div style="padding:0.5rem;max-height:500px;overflow-y:auto;font-size:0.88em">${html}</div>`;
 
+        // Determine next session number from the current page name
+        const sessionNumMatch = pageName.match(/\d+/);
+        const sessionNum = sessionNumMatch ? parseInt(sessionNumMatch[0], 10) : null;
+        const nextPageName = sessionNum !== null ? `Prep Session ${sessionNum + 1}` : `Prep — ${pageName}`;
+
         new foundry.applications.api.DialogV2({
           window: { title: `Lazy DM Prep — ${pageName}`, resizable: true },
           position: { width: 600, height: "auto" },
@@ -333,17 +338,25 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
           buttons: [
             {
               action: "save",
-              label: "Save to Journal",
+              label: `Save as "${nextPageName}"`,
               icon: "fas fa-save",
               callback: () => {
-                const saveHtml = `<h3>Lazy DM Prep — ${pageName}</h3>\n${html}`;
-                if (page) {
-                  void page.update({ "text.content": `${rawHtml}\n${saveHtml}` });
-                } else if (journalEntry) {
-                  void journalEntry.createEmbeddedDocuments("JournalEntryPage", [
-                    { name: `Prep — ${pageName}`, type: "text", text: { content: saveHtml } },
+                void (async () => {
+                  const saveHtml = `<h3>${nextPageName}</h3>\n${html}`;
+                  let prepJournal = Array.from(game.journal as Iterable<FoundryJournalEntry>).find((j) => j.name === "Lazy DM Prep");
+                  if (!prepJournal) {
+                    // GM-only ownership: 3 = OWNER
+                    prepJournal = await JournalEntry.create({ name: "Lazy DM Prep", ownership: { default: 0 } });
+                  }
+                  if (!prepJournal) {
+                    ui.notifications.error("LoreBridge: Could not find or create the 'Lazy DM Prep' journal.");
+                    return;
+                  }
+                  await prepJournal.createEmbeddedDocuments("JournalEntryPage", [
+                    { name: nextPageName, type: "text", text: { content: saveHtml } },
                   ]);
-                }
+                  ui.notifications.info(`LoreBridge: Saved "${nextPageName}" to Lazy DM Prep journal.`);
+                })();
               },
             },
             {

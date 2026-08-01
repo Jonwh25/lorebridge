@@ -174,6 +174,13 @@ declare const foundry: {
   };
 };
 
+declare const JournalEntry: {
+  create(data: {
+    name: string;
+    ownership?: Record<string, number>;
+  }): Promise<FoundryJournalEntry | undefined>;
+};
+
 declare const ChatMessage: {
   create(data: {
     content: string;
