@@ -238,6 +238,14 @@ export function registerChatCommand(): void {
 
     const args = extractArguments(text);
 
+    const clearInput = () => {
+      if ("value" in target) {
+        (target as HTMLInputElement).value = "";
+      } else {
+        target.textContent = "";
+      }
+    };
+
     if (!args) {
       ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
       return false;
@@ -245,6 +253,7 @@ export function registerChatCommand(): void {
 
     // /lb end — stop roleplay
     if (args === "end") {
+      clearInput();
       if (activeRoleplay) {
         const name = activeRoleplay.actorName;
         activeRoleplay = null;
@@ -257,6 +266,7 @@ export function registerChatCommand(): void {
 
     // /lb roleplay <name>
     if (args.startsWith("roleplay ")) {
+      clearInput();
       const actorName = args.slice("roleplay ".length).trim();
       void startRoleplay(actorName);
       return false;
@@ -264,12 +274,7 @@ export function registerChatCommand(): void {
 
     // /lb <message> — route to roleplay or Q&A
     if (activeRoleplay) {
-      // Clear the input so the sent message doesn't linger on screen
-      if ("value" in target) {
-        (target as HTMLInputElement).value = "";
-      } else {
-        target.textContent = "";
-      }
+      clearInput();
       void handleRoleplayMessage(args);
     } else {
       void handleQuestion(args);

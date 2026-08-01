@@ -316,7 +316,7 @@ function runEncounterSuggester(doc: AppDoc): void {
 
         new foundry.applications.api.DialogV2({
           window: { title: `Encounter Hooks — ${doc.name}`, resizable: true },
-          position: { width: 480, height: "auto" },
+          position: { width: 480, height: "auto", zIndex: 110 },
           content,
           buttons: [
             {
@@ -351,7 +351,7 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
   const input = document.createElement("input");
   input.type = "text";
   input.placeholder = "Ask about this journal…";
-  input.style.cssText = "flex:1;font-size:0.85em;padding:2px 6px;border:1px solid var(--color-border-dark,#aaa);border-radius:3px;background:var(--color-bg,#fff);color:var(--color-text-primary,#191813);";
+  input.style.cssText = "flex:1;font-size:0.85em;padding:2px 6px;border:1px solid #aaa;border-radius:3px;background:#f5f0e8;color:#191813;";
 
   const btn = document.createElement("button");
   btn.type = "button";
