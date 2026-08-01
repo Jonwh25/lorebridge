@@ -1,4 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
+import { searchCampaign } from "./search-campaign.js";
+import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
 
 const MODULE_ID = "lorebridge";
 
@@ -269,6 +271,97 @@ function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
 }
 
 // ---------------------------------------------------------------------------
+// Lazy DM Session Prep (#108)
+// ---------------------------------------------------------------------------
+
+function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
+  const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
+  const pageId = getActivePageId(frame);
+  const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
+  const rawHtml = page?.text?.content ?? "";
+  const sessionContent = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
+  const pageName = page?.name ?? doc.name;
+  const worldName = game.world?.title ?? "Unknown World";
+
+  showConfigDialog("Lazy DM Session Prep", (config) => {
+    void (async () => {
+      ui.notifications.info("LoreBridge: Generating session prep… (this may take a moment)");
+      try {
+        // Gather campaign context grounded in the session content
+        let context: Array<{ type: string; name: string; excerpt: string }> = [];
+        try {
+          const results = await searchCampaign({ query: pageName, mode: "gm" });
+          context = results.results.slice(0, 8).map((r: CampaignSearchMatch) => {
+            if (r.documentType === "journal") {
+              return { type: "journal", name: r.journalName, excerpt: r.excerpt ?? "" };
+            } else if (r.documentType === "actor") {
+              return { type: "actor", name: r.actorName, excerpt: r.excerpt ?? "" };
+            } else {
+              return { type: "scene", name: r.sceneName, excerpt: "" };
+            }
+          });
+        } catch {
+          // context gathering is best-effort
+        }
+
+        const result = await postBackend<{ prep: string }>("v1/generate/session-prep", {
+          sessionName: pageName,
+          sessionContent: sessionContent || `Session: ${pageName}`,
+          worldName,
+          tone: config.tone,
+          context,
+        });
+
+        // Render prep as structured HTML
+        const html = result.prep
+          .split("\n")
+          .map((line) => {
+            if (/^##\s+/.test(line)) return `<h3>${line.replace(/^##\s+/, "")}</h3>`;
+            if (/^-\s+/.test(line)) return `<li>${line.replace(/^-\s+/, "")}</li>`;
+            if (/^\d+\.\s+/.test(line)) return `<li>${line.replace(/^\d+\.\s+/, "")}</li>`;
+            if (line.trim() === "") return "";
+            return `<p>${line}</p>`;
+          })
+          .join("\n");
+
+        const previewContent = `<div style="padding:0.5rem;max-height:500px;overflow-y:auto;font-size:0.88em">${html}</div>`;
+
+        new foundry.applications.api.DialogV2({
+          window: { title: `Lazy DM Prep — ${pageName}`, resizable: true },
+          position: { width: 600, height: "auto" },
+          content: previewContent,
+          buttons: [
+            {
+              action: "save",
+              label: "Save to Journal",
+              icon: "fas fa-save",
+              callback: () => {
+                const saveHtml = `<h3>Lazy DM Prep — ${pageName}</h3>\n${html}`;
+                if (page) {
+                  void page.update({ "text.content": `${rawHtml}\n${saveHtml}` });
+                } else if (journalEntry) {
+                  void journalEntry.createEmbeddedDocuments("JournalEntryPage", [
+                    { name: `Prep — ${pageName}`, type: "text", text: { content: saveHtml } },
+                  ]);
+                }
+              },
+            },
+            {
+              action: "dismiss",
+              label: "Dismiss",
+              icon: "fas fa-times",
+              default: true,
+            },
+          ],
+        }).render({ force: true });
+      } catch (error) {
+        ui.notifications.error(`LoreBridge Lazy DM Prep failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })();
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Active journal page detection
 // ---------------------------------------------------------------------------
 
@@ -473,6 +566,7 @@ export function registerSheetButtons(): void {
       injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {
         injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", () => runSessionRecap(doc, frame));
+        injectHeaderButton(frame, "lazy-dm-prep", "fas fa-hat-wizard", "Lazy DM Prep", () => runLazyDmPrep(doc, frame));
       }
       injectQAPanel(doc, frame);
     }
