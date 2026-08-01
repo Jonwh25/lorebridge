@@ -475,9 +475,15 @@ export function registerSheetButtons(): void {
       }
       injectQAPanel(doc, frame);
     }
+  });
 
-    if (doc.documentName === "Scene") {
-      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
-    }
+  // SceneConfig uses the v1 Application class and fires renderSceneConfig, not renderApplicationV2
+  Hooks.on("renderSceneConfig", (app: unknown, html: unknown) => {
+    const appAny = app as { object?: AppDoc; document?: AppDoc };
+    const doc = (appAny.object ?? appAny.document) as AppDoc | undefined;
+    if (!doc) return;
+    const frame = (html as { length?: number; 0?: HTMLElement })?.[0] ?? (html as HTMLElement);
+    if (!frame) return;
+    injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
   });
 }
