@@ -108,6 +108,8 @@ inside Foundry without opening a browser console or MCP client.
 | Any journal page | Feather icon in header | Read-aloud boxed text appended to the active page |
 | Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
 | NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
+| Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
+| Any journal page | Question-mark input at bottom | Inline Q&A grounded in the active page content |
 
 ### `/lb` chat command (v0.7.0+)
 
@@ -117,6 +119,18 @@ in your campaign. The answer is whispered to GM users only.
 ```
 /lb Who is Strahd and where did the party last see him?
 ```
+
+### `/lb roleplay` — in-character NPC conversations (v0.8.0+)
+
+```
+/lb roleplay Strahd von Zarovich
+/lb What do you want from us?
+/lb end
+```
+
+Starts an in-character conversation with any actor in your world. Responses are
+whispered to GM users only and the NPC's biography is used as context. Type
+`/lb end` to exit roleplay mode.
 
 ### Browser console API
 

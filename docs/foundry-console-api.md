@@ -251,9 +251,37 @@ documents for context and whispers the answer to all GM users.
 | Journal entry | Feather icon (header) | Generate Description — read-aloud boxed text appended to the active page |
 | Journal entry (name contains "session") | Scroll icon (header) | Session Recap — narrative recap appended to the active page |
 | NPC actor sheet | Robot icon (header) | NPC Profile — personality, mannerism, and GM-only secret appended to biography |
+| Scene sheet | Dice icon (header) | Encounter Suggestions — 2–3 encounter hooks shown in a read-only dialog |
+| Any journal | Question-mark input (bottom) | Journal Q&A — answer grounded in the active page content, shown in a dialog |
 
-Each button opens a configuration dialog (tone, length), shows a preview, and
-saves to the journal or actor only when the GM clicks **Save to Journal**.
+The header buttons (feather, scroll, robot, dice) open a configuration dialog
+(tone, length), show a preview, and save to the document only when the GM
+clicks **Save to Journal**. The scene encounter dialog and journal Q&A dialog
+are read-only — they display results without modifying any document.
+
+### `/lb roleplay` command (v0.8.0+)
+
+Start an in-character conversation with any actor in the world:
+
+```
+/lb roleplay Strahd von Zarovich
+```
+
+Then speak to the NPC:
+
+```
+/lb What do you want from us?
+```
+
+End the session:
+
+```
+/lb end
+```
+
+Responses are whispered to all GM users. The actor's biography is used as
+character context. Conversation history is kept in memory for the session
+(bounded to the last 20 turns) and is not persisted across reloads.
 
 ### `generateBoxedText(input)`
 

@@ -139,14 +139,14 @@ Success test: a GM can type a question or click a button inside Foundry and
 receive an AI-generated result without leaving the application or using the
 browser console.
 
-### Milestone 8 — Foundry UI: Scene, Journal & Roleplay
+### Milestone 8 — Foundry UI: Scene, Journal & Roleplay ✅
 
 Complete the Foundry UI surface with scene-level tools and live NPC
 interaction.
 
-1. [Scene Encounter Suggester button on scene sheets](https://github.com/Jonwh25/lorebridge/issues/95)
-2. [Journal Page Q&A chat input on journal page sheets](https://github.com/Jonwh25/lorebridge/issues/96)
-3. [Actor Roleplay: /lb roleplay command for in-character NPC conversations](https://github.com/Jonwh25/lorebridge/issues/99)
+1. ✅ [Scene Encounter Suggester button on scene sheets](https://github.com/Jonwh25/lorebridge/issues/95)
+2. ✅ [Journal Page Q&A chat input on journal page sheets](https://github.com/Jonwh25/lorebridge/issues/96)
+3. ✅ [Actor Roleplay: /lb roleplay command for in-character NPC conversations](https://github.com/Jonwh25/lorebridge/issues/99)
 
 Success test: a GM can ask the AI a question scoped to a specific journal or
 scene, and hold a short in-character conversation with an NPC, all from within
