@@ -10,7 +10,11 @@ function buildBackendUrl(base: string, path: string): string {
   return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
 }
 
-async function askBackend(question: string, context: Array<{ type: string; name: string; excerpt: string }>, worldName: string): Promise<string> {
+async function askBackend(
+  question: string,
+  context: Array<{ type: string; name: string; excerpt: string }>,
+  worldName: string,
+): Promise<string> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) {
     throw new Error("LoreBridge backend is not configured or paired.");
@@ -54,7 +58,7 @@ async function handleQuestion(question: string): Promise<void> {
         }
       });
     } catch {
-      // context gathering is best-effort; continue without it
+      // context gathering is best-effort; proceed without it
     }
 
     const answer = await askBackend(question, context, worldName);
@@ -84,79 +88,61 @@ async function handleQuestion(question: string): Promise<void> {
 }
 
 function isLbCommand(value: string): boolean {
-  const trimmed = value.trim();
-  return trimmed === COMMAND_EXACT || trimmed.startsWith(COMMAND_PREFIX);
+  const t = value.trim();
+  return t === COMMAND_EXACT || t.startsWith(COMMAND_PREFIX);
 }
 
 function extractQuestion(value: string): string {
-  const trimmed = value.trim();
-  return trimmed.startsWith(COMMAND_PREFIX) ? trimmed.slice(COMMAND_PREFIX.length).trim() : "";
+  const t = value.trim();
+  return t.startsWith(COMMAND_PREFIX) ? t.slice(COMMAND_PREFIX.length).trim() : "";
 }
 
-function attachToChatInput(input: HTMLInputElement | HTMLTextAreaElement): void {
-  if ((input as HTMLElement & { _lbAttached?: boolean })._lbAttached) return;
-  (input as HTMLElement & { _lbAttached?: boolean })._lbAttached = true;
-
-  // Intercept keydown Enter in capture phase — runs before Foundry's handler
-  input.addEventListener("keydown", (e: Event) => {
-    const ke = e as KeyboardEvent;
-    if (ke.key !== "Enter" || ke.shiftKey) return;
-    if (!isLbCommand(input.value)) return;
-
-    ke.preventDefault();
-    ke.stopImmediatePropagation();
-
-    const question = extractQuestion(input.value);
-    input.value = "";
-
-    if (!question) {
-      ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
-      return;
-    }
-
-    void handleQuestion(question);
-  }, { capture: true });
-
-  // Also intercept form submit as a belt-and-suspenders fallback
-  const form = input.closest("form");
-  if (form && !(form as HTMLElement & { _lbAttached?: boolean })._lbAttached) {
-    (form as HTMLElement & { _lbAttached?: boolean })._lbAttached = true;
-    form.addEventListener("submit", (e: Event) => {
-      if (!isLbCommand(input.value)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-      const question = extractQuestion(input.value);
-      input.value = "";
-
-      if (!question) {
-        ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
-        return;
-      }
-
-      void handleQuestion(question);
-    }, { capture: true });
-  }
-}
-
-function findAndAttach(): void {
-  // v14 uses a textarea; v13 and below used an input. Try both.
-  const input = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-    "#chat-message, #chat-log textarea, #chat-log input[type=text]"
-  );
-  if (input) attachToChatInput(input);
-}
+type ProcessMessageFn = (message: string, ...args: unknown[]) => Promise<void>;
+type PatchedFn = ProcessMessageFn & { _lbPatched?: boolean };
 
 export function registerChatCommand(): void {
-  // The chat log is already rendered when ready fires — attach directly.
-  findAndAttach();
+  // Foundry v14 uses a ProseMirror editor (ChatInputPlugin) that calls
+  // processMessage directly, bypassing DOM events entirely. The command
+  // validation inside processMessage throws before any hook fires.
+  // Patching the prototype is the only reliable interception point.
+  Hooks.on("ready", () => {
+    const chatLog = (ui as unknown as Record<string, unknown>)["chat"];
+    if (!chatLog || typeof chatLog !== "object") return;
 
-  // Re-attach if the chat log is ever re-rendered.
-  Hooks.on("renderChatLog", (_app: unknown, html: unknown) => {
-    const root = html as HTMLElement;
-    const input = root.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-      "#chat-message, textarea, input[type=text]"
-    );
-    if (input) attachToChatInput(input);
+    // Walk the prototype chain to find processMessage
+    let proto = Object.getPrototypeOf(chatLog) as Record<string, unknown> | null;
+    while (proto && proto !== Object.prototype) {
+      if (typeof proto["processMessage"] === "function") {
+        const original = proto["processMessage"] as PatchedFn;
+        if (original._lbPatched) return; // already patched
+
+        const patched: PatchedFn = async function (
+          this: unknown,
+          message: string,
+          ...args: unknown[]
+        ): Promise<void> {
+          const trimmed = typeof message === "string" ? message.trim() : "";
+          if (isLbCommand(trimmed)) {
+            const question = extractQuestion(trimmed);
+            if (!question) {
+              ui.notifications.warn(
+                "LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?",
+              );
+              return;
+            }
+            void handleQuestion(question);
+            return;
+          }
+          return original.call(this, message, ...args);
+        };
+        patched._lbPatched = true;
+        proto["processMessage"] = patched;
+        console.info("lorebridge | /lb command registered via processMessage patch");
+        return;
+      }
+      proto = Object.getPrototypeOf(proto) as Record<string, unknown> | null;
+    }
+
+    console.warn("lorebridge | Could not find processMessage on ChatLog prototype — /lb unavailable");
   });
 }
