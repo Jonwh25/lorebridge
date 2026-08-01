@@ -123,8 +123,8 @@ function showPreviewDialog(title: string, preview: string, onPropose: () => void
     buttons: [
       {
         action: "propose",
-        label: "Propose Update",
-        icon: "fas fa-paper-plane",
+        label: "Save to Journal",
+        icon: "fas fa-save",
         callback: () => { onPropose(); },
       },
       {
@@ -204,9 +204,13 @@ function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
           audience: "players",
         });
         showPreviewDialog(`Description — ${pageName}`, result.preview, () => {
+          const html = `<blockquote><em>${result.preview.replace(/\n/g, "<br>")}</em></blockquote>`;
           if (page) {
-            const appended = `${rawHtml}\n<blockquote><em>${result.preview.replace(/\n/g, "<br>")}</em></blockquote>`;
-            void page.update({ "text.content": appended });
+            void page.update({ "text.content": `${rawHtml}\n${html}` });
+          } else if (journalEntry) {
+            void journalEntry.createEmbeddedDocuments("JournalEntryPage", [
+              { name: doc.name, type: "text", text: { content: html } },
+            ]);
           }
         });
       } catch (error) {
@@ -239,9 +243,13 @@ function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
           length: config.length,
         });
         showPreviewDialog(`Session Recap — ${pageName}`, result.recap, () => {
+          const html = `<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
           if (page) {
-            const appended = `${rawHtml}\n<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
-            void page.update({ "text.content": appended });
+            void page.update({ "text.content": `${rawHtml}\n${html}` });
+          } else if (journalEntry) {
+            void journalEntry.createEmbeddedDocuments("JournalEntryPage", [
+              { name: pageName, type: "text", text: { content: html } },
+            ]);
           }
         });
       } catch (error) {

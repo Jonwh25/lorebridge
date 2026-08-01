@@ -34,6 +34,10 @@ type FoundryJournalEntry = {
   pages: Iterable<FoundryJournalPage> & {
     get(id: string): FoundryJournalPage | undefined;
   };
+  createEmbeddedDocuments(
+    type: string,
+    data: Record<string, unknown>[],
+  ): Promise<FoundryJournalPage[]>;
 };
 
 type FoundryJournalCollection = Iterable<FoundryJournalEntry> & {
