@@ -104,7 +104,7 @@ export async function generateBoxedText(
     : "This will be read aloud to players at the table.";
 
   const prompt = [
-    "Generate read-aloud boxed text for a tabletop RPG scene.",
+    "Generate read-aloud descriptive text for a tabletop RPG scene.",
     "",
     `Source document: ${input.documentName} (from ${input.sourceName})`,
     `Tone: ${TONE_DESCRIPTION[tone]}`,
@@ -112,11 +112,12 @@ export async function generateBoxedText(
     `Audience: ${audienceNote}`,
     "",
     "Source content:",
-    "---",
     input.content,
-    "---",
     "",
-    "Write only the boxed text itself. Do not include a title, preamble, or explanation.",
+    "Output rules:",
+    "- Plain prose only. No markdown, no special characters, no bullet points.",
+    "- No | characters, no # characters, no --- dividers.",
+    "- Do not include a title, label, or preamble. Start directly with the descriptive text.",
   ].join("\n");
 
   const preview = await callAI(provider, prompt, 512);

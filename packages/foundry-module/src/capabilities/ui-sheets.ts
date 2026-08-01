@@ -113,7 +113,8 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 // ---------------------------------------------------------------------------
 
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
-  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${preview.replace(/\n/g, "<br>")}</p></div>`;
+  const clean = preview.replace(/\|/g, "").replace(/^\s*[-#]+\s*/gm, "").trim();
+  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
