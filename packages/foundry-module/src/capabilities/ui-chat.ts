@@ -97,52 +97,35 @@ function extractQuestion(value: string): string {
   return t.startsWith(COMMAND_PREFIX) ? t.slice(COMMAND_PREFIX.length).trim() : "";
 }
 
-type ProcessMessageFn = (message: string, ...args: unknown[]) => Promise<void>;
-type PatchedFn = ProcessMessageFn & { _lbPatched?: boolean };
-
 export function registerChatCommand(): void {
-  // Foundry v14 uses a ProseMirror editor (ChatInputPlugin) that calls
-  // processMessage directly, bypassing DOM events entirely. The command
-  // validation inside processMessage throws before any hook fires.
-  // Patching the prototype is the only reliable interception point.
-  Hooks.on("ready", () => {
-    const chatLog = (ui as unknown as Record<string, unknown>)["chat"];
-    if (!chatLog || typeof chatLog !== "object") return;
+  // chatInput is the v14 hook for intercepting chat input keystrokes.
+  // Returning false suppresses default processing (prevents the "not a valid
+  // command" error). Setting options.recordPending = false keeps chat history
+  // in sync when we clear the input ourselves.
+  Hooks.on("chatInput", (event: unknown, options: unknown): boolean | void => {
+    const e = event as KeyboardEvent;
+    if (e.key !== "Enter" || e.shiftKey) return;
 
-    // Walk the prototype chain to find processMessage
-    let proto = Object.getPrototypeOf(chatLog) as Record<string, unknown> | null;
-    while (proto && proto !== Object.prototype) {
-      if (typeof proto["processMessage"] === "function") {
-        const original = proto["processMessage"] as PatchedFn;
-        if (original._lbPatched) return; // already patched
+    const target = e.target as HTMLElement;
+    const text = (
+      (target as { value?: string }).value ??
+      target.textContent ??
+      ""
+    ).trim();
 
-        const patched: PatchedFn = async function (
-          this: unknown,
-          message: string,
-          ...args: unknown[]
-        ): Promise<void> {
-          const trimmed = typeof message === "string" ? message.trim() : "";
-          if (isLbCommand(trimmed)) {
-            const question = extractQuestion(trimmed);
-            if (!question) {
-              ui.notifications.warn(
-                "LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?",
-              );
-              return;
-            }
-            void handleQuestion(question);
-            return;
-          }
-          return original.call(this, message, ...args);
-        };
-        patched._lbPatched = true;
-        proto["processMessage"] = patched;
-        console.info("lorebridge | /lb command registered via processMessage patch");
-        return;
-      }
-      proto = Object.getPrototypeOf(proto) as Record<string, unknown> | null;
+    if (!isLbCommand(text)) return;
+
+    // Prevent Foundry's command validator and history recording
+    (options as { recordPending: boolean }).recordPending = false;
+
+    const question = extractQuestion(text);
+
+    if (!question) {
+      ui.notifications.warn("LoreBridge: Please include a question after /lb, e.g. /lb Who is Strahd?");
+      return false;
     }
 
-    console.warn("lorebridge | Could not find processMessage on ChatLog prototype — /lb unavailable");
+    void handleQuestion(question);
+    return false;
   });
 }
