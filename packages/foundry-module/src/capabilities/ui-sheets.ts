@@ -113,8 +113,7 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 // ---------------------------------------------------------------------------
 
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
-  const escaped = preview.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;white-space:pre-wrap;font-size:0.9em">${escaped}</div>`;
+  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${preview.replace(/\n/g, "<br>")}</p></div>`;
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
