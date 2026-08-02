@@ -226,6 +226,21 @@ declare const ChatMessage: {
   }): Promise<{ id: string } | undefined>;
 };
 
+type FoundryDieResult = { result: number; active?: boolean };
+type FoundryDieTerm = { faces: number; results: FoundryDieResult[] };
+
+declare const Roll: {
+  new(formula: string): {
+    formula: string;
+    result: string;
+    total: number | null;
+    dice: FoundryDieTerm[];
+    evaluate(options?: { allowInteractive?: boolean }): Promise<unknown>;
+    toMessage(messageData?: { speaker?: { alias?: string }; flavor?: string }, options?: { create?: boolean; messageMode?: string }): Promise<{ id: string } | undefined>;
+  };
+  validate(formula: string): boolean;
+};
+
 declare const game: {
   version: string;
   userId: string | null;
