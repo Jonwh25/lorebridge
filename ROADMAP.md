@@ -225,6 +225,21 @@ restore from a selected commit, explicitly approves it, and verifies that
 supported documents and references are restored without exposing secrets or
 overwriting unrelated content.
 
+### Milestone 13 — Write Quality & Post-Session Workflow
+
+Improve the write-approval experience and close the loop between session play
+and world documentation.
+
+1. [Batch approval queue: review multiple AI-proposed edits in one flow](https://github.com/Jonwh25/lorebridge/issues/142)
+2. [Post-session cleanup: detect new names and places from session notes and propose world entries](https://github.com/Jonwh25/lorebridge/issues/143)
+3. [Diff-based journal editing: side-by-side preview with rollback after approval](https://github.com/Jonwh25/lorebridge/issues/144)
+4. [Party journal export: generate a player-safe session recap for sharing outside Foundry](https://github.com/Jonwh25/lorebridge/issues/145)
+
+Success test: a GM can finish a session, run post-session cleanup to surface
+new world entries, approve a batch of proposed stubs in one review flow, see a
+character-level diff before each write lands, roll back a mistake without
+leaving Foundry, and hand players a clean shareable recap.
+
 ## Deferred work
 
 The following have tracking issues but are intentionally outside the current
