@@ -20,6 +20,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   searchScenes: "searchScenes",
   getScene: "getScene",
   getActiveScene: "getActiveScene",
+  getCombatState: "getCombatState",
   resolveUuid: "resolveUuid",
   searchCampaign: "searchCampaign",
   getRelatedDocuments: "getRelatedDocuments",

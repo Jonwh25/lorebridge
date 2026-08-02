@@ -148,6 +148,28 @@ type FoundrySceneCollection = Iterable<FoundryScene> & {
   get(id: string): FoundryScene | undefined;
 };
 
+type FoundryCombatant = {
+  id: string;
+  name: string;
+  initiative?: number | null;
+  tokenId?: string | null;
+  hidden: boolean;
+  isDefeated: boolean;
+  actor?: FoundryActor | null;
+};
+
+type FoundryCombat = {
+  active: boolean;
+  started: boolean;
+  current: { round?: number; turn?: number };
+  combatant: FoundryCombatant | null;
+  turns: FoundryCombatant[];
+};
+
+type FoundryCombatCollection = Iterable<FoundryCombat> & {
+  active: FoundryCombat | null;
+};
+
 type FoundryUser = {
   id: string;
   name: string;
@@ -227,6 +249,7 @@ declare const game: {
   actors: FoundryActorCollection;
   items: FoundryItemCollection;
   scenes: FoundrySceneCollection;
+  combats: FoundryCombatCollection;
   journal: FoundryJournalCollection;
   packs: FoundryCompendiumCollection;
   modules: Map<string, { active: boolean; version?: string }>;
