@@ -257,8 +257,8 @@ export class LoreBridgeConfigurationApp extends AppBase {
       ok: {
         icon: "fas fa-link",
         label: "Pair",
-        callback: (_event: Event, _button: HTMLButtonElement, dialog: HTMLElement) => {
-          const input = dialog.querySelector<HTMLInputElement>("input[name='pairingCode']");
+        callback: (_event: Event, button: HTMLButtonElement) => {
+          const input = button.form?.querySelector<HTMLInputElement>("input[name='pairingCode']");
           resolvedCode = input?.value.trim();
         },
       },
