@@ -7,59 +7,71 @@ import {
 
 const MODULE_ID = "lorebridge";
 
-type JQueryLike = {
-  find(selector: string): {
-    on(event: string, callback: () => void): void;
-    val(): unknown;
-  };
+// ---------------------------------------------------------------------------
+// Minimal type shims for the Foundry V2 Application API (runtime types only)
+// ---------------------------------------------------------------------------
+
+type AnyRecord = Record<string, unknown>;
+
+type AppV2Instance = {
+  render(options?: AnyRecord): Promise<unknown>;
+  close(options?: AnyRecord): Promise<unknown>;
+  readonly element: HTMLElement;
 };
 
-type FormApplicationInstance = {
-  element?: { 0?: HTMLElement };
-  activateListeners(html: JQueryLike): void;
-  render(force?: boolean): Promise<unknown> | unknown;
+type AppV2Static = {
+  new (options?: AnyRecord): AppV2Instance;
+  DEFAULT_OPTIONS: AnyRecord;
+  PARTS?: AnyRecord;
 };
 
-type FormApplicationConstructor = {
-  new (...args: unknown[]): FormApplicationInstance;
-  defaultOptions: Record<string, unknown>;
+type DialogV2Static = {
+  prompt(config: AnyRecord): Promise<unknown>;
+  confirm(config: AnyRecord): Promise<boolean>;
 };
 
-type DialogConstructor = new (config: {
-  title: string;
-  content: string;
-  buttons: Record<
-    string,
-    {
-      icon: string;
-      label: string;
-      callback: (html: JQueryLike) => void;
-    }
-  >;
-  default: string;
-  close: () => void;
-}) => { render(force?: boolean): unknown };
-
-const foundryUi = globalThis as unknown as {
-  FormApplication?: FormApplicationConstructor;
-  Dialog?: DialogConstructor;
-};
-
-const TestSafeFormApplication = class implements FormApplicationInstance {
-  static defaultOptions: Record<string, unknown> = {};
-  element?: { 0?: HTMLElement };
-
-  activateListeners(_html: JQueryLike): void {}
-
-  render(_force?: boolean): unknown {
-    return undefined;
+// Access globalThis.foundry.applications safely so that unit-test environments
+// that lack the full Foundry runtime don't throw at import time.
+const foundryApi = (
+  globalThis as unknown as {
+    foundry?: { applications?: { api?: AnyRecord } };
   }
+).foundry?.applications?.api as
+  | {
+      ApplicationV2?: AppV2Static;
+      HandlebarsApplicationMixin?: (base: AppV2Static) => AppV2Static;
+      DialogV2?: DialogV2Static;
+    }
+  | undefined;
+
+// ---------------------------------------------------------------------------
+// Test-safe base class — used when the real Foundry runtime is absent
+// ---------------------------------------------------------------------------
+
+const TestSafeBase: AppV2Static = class implements AppV2Instance {
+  static DEFAULT_OPTIONS: AnyRecord = {};
+  static PARTS: AnyRecord = {};
+  readonly element: HTMLElement = document.createElement("div");
+  async render(_options?: AnyRecord): Promise<unknown> { return undefined; }
+  async close(_options?: AnyRecord): Promise<unknown> { return undefined; }
 };
 
-const FormApplicationBase: FormApplicationConstructor =
-  foundryUi.FormApplication ?? TestSafeFormApplication;
+// ---------------------------------------------------------------------------
+// Build the real base class (HandlebarsApplicationMixin + ApplicationV2) when
+// the runtime is available, otherwise fall back to the test-safe stub.
+// ---------------------------------------------------------------------------
 
-interface ConfigurationData {
+const ApplicationV2 = foundryApi?.ApplicationV2 ?? TestSafeBase;
+const HandlebarsApplicationMixin = foundryApi?.HandlebarsApplicationMixin;
+const AppBase: AppV2Static = HandlebarsApplicationMixin
+  ? HandlebarsApplicationMixin(ApplicationV2)
+  : ApplicationV2;
+
+// ---------------------------------------------------------------------------
+// Configuration application
+// ---------------------------------------------------------------------------
+
+interface ConfigurationContext {
   backendUrl: string;
   connectionStatus: string;
   backendId: string;
@@ -67,22 +79,48 @@ interface ConfigurationData {
   paired: boolean;
 }
 
-export class LoreBridgeConfigurationApp extends FormApplicationBase {
-  static get defaultOptions(): Record<string, unknown> {
-    return {
-      ...FormApplicationBase.defaultOptions,
-      id: "lorebridge-configuration",
-      title: "Configure LoreBridge",
-      template: "modules/lorebridge/templates/configuration.hbs",
-      width: 560,
-      height: "auto",
+export class LoreBridgeConfigurationApp extends AppBase {
+  static override DEFAULT_OPTIONS: AnyRecord = {
+    id: "lorebridge-configuration",
+    window: { title: "Configure LoreBridge" },
+    position: { width: 560, height: "auto" },
+    form: {
+      handler: async (
+        event: Event,
+        _form: HTMLFormElement,
+        formData: FormDataExtended,
+      ) => {
+        const instance = (event.currentTarget as HTMLElement & { app?: LoreBridgeConfigurationApp })?.app
+          ?? LoreBridgeConfigurationApp._lastInstance;
+        if (instance) await instance._handleSubmit(formData);
+      },
       closeOnSubmit: false,
-    };
+    },
+    actions: {
+      check: LoreBridgeConfigurationApp._onCheck,
+      pair: LoreBridgeConfigurationApp._onPair,
+      unpair: LoreBridgeConfigurationApp._onUnpair,
+    },
+  };
+
+  static override PARTS: AnyRecord = {
+    form: { template: "modules/lorebridge/templates/configuration.hbs" },
+  };
+
+  // Held so the form handler (a static function without `this`) can reach the
+  // most recently rendered instance. This is safe because only one config app
+  // is ever open at a time.
+  private static _lastInstance: LoreBridgeConfigurationApp | null = null;
+
+  constructor(options?: AnyRecord) {
+    super(options);
+    LoreBridgeConfigurationApp._lastInstance = this;
   }
 
-  async getData(): Promise<ConfigurationData> {
+  // V2 equivalent of getData()
+  async _prepareContext(_options?: AnyRecord): Promise<ConfigurationContext> {
     const settings = getLoreBridgeSettings();
-    const data: ConfigurationData = {
+    const ctx: ConfigurationContext = {
       backendUrl: settings.backendUrl,
       connectionStatus: settings.backendUrl ? "Not checked" : "Not configured",
       backendId: "",
@@ -90,126 +128,155 @@ export class LoreBridgeConfigurationApp extends FormApplicationBase {
       paired: false,
     };
 
-    if (!settings.backendUrl) return data;
+    if (!settings.backendUrl) return ctx;
 
     try {
       const client = new LoreBridgeBackendClient(settings.backendUrl, settings.clientToken);
       const [health, identity] = await Promise.all([client.health(), client.identity()]);
-      data.connectionStatus = `Connected — backend ${health.version}`;
-      data.backendId = identity.id;
-      data.fingerprint = identity.fingerprint;
+      ctx.connectionStatus = `Connected — backend ${health.version}`;
+      ctx.backendId = identity.id;
+      ctx.fingerprint = identity.fingerprint;
       if (settings.clientToken) {
-        data.paired = (await client.pairingStatus()).paired;
+        ctx.paired = (await client.pairingStatus()).paired;
       }
     } catch (error) {
-      data.connectionStatus = error instanceof Error ? error.message : "Connection failed";
+      ctx.connectionStatus = error instanceof Error ? error.message : "Connection failed";
     }
 
-    return data;
+    return ctx;
   }
 
-  activateListeners(html: JQueryLike): void {
-    super.activateListeners(html);
-    html.find("[data-action='check']").on("click", () => void this.checkConnection());
-    html.find("[data-action='pair']").on("click", () => void this.pair());
-    html.find("[data-action='unpair']").on("click", () => void this.unpair());
+  // V2 equivalent of activateListeners() — called after every render
+  _onRender(_context: ConfigurationContext, _options?: AnyRecord): void {
+    // V2 wires data-action buttons automatically via the `actions` map above.
+    // No manual listener attachment is needed here.
   }
 
-  protected async _updateObject(_event: Event, formData: Record<string, unknown>): Promise<void> {
-    const backendUrl = String(formData.backendUrl ?? "").trim();
+  // ---------------------------------------------------------------------------
+  // Form submission
+  // ---------------------------------------------------------------------------
+
+  async _handleSubmit(formData: FormDataExtended): Promise<void> {
+    const backendUrl = String(
+      (formData as unknown as { object?: { backendUrl?: unknown } }).object?.backendUrl ?? "",
+    ).trim();
     await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
     ui.notifications.info("LoreBridge backend URL saved.");
-    await this.render(false);
+    await this.render();
   }
 
-  private async checkConnection(): Promise<void> {
+  // ---------------------------------------------------------------------------
+  // Action handlers (static so V2 can call them with `this` = app instance)
+  // ---------------------------------------------------------------------------
+
+  static async _onCheck(
+    this: LoreBridgeConfigurationApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
     try {
-      const url = await this.saveBackendUrlFromForm();
-      const client = new LoreBridgeBackendClient(url, this.clientToken());
+      const url = await this._saveBackendUrlFromForm();
+      const client = new LoreBridgeBackendClient(url, this._clientToken());
       const health = await client.health();
       const identity = await client.identity();
       ui.notifications.info(`LoreBridge backend ${health.version} connected (${identity.id}).`);
-      await this.render(false);
+      await this.render();
     } catch (error) {
-      this.notifyError(error);
+      LoreBridgeConfigurationApp._notifyError(error);
     }
   }
 
-  private async pair(): Promise<void> {
+  static async _onPair(
+    this: LoreBridgeConfigurationApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
     try {
-      const url = await this.saveBackendUrlFromForm();
+      const url = await this._saveBackendUrlFromForm();
       const client = new LoreBridgeBackendClient(url);
       const attempt = await client.startPairing();
-      const code = await this.promptForCode(attempt.code, attempt.expiresAt);
+      const code = await LoreBridgeConfigurationApp._promptForCode(
+        attempt.code,
+        attempt.expiresAt,
+      );
       if (!code) return;
 
       const result = await client.completePairing(code, `Foundry ${game.version ?? "v14"}`);
       await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, result.token);
       ui.notifications.info(`LoreBridge paired with ${result.backendId}.`);
-      await this.render(false);
+      await this.render();
     } catch (error) {
-      this.notifyError(error);
+      LoreBridgeConfigurationApp._notifyError(error);
     }
   }
 
-  private async unpair(): Promise<void> {
+  static async _onUnpair(
+    this: LoreBridgeConfigurationApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
     await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, "");
     ui.notifications.info("LoreBridge pairing removed from this browser.");
-    await this.render(false);
+    await this.render();
   }
 
-  private async saveBackendUrlFromForm(): Promise<string> {
-    const element = this.element?.[0];
-    const input = element?.querySelector<HTMLInputElement>("input[name='backendUrl']");
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  private async _saveBackendUrlFromForm(): Promise<string> {
+    const input = this.element?.querySelector<HTMLInputElement>("input[name='backendUrl']");
     const url = input?.value.trim() ?? getLoreBridgeSettings().backendUrl;
     await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, url);
     return url;
   }
 
-  private clientToken(): string {
+  private _clientToken(): string {
     return String(
       getFoundrySettingsApi().get(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken) ?? "",
     );
   }
 
-  private async promptForCode(suggestedCode: string, expiresAt: string): Promise<string | undefined> {
-    return new Promise((resolve, reject) => {
-      const DialogClass = foundryUi.Dialog;
-      if (!DialogClass) {
-        reject(new Error("Foundry Dialog API is unavailable."));
-        return;
-      }
+  private static async _promptForCode(
+    suggestedCode: string,
+    expiresAt: string,
+  ): Promise<string | undefined> {
+    const DialogV2 = foundryApi?.DialogV2;
+    if (!DialogV2) throw new Error("Foundry DialogV2 API is unavailable.");
 
-      new DialogClass({
-        title: "Pair LoreBridge",
-        content: `
-          <p>The backend created pairing code <strong>${suggestedCode}</strong>.</p>
-          <p>Confirm the code before ${new Date(expiresAt).toLocaleTimeString()}.</p>
-          <div class="form-group">
-            <label>Pairing Code</label>
-            <input type="text" name="pairingCode" value="${suggestedCode}" autocomplete="one-time-code">
-          </div>`,
-        buttons: {
-          pair: {
-            icon: '<i class="fas fa-link"></i>',
-            label: "Pair",
-            callback: (html) =>
-              resolve(String(html.find("input[name='pairingCode']").val() ?? "").trim()),
-          },
-          cancel: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "Cancel",
-            callback: () => resolve(undefined),
-          },
+    let resolvedCode: string | undefined;
+    await DialogV2.prompt({
+      window: { title: "Pair LoreBridge" },
+      content: `
+        <p>The backend created pairing code <strong>${suggestedCode}</strong>.</p>
+        <p>Confirm the code before ${new Date(expiresAt).toLocaleTimeString()}.</p>
+        <div class="form-group">
+          <label>Pairing Code</label>
+          <input type="text" name="pairingCode" value="${suggestedCode}" autocomplete="one-time-code">
+        </div>`,
+      ok: {
+        icon: "fas fa-link",
+        label: "Pair",
+        callback: (_event: Event, _button: HTMLButtonElement, dialog: HTMLElement) => {
+          const input = dialog.querySelector<HTMLInputElement>("input[name='pairingCode']");
+          resolvedCode = input?.value.trim();
         },
-        default: "pair",
-        close: () => resolve(undefined),
-      }).render(true);
+      },
+      rejectClose: false,
     });
+
+    return resolvedCode;
   }
 
-  private notifyError(error: unknown): void {
+  private static _notifyError(error: unknown): void {
     const message = error instanceof Error ? error.message : "LoreBridge operation failed.";
     ui.notifications.error(message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// FormDataExtended shim (Foundry global — typed minimally for our usage)
+// ---------------------------------------------------------------------------
+declare class FormDataExtended {
+  object?: Record<string, unknown>;
 }
