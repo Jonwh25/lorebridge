@@ -56,6 +56,7 @@ import { type WriteRegistry } from "./write-registry.js";
 import { type ProviderService } from "./provider.js";
 import { generateRollTable, GenerationError } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
+import { AssetSearchService } from "./asset-search.js";
 
 const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
@@ -87,7 +88,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService, assets: AssetSearchService): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.2.0",
@@ -569,7 +570,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
   );
 
   server.registerTool(chatMessagesToolName, { title: "Get Foundry chat messages", description: "Retrieve bounded recent Foundry chat history. GM mode includes GM-visible whispers; player mode excludes all whispers.", inputSchema: z.object({ limit: z.number().int().min(1).max(100).optional(), mode: z.enum(["gm", "player"]).optional(), sourceId: z.string().trim().min(1).optional() }), annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async ({ limit, mode, sourceId }) => { try { const result = await adapterSessions.invoke(sourceId, GET_CHAT_MESSAGES_CAPABILITY, { ...(limit === undefined ? {} : { limit }), ...(mode === undefined ? {} : { mode }) }); const valid = validateGetChatMessagesOutput(result); if (!valid.valid || !valid.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid chat messages.", false); return { content: [{ type: "text", text: JSON.stringify(valid.value) }], structuredContent: valid.value }; } catch (error) { return toolError(error, "LoreBridge could not retrieve Foundry chat messages."); } });
-  server.registerTool(searchAssetsToolName, { title: "Search Foundry assets", description: "Search Foundry user-data image and audio assets by filename. Results are capped at 20 and return Foundry-relative paths.", inputSchema: z.object({ query:z.string().trim().min(1), type:z.enum(["image","audio"]).optional(), folder:z.string().trim().min(1).optional(), sourceId:z.string().trim().min(1).optional() }), annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false} }, async ({query,type,folder,sourceId})=>{ try { const result=await adapterSessions.invoke(sourceId,SEARCH_ASSETS_CAPABILITY,{query,...(type?{type}:{}),...(folder?{folder}:{})}); const valid=validateSearchAssetsOutput(result); if(!valid.valid||!valid.value) throw new AdapterInvocationError("INTERNAL_ERROR","The Foundry adapter returned invalid asset results.",false); return {content:[{type:"text",text:JSON.stringify(valid.value)}],structuredContent:valid.value}; } catch(error){return toolError(error,"LoreBridge could not search Foundry assets.");} });
+  server.registerTool(searchAssetsToolName, { title: "Search Foundry assets", description: "Search configured Foundry data image and audio assets by filename. Results are capped at 20 and return Foundry-relative paths.", inputSchema: z.object({ query:z.string().trim().min(1), type:z.enum(["image","audio"]).optional(), folder:z.string().trim().min(1).optional(), sourceId:z.string().trim().min(1).optional() }), annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false} }, async ({query,type,folder,sourceId})=>{ try { const results=await assets.search(query,type,folder); const result={sourceId:sourceId??"foundry:data",sourceName:"Foundry data",query,results}; const valid=validateSearchAssetsOutput(result); if(!valid.valid||!valid.value) throw new Error("Asset search returned invalid results."); return {content:[{type:"text",text:JSON.stringify(valid.value)}],structuredContent:valid.value}; } catch(error){return toolError(error,"LoreBridge could not search Foundry assets.");} });
 
   server.registerTool(
     activeSceneToolName,
@@ -1241,9 +1242,10 @@ export function createLoreBridgeMcpHandler(
   adapterSessions: AdapterSessionRegistry,
   writes: WriteRegistry,
   provider: ProviderService,
+  assets = new AssetSearchService(),
 ): McpRequestHandler {
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, provider),
+    () => createServer(adapterSessions, writes, provider, assets),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
