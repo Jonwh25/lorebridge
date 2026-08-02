@@ -8,6 +8,7 @@ import {
   GET_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_COMBAT_STATE_CAPABILITY,
+  ROLL_DICE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_RELATED_DOCUMENTS_CAPABILITY,
   RESOLVE_UUID_CAPABILITY,
@@ -27,6 +28,7 @@ import {
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
   validateGetCombatStateOutput,
+  validateRollDiceOutput,
   validateGetWorldSummaryOutput,
   validateGetRelatedDocumentsOutput,
   validateResolveUuidOutput,
@@ -67,6 +69,7 @@ const sceneSearchToolName = "search_scenes";
 const sceneToolName = "get_scene";
 const activeSceneToolName = "get_active_scene";
 const combatStateToolName = "get_combat_state";
+const rollDiceToolName = "roll_dice";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -534,6 +537,28 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid combat state.", false, { validationErrors: validation.errors });
         return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
       } catch (error) { return toolError(error, "LoreBridge could not retrieve the Foundry combat state."); }
+    },
+  );
+
+  server.registerTool(
+    rollDiceToolName,
+    {
+      title: "Roll Foundry dice",
+      description: "Evaluate a standard Foundry dice formula using the connected GM's Foundry dice engine. Set postToChat to true only to create a public Foundry chat message attributed to LoreBridge.",
+      inputSchema: z.object({
+        formula: z.string().trim().min(1).max(200).describe("A standard Foundry dice formula, for example 1d20+5 or 4d6kh3."),
+        postToChat: z.boolean().optional().describe("When true, explicitly post this roll as a public Foundry chat message. Defaults to false."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ formula, postToChat, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, ROLL_DICE_CAPABILITY, { formula, ...(postToChat === undefined ? {} : { postToChat }) });
+        const validation = validateRollDiceOutput(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid dice roll.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) { return toolError(error, "LoreBridge could not evaluate the Foundry dice formula."); }
     },
   );
 

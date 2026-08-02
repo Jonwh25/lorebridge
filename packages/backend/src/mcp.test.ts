@@ -16,6 +16,7 @@ import type {
   GetJournalPageOutput,
   GetRelatedDocumentsOutput,
   GetWorldSummaryOutput,
+  RollDiceOutput,
   ResolveUuidOutput,
   SearchCampaignOutput,
   SearchJournalsOutput,
@@ -54,7 +55,7 @@ async function pair(baseUrl: string): Promise<string> {
   return (await completeResponse.json() as { token: string }).token;
 }
 
-test("MCP endpoint requires pairing and exposes live read-only Foundry tools", async () => {
+test("MCP endpoint requires pairing and exposes live Foundry tools", async () => {
   const server = createLoreBridgeServer(config, identity);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as AddressInfo;
@@ -142,6 +143,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 version: "0.1",
               },
               {
+                name: "rollDice",
+                mode: "write",
+                version: "0.1",
+              },
+              {
                 name: "resolveUuid",
                 mode: "read",
                 version: "0.1",
@@ -182,6 +188,8 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
         assert.deepEqual(message.input, { query: "Strahd", limit: 10, types: ["npc"] });
       } else if (message.capability === "getActor") {
         assert.deepEqual(message.input, { actorId: "actor_strahd" });
+      } else if (message.capability === "rollDice") {
+        assert.deepEqual(message.input, { formula: "4d6kh3", postToChat: false });
       }
       const output = message.capability === "searchJournals"
         ? {
@@ -246,6 +254,16 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
               name: "Strahd von Zarovich",
               type: "npc",
               description: { plainText: "The vampire lord of Barovia." },
+            }
+        : message.capability === "rollDice"
+          ? {
+              sourceId: "foundry:cos",
+              sourceName: "Curse of Strahd",
+              formula: "4d6kh3",
+              total: 16,
+              breakdown: "6 + 5 + 5 + 1",
+              rolls: [{ faces: 6, results: [{ value: 6, active: true }, { value: 5, active: true }, { value: 5, active: true }, { value: 1, active: false }] }],
+              postedToChat: false,
             }
         : message.capability === "searchCampaign"
           ? {
@@ -353,9 +371,9 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table"],
+      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table"],
     );
-    const readOnlyTools = tools.tools.filter((t) => t.name !== "propose_journal_update" && t.name !== "generate_roll_table");
+    const readOnlyTools = tools.tools.filter((t) => t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice");
     assert.ok(readOnlyTools.every((tool) => tool.annotations?.readOnlyHint));
     const proposeToolAnnotations = tools.tools.find((t) => t.name === "propose_journal_update")?.annotations;
     assert.equal(proposeToolAnnotations?.readOnlyHint, false);
@@ -368,6 +386,15 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     assert.equal(result.isError, undefined);
     assert.equal(summary.world.title, "Curse of Strahd");
     assert.equal(summary.counts.journals, 851);
+
+    const rollResult = await client.callTool({
+      name: "roll_dice",
+      arguments: { formula: "4d6kh3", postToChat: false, sourceId: "foundry:cos" },
+    });
+    const dice = rollResult.structuredContent as unknown as RollDiceOutput;
+    assert.equal(rollResult.isError, undefined);
+    assert.equal(dice.total, 16);
+    assert.equal(dice.rolls[0]?.results[3]?.active, false);
 
     const searchResult = await client.callTool({
       name: "search_journals",
