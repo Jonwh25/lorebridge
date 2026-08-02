@@ -9,6 +9,7 @@ import {
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_COMBAT_STATE_CAPABILITY,
   ROLL_DICE_CAPABILITY,
+  GET_CHAT_MESSAGES_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_RELATED_DOCUMENTS_CAPABILITY,
   RESOLVE_UUID_CAPABILITY,
@@ -29,6 +30,7 @@ import {
   validateGetActiveSceneOutput,
   validateGetCombatStateOutput,
   validateRollDiceOutput,
+  validateGetChatMessagesOutput,
   validateGetWorldSummaryOutput,
   validateGetRelatedDocumentsOutput,
   validateResolveUuidOutput,
@@ -70,6 +72,7 @@ const sceneToolName = "get_scene";
 const activeSceneToolName = "get_active_scene";
 const combatStateToolName = "get_combat_state";
 const rollDiceToolName = "roll_dice";
+const chatMessagesToolName = "get_chat_messages";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -561,6 +564,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       } catch (error) { return toolError(error, "LoreBridge could not evaluate the Foundry dice formula."); }
     },
   );
+
+  server.registerTool(chatMessagesToolName, { title: "Get Foundry chat messages", description: "Retrieve bounded recent Foundry chat history. GM mode includes GM-visible whispers; player mode excludes all whispers.", inputSchema: z.object({ limit: z.number().int().min(1).max(100).optional(), mode: z.enum(["gm", "player"]).optional(), sourceId: z.string().trim().min(1).optional() }), annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }, async ({ limit, mode, sourceId }) => { try { const result = await adapterSessions.invoke(sourceId, GET_CHAT_MESSAGES_CAPABILITY, { ...(limit === undefined ? {} : { limit }), ...(mode === undefined ? {} : { mode }) }); const valid = validateGetChatMessagesOutput(result); if (!valid.valid || !valid.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid chat messages.", false); return { content: [{ type: "text", text: JSON.stringify(valid.value) }], structuredContent: valid.value }; } catch (error) { return toolError(error, "LoreBridge could not retrieve Foundry chat messages."); } });
 
   server.registerTool(
     activeSceneToolName,

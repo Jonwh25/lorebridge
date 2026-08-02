@@ -228,6 +228,8 @@ declare const ChatMessage: {
 
 type FoundryDieResult = { result: number; active?: boolean };
 type FoundryDieTerm = { faces: number; results: FoundryDieResult[] };
+type FoundryChatMessage = { id: string; author?: { name?: string }; speaker?: { alias?: string }; content: string; type: string | number; timestamp: number; whisper: string[]; blind?: boolean; rolls?: Array<{ formula?: string; total?: number; result?: string }> };
+type FoundryChatCollection = Iterable<FoundryChatMessage> & { size: number };
 
 declare const Roll: {
   new(formula: string): {
@@ -265,6 +267,7 @@ declare const game: {
   items: FoundryItemCollection;
   scenes: FoundrySceneCollection;
   combats: FoundryCombatCollection;
+  messages: FoundryChatCollection;
   journal: FoundryJournalCollection;
   packs: FoundryCompendiumCollection;
   modules: Map<string, { active: boolean; version?: string }>;

@@ -13,6 +13,8 @@ import {
   GET_COMBAT_STATE_DECLARATION,
   ROLL_DICE_CAPABILITY,
   ROLL_DICE_DECLARATION,
+  GET_CHAT_MESSAGES_CAPABILITY,
+  GET_CHAT_MESSAGES_DECLARATION,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_WORLD_SUMMARY_DECLARATION,
   GET_RELATED_DOCUMENTS_CAPABILITY,
@@ -50,6 +52,7 @@ import { getActor, searchActors } from "./capabilities/actors.js";
 import { getActiveScene, getScene, searchScenes } from "./capabilities/scenes.js";
 import { getCombatState } from "./capabilities/combat.js";
 import { rollDice } from "./capabilities/dice.js";
+import { getChatMessages } from "./capabilities/chat.js";
 import { resolveUuid } from "./capabilities/resolve-uuid.js";
 import { searchCampaign } from "./capabilities/search-campaign.js";
 import { getRelatedDocuments } from "./capabilities/related-documents.js";
@@ -132,6 +135,7 @@ Hooks.once("ready", () => {
           GET_ACTIVE_SCENE_DECLARATION,
           GET_COMBAT_STATE_DECLARATION,
           ROLL_DICE_DECLARATION,
+          GET_CHAT_MESSAGES_DECLARATION,
           RESOLVE_UUID_DECLARATION,
           SEARCH_CAMPAIGN_DECLARATION,
           GET_RELATED_DOCUMENTS_DECLARATION,
@@ -196,6 +200,7 @@ Hooks.once("ready", () => {
           if (request.capability === ROLL_DICE_CAPABILITY) {
             return rollDice(request.input as Parameters<typeof rollDice>[0]);
           }
+          if (request.capability === GET_CHAT_MESSAGES_CAPABILITY) return getChatMessages(request.input as Parameters<typeof getChatMessages>[0]);
           if (request.capability === RESOLVE_UUID_CAPABILITY) {
             return resolveUuid(request.input as Parameters<typeof resolveUuid>[0]);
           }
@@ -302,6 +307,7 @@ Hooks.once("ready", () => {
       [GET_ACTIVE_SCENE_CAPABILITY]: getActiveScene,
       [GET_COMBAT_STATE_CAPABILITY]: getCombatState,
       [ROLL_DICE_CAPABILITY]: rollDice,
+      [GET_CHAT_MESSAGES_CAPABILITY]: getChatMessages,
       [RESOLVE_UUID_CAPABILITY]: resolveUuid,
       [SEARCH_CAMPAIGN_CAPABILITY]: searchCampaign,
       [GET_RELATED_DOCUMENTS_CAPABILITY]: getRelatedDocuments,
