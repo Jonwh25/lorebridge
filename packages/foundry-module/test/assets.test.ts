@@ -1,0 +1,4 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { searchAssets } from "../src/capabilities/assets.js";
+test("searches Foundry data assets with type filtering and a result cap", async () => { Object.defineProperty(globalThis, "game", { configurable: true, value: { user: { isGM: true }, world: { id: "x", title: "World" } } }); Object.defineProperty(globalThis, "FilePicker", { configurable: true, value: { browse: async (_source: string, _folder: string, options: { extensions?: string[] }) => ({ files: options.extensions?.includes("mp3") ? ["sounds/dragon.ogg"] : ["worlds/x/dragon.webp", "worlds/x/goblin.webp"] }) } }); const images = await searchAssets({ query: "dragon", type: "image", folder: "worlds/x" }); assert.deepEqual(images.results, [{ path: "worlds/x/dragon.webp", name: "dragon.webp", type: "image" }]); const both = await searchAssets({ query: "dragon" }); assert.equal(both.results.length, 2); });
