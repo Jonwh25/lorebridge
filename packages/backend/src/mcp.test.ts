@@ -137,6 +137,11 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
                 version: "0.1",
               },
               {
+                name: "getCombatState",
+                mode: "read",
+                version: "0.1",
+              },
+              {
                 name: "resolveUuid",
                 mode: "read",
                 version: "0.1",
@@ -348,7 +353,7 @@ test("MCP endpoint requires pairing and exposes live read-only Foundry tools", a
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table"],
+      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table"],
     );
     const readOnlyTools = tools.tools.filter((t) => t.name !== "propose_journal_update" && t.name !== "generate_roll_table");
     assert.ok(readOnlyTools.every((tool) => tool.annotations?.readOnlyHint));

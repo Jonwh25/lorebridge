@@ -7,6 +7,7 @@ import {
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_CAPABILITY,
+  GET_COMBAT_STATE_CAPABILITY,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_RELATED_DOCUMENTS_CAPABILITY,
   RESOLVE_UUID_CAPABILITY,
@@ -25,6 +26,7 @@ import {
   validateGetJournalPageOutput,
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
+  validateGetCombatStateOutput,
   validateGetWorldSummaryOutput,
   validateGetRelatedDocumentsOutput,
   validateResolveUuidOutput,
@@ -64,6 +66,7 @@ const actorToolName = "get_actor";
 const sceneSearchToolName = "search_scenes";
 const sceneToolName = "get_scene";
 const activeSceneToolName = "get_active_scene";
+const combatStateToolName = "get_combat_state";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -510,6 +513,27 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the Foundry scene.");
       }
+    },
+  );
+
+  server.registerTool(
+    combatStateToolName,
+    {
+      title: "Get Foundry combat state",
+      description: "Retrieve the active Foundry combat encounter's round, current turn, and bounded initiative order. GM mode includes normalized hit points; player mode omits hidden combatants and hit points.",
+      inputSchema: z.object({
+        mode: z.enum(["gm", "player"]).optional().describe("Visibility mode. 'gm' (default) includes normalized HP. 'player' omits hidden combatants and HP."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, GET_COMBAT_STATE_CAPABILITY, mode === undefined ? {} : { mode });
+        const validation = validateGetCombatStateOutput(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid combat state.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) { return toolError(error, "LoreBridge could not retrieve the Foundry combat state."); }
     },
   );
 

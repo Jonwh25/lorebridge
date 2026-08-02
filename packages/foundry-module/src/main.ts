@@ -9,6 +9,8 @@ import {
   GET_SCENE_DECLARATION,
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_DECLARATION,
+  GET_COMBAT_STATE_CAPABILITY,
+  GET_COMBAT_STATE_DECLARATION,
   GET_WORLD_SUMMARY_CAPABILITY,
   GET_WORLD_SUMMARY_DECLARATION,
   GET_RELATED_DOCUMENTS_CAPABILITY,
@@ -44,6 +46,7 @@ import { getWorldSummary } from "./capabilities/get-world-summary.js";
 import { getJournal, getJournalPage, searchJournals } from "./capabilities/journals.js";
 import { getActor, searchActors } from "./capabilities/actors.js";
 import { getActiveScene, getScene, searchScenes } from "./capabilities/scenes.js";
+import { getCombatState } from "./capabilities/combat.js";
 import { resolveUuid } from "./capabilities/resolve-uuid.js";
 import { searchCampaign } from "./capabilities/search-campaign.js";
 import { getRelatedDocuments } from "./capabilities/related-documents.js";
@@ -124,6 +127,7 @@ Hooks.once("ready", () => {
           SEARCH_SCENES_DECLARATION,
           GET_SCENE_DECLARATION,
           GET_ACTIVE_SCENE_DECLARATION,
+          GET_COMBAT_STATE_DECLARATION,
           RESOLVE_UUID_DECLARATION,
           SEARCH_CAMPAIGN_DECLARATION,
           GET_RELATED_DOCUMENTS_DECLARATION,
@@ -181,6 +185,9 @@ Hooks.once("ready", () => {
           }
           if (request.capability === GET_ACTIVE_SCENE_CAPABILITY) {
             return getActiveScene(request.input as Parameters<typeof getActiveScene>[0]);
+          }
+          if (request.capability === GET_COMBAT_STATE_CAPABILITY) {
+            return getCombatState(request.input as Parameters<typeof getCombatState>[0]);
           }
           if (request.capability === RESOLVE_UUID_CAPABILITY) {
             return resolveUuid(request.input as Parameters<typeof resolveUuid>[0]);
@@ -286,6 +293,7 @@ Hooks.once("ready", () => {
       [SEARCH_SCENES_CAPABILITY]: searchScenes,
       [GET_SCENE_CAPABILITY]: getScene,
       [GET_ACTIVE_SCENE_CAPABILITY]: getActiveScene,
+      [GET_COMBAT_STATE_CAPABILITY]: getCombatState,
       [RESOLVE_UUID_CAPABILITY]: resolveUuid,
       [SEARCH_CAMPAIGN_CAPABILITY]: searchCampaign,
       [GET_RELATED_DOCUMENTS_CAPABILITY]: getRelatedDocuments,
