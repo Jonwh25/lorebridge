@@ -48,15 +48,19 @@ test("registers safe world and client scoped defaults", () => {
 
   registerLoreBridgeSettings();
 
-  assert.equal(menus.size, 1);
+  assert.equal(menus.size, 2);
   assert.equal(menus.get("configuration")?.restricted, true);
+  assert.equal(menus.get("features")?.restricted, true);
 
-  assert.equal(registrations.size, 8);
+  assert.equal(registrations.size, 11);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backendUrl)?.default, "");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.clientToken)?.default, "");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.default, true);
 
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.config, true);
@@ -78,6 +82,10 @@ test("reads and normalizes configured values", () => {
     [LOREBRIDGE_SETTINGS.provider, "openai"],
     [LOREBRIDGE_SETTINGS.backendUrl, "  https://lorebridge.example/api/  "],
     [LOREBRIDGE_SETTINGS.clientToken, "signed-client-token"],
+    [LOREBRIDGE_SETTINGS.writesEnabled, true],
+    [LOREBRIDGE_SETTINGS.uiButtonsEnabled, false],
+    [LOREBRIDGE_SETTINGS.chatCommandEnabled, false],
+    [LOREBRIDGE_SETTINGS.journalQaEnabled, false],
   ]);
 
   setGame({
@@ -101,7 +109,10 @@ test("reads and normalizes configured values", () => {
     clientToken: "signed-client-token",
     sessionLogFolder: "Session Logs",
     excludedCompendiums: "",
-    writesEnabled: false,
+    writesEnabled: true,
+    uiButtonsEnabled: false,
+    chatCommandEnabled: false,
+    journalQaEnabled: false,
   });
 });
 

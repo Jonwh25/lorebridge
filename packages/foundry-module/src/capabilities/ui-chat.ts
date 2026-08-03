@@ -381,6 +381,7 @@ export function registerChatCommand(): void {
     ).trim();
 
     if (!isLbCommand(text)) return;
+    if (!getLoreBridgeSettings().chatCommandEnabled) return;
 
     // Prevent Foundry's command validator and history recording
     (options as { recordPending: boolean }).recordPending = false;
