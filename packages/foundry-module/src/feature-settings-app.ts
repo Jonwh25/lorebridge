@@ -147,6 +147,9 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     const settingsForm = getFoundrySettingsApi().sheet?.element?.querySelector<HTMLFormElement>("form");
     if (settingsForm) return settingsForm;
 
-    return document.querySelector<HTMLFormElement>("#settings-config form");
+    const settingsRoot = document.querySelector<HTMLElement>("#settings-config");
+    if (settingsRoot instanceof HTMLFormElement) return settingsRoot;
+    return settingsRoot?.querySelector<HTMLFormElement>("form")
+      ?? document.querySelector<HTMLFormElement>("form.settings-config");
   }
 }
