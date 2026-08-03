@@ -115,7 +115,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
-    console.info("lorebridge | Feature choices staged. Save Changes in the parent Game Settings window applies them.");
+    console.info("LoreBridge | Feature choices staged. Save Changes in the parent Game Settings window applies them.");
   }
 
   private _stagedFeatureValues(): StagedFeatureSettings {

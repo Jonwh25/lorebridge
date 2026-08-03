@@ -75,6 +75,7 @@ import { LoreBridgeAdapterTransport } from "./adapter-transport.js";
 import { LoreBridgeCapabilityError } from "./capabilities/errors.js";
 
 const MODULE_ID = "lorebridge";
+const MODULE_LABEL = "LoreBridge";
 let adapterTransport: LoreBridgeAdapterTransport | undefined;
 
 type FoundryModuleMetadata = {
@@ -93,7 +94,7 @@ Hooks.once("init", () => {
   registerSheetButtons();
 
   console.info(
-    `${MODULE_ID} | Initializing LoreBridge ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
+    `${MODULE_LABEL} | Initializing ${MODULE_LABEL} ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
   );
 });
 
@@ -103,9 +104,9 @@ Hooks.once("ready", () => {
 
   if (!shouldExposeCapabilityApi(isGM, settings)) {
     if (!isGM) {
-      console.info(`${MODULE_ID} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
+      console.info(`${MODULE_LABEL} | Capability API unavailable to non-GM user ${game.user?.name ?? "unknown"}`);
     } else {
-      console.info(`${MODULE_ID} | Capability API disabled in world settings`);
+      console.info(`${MODULE_LABEL} | Capability API disabled in world settings`);
     }
     return;
   }
@@ -255,13 +256,13 @@ Hooks.once("ready", () => {
 
       void adapterTransport.connect().then((state) => {
         if (state.state === "connected") {
-          console.info(`${MODULE_ID} | Connected to backend ${state.backendId}`, {
+          console.info(`${MODULE_LABEL} | Connected to backend ${state.backendId}`, {
             sessionId: state.sessionId,
             sourceId: registration.sources[0]?.sourceId,
           });
-          console.info(`${MODULE_ID} | LoreBridge connected to the backend.`);
+          console.info(`${MODULE_LABEL} | Connected to the backend.`);
         } else if (state.state === "error") {
-          console.error(`${MODULE_ID} | Backend connection failed: ${state.message}`);
+          console.error(`${MODULE_LABEL} | Backend connection failed: ${state.message}`);
           ui.notifications.error(`LoreBridge backend connection failed: ${state.message}`);
         }
       });
@@ -271,7 +272,7 @@ Hooks.once("ready", () => {
   const moduleVersion = getModuleVersion();
   const summary = getWorldSummary();
 
-  console.info(`${MODULE_ID} | GM bridge ready`, {
+  console.info(`${MODULE_LABEL} | GM bridge ready`, {
     moduleVersion,
     protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
     settings: {
@@ -284,7 +285,7 @@ Hooks.once("ready", () => {
     summary,
     capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]
   });
-  console.info(`${MODULE_ID} | LoreBridge is ready for ${summary.world.title}.`);
+  console.info(`${MODULE_LABEL} | Ready for ${summary.world.title}.`);
 
   // Temporary local development API. It exposes only explicitly approved,
   // typed capabilities and will be replaced by an authenticated dispatcher.
