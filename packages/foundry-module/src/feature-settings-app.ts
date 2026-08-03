@@ -99,7 +99,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
     ] as const;
 
-    const parentForm = getFoundrySettingsApi().sheet?.element.querySelector<HTMLFormElement>("form");
+    const parentForm = this._parentSettingsForm();
     if (!parentForm) {
       ui.notifications.error("LoreBridge feature settings require the parent Game Settings window to remain open.");
       return;
@@ -119,7 +119,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
   }
 
   private _stagedFeatureValues(): StagedFeatureSettings {
-    const form = getFoundrySettingsApi().sheet?.element.querySelector<HTMLFormElement>("form");
+    const form = this._parentSettingsForm();
     if (!form) {
       return {
         writesEnabled: undefined,
@@ -136,5 +136,17 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
       journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),
     };
+  }
+
+  /** Locate the SettingsConfig form that launched this registered submenu. */
+  private _parentSettingsForm(): HTMLFormElement | null {
+    const appParent = (this as unknown as { parent?: { element?: HTMLElement | null } }).parent;
+    const parentForm = appParent?.element?.querySelector<HTMLFormElement>("form");
+    if (parentForm) return parentForm;
+
+    const settingsForm = getFoundrySettingsApi().sheet?.element?.querySelector<HTMLFormElement>("form");
+    if (settingsForm) return settingsForm;
+
+    return document.querySelector<HTMLFormElement>("#settings-config form");
   }
 }
