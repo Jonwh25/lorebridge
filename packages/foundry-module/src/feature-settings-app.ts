@@ -8,11 +8,16 @@ const MODULE_ID = "lorebridge";
 type AnyRecord = Record<string, unknown>;
 type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
 type AppV2Static = { new (options?: AnyRecord): AppV2Instance; DEFAULT_OPTIONS: AnyRecord; PARTS?: AnyRecord };
+type DialogV2Static = { confirm(config: AnyRecord): Promise<boolean> };
 
 const foundryApi = (
   globalThis as unknown as { foundry?: { applications?: { api?: AnyRecord } } }
 ).foundry?.applications?.api as
-  | { ApplicationV2?: AppV2Static; HandlebarsApplicationMixin?: (base: AppV2Static) => AppV2Static }
+  | {
+      ApplicationV2?: AppV2Static;
+      HandlebarsApplicationMixin?: (base: AppV2Static) => AppV2Static;
+      DialogV2?: DialogV2Static;
+    }
   | undefined;
 
 const TestSafeBase: AppV2Static = class implements AppV2Instance {
@@ -73,6 +78,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
 
   async _handleSubmit(formData: FormDataExtended): Promise<void> {
     const values = (formData as unknown as { object?: Record<string, unknown> }).object ?? {};
+    const previous = getLoreBridgeSettings();
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
       [LOREBRIDGE_SETTINGS.uiButtonsEnabled, "uiButtonsEnabled"],
@@ -92,6 +98,21 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
 
     ui.notifications.info("LoreBridge feature settings saved.");
     await this.render();
+
+    const changed = previous.writesEnabled !== Boolean(values["writesEnabled"])
+      || previous.uiButtonsEnabled !== Boolean(values["uiButtonsEnabled"])
+      || previous.chatCommandEnabled !== Boolean(values["chatCommandEnabled"])
+      || previous.journalQaEnabled !== Boolean(values["journalQaEnabled"]);
+    if (!changed) return;
+
+    const reloadNow = await foundryApi?.DialogV2?.confirm({
+      window: { title: "Reload World Now?" },
+      content: "<p>LoreBridge feature settings were saved. Reload now to refresh every currently open sheet, or choose Later to keep working with the new settings applied to future interactions.</p>",
+      yes: { label: "Reload Now", icon: "fas fa-sync" },
+      no: { label: "Later", icon: "fas fa-clock" },
+      rejectClose: false,
+    });
+    if (reloadNow) window.location.reload();
   }
 }
 

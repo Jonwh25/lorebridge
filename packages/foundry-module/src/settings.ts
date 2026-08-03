@@ -134,6 +134,7 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: Boolean,
     default: false,
+    requiresReload: false,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled, {
@@ -143,6 +144,7 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: Boolean,
     default: true,
+    requiresReload: false,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled, {
@@ -152,6 +154,7 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: Boolean,
     default: true,
+    requiresReload: false,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled, {
@@ -161,6 +164,7 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: Boolean,
     default: true,
+    requiresReload: false,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
