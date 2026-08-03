@@ -81,6 +81,10 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `search_scenes` | Search scenes by name |
 | `get_scene` | Retrieve one scene with linked journal, map notes, and placed tokens |
 | `get_active_scene` | Return the scene currently viewed by the GM |
+| `get_combat_state` | Active initiative order, round, current turn, and GM/player-safe combatant details |
+| `roll_dice` | Evaluate a Foundry dice formula; public chat posting is explicit and optional |
+| `get_chat_messages` | Retrieve bounded recent chat history with GM/player visibility filtering |
+| `search_assets` | Find configured Foundry data-directory image and audio assets by filename |
 | `resolve_uuid` | Resolve any Foundry UUID to a normalized actor, journal, journal page, or scene |
 | `search_campaign` | Cross-type search across actors, journals, and scenes when the document type is unknown |
 | `get_related_documents` | Starting from any UUID, return directly related documents one hop away |

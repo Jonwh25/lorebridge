@@ -4,6 +4,15 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Milestone 10 — MCP Tool Expansion**: `get_combat_state` returns active initiative, turn state, and GM/player-safe combatant details; `roll_dice` uses Foundry's native dice engine with optional explicit public chat posting; `get_chat_messages` returns bounded recent chat with visibility filtering and roll details; and `search_assets` finds configured Foundry data-directory image and audio assets, returning bounded Foundry-relative paths.
+
+### Fixed
+
+- Pairing dialog now reads the pairing code through the Foundry v14 dialog form API.
+- Asset search handles nested folders and normalizes spaces, underscores, and punctuation in filename matching.
+
 ## [0.9.0] - 2026-08-01
 
 ### Added
