@@ -204,7 +204,8 @@ export function registerFeatureSettingsPresentation(): void {
       LOREBRIDGE_SETTINGS.journalQaEnabled,
     ]) {
       const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
-      input?.closest(".form-group")?.remove();
+      const row = input?.closest<HTMLElement>(".form-group");
+      if (row) row.style.display = "none";
     }
   });
 }
