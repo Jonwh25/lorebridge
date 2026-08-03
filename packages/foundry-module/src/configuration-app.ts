@@ -84,22 +84,11 @@ export class LoreBridgeConfigurationApp extends AppBase {
     id: "lorebridge-configuration",
     window: { title: "Configure LoreBridge" },
     position: { width: 560, height: "auto" },
-    form: {
-      handler: async (
-        event: Event,
-        _form: HTMLFormElement,
-        formData: FormDataExtended,
-      ) => {
-        const instance = (event.currentTarget as HTMLElement & { app?: LoreBridgeConfigurationApp })?.app
-          ?? LoreBridgeConfigurationApp._lastInstance;
-        if (instance) await instance._handleSubmit(formData);
-      },
-      closeOnSubmit: false,
-    },
     actions: {
       check: LoreBridgeConfigurationApp._onCheck,
       pair: LoreBridgeConfigurationApp._onPair,
       unpair: LoreBridgeConfigurationApp._onUnpair,
+      saveUrl: LoreBridgeConfigurationApp._onSaveUrl,
     },
   };
 
@@ -150,19 +139,6 @@ export class LoreBridgeConfigurationApp extends AppBase {
   _onRender(_context: ConfigurationContext, _options?: AnyRecord): void {
     // V2 wires data-action buttons automatically via the `actions` map above.
     // No manual listener attachment is needed here.
-  }
-
-  // ---------------------------------------------------------------------------
-  // Form submission
-  // ---------------------------------------------------------------------------
-
-  async _handleSubmit(formData: FormDataExtended): Promise<void> {
-    const backendUrl = String(
-      (formData as unknown as { object?: { backendUrl?: unknown } }).object?.backendUrl ?? "",
-    ).trim();
-    await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
-    ui.notifications.info("LoreBridge backend URL saved.");
-    await this.render();
   }
 
   // ---------------------------------------------------------------------------
@@ -220,6 +196,20 @@ export class LoreBridgeConfigurationApp extends AppBase {
     await this.render();
   }
 
+  static async _onSaveUrl(
+    this: LoreBridgeConfigurationApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    try {
+      await this._saveBackendUrlFromForm();
+      ui.notifications.info("LoreBridge backend URL saved.");
+      await this.render();
+    } catch (error) {
+      LoreBridgeConfigurationApp._notifyError(error);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -274,9 +264,3 @@ export class LoreBridgeConfigurationApp extends AppBase {
   }
 }
 
-// ---------------------------------------------------------------------------
-// FormDataExtended shim (Foundry global — typed minimally for our usage)
-// ---------------------------------------------------------------------------
-declare class FormDataExtended {
-  object?: Record<string, unknown>;
-}
