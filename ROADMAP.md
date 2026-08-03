@@ -166,15 +166,15 @@ Success test: a GM can ask the AI to generate a town, a session plan, or a
 roll table; review the proposed content; and approve it into the world in one
 flow without leaving Foundry.
 
-### Milestone 10 — MCP Tool Expansion
+### Milestone 10 — MCP Tool Expansion ✅
 
 New read-only and utility MCP tools that give AI clients richer live-world
 context.
 
-1. [MCP tool: get_combat_state](https://github.com/Jonwh25/lorebridge/issues/103)
-2. [MCP tool: roll_dice](https://github.com/Jonwh25/lorebridge/issues/104)
-3. [MCP tool: get_chat_messages](https://github.com/Jonwh25/lorebridge/issues/105)
-4. [MCP tool: search_assets](https://github.com/Jonwh25/lorebridge/issues/114)
+1. ✅ [MCP tool: get_combat_state](https://github.com/Jonwh25/lorebridge/issues/103)
+2. ✅ [MCP tool: roll_dice](https://github.com/Jonwh25/lorebridge/issues/104)
+3. ✅ [MCP tool: get_chat_messages](https://github.com/Jonwh25/lorebridge/issues/105)
+4. ✅ [MCP tool: search_assets](https://github.com/Jonwh25/lorebridge/issues/114)
 
 Success test: an AI client can query active combat state, roll dice, retrieve
 recent chat history, and locate existing image or audio assets in the Foundry
