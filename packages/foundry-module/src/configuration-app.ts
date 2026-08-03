@@ -203,7 +203,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
   ): Promise<void> {
     try {
       await this._saveBackendUrlFromForm();
-      ui.notifications.info("LoreBridge backend URL saved.");
+      console.info("lorebridge | Backend URL saved.");
       await this.render();
     } catch (error) {
       LoreBridgeConfigurationApp._notifyError(error);
