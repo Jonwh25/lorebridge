@@ -68,6 +68,7 @@ import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
+  registerFeatureSettingsPresentation,
   registerLoreBridgeSettings
 } from "./settings.js";
 import { LoreBridgeAdapterTransport } from "./adapter-transport.js";
@@ -87,6 +88,7 @@ function getModuleVersion(): string {
 
 Hooks.once("init", () => {
   registerLoreBridgeSettings();
+  registerFeatureSettingsPresentation();
   registerChatCommand();
   registerSheetButtons();
 

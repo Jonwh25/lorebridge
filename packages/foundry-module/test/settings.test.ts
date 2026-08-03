@@ -61,10 +61,10 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.default, true);
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.writesEnabled)?.requiresReload, false);
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.requiresReload, false);
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.requiresReload, false);
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.requiresReload, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.writesEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.requiresReload, true);
 
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.config, true);

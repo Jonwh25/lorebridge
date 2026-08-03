@@ -17,6 +17,7 @@ type FoundrySettingsApi = typeof game.settings & {
     },
   ): void;
   set(moduleId: string, key: string, value: unknown): Promise<unknown>;
+  sheet?: { element: HTMLElement };
 };
 
 export function getFoundrySettingsApi(): FoundrySettingsApi {
@@ -131,40 +132,40 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable AI-Proposed Writes",
     hint: "Allow AI assistants to propose journal page updates. Each change requires explicit GM approval before any content is modified.",
     scope: "world",
-    config: false,
+    config: true,
     type: Boolean,
     default: false,
-    requiresReload: false,
+    requiresReload: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled, {
     name: "Enable Foundry UI Buttons",
     hint: "Show LoreBridge generation and suggestion buttons on supported sheets.",
     scope: "world",
-    config: false,
+    config: true,
     type: Boolean,
     default: true,
-    requiresReload: false,
+    requiresReload: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled, {
     name: "Enable /lb Chat Command",
     hint: "Allow LoreBridge /lb questions, roleplay, city, and NPC commands in chat.",
     scope: "world",
-    config: false,
+    config: true,
     type: Boolean,
     default: true,
-    requiresReload: false,
+    requiresReload: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled, {
     name: "Enable Journal Page Q&A Panel",
     hint: "Show the Ask LoreBridge panel on journal sheets.",
     scope: "world",
-    config: false,
+    config: true,
     type: Boolean,
     default: true,
-    requiresReload: false,
+    requiresReload: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
@@ -183,6 +184,28 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: String,
     default: "",
+  });
+}
+
+/**
+ * The feature settings are edited through the dedicated submenu. They remain
+ * registered with SettingsConfig so its Save Changes action can own the
+ * standard world-reload confirmation, but are hidden from the general list.
+ */
+export function registerFeatureSettingsPresentation(): void {
+  Hooks.on("renderApplicationV2", (app: unknown) => {
+    const element = (app as { element?: HTMLElement }).element;
+    if (!element) return;
+
+    for (const setting of [
+      LOREBRIDGE_SETTINGS.writesEnabled,
+      LOREBRIDGE_SETTINGS.uiButtonsEnabled,
+      LOREBRIDGE_SETTINGS.chatCommandEnabled,
+      LOREBRIDGE_SETTINGS.journalQaEnabled,
+    ]) {
+      const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
+      input?.closest(".form-group")?.remove();
+    }
   });
 }
 

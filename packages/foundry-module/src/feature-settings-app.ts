@@ -8,19 +8,6 @@ const MODULE_ID = "lorebridge";
 type AnyRecord = Record<string, unknown>;
 type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
 type AppV2Static = { new (options?: AnyRecord): AppV2Instance; DEFAULT_OPTIONS: AnyRecord; PARTS?: AnyRecord };
-type DialogV2Static = {
-  new (config: {
-    window?: { title?: string; resizable?: boolean };
-    content: string;
-    buttons: Array<{
-      action: string;
-      label: string;
-      icon?: string;
-      default?: boolean;
-      callback?: () => void;
-    }>;
-  }): { render(options: { force: boolean }): unknown };
-};
 
 const foundryApi = (
   globalThis as unknown as { foundry?: { applications?: { api?: AnyRecord } } }
@@ -28,7 +15,6 @@ const foundryApi = (
   | {
       ApplicationV2?: AppV2Static;
       HandlebarsApplicationMixin?: (base: AppV2Static) => AppV2Static;
-      DialogV2?: DialogV2Static;
     }
   | undefined;
 
@@ -49,6 +35,10 @@ type FeatureSettingsContext = {
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
+};
+
+type StagedFeatureSettings = {
+  [K in keyof FeatureSettingsContext]: boolean | undefined;
 };
 
 /** GM-only world configuration for LoreBridge feature categories. */
@@ -75,11 +65,12 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
 
   async _prepareContext(_options?: AnyRecord): Promise<FeatureSettingsContext> {
     const settings = getLoreBridgeSettings();
+    const staged = this._stagedFeatureValues();
     return {
-      writesEnabled: settings.writesEnabled,
-      uiButtonsEnabled: settings.uiButtonsEnabled,
-      chatCommandEnabled: settings.chatCommandEnabled,
-      journalQaEnabled: settings.journalQaEnabled,
+      writesEnabled: staged.writesEnabled ?? settings.writesEnabled,
+      uiButtonsEnabled: staged.uiButtonsEnabled ?? settings.uiButtonsEnabled,
+      chatCommandEnabled: staged.chatCommandEnabled ?? settings.chatCommandEnabled,
+      journalQaEnabled: staged.journalQaEnabled ?? settings.journalQaEnabled,
     };
   }
 
@@ -101,7 +92,6 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       chatCommandEnabled: checked("chatCommandEnabled"),
       journalQaEnabled: checked("journalQaEnabled"),
     };
-    const previous = getLoreBridgeSettings();
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
       [LOREBRIDGE_SETTINGS.uiButtonsEnabled, "uiButtonsEnabled"],
@@ -109,44 +99,42 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
     ] as const;
 
-    await Promise.all(features.map(([setting, field]) =>
-      getFoundrySettingsApi().set(MODULE_ID, setting, values[field]),
-    ));
+    const parentForm = getFoundrySettingsApi().sheet?.element.querySelector<HTMLFormElement>("form");
+    if (!parentForm) {
+      ui.notifications.error("LoreBridge feature settings require the parent Game Settings window to remain open.");
+      return;
+    }
 
-    document.querySelectorAll<HTMLElement>("[data-lb-feature-category]").forEach((element) => {
-      const category = element.dataset["lbFeatureCategory"];
-      if ((category === "ui-buttons" && !values.uiButtonsEnabled)
-        || (category === "journal-qa" && !values.journalQaEnabled)) element.remove();
-    });
+    for (const [setting, field] of features) {
+      const input = parentForm.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
+      if (!input) {
+        ui.notifications.error("LoreBridge could not stage feature settings in the parent Game Settings window.");
+        return;
+      }
+      input.checked = values[field];
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
 
-    ui.notifications.info("LoreBridge feature settings saved.");
-    await this.render();
-
-    const changed = previous.writesEnabled !== values.writesEnabled
-      || previous.uiButtonsEnabled !== values.uiButtonsEnabled
-      || previous.chatCommandEnabled !== values.chatCommandEnabled
-      || previous.journalQaEnabled !== values.journalQaEnabled;
-    if (!changed) return;
-
-    this._showReloadPrompt();
+    ui.notifications.info("LoreBridge feature choices staged. Click Save Changes in the parent Game Settings window to apply them.");
   }
 
-  private _showReloadPrompt(): void {
-    const DialogV2 = foundryApi?.DialogV2;
-    if (!DialogV2) return;
-
-    new DialogV2({
-      window: { title: "Reload World Now?", resizable: false },
-      content: "<p>LoreBridge feature settings were saved. Reload now to refresh every currently open sheet, or choose Later to keep working with the new settings applied to future interactions.</p>",
-      buttons: [
-        { action: "later", label: "Later", icon: "fas fa-clock", default: true },
-        {
-          action: "reload",
-          label: "Reload Now",
-          icon: "fas fa-sync",
-          callback: () => window.location.reload(),
-        },
-      ],
-    }).render({ force: true });
+  private _stagedFeatureValues(): StagedFeatureSettings {
+    const form = getFoundrySettingsApi().sheet?.element.querySelector<HTMLFormElement>("form");
+    if (!form) {
+      return {
+        writesEnabled: undefined,
+        uiButtonsEnabled: undefined,
+        chatCommandEnabled: undefined,
+        journalQaEnabled: undefined,
+      };
+    }
+    const read = (setting: string): boolean | undefined =>
+      form.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`)?.checked;
+    return {
+      writesEnabled: read(LOREBRIDGE_SETTINGS.writesEnabled),
+      uiButtonsEnabled: read(LOREBRIDGE_SETTINGS.uiButtonsEnabled),
+      chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
+      journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),
+    };
   }
 }
