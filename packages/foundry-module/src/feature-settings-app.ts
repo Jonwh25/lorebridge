@@ -110,7 +110,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     ] as const;
 
     await Promise.all(features.map(([setting, field]) =>
-      getFoundrySettingsApi().set(MODULE_ID, setting, values[field],
+      getFoundrySettingsApi().set(MODULE_ID, setting, values[field]),
     ));
 
     document.querySelectorAll<HTMLElement>("[data-lb-feature-category]").forEach((element) => {
