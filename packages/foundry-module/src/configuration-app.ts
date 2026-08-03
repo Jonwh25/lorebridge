@@ -84,22 +84,11 @@ export class LoreBridgeConfigurationApp extends AppBase {
     id: "lorebridge-configuration",
     window: { title: "Configure LoreBridge" },
     position: { width: 560, height: "auto" },
-    form: {
-      handler: async (
-        event: Event,
-        _form: HTMLFormElement,
-        formData: FormDataExtended,
-      ) => {
-        const instance = (event.currentTarget as HTMLElement & { app?: LoreBridgeConfigurationApp })?.app
-          ?? LoreBridgeConfigurationApp._lastInstance;
-        if (instance) await instance._handleSubmit(formData);
-      },
-      closeOnSubmit: false,
-    },
     actions: {
       check: LoreBridgeConfigurationApp._onCheck,
       pair: LoreBridgeConfigurationApp._onPair,
       unpair: LoreBridgeConfigurationApp._onUnpair,
+      saveUrl: LoreBridgeConfigurationApp._onSaveUrl,
     },
   };
 
@@ -153,19 +142,6 @@ export class LoreBridgeConfigurationApp extends AppBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Form submission
-  // ---------------------------------------------------------------------------
-
-  async _handleSubmit(formData: FormDataExtended): Promise<void> {
-    const backendUrl = String(
-      (formData as unknown as { object?: { backendUrl?: unknown } }).object?.backendUrl ?? "",
-    ).trim();
-    await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, backendUrl);
-    ui.notifications.info("LoreBridge backend URL saved.");
-    await this.render();
-  }
-
-  // ---------------------------------------------------------------------------
   // Action handlers (static so V2 can call them with `this` = app instance)
   // ---------------------------------------------------------------------------
 
@@ -179,7 +155,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
       const client = new LoreBridgeBackendClient(url, this._clientToken());
       const health = await client.health();
       const identity = await client.identity();
-      ui.notifications.info(`LoreBridge backend ${health.version} connected (${identity.id}).`);
+      console.info(`LoreBridge | Backend ${health.version} connected (${identity.id}).`);
       await this.render();
     } catch (error) {
       LoreBridgeConfigurationApp._notifyError(error);
@@ -203,7 +179,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
 
       const result = await client.completePairing(code, `Foundry ${game.version ?? "v14"}`);
       await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, result.token);
-      ui.notifications.info(`LoreBridge paired with ${result.backendId}.`);
+      console.info(`LoreBridge | Paired with ${result.backendId}.`);
       await this.render();
     } catch (error) {
       LoreBridgeConfigurationApp._notifyError(error);
@@ -216,8 +192,22 @@ export class LoreBridgeConfigurationApp extends AppBase {
     _target: HTMLElement,
   ): Promise<void> {
     await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, "");
-    ui.notifications.info("LoreBridge pairing removed from this browser.");
+    console.info("LoreBridge | Local pairing removed from this browser.");
     await this.render();
+  }
+
+  static async _onSaveUrl(
+    this: LoreBridgeConfigurationApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    try {
+      await this._saveBackendUrlFromForm();
+      console.info("LoreBridge | Backend URL saved.");
+      await this.render();
+    } catch (error) {
+      LoreBridgeConfigurationApp._notifyError(error);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -274,9 +264,3 @@ export class LoreBridgeConfigurationApp extends AppBase {
   }
 }
 
-// ---------------------------------------------------------------------------
-// FormDataExtended shim (Foundry global — typed minimally for our usage)
-// ---------------------------------------------------------------------------
-declare class FormDataExtended {
-  object?: Record<string, unknown>;
-}

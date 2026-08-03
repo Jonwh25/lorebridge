@@ -4,6 +4,10 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **Per-category feature toggles**: a GM-only **Configure Features** settings button now groups toggles for Foundry UI buttons, `/lb` chat commands, the Journal Page Q&A panel, and AI-proposed writes. Disabled UI features disappear immediately, and disabled chat commands are ignored.
+
 ## [0.10.0] - 2026-08-03
 
 ### Added

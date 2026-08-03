@@ -452,6 +452,7 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
 
   const panel = document.createElement("div");
   panel.id = panelId;
+  panel.dataset["lbFeatureCategory"] = "journal-qa";
   panel.style.cssText = "display:flex;gap:4px;padding:4px 8px;border-top:1px solid var(--color-border-dark,#ccc);background:var(--color-bg-secondary,#f5f5f5);";
 
   const input = document.createElement("input");
@@ -535,6 +536,7 @@ function injectHeaderButton(
   id: string,
   icon: string,
   label: string,
+  category: string,
   handler: () => void,
 ): void {
   if (frame.querySelector(`[data-lb-btn="${id}"]`)) return; // already injected
@@ -545,6 +547,7 @@ function injectHeaderButton(
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset["lbBtn"] = id;
+  btn.dataset["lbFeatureCategory"] = category;
   btn.title = label;
   btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;";
   btn.innerHTML = `<i class="${icon}"></i>`;
@@ -571,21 +574,25 @@ export function registerSheetButtons(): void {
     const frame = appAny.element;
     if (!doc?.documentName || !frame) return;
 
-    if (doc.documentName === "Actor" && doc.type === "npc") {
-      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Profile", () => runNpcQuickGen(doc));
+    const settings = getLoreBridgeSettings();
+
+    if (settings.uiButtonsEnabled && doc.documentName === "Actor" && doc.type === "npc") {
+      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Profile", "ui-buttons", () => runNpcQuickGen(doc));
     }
 
     if (doc.documentName === "JournalEntry") {
-      injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", () => runGenerateDescription(doc, frame));
+      if (settings.uiButtonsEnabled) {
+      injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", "ui-buttons", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {
-        injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", () => runSessionRecap(doc, frame));
-        injectHeaderButton(frame, "lazy-dm-prep", "fas fa-hat-wizard", "Lazy DM Prep", () => runLazyDmPrep(doc, frame));
+        injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", "ui-buttons", () => runSessionRecap(doc, frame));
+        injectHeaderButton(frame, "lazy-dm-prep", "fas fa-hat-wizard", "Lazy DM Prep", "ui-buttons", () => runLazyDmPrep(doc, frame));
       }
-      injectQAPanel(doc, frame);
+      }
+      if (settings.journalQaEnabled) injectQAPanel(doc, frame);
     }
 
-    if (doc.documentName === "Scene") {
-      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
+    if (settings.uiButtonsEnabled && doc.documentName === "Scene") {
+      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", "ui-buttons", () => runEncounterSuggester(doc));
     }
   });
 
@@ -600,6 +607,8 @@ export function registerSheetButtons(): void {
       ?? (html as { length?: number; 0?: HTMLElement })?.[0]
       ?? (html as HTMLElement);
     if (!frame) return;
-    injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", () => runEncounterSuggester(doc));
+    if (getLoreBridgeSettings().uiButtonsEnabled) {
+      injectHeaderButton(frame, "encounter", "fas fa-dice-d20", "Encounter Suggestions", "ui-buttons", () => runEncounterSuggester(doc));
+    }
   });
 }

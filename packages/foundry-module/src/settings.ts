@@ -1,4 +1,5 @@
 import { LoreBridgeConfigurationApp } from "./configuration-app.js";
+import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -11,11 +12,12 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: typeof LoreBridgeConfigurationApp;
+      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp;
       restricted: boolean;
     },
   ): void;
   set(moduleId: string, key: string, value: unknown): Promise<unknown>;
+  sheet?: { element: HTMLElement };
 };
 
 export function getFoundrySettingsApi(): FoundrySettingsApi {
@@ -31,6 +33,9 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   sessionLogFolder: "sessionLogFolder",
   excludedCompendiums: "excludedCompendiums",
   writesEnabled: "writesEnabled",
+  uiButtonsEnabled: "uiButtonsEnabled",
+  chatCommandEnabled: "chatCommandEnabled",
+  journalQaEnabled: "journalQaEnabled",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -44,6 +49,9 @@ export type LoreBridgeSettings = {
   sessionLogFolder: string;
   excludedCompendiums: string;
   writesEnabled: boolean;
+  uiButtonsEnabled: boolean;
+  chatCommandEnabled: boolean;
+  journalQaEnabled: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -55,6 +63,15 @@ export function registerLoreBridgeSettings(): void {
     hint: "Check the backend connection and pair this GM browser.",
     icon: "fas fa-bridge",
     type: LoreBridgeConfigurationApp,
+    restricted: true,
+  });
+
+  settings.registerMenu(MODULE_ID, "features", {
+    name: "Configure LoreBridge Features",
+    label: "Configure Features",
+    hint: "Choose which LoreBridge feature categories are available in this world.",
+    icon: "fas fa-sliders-h",
+    type: LoreBridgeFeatureSettingsApp,
     restricted: true,
   });
 
@@ -118,6 +135,37 @@ export function registerLoreBridgeSettings(): void {
     config: true,
     type: Boolean,
     default: false,
+    requiresReload: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled, {
+    name: "Enable Foundry UI Buttons",
+    hint: "Show LoreBridge generation and suggestion buttons on supported sheets.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled, {
+    name: "Enable /lb Chat Command",
+    hint: "Allow LoreBridge /lb questions, roleplay, city, and NPC commands in chat.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled, {
+    name: "Enable Journal Page Q&A Panel",
+    hint: "Show the Ask LoreBridge panel on journal sheets.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    requiresReload: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
@@ -136,6 +184,29 @@ export function registerLoreBridgeSettings(): void {
     config: false,
     type: String,
     default: "",
+  });
+}
+
+/**
+ * The feature settings are edited through the dedicated submenu. They remain
+ * registered with SettingsConfig so its Save Changes action can own the
+ * standard world-reload confirmation, but are hidden from the general list.
+ */
+export function registerFeatureSettingsPresentation(): void {
+  Hooks.on("renderApplicationV2", (app: unknown) => {
+    const element = (app as { element?: HTMLElement }).element;
+    if (!element) return;
+
+    for (const setting of [
+      LOREBRIDGE_SETTINGS.writesEnabled,
+      LOREBRIDGE_SETTINGS.uiButtonsEnabled,
+      LOREBRIDGE_SETTINGS.chatCommandEnabled,
+      LOREBRIDGE_SETTINGS.journalQaEnabled,
+    ]) {
+      const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
+      const row = input?.closest<HTMLElement>(".form-group");
+      if (row) row.style.display = "none";
+    }
   });
 }
 
@@ -166,6 +237,15 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ).trim(),
     writesEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled),
+    ),
+    uiButtonsEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled) ?? true,
+    ),
+    chatCommandEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled) ?? true,
+    ),
+    journalQaEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled) ?? true,
     ),
   };
 }

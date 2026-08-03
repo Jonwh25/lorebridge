@@ -1,0 +1,23 @@
+<form autocomplete="off">
+  <p class="notes">Choose which LoreBridge feature categories are available in this world. Save Features stages your choices; use Save Changes in the parent Game Settings window to apply them.</p>
+  <fieldset>
+    <legend>Feature Categories</legend>
+    <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="uiButtonsEnabled" {{checked uiButtonsEnabled}}> Enable Foundry UI Buttons</label>
+      <p class="hint">Show LoreBridge generation and suggestion buttons on supported actor, journal, and scene sheets.</p>
+    </div>
+    <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="chatCommandEnabled" {{checked chatCommandEnabled}}> Enable /lb Chat Command</label>
+      <p class="hint">Allow LoreBridge questions, roleplay, city, and NPC commands in chat.</p>
+    </div>
+    <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="journalQaEnabled" {{checked journalQaEnabled}}> Enable Journal Page Q&amp;A Panel</label>
+      <p class="hint">Show the Ask LoreBridge panel on journal sheets.</p>
+    </div>
+    <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="writesEnabled" {{checked writesEnabled}}> Enable AI-Proposed Writes</label>
+      <p class="hint">Allow AI assistants to propose journal page updates. Every change still requires explicit GM approval.</p>
+    </div>
+  </fieldset>
+  <footer class="sheet-footer flexrow"><button type="button" data-action="save"><i class="fas fa-save"></i> Save Features</button></footer>
+</form>
