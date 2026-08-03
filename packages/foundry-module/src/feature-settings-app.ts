@@ -57,13 +57,8 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     id: "lorebridge-feature-settings",
     window: { title: "Configure LoreBridge Features" },
     position: { width: 560, height: "auto" },
-    form: {
-      handler: async (event: Event, _form: HTMLFormElement, formData: FormDataExtended) => {
-        const instance = (event.currentTarget as HTMLElement & { app?: LoreBridgeFeatureSettingsApp })?.app
-          ?? LoreBridgeFeatureSettingsApp._lastInstance;
-        if (instance) await instance._handleSubmit(formData);
-      },
-      closeOnSubmit: false,
+    actions: {
+      save: LoreBridgeFeatureSettingsApp._onSave,
     },
   };
 
@@ -88,8 +83,24 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     };
   }
 
-  async _handleSubmit(formData: FormDataExtended): Promise<void> {
-    const values = (formData as unknown as { object?: Record<string, unknown> }).object ?? {};
+  static async _onSave(
+    this: LoreBridgeFeatureSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    await this._saveFeatures();
+  }
+
+  private async _saveFeatures(): Promise<void> {
+    const form = this.element.querySelector<HTMLFormElement>("form");
+    const checked = (name: string): boolean =>
+      form?.querySelector<HTMLInputElement>(`input[name='${name}']`)?.checked ?? false;
+    const values = {
+      writesEnabled: checked("writesEnabled"),
+      uiButtonsEnabled: checked("uiButtonsEnabled"),
+      chatCommandEnabled: checked("chatCommandEnabled"),
+      journalQaEnabled: checked("journalQaEnabled"),
+    };
     const previous = getLoreBridgeSettings();
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
@@ -99,22 +110,22 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     ] as const;
 
     await Promise.all(features.map(([setting, field]) =>
-      getFoundrySettingsApi().set(MODULE_ID, setting, Boolean(values[field])),
+      getFoundrySettingsApi().set(MODULE_ID, setting, values[field],
     ));
 
     document.querySelectorAll<HTMLElement>("[data-lb-feature-category]").forEach((element) => {
       const category = element.dataset["lbFeatureCategory"];
-      if ((category === "ui-buttons" && !values["uiButtonsEnabled"])
-        || (category === "journal-qa" && !values["journalQaEnabled"])) element.remove();
+      if ((category === "ui-buttons" && !values.uiButtonsEnabled)
+        || (category === "journal-qa" && !values.journalQaEnabled)) element.remove();
     });
 
     ui.notifications.info("LoreBridge feature settings saved.");
     await this.render();
 
-    const changed = previous.writesEnabled !== Boolean(values["writesEnabled"])
-      || previous.uiButtonsEnabled !== Boolean(values["uiButtonsEnabled"])
-      || previous.chatCommandEnabled !== Boolean(values["chatCommandEnabled"])
-      || previous.journalQaEnabled !== Boolean(values["journalQaEnabled"]);
+    const changed = previous.writesEnabled !== values.writesEnabled
+      || previous.uiButtonsEnabled !== values.uiButtonsEnabled
+      || previous.chatCommandEnabled !== values.chatCommandEnabled
+      || previous.journalQaEnabled !== values.journalQaEnabled;
     if (!changed) return;
 
     this._showReloadPrompt();
@@ -139,5 +150,3 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     }).render({ force: true });
   }
 }
-
-declare class FormDataExtended { object?: Record<string, unknown> }
