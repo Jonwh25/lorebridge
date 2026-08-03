@@ -23,6 +23,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getCombatState: "getCombatState",
   rollDice: "rollDice",
   getChatMessages: "getChatMessages",
+  searchAssets: "searchAssets",
   resolveUuid: "resolveUuid",
   searchCampaign: "searchCampaign",
   getRelatedDocuments: "getRelatedDocuments",

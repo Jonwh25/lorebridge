@@ -6,6 +6,7 @@ export interface BackendConfig {
   pairingEnabled: boolean;
   pairingTtlSeconds: number;
   dataDir: string;
+  foundryDataDir?: string;
 }
 
 function parsePort(value: string | undefined): number {
@@ -31,5 +32,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     pairingEnabled: env.LOREBRIDGE_PAIRING_ENABLED === "true",
     pairingTtlSeconds: parsePositiveInteger("LOREBRIDGE_PAIRING_TTL_SECONDS", env.LOREBRIDGE_PAIRING_TTL_SECONDS, 300),
     dataDir: path.resolve(env.LOREBRIDGE_DATA_DIR?.trim() || ".lorebridge"),
+    ...(env.LOREBRIDGE_FOUNDRY_DATA_DIR?.trim() ? { foundryDataDir: path.resolve(env.LOREBRIDGE_FOUNDRY_DATA_DIR.trim()) } : {}),
   };
 }
