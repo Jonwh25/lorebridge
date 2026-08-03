@@ -8,7 +8,19 @@ const MODULE_ID = "lorebridge";
 type AnyRecord = Record<string, unknown>;
 type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
 type AppV2Static = { new (options?: AnyRecord): AppV2Instance; DEFAULT_OPTIONS: AnyRecord; PARTS?: AnyRecord };
-type DialogV2Static = { confirm(config: AnyRecord): Promise<boolean> };
+type DialogV2Static = {
+  new (config: {
+    window?: { title?: string; resizable?: boolean };
+    content: string;
+    buttons: Array<{
+      action: string;
+      label: string;
+      icon?: string;
+      default?: boolean;
+      callback?: () => void;
+    }>;
+  }): { render(options: { force: boolean }): unknown };
+};
 
 const foundryApi = (
   globalThis as unknown as { foundry?: { applications?: { api?: AnyRecord } } }
@@ -105,14 +117,26 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       || previous.journalQaEnabled !== Boolean(values["journalQaEnabled"]);
     if (!changed) return;
 
-    const reloadNow = await foundryApi?.DialogV2?.confirm({
-      window: { title: "Reload World Now?" },
+    this._showReloadPrompt();
+  }
+
+  private _showReloadPrompt(): void {
+    const DialogV2 = foundryApi?.DialogV2;
+    if (!DialogV2) return;
+
+    new DialogV2({
+      window: { title: "Reload World Now?", resizable: false },
       content: "<p>LoreBridge feature settings were saved. Reload now to refresh every currently open sheet, or choose Later to keep working with the new settings applied to future interactions.</p>",
-      yes: { label: "Reload Now", icon: "fas fa-sync" },
-      no: { label: "Later", icon: "fas fa-clock" },
-      rejectClose: false,
-    });
-    if (reloadNow) window.location.reload();
+      buttons: [
+        { action: "later", label: "Later", icon: "fas fa-clock", default: true },
+        {
+          action: "reload",
+          label: "Reload Now",
+          icon: "fas fa-sync",
+          callback: () => window.location.reload(),
+        },
+      ],
+    }).render({ force: true });
   }
 }
 
