@@ -155,7 +155,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
       const client = new LoreBridgeBackendClient(url, this._clientToken());
       const health = await client.health();
       const identity = await client.identity();
-      ui.notifications.info(`LoreBridge backend ${health.version} connected (${identity.id}).`);
+      console.info(`lorebridge | Backend ${health.version} connected (${identity.id}).`);
       await this.render();
     } catch (error) {
       LoreBridgeConfigurationApp._notifyError(error);
@@ -179,7 +179,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
 
       const result = await client.completePairing(code, `Foundry ${game.version ?? "v14"}`);
       await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, result.token);
-      ui.notifications.info(`LoreBridge paired with ${result.backendId}.`);
+      console.info(`lorebridge | Paired with ${result.backendId}.`);
       await this.render();
     } catch (error) {
       LoreBridgeConfigurationApp._notifyError(error);
@@ -192,7 +192,7 @@ export class LoreBridgeConfigurationApp extends AppBase {
     _target: HTMLElement,
   ): Promise<void> {
     await getFoundrySettingsApi().set(MODULE_ID, LOREBRIDGE_SETTINGS.clientToken, "");
-    ui.notifications.info("LoreBridge pairing removed from this browser.");
+    console.info("lorebridge | Local pairing removed from this browser.");
     await this.render();
   }
 
