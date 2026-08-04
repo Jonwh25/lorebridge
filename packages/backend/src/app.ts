@@ -22,6 +22,8 @@ import {
   validateSearchActorsOutput,
   validateSearchScenesInput,
   validateSearchScenesOutput,
+  validateBackupExportInput,
+  type BackupExportOutput,
 } from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
@@ -40,7 +42,7 @@ import {
 } from "./mcp.js";
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
-import { createGitHubAdapter, GitHubAdapterError, type GitHubAdapter } from "./github-adapter.js";
+import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 
 const serviceVersion = "0.2.0";
 
@@ -834,6 +836,80 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (error instanceof GitHubAdapterError) {
         const status = error.code === "access_denied" ? 403
           : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/backup/github/export") {
+    if (!authenticate(pairing, request, response)) return;
+    // Validate input before checking GitHub config so clients get actionable 400s.
+    const body = await readJson(request);
+    const validation = validateBackupExportInput(body);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Backup export input is invalid.", details: validation.errors } });
+      return;
+    }
+    const input = validation.value;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+
+    // Validate all paths against the campaign root before doing anything.
+    try {
+      for (const file of input.files) {
+        resolveCampaignPath(github.campaignRoot, file.path);
+      }
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        sendJson(response, 400, { error: { code: "invalid_path", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+
+    if (input.preview) {
+      const output: BackupExportOutput = {
+        preview: true,
+        type: input.type,
+        folderName: input.folderName,
+        files: input.files,
+        warnings: [],
+      };
+      sendJson(response, 200, output);
+      return;
+    }
+
+    // Commit to GitHub.
+    const defaultMessage = `LoreBridge backup: ${input.type} folder "${input.folderName}"`;
+    const commitMessage = input.commitMessage?.trim() || defaultMessage;
+    try {
+      const result = await github.createBackupCommit(
+        commitMessage,
+        input.files.map((f) => ({ path: f.path, content: f.content })),
+      );
+      const output: BackupExportOutput = {
+        preview: false,
+        type: input.type,
+        folderName: input.folderName,
+        files: input.files,
+        commitSha: result.sha,
+        commitUrl: result.url,
+        warnings: [],
+      };
+      sendJson(response, 200, output);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status =
+          error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "conflict" ? 409
           : error.code === "rate_limited" ? 429
           : 502;
         sendJson(response, status, { error: { code: error.code, message: error.message } });
