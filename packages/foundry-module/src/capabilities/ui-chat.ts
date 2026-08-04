@@ -1,5 +1,7 @@
 import { searchCampaign } from "./search-campaign.js";
-import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
+import { exportJournalFolder } from "./backup-journals.js";
+import { exportSceneFolder } from "./backup-scenes.js";
+import type { CampaignSearchMatch, BackupFileEntry } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
 const MODULE_ID = "lorebridge";
@@ -354,6 +356,172 @@ async function handleNpcGeneration(args: string): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Backup command (#135, #129)
+// ---------------------------------------------------------------------------
+
+async function postBackupRequest(
+  type: "journals" | "scenes",
+  folderName: string,
+  preview: boolean,
+  files: BackupFileEntry[],
+  commitMessage?: string,
+): Promise<Record<string, unknown>> {
+  const settings = getLoreBridgeSettings();
+  if (!settings.backendUrl || !settings.clientToken) {
+    throw new Error("LoreBridge backend is not configured or paired.");
+  }
+  const url = buildBackendUrl(settings.backendUrl, "v1/backup/github/export");
+  const body: Record<string, unknown> = { type, folderName, preview, files };
+  if (commitMessage) body.commitMessage = commitMessage;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${settings.clientToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    };
+    throw new Error(err?.error?.message ?? `Backend error ${response.status}`);
+  }
+  return response.json() as Promise<Record<string, unknown>>;
+}
+
+async function handleBackupCommand(
+  type: "journals" | "scenes",
+  folderName: string,
+): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb backup is only available to GMs.");
+    return;
+  }
+  if (!folderName) {
+    ui.notifications.warn(
+      `LoreBridge: Usage: /lb backup ${type} <folder name>`,
+    );
+    return;
+  }
+
+  ui.notifications.info(
+    `LoreBridge: Serializing ${type} in folder "${folderName}"…`,
+  );
+
+  let files: BackupFileEntry[];
+  let warnings: string[];
+
+  try {
+    if (type === "journals") {
+      ({ files, warnings } = await exportJournalFolder(folderName));
+    } else {
+      ({ files, warnings } = await exportSceneFolder(folderName));
+    }
+  } catch (error) {
+    ui.notifications.error(
+      `LoreBridge backup failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+
+  // Preview via the backend (validates paths).
+  try {
+    await postBackupRequest(type, folderName, true, files);
+  } catch (error) {
+    ui.notifications.error(
+      `LoreBridge backup preview failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+
+  // Build a readable summary of what will be committed.
+  const fileListHtml = files
+    .map((f) => `<li><code>${f.path}</code></li>`)
+    .join("");
+  const warningHtml =
+    warnings.length > 0
+      ? `<p><strong>Warnings:</strong></p><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul>`
+      : "";
+
+  const dialogContent = `
+    <p><strong>LoreBridge — GitHub Backup Preview</strong></p>
+    <p>Folder: <strong>${folderName}</strong> (${files.length} file${files.length === 1 ? "" : "s"})</p>
+    <details style="margin-top:8px;">
+      <summary style="cursor:pointer;font-weight:bold;">Files to commit</summary>
+      <ul style="font-size:0.85em;margin-top:4px;">${fileListHtml}</ul>
+    </details>
+    ${warningHtml}
+    <p style="margin-top:8px;font-size:0.85em;color:#888;">
+      Click <strong>Commit to GitHub</strong> to write these files. This cannot be undone.
+    </p>
+  `;
+
+  // Capture files in closure for the confirm callback.
+  const capturedFiles = files;
+  const capturedType = type;
+  const capturedFolder = folderName;
+
+  new foundry.applications.api.DialogV2({
+    window: { title: "LoreBridge — Backup Preview", resizable: true },
+    position: { width: 580, height: "auto" },
+    content: dialogContent,
+    buttons: [
+      {
+        action: "commit",
+        label: "Commit to GitHub",
+        icon: "fas fa-cloud-upload-alt",
+        default: true,
+        callback: () => {
+          void postBackupRequest(
+            capturedType,
+            capturedFolder,
+            false,
+            capturedFiles,
+          )
+            .then((result) => {
+              const sha = String((result as Record<string, unknown>).commitSha ?? "");
+              const commitUrl = String(
+                (result as Record<string, unknown>).commitUrl ?? "",
+              );
+              const shortSha = sha.slice(0, 7);
+              ui.notifications.info(
+                `LoreBridge: Backup committed — ${shortSha}`,
+              );
+              const gmIds = game.users
+                .filter((u) => u.isGM)
+                .map((u) => u.id);
+              void ChatMessage.create({
+                content: `<p><strong>LoreBridge Backup</strong> — ${capturedType} folder "${capturedFolder}" committed to GitHub.</p>${commitUrl ? `<p><a href="${commitUrl}" target="_blank">View commit ${shortSha}</a></p>` : ""}`,
+                whisper: gmIds,
+                speaker: { alias: "LoreBridge" },
+                flags: {
+                  [MODULE_ID]: {
+                    type: "backup-commit",
+                    backupType: capturedType,
+                    folderName: capturedFolder,
+                    commitSha: sha,
+                  },
+                },
+              });
+            })
+            .catch((err: unknown) => {
+              ui.notifications.error(
+                `LoreBridge backup commit failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        },
+      },
+      {
+        action: "cancel",
+        label: "Cancel",
+        icon: "fas fa-times",
+      },
+    ],
+  }).render({ force: true });
+}
+
 function isLbCommand(value: string): boolean {
   const t = value.trim();
   return t === COMMAND_EXACT || t.startsWith(COMMAND_PREFIX);
@@ -449,6 +617,28 @@ export function registerChatCommand(): void {
       }
       clearInput();
       void handleNpcGeneration(npcArgs);
+      return false;
+    }
+
+    // /lb backup journals <folder name>
+    // /lb backup scenes <folder name>
+    if (args.startsWith("backup ")) {
+      const backupArgs = args.slice("backup ".length).trim();
+      const journalsMatch = backupArgs.match(/^journals\s+(.+)$/i);
+      const scenesMatch = backupArgs.match(/^scenes\s+(.+)$/i);
+      if (journalsMatch) {
+        clearInput();
+        void handleBackupCommand("journals", journalsMatch[1]!.trim());
+        return false;
+      }
+      if (scenesMatch) {
+        clearInput();
+        void handleBackupCommand("scenes", scenesMatch[1]!.trim());
+        return false;
+      }
+      ui.notifications.warn(
+        "LoreBridge: Usage: /lb backup journals <folder name>  or  /lb backup scenes <folder name>",
+      );
       return false;
     }
 
