@@ -446,16 +446,18 @@ async function handleBackupCommand(
       : "";
 
   const dialogContent = `
-    <p><strong>LoreBridge — GitHub Backup Preview</strong></p>
-    <p>Folder: <strong>${folderName}</strong> (${files.length} file${files.length === 1 ? "" : "s"})</p>
-    <details style="margin-top:8px;">
-      <summary style="cursor:pointer;font-weight:bold;">Files to commit</summary>
-      <ul style="font-size:0.85em;margin-top:4px;">${fileListHtml}</ul>
-    </details>
-    ${warningHtml}
-    <p style="margin-top:8px;font-size:0.85em;color:#888;">
-      Click <strong>Commit to GitHub</strong> to write these files. This cannot be undone.
-    </p>
+    <div style="max-height:420px;overflow-y:auto;padding-right:4px;">
+      <p><strong>LoreBridge — GitHub Backup Preview</strong></p>
+      <p>Folder: <strong>${folderName}</strong> (${files.length} file${files.length === 1 ? "" : "s"})</p>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;font-weight:bold;">Files to commit</summary>
+        <ul style="font-size:0.85em;margin-top:4px;">${fileListHtml}</ul>
+      </details>
+      ${warningHtml}
+      <p style="margin-top:8px;font-size:0.85em;color:#888;">
+        Click <strong>Commit to GitHub</strong> to write these files. This cannot be undone.
+      </p>
+    </div>
   `;
 
   // Capture files in closure for the confirm callback.
@@ -465,7 +467,7 @@ async function handleBackupCommand(
 
   new foundry.applications.api.DialogV2({
     window: { title: "LoreBridge — Backup Preview", resizable: true },
-    position: { width: 580, height: "auto" },
+    position: { width: 580, height: 560 },
     content: dialogContent,
     buttons: [
       {
