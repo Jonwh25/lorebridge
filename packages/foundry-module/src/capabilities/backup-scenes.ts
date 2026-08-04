@@ -12,6 +12,7 @@
 import { RAVENS_EYE_SPEC_VERSION } from "@lorebridge/shared";
 import type { BackupFileEntry } from "@lorebridge/shared/capabilities";
 import { toYamlDoc } from "./backup-yaml.js";
+import { buildFolderMap, collectSubtreeIds, findRootFolder, type FoundryFolder } from "./backup-folders.js";
 
 const MODULE_ID = "lorebridge";
 const FLAG_SCENE_RAVENS_EYE_ID = "sceneRavensEyeId";
@@ -24,16 +25,6 @@ const FLAG_FOLDER_RAVENS_EYE_ID = "folderRavensEyeId";
 type SceneWithFlags = FoundryScene & {
   getFlag(scope: string, key: string): unknown;
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
-};
-
-type FoundryFolder = {
-  id: string;
-  name: string;
-  type: string;
-  sort?: number;
-  folder?: { id: string } | null;
-  getFlag?(scope: string, key: string): unknown;
-  setFlag?(scope: string, key: string, value: unknown): Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -93,84 +84,6 @@ function buildPlaceFrontmatter(placeId: string, name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Folder tree helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a Set of folder IDs rooted at `rootId` (inclusive of all
- * descendants) using a pre-built id→folder map.
- */
-function collectSubtreeIds(
-  rootId: string,
-  folderById: Map<string, FoundryFolder>,
-): Set<string> {
-  const ids = new Set<string>([rootId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const [id, f] of folderById) {
-      if (!ids.has(id) && f.folder?.id && ids.has(f.folder.id)) {
-        ids.add(id);
-        changed = true;
-      }
-    }
-  }
-  return ids;
-}
-
-type FolderCollection = {
-  contents?: unknown[];
-  get?(id: string): unknown;
-};
-
-/**
- * Returns a Map<id, FoundryFolder> seeded from three sources in order:
- *   1. game.folders.contents (when Foundry's Collection array is populated)
- *   2. scene.folder references (immediate parents, always available)
- *   3. Ancestor lookups via game.folders.get(id) for each discovered parent ID
- *
- * Source 3 is the key one: it uses the native Map.get() which works even
- * when iteration/contents are unreliable, allowing us to climb from a leaf
- * folder (e.g. "Battle Maps") up to the root (e.g. "Barovia").
- */
-function buildFolderMap(scenes: FoundryScene[]): Map<string, FoundryFolder> {
-  const map = new Map<string, FoundryFolder>();
-  const gFolders = (game as unknown as { folders?: FolderCollection }).folders;
-
-  // Source 1: contents array (may or may not be populated)
-  for (const raw of gFolders?.contents ?? []) {
-    const f = raw as FoundryFolder;
-    if (f?.id) map.set(f.id, f);
-  }
-
-  // Source 2: scene.folder references
-  for (const scene of scenes) {
-    const sf = scene.folder as unknown as FoundryFolder | null | undefined;
-    if (sf?.id && !map.has(sf.id)) map.set(sf.id, sf);
-  }
-
-  // Source 3: walk parent IDs upward via game.folders.get()
-  if (gFolders?.get) {
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const f of Array.from(map.values())) {
-        const parentId = f.folder?.id;
-        if (parentId && !map.has(parentId)) {
-          const parent = gFolders.get(parentId) as FoundryFolder | undefined;
-          if (parent?.id) {
-            map.set(parent.id, parent);
-            changed = true;
-          }
-        }
-      }
-    }
-  }
-
-  return map;
-}
-
-// ---------------------------------------------------------------------------
 // Main export function
 // ---------------------------------------------------------------------------
 
@@ -193,13 +106,12 @@ export async function exportSceneFolder(
 
   // Build a full folder map (game.folders.contents + scene.folder refs).
   const allScenes = Array.from(game.scenes);
-  const folderById = buildFolderMap(allScenes);
+  const folderById = buildFolderMap(
+    allScenes.map((s) => s.folder as unknown as FoundryFolder | null),
+  );
 
   // Find the root folder by name (prefer Scene type; fall back to any type).
-  const allFolders = Array.from(folderById.values());
-  const rootFolder =
-    allFolders.find((f) => f.name === folderName && f.type === "Scene") ??
-    allFolders.find((f) => f.name === folderName);
+  const rootFolder = findRootFolder(folderName, folderById, "Scene");
 
   if (!rootFolder) {
     throw new Error(
@@ -310,13 +222,40 @@ export async function exportSceneFolder(
       }
     }
 
-    // Resolve background src (v14 uses firstLevel; fall back to background).
-    const backgroundSrc =
-      scene.firstLevel?.background?.src ?? scene.background?.src ?? "";
-    if (backgroundSrc) {
+    // Serialize the complete Foundry scene document for full restore fidelity.
+    // toObject() returns a plain JS object with all embedded collections
+    // (walls, lights, tiles, drawings, notes, sounds, regions, etc.).
+    const rawSceneData = (scene as unknown as { toObject(): Record<string, unknown> }).toObject();
+
+    // Strip fields that must not be restored verbatim:
+    //   _id      — Foundry assigns a new ID on import; restoring the old one
+    //              causes UUID collisions when the original scene still exists.
+    //   thumb    — auto-generated by Foundry; will be rebuilt on first load.
+    //   _stats   — internal Foundry housekeeping metadata.
+    //   tokens   — live token positions are dynamic runtime state, not scene
+    //              definition data. Restore them separately if needed.
+    const {
+      _id: _stripId,
+      thumb: _stripThumb,
+      _stats: _stripStats,
+      tokens: sceneTokens,
+      ...foundrySourceData
+    } = rawSceneData as Record<string, unknown> & {
+      tokens?: unknown[];
+    };
+
+    // Warn about token exclusion so the user knows actors won't reappear.
+    if (Array.isArray(sceneTokens) && sceneTokens.length > 0) {
       warnings.push(
-        `Asset inventoried (not exported): ${backgroundSrc} (scene "${scene.name}")`,
+        `Scene "${scene.name}": ${sceneTokens.length} token(s) not included — token positions are dynamic runtime state. Re-place actors after restore.`,
       );
+    }
+
+    // Inventory asset paths (backgrounds, tiles, etc.) for user awareness.
+    const backgroundSrc =
+      (foundrySourceData.background as Record<string, unknown> | undefined)?.src as string ?? "";
+    if (backgroundSrc) {
+      warnings.push(`Asset inventoried (not exported): ${backgroundSrc} (scene "${scene.name}")`);
     }
 
     // Build the Foundry scene sidecar YAML.
@@ -332,44 +271,9 @@ export async function exportSceneFolder(
       ...(folderExtId ? { folder: folderExtId } : {}),
       place: placeId,
       structure: {
-        foundrySourceData: {
-          name: scene.name,
-          navigation: scene.navigation,
-          grid: {
-            type:
-              (scene as unknown as { grid?: { type?: number } }).grid?.type ??
-              1,
-            size:
-              (scene as unknown as { grid?: { size?: number } }).grid?.size ??
-              100,
-            distance:
-              (scene as unknown as { grid?: { distance?: number } }).grid
-                ?.distance ?? 5,
-            units:
-              (scene as unknown as { grid?: { units?: string } }).grid?.units ??
-              "ft",
-          },
-          background: { src: backgroundSrc },
-          walls: [],
-          lights: [],
-          drawings: [],
-          tiles: [],
-          regions: [],
-          tokens: [],
-        },
+        foundrySourceData,
       },
     };
-
-    if (scene.tokens && Array.from(scene.tokens).length > 0) {
-      warnings.push(
-        `Scene "${scene.name}" tokens are not exported in this backup (future feature).`,
-      );
-    }
-    if (scene.notes && Array.from(scene.notes).length > 0) {
-      warnings.push(
-        `Scene "${scene.name}" notes/pins are not exported in this backup (future feature).`,
-      );
-    }
 
     const sceneYaml = toYamlDoc(sceneResource);
     const sceneUuidPart = sceneExtId.replace("foundry-scene:", "");
