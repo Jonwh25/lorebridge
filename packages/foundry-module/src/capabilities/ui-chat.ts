@@ -467,7 +467,7 @@ async function handleBackupCommand(
 
   new foundry.applications.api.DialogV2({
     window: { title: "LoreBridge — Backup Preview", resizable: true },
-    position: { width: 580, height: 560 },
+    position: { width: 580, height: "auto" },
     content: dialogContent,
     buttons: [
       {
