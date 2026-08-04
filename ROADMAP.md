@@ -180,14 +180,14 @@ Success test: an AI client can query active combat state, roll dice, retrieve
 recent chat history, and locate existing image or audio assets in the Foundry
 data directory.
 
-### Milestone 11 — Extensibility & Configuration
+### Milestone 11 — Extensibility & Configuration ✅
 
 Power-user controls that let GMs tailor LoreBridge to their world and workflow
 without requiring code changes.
 
-1. [Per-category feature toggles in LoreBridge world settings](https://github.com/Jonwh25/lorebridge/issues/100)
-2. [Ollama and OpenAI-compatible endpoint support for local AI](https://github.com/Jonwh25/lorebridge/issues/107)
-3. [GM-authored Foundry macros as custom MCP tools](https://github.com/Jonwh25/lorebridge/issues/115)
+1. ✅ [Per-category feature toggles in LoreBridge world settings](https://github.com/Jonwh25/lorebridge/issues/100)
+2. ✅ [Ollama and OpenAI-compatible endpoint support for local AI](https://github.com/Jonwh25/lorebridge/issues/107)
+3. ✅ [GM-authored Foundry macros as custom MCP tools](https://github.com/Jonwh25/lorebridge/issues/115)
 
 Success test: a GM can disable individual capability categories, switch to a
 local Ollama model, and expose a custom macro as an MCP tool without touching
