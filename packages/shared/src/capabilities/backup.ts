@@ -18,6 +18,9 @@ export interface BackupFileEntry {
   content: string;
 }
 
+/** All document types that can be backed up. */
+export type BackupDocumentType = "journals" | "scenes" | "actors" | "rolltables";
+
 /**
  * Input to POST /v1/backup/github/export.
  * The Foundry module serializes the files and sends them here.
@@ -25,7 +28,7 @@ export interface BackupFileEntry {
  */
 export interface BackupExportInput {
   /** Document type being backed up. */
-  type: "journals" | "scenes";
+  type: BackupDocumentType;
   /** Exact Foundry folder name the GM selected. */
   folderName: string;
   /** Optional commit message; defaults to a generated description. */
@@ -39,7 +42,7 @@ export interface BackupExportInput {
 /** Output from POST /v1/backup/github/export. */
 export interface BackupExportOutput {
   preview: boolean;
-  type: "journals" | "scenes";
+  type: BackupDocumentType;
   folderName: string;
   files: BackupFileEntry[];
   /** Present when preview=false and commit succeeded. */
@@ -75,8 +78,9 @@ export function validateBackupExportInput(value: unknown): ValidationResult<Back
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
 
-  if (value.type !== "journals" && value.type !== "scenes") {
-    errors.push('type must be "journals" or "scenes"');
+  const validTypes: BackupDocumentType[] = ["journals", "scenes", "actors", "rolltables"];
+  if (!validTypes.includes(value.type as BackupDocumentType)) {
+    errors.push('type must be "journals", "scenes", "actors", or "rolltables"');
   }
   if (!isNonEmptyString(value.folderName)) errors.push("folderName must be a non-empty string");
   if (typeof value.preview !== "boolean") errors.push("preview must be a boolean");
@@ -115,8 +119,9 @@ export function validateBackupExportOutput(value: unknown): ValidationResult<Bac
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
 
   if (typeof value.preview !== "boolean") errors.push("preview must be a boolean");
-  if (value.type !== "journals" && value.type !== "scenes") {
-    errors.push('type must be "journals" or "scenes"');
+  const validTypes: BackupDocumentType[] = ["journals", "scenes", "actors", "rolltables"];
+  if (!validTypes.includes(value.type as BackupDocumentType)) {
+    errors.push('type must be "journals", "scenes", "actors", or "rolltables"');
   }
   if (!isNonEmptyString(value.folderName)) errors.push("folderName must be a non-empty string");
   if (!Array.isArray(value.files)) errors.push("files must be an array");

@@ -154,7 +154,7 @@ describe("POST /v1/backup/github/export — input validation", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          type: "actors",
+          type: "invalid-type",
           folderName: "Test",
           preview: true,
           files: SAMPLE_FILES,
@@ -163,6 +163,46 @@ describe("POST /v1/backup/github/export — input validation", () => {
       assert.equal(res.status, 400);
       const body = (await res.json()) as { error: { code: string } };
       assert.equal(body.error.code, "invalid_request");
+    });
+  });
+
+  it("accepts actors as a valid type (503 expected without GitHub config)", async () => {
+    await withServer(async (baseUrl) => {
+      const token = await pair(baseUrl);
+      const res = await fetch(`${baseUrl}/v1/backup/github/export`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "actors",
+          folderName: "NPCs",
+          preview: true,
+          files: SAMPLE_FILES,
+        }),
+      });
+      assert.equal(res.status, 503);
+    });
+  });
+
+  it("accepts rolltables as a valid type (503 expected without GitHub config)", async () => {
+    await withServer(async (baseUrl) => {
+      const token = await pair(baseUrl);
+      const res = await fetch(`${baseUrl}/v1/backup/github/export`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "rolltables",
+          folderName: "Random Encounters",
+          preview: true,
+          files: SAMPLE_FILES,
+        }),
+      });
+      assert.equal(res.status, 503);
     });
   });
 
@@ -307,12 +347,27 @@ describe("validateBackupExportInput", () => {
     );
   });
 
+  it("accepts all valid document types", async () => {
+    const { validateBackupExportInput } = await import(
+      "@lorebridge/shared/capabilities"
+    );
+    for (const type of ["journals", "scenes", "actors", "rolltables"]) {
+      const result = validateBackupExportInput({
+        type,
+        folderName: "Test Folder",
+        preview: true,
+        files: [{ path: "ravens-eye.yaml", content: "specification: 0.1.0-experimental\n" }],
+      });
+      assert.equal(result.valid, true, `Expected type "${type}" to be valid`);
+    }
+  });
+
   it("rejects unknown type", async () => {
     const { validateBackupExportInput } = await import(
       "@lorebridge/shared/capabilities"
     );
     const result = validateBackupExportInput({
-      type: "actors",
+      type: "unknown-document-type",
       folderName: "NPCs",
       preview: true,
       files: [],

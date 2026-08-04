@@ -1,7 +1,9 @@
 import { searchCampaign } from "./search-campaign.js";
 import { exportJournalFolder } from "./backup-journals.js";
 import { exportSceneFolder } from "./backup-scenes.js";
-import type { CampaignSearchMatch, BackupFileEntry } from "@lorebridge/shared/capabilities";
+import { exportActorFolder } from "./backup-actors.js";
+import { exportRollTableFolder } from "./backup-roll-tables.js";
+import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
 const MODULE_ID = "lorebridge";
@@ -361,7 +363,7 @@ async function handleNpcGeneration(args: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function postBackupRequest(
-  type: "journals" | "scenes",
+  type: BackupDocumentType,
   folderName: string,
   preview: boolean,
   files: BackupFileEntry[],
@@ -392,7 +394,7 @@ async function postBackupRequest(
 }
 
 async function handleBackupCommand(
-  type: "journals" | "scenes",
+  type: BackupDocumentType,
   folderName: string,
 ): Promise<void> {
   if (!game.user?.isGM) {
@@ -416,8 +418,12 @@ async function handleBackupCommand(
   try {
     if (type === "journals") {
       ({ files, warnings } = await exportJournalFolder(folderName));
-    } else {
+    } else if (type === "scenes") {
       ({ files, warnings } = await exportSceneFolder(folderName));
+    } else if (type === "actors") {
+      ({ files, warnings } = await exportActorFolder(folderName));
+    } else {
+      ({ files, warnings } = await exportRollTableFolder(folderName));
     }
   } catch (error) {
     ui.notifications.error(
@@ -622,12 +628,13 @@ export function registerChatCommand(): void {
       return false;
     }
 
-    // /lb backup journals <folder name>
-    // /lb backup scenes <folder name>
+    // /lb backup journals|scenes|actors|rolltables <folder name>
     if (args.startsWith("backup ")) {
       const backupArgs = args.slice("backup ".length).trim();
       const journalsMatch = backupArgs.match(/^journals\s+(.+)$/i);
       const scenesMatch = backupArgs.match(/^scenes\s+(.+)$/i);
+      const actorsMatch = backupArgs.match(/^actors\s+(.+)$/i);
+      const rollTablesMatch = backupArgs.match(/^rolltables\s+(.+)$/i);
       if (journalsMatch) {
         clearInput();
         void handleBackupCommand("journals", journalsMatch[1]!.trim());
@@ -638,8 +645,18 @@ export function registerChatCommand(): void {
         void handleBackupCommand("scenes", scenesMatch[1]!.trim());
         return false;
       }
+      if (actorsMatch) {
+        clearInput();
+        void handleBackupCommand("actors", actorsMatch[1]!.trim());
+        return false;
+      }
+      if (rollTablesMatch) {
+        clearInput();
+        void handleBackupCommand("rolltables", rollTablesMatch[1]!.trim());
+        return false;
+      }
       ui.notifications.warn(
-        "LoreBridge: Usage: /lb backup journals <folder name>  or  /lb backup scenes <folder name>",
+        "LoreBridge: Usage: /lb backup journals|scenes|actors|rolltables <folder name>",
       );
       return false;
     }

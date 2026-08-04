@@ -210,6 +210,33 @@ declare const foundry: {
   };
 };
 
+type FoundryRollTableResult = {
+  id: string;
+  type: number; // 0=text, 1=document, 2=pack
+  text: string;
+  img?: string;
+  weight: number;
+  range: [number, number];
+  drawn: boolean;
+};
+
+type FoundryRollTable = {
+  id: string;
+  uuid: string;
+  name: string;
+  formula: string;
+  replacement: boolean;
+  displayRoll: boolean;
+  img?: string;
+  folder?: { id: string; name: string } | null;
+  results: Iterable<FoundryRollTableResult> & { size: number };
+};
+
+type FoundryRollTableCollection = Iterable<FoundryRollTable> & {
+  size: number;
+  get(id: string): FoundryRollTable | undefined;
+};
+
 declare const RollTable: {
   create(data: {
     name: string;
@@ -284,6 +311,7 @@ declare const game: {
   combats: FoundryCombatCollection;
   messages: FoundryChatCollection;
   journal: FoundryJournalCollection;
+  tables: FoundryRollTableCollection;
   packs: FoundryCompendiumCollection;
   modules: Map<string, { active: boolean; version?: string }>;
   settings: {
