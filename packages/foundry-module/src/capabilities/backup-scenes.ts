@@ -26,16 +26,14 @@ type SceneWithFlags = FoundryScene & {
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
 };
 
-type GameWithFolders = typeof game & {
-  folders?: Iterable<{
-    id: string;
-    name: string;
-    type: string;
-    sort?: number;
-    folder?: { id: string } | null;
-    getFlag?(scope: string, key: string): unknown;
-    setFlag?(scope: string, key: string, value: unknown): Promise<void>;
-  }>;
+type FoundryFolder = {
+  id: string;
+  name: string;
+  type: string;
+  sort?: number;
+  folder?: { id: string } | null;
+  getFlag?(scope: string, key: string): unknown;
+  setFlag?(scope: string, key: string, value: unknown): Promise<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -95,13 +93,91 @@ function buildPlaceFrontmatter(placeId: string, name: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Folder tree helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a Set of folder IDs rooted at `rootId` (inclusive of all
+ * descendants) using a pre-built id→folder map.
+ */
+function collectSubtreeIds(
+  rootId: string,
+  folderById: Map<string, FoundryFolder>,
+): Set<string> {
+  const ids = new Set<string>([rootId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [id, f] of folderById) {
+      if (!ids.has(id) && f.folder?.id && ids.has(f.folder.id)) {
+        ids.add(id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
+}
+
+type FolderCollection = {
+  contents?: unknown[];
+  get?(id: string): unknown;
+};
+
+/**
+ * Returns a Map<id, FoundryFolder> seeded from three sources in order:
+ *   1. game.folders.contents (when Foundry's Collection array is populated)
+ *   2. scene.folder references (immediate parents, always available)
+ *   3. Ancestor lookups via game.folders.get(id) for each discovered parent ID
+ *
+ * Source 3 is the key one: it uses the native Map.get() which works even
+ * when iteration/contents are unreliable, allowing us to climb from a leaf
+ * folder (e.g. "Battle Maps") up to the root (e.g. "Barovia").
+ */
+function buildFolderMap(scenes: FoundryScene[]): Map<string, FoundryFolder> {
+  const map = new Map<string, FoundryFolder>();
+  const gFolders = (game as unknown as { folders?: FolderCollection }).folders;
+
+  // Source 1: contents array (may or may not be populated)
+  for (const raw of gFolders?.contents ?? []) {
+    const f = raw as FoundryFolder;
+    if (f?.id) map.set(f.id, f);
+  }
+
+  // Source 2: scene.folder references
+  for (const scene of scenes) {
+    const sf = scene.folder as unknown as FoundryFolder | null | undefined;
+    if (sf?.id && !map.has(sf.id)) map.set(sf.id, sf);
+  }
+
+  // Source 3: walk parent IDs upward via game.folders.get()
+  if (gFolders?.get) {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const f of Array.from(map.values())) {
+        const parentId = f.folder?.id;
+        if (parentId && !map.has(parentId)) {
+          const parent = gFolders.get(parentId) as FoundryFolder | undefined;
+          if (parent?.id) {
+            map.set(parent.id, parent);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  return map;
+}
+
+// ---------------------------------------------------------------------------
 // Main export function
 // ---------------------------------------------------------------------------
 
 /**
- * Exports all Scene documents from the named folder to Raven's Eye files.
- * Returns the list of files to commit and any warnings (including inventoried
- * asset paths that are NOT exported as binaries).
+ * Exports all Scene documents from the named folder (and all subfolders) to
+ * Raven's Eye files.  Returns the list of files to commit and any warnings
+ * (including inventoried asset paths that are NOT exported as binaries).
  */
 export async function exportSceneFolder(
   folderName: string,
@@ -115,14 +191,33 @@ export async function exportSceneFolder(
   const seenFolderIds = new Set<string>();
   const folderResourceFiles: BackupFileEntry[] = [];
 
-  // Collect scenes in the named folder.
-  const scenes = Array.from(game.scenes).filter(
-    (s) => s.folder?.name === folderName,
+  // Build a full folder map (game.folders.contents + scene.folder refs).
+  const allScenes = Array.from(game.scenes);
+  const folderById = buildFolderMap(allScenes);
+
+  // Find the root folder by name (prefer Scene type; fall back to any type).
+  const allFolders = Array.from(folderById.values());
+  const rootFolder =
+    allFolders.find((f) => f.name === folderName && f.type === "Scene") ??
+    allFolders.find((f) => f.name === folderName);
+
+  if (!rootFolder) {
+    throw new Error(
+      `No folder named "${folderName}" found in Scenes. Check the folder name and try again.`,
+    );
+  }
+
+  // Collect the root folder and every descendant folder ID.
+  const targetFolderIds = collectSubtreeIds(rootFolder.id, folderById);
+
+  // Keep scenes whose immediate parent folder is in the subtree.
+  const scenes = allScenes.filter(
+    (s) => s.folder?.id && targetFolderIds.has(s.folder.id),
   );
 
   if (scenes.length === 0) {
     throw new Error(
-      `No scenes found in folder "${folderName}". Check the folder name and try again.`,
+      `No scenes found in folder "${folderName}" or its subfolders. Check the folder name and try again.`,
     );
   }
 
@@ -165,11 +260,7 @@ export async function exportSceneFolder(
     if (folderId && !seenFolderIds.has(folderId)) {
       seenFolderIds.add(folderId);
 
-      // Try to get a stable folder resource ID from the game folders.
-      const gameWithFolders = game as GameWithFolders;
-      const foundryFolder = gameWithFolders.folders
-        ? Array.from(gameWithFolders.folders).find((f) => f.id === folderId)
-        : undefined;
+      const foundryFolder = folderId ? folderById.get(folderId) : undefined;
 
       if (foundryFolder) {
         folderExtId = foundryFolder.getFlag
