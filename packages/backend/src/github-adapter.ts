@@ -293,16 +293,29 @@ export class GitHubAdapter {
       content: f.content,
     }));
 
-    // Step 1: get current HEAD SHA.
+    // Step 1: get current HEAD SHA (null when the repository is empty).
     const refUrl = `${this.repoBase()}/git/refs/heads/${encodeURIComponent(this.config.branch)}`;
-    const refData = await this.call(refUrl) as Record<string, unknown>;
-    const headSha = (refData.object as Record<string, unknown>).sha as string;
+    let headSha: string | null = null;
+    let baseTreeSha: string | null = null;
 
-    // Step 2: get tree SHA of HEAD commit.
-    const commitData = await this.call(
-      `${this.repoBase()}/git/commits/${headSha}`,
-    ) as Record<string, unknown>;
-    const baseTreeSha = (commitData.tree as Record<string, unknown>).sha as string;
+    try {
+      const refData = await this.call(refUrl) as Record<string, unknown>;
+      headSha = (refData.object as Record<string, unknown>).sha as string;
+
+      // Step 2: get tree SHA of HEAD commit.
+      const commitData = await this.call(
+        `${this.repoBase()}/git/commits/${headSha}`,
+      ) as Record<string, unknown>;
+      baseTreeSha = (commitData.tree as Record<string, unknown>).sha as string;
+    } catch (error) {
+      // 409 = empty repository; 404 = branch doesn't exist yet.
+      // In both cases we create the initial commit with no parent and no base tree.
+      const isEmptyRepo =
+        error instanceof GitHubAdapterError &&
+        (error.code === "not_found" ||
+          (error.code === "api_error" && error.message.includes("409")));
+      if (!isEmptyRepo) throw error;
+    }
 
     // Step 3: create a blob for each file.
     const treeEntries = await Promise.all(
@@ -323,30 +336,40 @@ export class GitHubAdapter {
       }),
     );
 
-    // Step 4: create a new tree.
+    // Step 4: create a new tree (omit base_tree for the initial commit).
     const treeData = await this.call(`${this.repoBase()}/git/trees`, {
       method: "POST",
-      body: { base_tree: baseTreeSha, tree: treeEntries },
+      body: baseTreeSha
+        ? { base_tree: baseTreeSha, tree: treeEntries }
+        : { tree: treeEntries },
     }) as Record<string, unknown>;
     const newTreeSha = treeData.sha as string;
 
-    // Step 5: create the commit.
+    // Step 5: create the commit (omit parents for the initial commit).
     const commitResult = await this.call(`${this.repoBase()}/git/commits`, {
       method: "POST",
       body: {
         message,
         tree: newTreeSha,
-        parents: [headSha],
+        parents: headSha ? [headSha] : [],
       },
     }) as Record<string, unknown>;
     const newCommitSha = commitResult.sha as string;
     const commitUrl = String(commitResult.html_url ?? "");
 
-    // Step 6: update the ref (force:false → 422 on non-fast-forward).
-    await this.call(refUrl, {
-      method: "PATCH",
-      body: { sha: newCommitSha, force: false },
-    });
+    // Step 6: update existing ref (force:false → 422 on non-fast-forward),
+    // or create the ref for the first commit on an empty repository.
+    if (headSha) {
+      await this.call(refUrl, {
+        method: "PATCH",
+        body: { sha: newCommitSha, force: false },
+      });
+    } else {
+      await this.call(`${this.repoBase()}/git/refs`, {
+        method: "POST",
+        body: { ref: `refs/heads/${this.config.branch}`, sha: newCommitSha },
+      });
+    }
 
     return {
       sha: newCommitSha,
