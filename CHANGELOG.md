@@ -4,9 +4,15 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-04
+
 ### Added
 
 - **Per-category feature toggles**: a GM-only **Configure Features** settings button now groups toggles for Foundry UI buttons, `/lb` chat commands, the Journal Page Q&A panel, and AI-proposed writes. Disabled UI features disappear immediately, and disabled chat commands are ignored.
+- **GM-authored Foundry macros as custom MCP tools**: GMs can expose Foundry macros as named MCP tools by adding a `@lorebridge` block to the macro description with a `name`, `description`, and optional `parameters` schema. The AI discovers them via `list_macro_tools` and calls them via `call_macro_tool`. Macro output is returned as the tool result. Macro execution requires the **Enable Macro Tools** world setting to be on.
+- **Local AI provider support — Ollama**: set `OLLAMA_BASE_URL` (e.g. `http://localhost:11434`) and optionally `OLLAMA_MODEL` (default `llama3.2`) to route all generation through a local Ollama instance. No API key required.
+- **Local AI provider support — OpenAI-compatible endpoints**: set `OPENAI_BASE_URL` alongside `OPENAI_API_KEY` to point the OpenAI provider at any OpenAI-compatible server (LM Studio, text-generation-webui, etc.). Set `OPENAI_MODEL` to override the default model (`gpt-4o-mini`).
+- Provider priority order: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` → `OLLAMA_BASE_URL`.
 
 ## [0.10.0] - 2026-08-03
 

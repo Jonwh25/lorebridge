@@ -96,6 +96,8 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `search_compendium` | Search compendium indexes by entry name without importing documents |
 | `get_compendium_entry` | Retrieve a specific compendium entry by pack and entry ID |
 | `propose_journal_update` | Propose a journal page content change; triggers a GM-only Foundry dialog with Approve/Reject buttons — no write occurs until the GM approves |
+| `list_macro_tools` | List GM-authored Foundry macros that have been exposed as MCP tools via a `@lorebridge` block in the macro description |
+| `call_macro_tool` | Execute a GM-exposed macro tool by name, passing optional arguments; requires the **Enable Macro Tools** world setting |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.
@@ -173,9 +175,15 @@ const result = await LoreBridge.generateBoxedText({
 console.log(result.preview);
 ```
 
-Provider credentials (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) are set as
-environment variables on the backend and are never stored in Foundry or
-returned by any API. See [Provider setup](docs/provider-security.md).
+Provider credentials are set as environment variables on the backend and are never stored in Foundry or returned by any API. Supported providers:
+
+| Provider | Key env var | Notes |
+| --- | --- | --- |
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | Preferred when multiple keys are set |
+| OpenAI | `OPENAI_API_KEY` | Set `OPENAI_BASE_URL` to point at any OpenAI-compatible server (LM Studio, etc.); set `OPENAI_MODEL` to override the default model |
+| Ollama (local) | — | Set `OLLAMA_BASE_URL` (e.g. `http://localhost:11434`) and optionally `OLLAMA_MODEL` (default `llama3.2`). No API key required. |
+
+See [Provider setup](docs/provider-security.md).
 
 ## Requirements
 

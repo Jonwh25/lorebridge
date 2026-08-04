@@ -7,7 +7,15 @@ never stored in Foundry settings, browser code, or returned by any API.
 
 - `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` — set as an environment variable in
   the pm2 ecosystem config or systemd unit file
+- `OPENAI_BASE_URL` (optional) — overrides the OpenAI endpoint for any
+  OpenAI-compatible server; must include `/v1` (e.g. `http://localhost:1234/v1`)
+- `OPENAI_MODEL` (optional) — overrides the default OpenAI model (`gpt-4o-mini`)
+- `OLLAMA_BASE_URL` — enables the Ollama provider (e.g. `http://localhost:11434`);
+  no API key required
+- `OLLAMA_MODEL` (optional) — selects the Ollama model (default `llama3.2`)
 - Validation result cached in memory for the lifetime of the process
+
+Provider priority: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY` → `OLLAMA_BASE_URL`.
 
 ## What the backend exposes
 
@@ -53,7 +61,9 @@ LoreBridge Foundry module
 
 ## Configuring a provider
 
-Set the key in the pm2 ecosystem config on the backend host:
+Set the relevant env vars in the pm2 ecosystem config on the backend host:
+
+**Anthropic (Claude):**
 
 ```js
 // /home/azureuser/lorebridge-backend.config.cjs
@@ -64,10 +74,31 @@ module.exports = {
     env: {
       NODE_ENV: "production",
       LOREBRIDGE_PAIRING_ENABLED: "true",
-      ANTHROPIC_API_KEY: "sk-ant-...",   // or OPENAI_API_KEY
+      ANTHROPIC_API_KEY: "sk-ant-...",
     }
   }]
 };
+```
+
+**OpenAI or OpenAI-compatible (e.g. LM Studio):**
+
+```js
+env: {
+  LOREBRIDGE_PAIRING_ENABLED: "true",
+  OPENAI_API_KEY: "sk-...",
+  OPENAI_BASE_URL: "http://localhost:1234/v1",  // omit for openai.com
+  OPENAI_MODEL: "mistral-7b",                   // omit for gpt-4o-mini
+}
+```
+
+**Ollama (local, no API key):**
+
+```js
+env: {
+  LOREBRIDGE_PAIRING_ENABLED: "true",
+  OLLAMA_BASE_URL: "http://localhost:11434",
+  OLLAMA_MODEL: "llama3.2",   // optional, this is the default
+}
 ```
 
 Then restart the backend:
