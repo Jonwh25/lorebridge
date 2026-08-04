@@ -18,14 +18,21 @@ export class GenerationError extends Error {
 // ---------------------------------------------------------------------------
 
 async function callAI(provider: ProviderService, prompt: string, maxTokens = 512): Promise<string> {
-  if (!provider.enabled || !provider.apiKey) {
+  if (!provider.enabled) {
     throw new GenerationError("No AI provider is configured on the backend.");
   }
   if (provider.provider === "anthropic") {
+    if (!provider.apiKey) throw new GenerationError("Anthropic API key is missing.");
     return callAnthropic(provider.apiKey, prompt, maxTokens);
   }
   if (provider.provider === "openai") {
-    return callOpenAI(provider.apiKey, prompt, maxTokens);
+    if (!provider.apiKey) throw new GenerationError("OpenAI API key is missing.");
+    return callOpenAI(provider.apiKey, prompt, maxTokens, provider.baseUrl, provider.model);
+  }
+  if (provider.provider === "ollama") {
+    const baseUrl = provider.baseUrl ?? "http://localhost:11434";
+    const model = provider.model ?? "llama3.2";
+    return callOpenAI("ollama", prompt, maxTokens, `${baseUrl.replace(/\/$/, "")}/v1`, model);
   }
   throw new GenerationError(`Unsupported provider: ${provider.provider}`);
 }
@@ -53,15 +60,18 @@ async function callAnthropic(apiKey: string, prompt: string, maxTokens: number):
   return text.trim();
 }
 
-async function callOpenAI(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, baseUrl?: string, model?: string): Promise<string> {
+  const url = baseUrl
+    ? `${baseUrl.replace(/\/$/, "")}/chat/completions`
+    : "https://api.openai.com/v1/chat/completions";
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: model ?? "gpt-4o-mini",
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
