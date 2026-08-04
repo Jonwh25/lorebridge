@@ -221,6 +221,23 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // readFileAtRef — reads one file under the campaign root at a specific ref.
+  // -------------------------------------------------------------------------
+
+  async readFileAtRef(relativePath: string, ref: string): Promise<string> {
+    if (!ref || !ref.trim()) {
+      throw new GitHubAdapterError("not_found", "Ref must not be empty.");
+    }
+    const fullPath = resolveCampaignPath(this.config.campaignRoot, relativePath);
+    const url = `${this.repoBase()}/contents/${encodeURIPathSegments(fullPath)}?ref=${encodeURIComponent(ref)}`;
+    const data = await this.call(url) as Record<string, unknown>;
+    if (data.type !== "file" || typeof data.content !== "string") {
+      throw new GitHubAdapterError("not_found", `${fullPath} is not a regular file.`);
+    }
+    return Buffer.from(data.content as string, "base64").toString("utf8");
+  }
+
+  // -------------------------------------------------------------------------
   // listCommits — returns bounded commit history within the campaign root.
   // -------------------------------------------------------------------------
 

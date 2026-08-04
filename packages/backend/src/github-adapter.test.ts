@@ -241,6 +241,61 @@ describe("GitHubAdapter.readFile", () => {
 });
 
 // ---------------------------------------------------------------------------
+// GitHubAdapter.readFileAtRef
+// ---------------------------------------------------------------------------
+
+describe("GitHubAdapter.readFileAtRef", () => {
+  it("reads file content at a specific commit ref", async () => {
+    const content = "Campaign content at ref";
+    const b64 = Buffer.from(content, "utf8").toString("base64");
+    let capturedUrl = "";
+    const fetch = makeFetch((url) => {
+      capturedUrl = url;
+      return { status: 200, body: { type: "file", content: b64 } };
+    });
+    const adapter = new GitHubAdapter(CONFIG, fetch);
+    const result = await adapter.readFileAtRef("entries/npc.md", "abc123sha");
+    assert.equal(result, content);
+    assert.ok(capturedUrl.includes("ref=abc123sha"), `Expected ref=abc123sha in URL, got: ${capturedUrl}`);
+    assert.ok(!capturedUrl.includes("ref=main"), `Should not use branch ref, got: ${capturedUrl}`);
+    assert.ok(capturedUrl.includes("campaign/entries/npc.md"), `Expected campaign path in URL, got: ${capturedUrl}`);
+  });
+
+  it("rejects empty ref", async () => {
+    const adapter = new GitHubAdapter(CONFIG, okFetch({}));
+    await assert.rejects(
+      () => adapter.readFileAtRef("entries/npc.md", ""),
+      (e) => e instanceof GitHubAdapterError && e.code === "not_found",
+    );
+  });
+
+  it("rejects whitespace-only ref", async () => {
+    const adapter = new GitHubAdapter(CONFIG, okFetch({}));
+    await assert.rejects(
+      () => adapter.readFileAtRef("entries/npc.md", "   "),
+      (e) => e instanceof GitHubAdapterError && e.code === "not_found",
+    );
+  });
+
+  it("rejects path traversal", async () => {
+    const adapter = new GitHubAdapter(CONFIG, okFetch({}));
+    await assert.rejects(
+      () => adapter.readFileAtRef("../../etc/passwd", "abc123"),
+      (e) => e instanceof GitHubAdapterError && e.code === "not_found",
+    );
+  });
+
+  it("rejects directory entries (type != file)", async () => {
+    const fetch = okFetch({ type: "dir", content: null });
+    const adapter = new GitHubAdapter(CONFIG, fetch);
+    await assert.rejects(
+      () => adapter.readFileAtRef("entries", "abc123"),
+      (e) => e instanceof GitHubAdapterError && e.code === "not_found",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GitHubAdapter.listCommits
 // ---------------------------------------------------------------------------
 

@@ -744,3 +744,41 @@ test("POST /v1/generate/boxed-text rejects invalid input", async () => {
     assert.equal(body.error.code, "invalid_request");
   });
 });
+
+test("GET /v1/backup/github/commits returns 401 without authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/backup/github/commits`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/backup/github/commits returns 503 when GitHub is not configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/backup/github/commits`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "not_configured");
+  });
+});
+
+test("GET /v1/backup/github/file returns 401 without authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/backup/github/file?path=notes.md`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/backup/github/file returns 503 when GitHub is not configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/backup/github/file?path=notes.md`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "not_configured");
+  });
+});
