@@ -221,6 +221,23 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // readFileAtRef — reads one file under the campaign root at a specific ref.
+  // -------------------------------------------------------------------------
+
+  async readFileAtRef(relativePath: string, ref: string): Promise<string> {
+    if (!ref || !ref.trim()) {
+      throw new GitHubAdapterError("not_found", "Ref must not be empty.");
+    }
+    const fullPath = resolveCampaignPath(this.config.campaignRoot, relativePath);
+    const url = `${this.repoBase()}/contents/${encodeURIPathSegments(fullPath)}?ref=${encodeURIComponent(ref)}`;
+    const data = await this.call(url) as Record<string, unknown>;
+    if (data.type !== "file" || typeof data.content !== "string") {
+      throw new GitHubAdapterError("not_found", `${fullPath} is not a regular file.`);
+    }
+    return Buffer.from(data.content as string, "base64").toString("utf8");
+  }
+
+  // -------------------------------------------------------------------------
   // listCommits — returns bounded commit history within the campaign root.
   // -------------------------------------------------------------------------
 
@@ -232,7 +249,17 @@ export class GitHubAdapter {
       `&path=${encodeURIComponent(this.config.campaignRoot)}` +
       `&per_page=${bounded}`;
 
-    const data = await this.call(url) as unknown[];
+    let data: unknown[];
+    try {
+      data = await this.call(url) as unknown[];
+    } catch (error) {
+      // GitHub returns 409 when the repository has no commits yet — treat as empty.
+      if (error instanceof GitHubAdapterError && error.code === "api_error" &&
+          error.message.includes("409")) {
+        return [];
+      }
+      throw error;
+    }
     return data.map((item) => {
       const c = item as Record<string, unknown>;
       const commit = c.commit as Record<string, unknown>;

@@ -789,6 +789,61 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "GET" && url.pathname === "/v1/backup/github/commits") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    const limitParam = url.searchParams.get("limit");
+    const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10) || 10), 20) : 10;
+    try {
+      const commits = await github.listCommits(limit);
+      sendJson(response, 200, { commits });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/backup/github/file") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    const filePath = url.searchParams.get("path");
+    if (!filePath || !filePath.trim()) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "The 'path' query parameter is required." } });
+      return;
+    }
+    const ref = url.searchParams.get("ref") ?? undefined;
+    try {
+      const content = ref
+        ? await github.readFileAtRef(filePath, ref)
+        : await github.readFile(filePath);
+      sendJson(response, 200, { path: filePath, ref: ref ?? github.branch, content });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 
@@ -798,7 +853,7 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const provider = new ProviderService();
   const writes = new WriteRegistry();
   const github = createGitHubAdapter(config.github);
-  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir));
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
     void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);

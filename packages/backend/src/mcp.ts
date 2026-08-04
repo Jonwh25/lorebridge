@@ -61,6 +61,7 @@ import { type ProviderService } from "./provider.js";
 import { generateRollTable, GenerationError } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import { AssetSearchService } from "./asset-search.js";
+import { type GitHubAdapter } from "./github-adapter.js";
 
 const relatedDocumentsToolName = "get_related_documents";
 const searchCampaignToolName = "search_campaign";
@@ -92,7 +93,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService, assets: AssetSearchService): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.2.0",
@@ -1323,6 +1324,79 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  server.registerTool(
+    "list_backup_commits",
+    {
+      title: "List campaign backup commits",
+      description: "List recent backup commits in the GitHub campaign repository",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(20).optional().describe(
+          "Number of commits to return. Defaults to 10, max 20.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ limit }) => {
+      try {
+        if (!github) {
+          return { isError: true as const, content: [{ type: "text" as const, text: "GitHub backup is not configured on this backend." }] };
+        }
+        const commits = await github.listCommits(limit ?? 10);
+        const result = { commits };
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
+          structuredContent: result,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list backup commits.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "read_backup_file",
+    {
+      title: "Read a campaign backup file",
+      description: "Read a file from the GitHub campaign backup repository",
+      inputSchema: z.object({
+        path: z.string().trim().min(1).describe(
+          "Path to the file relative to the campaign root.",
+        ),
+        ref: z.string().trim().min(1).optional().describe(
+          "Optional commit SHA to read the file at. Defaults to branch HEAD.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ path, ref }) => {
+      try {
+        if (!github) {
+          return { isError: true as const, content: [{ type: "text" as const, text: "GitHub backup is not configured on this backend." }] };
+        }
+        const content = ref
+          ? await github.readFileAtRef(path, ref)
+          : await github.readFile(path);
+        const result = { path, ref: ref ?? github.branch, content };
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result) }],
+          structuredContent: result,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not read the backup file.");
+      }
+    },
+  );
+
   return server;
 }
 
@@ -1336,9 +1410,10 @@ export function createLoreBridgeMcpHandler(
   writes: WriteRegistry,
   provider: ProviderService,
   assets = new AssetSearchService(),
+  github: GitHubAdapter | null = null,
 ): McpRequestHandler {
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, provider, assets),
+    () => createServer(adapterSessions, writes, provider, assets, github),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
