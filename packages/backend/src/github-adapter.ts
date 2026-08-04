@@ -249,7 +249,17 @@ export class GitHubAdapter {
       `&path=${encodeURIComponent(this.config.campaignRoot)}` +
       `&per_page=${bounded}`;
 
-    const data = await this.call(url) as unknown[];
+    let data: unknown[];
+    try {
+      data = await this.call(url) as unknown[];
+    } catch (error) {
+      // GitHub returns 409 when the repository has no commits yet — treat as empty.
+      if (error instanceof GitHubAdapterError && error.code === "api_error" &&
+          error.message.includes("409")) {
+        return [];
+      }
+      throw error;
+    }
     return data.map((item) => {
       const c = item as Record<string, unknown>;
       const commit = c.commit as Record<string, unknown>;
