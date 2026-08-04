@@ -44,6 +44,10 @@ import {
   SEARCH_JOURNALS_DECLARATION,
   SEARCH_SCENES_CAPABILITY,
   SEARCH_SCENES_DECLARATION,
+  LIST_MACRO_TOOLS_CAPABILITY,
+  LIST_MACRO_TOOLS_DECLARATION,
+  EXECUTE_MACRO_TOOL_CAPABILITY,
+  EXECUTE_MACRO_TOOL_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
@@ -62,6 +66,7 @@ import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
 import { approveWrite, rejectWrite, showWriteApprovalChat, showRollTableApprovalChat, type WriteApprovalPayload, type RollTableApprovalPayload } from "./capabilities/writes.js";
+import { listMacroTools, executeMacroTool } from "./capabilities/macro-tools.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
@@ -152,6 +157,8 @@ Hooks.once("ready", () => {
           LIST_COMPENDIUMS_DECLARATION,
           SEARCH_COMPENDIUM_DECLARATION,
           GET_COMPENDIUM_ENTRY_DECLARATION,
+          LIST_MACRO_TOOLS_DECLARATION,
+          EXECUTE_MACRO_TOOL_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -238,6 +245,24 @@ Hooks.once("ready", () => {
           if (request.capability === GET_COMPENDIUM_ENTRY_CAPABILITY) {
             return getCompendiumEntry(request.input as Parameters<typeof getCompendiumEntry>[0]);
           }
+          if (request.capability === LIST_MACRO_TOOLS_CAPABILITY) {
+            const { tools } = listMacroTools();
+            return {
+              sourceId: registration.sources[0]?.sourceId ?? "foundry:unknown",
+              sourceName: game.world?.title ?? "Unknown World",
+              tools,
+            };
+          }
+          if (request.capability === EXECUTE_MACRO_TOOL_CAPABILITY) {
+            const input = request.input as { toolName: string; args?: Record<string, unknown> };
+            return executeMacroTool(input.toolName, input.args ?? {}).then(({ macroName, result }) => ({
+              sourceId: registration.sources[0]?.sourceId ?? "foundry:unknown",
+              sourceName: game.world?.title ?? "Unknown World",
+              toolName: input.toolName,
+              macroName,
+              result,
+            }));
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -283,7 +308,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION]
   });
   console.info(`${MODULE_LABEL} | Ready for ${summary.world.title}.`);
 
@@ -294,7 +319,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,

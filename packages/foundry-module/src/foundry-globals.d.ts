@@ -100,6 +100,19 @@ type FoundryCompendiumCollection = Iterable<FoundryCompendiumPack> & {
   get(id: string): FoundryCompendiumPack | undefined;
 };
 
+type FoundryMacro = {
+  id: string;
+  name: string;
+  type: string;
+  command: string;
+  execute(scope?: Record<string, unknown>): Promise<unknown>;
+};
+
+type FoundryMacroCollection = Iterable<FoundryMacro> & {
+  size: number;
+  get(id: string): FoundryMacro | undefined;
+};
+
 type FoundryActorCollection = Iterable<FoundryActor> & {
   size: number;
   get(id: string): FoundryActor | undefined;
@@ -264,6 +277,7 @@ declare const game: {
     title: string;
     version: string;
   };
+  macros: FoundryMacroCollection;
   actors: FoundryActorCollection;
   items: FoundryItemCollection;
   scenes: FoundrySceneCollection;

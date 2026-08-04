@@ -25,6 +25,10 @@ import {
   LIST_COMPENDIUMS_CAPABILITY,
   SEARCH_COMPENDIUM_CAPABILITY,
   GET_COMPENDIUM_ENTRY_CAPABILITY,
+  LIST_MACRO_TOOLS_CAPABILITY,
+  EXECUTE_MACRO_TOOL_CAPABILITY,
+  validateListMacroToolsOutput,
+  validateExecuteMacroToolOutput,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -1226,6 +1230,95 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
         }
         return toolError(error, "LoreBridge could not generate the roll table.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_macro_tools",
+    {
+      title: "List GM macro tools",
+      description: "List custom MCP tools defined in GM-authored Foundry macros. Returns tool names, descriptions, and parameter schemas. Use call_macro_tool to invoke a discovered tool.",
+      inputSchema: z.object({
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, LIST_MACRO_TOOLS_CAPABILITY, {});
+        const validation = validateListMacroToolsOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid macro tool list.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list macro tools.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "call_macro_tool",
+    {
+      title: "Call a GM macro tool",
+      description: "Execute a custom tool defined in a GM-authored Foundry macro. Use list_macro_tools first to discover available tools and their parameter schemas. The GM must have authored a macro with a loreBridgeTool config block; see LoreBridge docs for the format.",
+      inputSchema: z.object({
+        toolName: z.string().trim().min(1).describe(
+          "The tool name as defined in the macro's loreBridgeTool config (the name field, not the macro name).",
+        ),
+        args: z.record(z.string(), z.unknown()).optional().describe(
+          "Arguments to pass to the macro. Must match the tool's declared parameter schema.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ toolName, args, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          EXECUTE_MACRO_TOOL_CAPABILITY,
+          { toolName, args: args ?? {} },
+          30_000,
+        );
+        const validation = validateExecuteMacroToolOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid macro tool result.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not execute the macro tool.");
       }
     },
   );
