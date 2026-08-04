@@ -1,5 +1,13 @@
 import path from "node:path";
 
+export interface GitHubAdapterConfig {
+  token: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  campaignRoot: string;
+}
+
 export interface BackendConfig {
   host: string;
   port: number;
@@ -7,6 +15,7 @@ export interface BackendConfig {
   pairingTtlSeconds: number;
   dataDir: string;
   foundryDataDir?: string;
+  github?: GitHubAdapterConfig;
 }
 
 function parsePort(value: string | undefined): number {
@@ -25,7 +34,22 @@ function parsePositiveInteger(name: string, value: string | undefined, fallback:
   return parsed;
 }
 
+function loadGitHubConfig(env: NodeJS.ProcessEnv): GitHubAdapterConfig | undefined {
+  const token = env.GITHUB_TOKEN?.trim();
+  const owner = env.GITHUB_OWNER?.trim();
+  const repo = env.GITHUB_REPO?.trim();
+  if (!token || !owner || !repo) return undefined;
+  return {
+    token,
+    owner,
+    repo,
+    branch: env.GITHUB_BRANCH?.trim() || "main",
+    campaignRoot: env.GITHUB_CAMPAIGN_ROOT?.trim() || "campaign",
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig {
+  const github = loadGitHubConfig(env);
   return {
     host: env.LOREBRIDGE_HOST?.trim() || "127.0.0.1",
     port: parsePort(env.LOREBRIDGE_PORT),
@@ -33,5 +57,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     pairingTtlSeconds: parsePositiveInteger("LOREBRIDGE_PAIRING_TTL_SECONDS", env.LOREBRIDGE_PAIRING_TTL_SECONDS, 300),
     dataDir: path.resolve(env.LOREBRIDGE_DATA_DIR?.trim() || ".lorebridge"),
     ...(env.LOREBRIDGE_FOUNDRY_DATA_DIR?.trim() ? { foundryDataDir: path.resolve(env.LOREBRIDGE_FOUNDRY_DATA_DIR.trim()) } : {}),
+    ...(github ? { github } : {}),
   };
 }

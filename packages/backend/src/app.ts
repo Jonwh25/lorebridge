@@ -40,6 +40,7 @@ import {
 } from "./mcp.js";
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
+import { createGitHubAdapter, GitHubAdapterError, type GitHubAdapter } from "./github-adapter.js";
 
 const serviceVersion = "0.2.0";
 
@@ -83,7 +84,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -112,6 +113,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
       if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     }
+    if (github) capabilities.push("backup/github");
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled });
     return;
   }
@@ -754,6 +756,39 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "GET" && url.pathname === "/v1/backup/github/status") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    try {
+      const info = await github.verifyAccess();
+      sendJson(response, 200, {
+        configured: true,
+        owner: github.owner,
+        repo: github.repo,
+        branch: github.branch,
+        campaignRoot: github.campaignRoot,
+        repoName: info.name,
+        repoFullName: info.fullName,
+        isPrivate: info.isPrivate,
+        defaultBranch: info.defaultBranch,
+      });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 
@@ -762,9 +797,10 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
   const writes = new WriteRegistry();
+  const github = createGitHubAdapter(config.github);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir));
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();
