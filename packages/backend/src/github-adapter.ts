@@ -309,12 +309,28 @@ export class GitHubAdapter {
       baseTreeSha = (commitData.tree as Record<string, unknown>).sha as string;
     } catch (error) {
       // 409 = empty repository; 404 = branch doesn't exist yet.
-      // In both cases we create the initial commit with no parent and no base tree.
+      // The git data API (blobs, trees, commits) is unavailable on a completely
+      // uninitialised repo. Bootstrap it via the Contents API, which works on
+      // empty repos, then read back the resulting commit/tree SHAs.
       const isEmptyRepo =
         error instanceof GitHubAdapterError &&
         (error.code === "not_found" ||
           (error.code === "api_error" && error.message.includes("409")));
       if (!isEmptyRepo) throw error;
+
+      const initData = await this.call(
+        `${this.repoBase()}/contents/.lorebridge`,
+        {
+          method: "PUT",
+          body: {
+            message: "Initialize LoreBridge backup repository",
+            content: Buffer.from("# LoreBridge Campaign Backup\n").toString("base64"),
+          },
+        },
+      ) as Record<string, unknown>;
+      const initCommit = initData.commit as Record<string, unknown>;
+      headSha = initCommit.sha as string;
+      baseTreeSha = (initCommit.tree as Record<string, unknown>).sha as string;
     }
 
     // Step 3: create a blob for each file.
