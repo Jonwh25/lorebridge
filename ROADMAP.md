@@ -193,7 +193,7 @@ Success test: a GM can disable individual capability categories, switch to a
 local Ollama model, and expose a custom macro as an MCP tool without touching
 the backend configuration.
 
-### Milestone 12 — Portable Campaign Backups
+### Milestone 12 — Portable Campaign Backups ✅
 
 Export selected campaign content to a version-controlled repository and restore
 it through explicit, conflict-aware GM approval. The portable representation is
@@ -230,9 +230,9 @@ overwriting unrelated content.
 Improve the write-approval experience and close the loop between session play
 and world documentation.
 
-1. [Batch approval queue: review multiple AI-proposed edits in one flow](https://github.com/Jonwh25/lorebridge/issues/142)
+1. ✅ [Batch approval queue: review multiple AI-proposed edits in one flow](https://github.com/Jonwh25/lorebridge/issues/142)
 2. [Post-session cleanup: detect new names and places from session notes and propose world entries](https://github.com/Jonwh25/lorebridge/issues/143)
-3. [Diff-based journal editing: side-by-side preview with rollback after approval](https://github.com/Jonwh25/lorebridge/issues/144)
+3. ✅ [Diff-based journal editing: side-by-side preview with rollback after approval](https://github.com/Jonwh25/lorebridge/issues/144)
 4. [Party journal export: generate a player-safe session recap for sharing outside Foundry](https://github.com/Jonwh25/lorebridge/issues/145)
 
 Success test: a GM can finish a session, run post-session cleanup to surface
@@ -240,25 +240,119 @@ new world entries, approve a batch of proposed stubs in one review flow, see a
 character-level diff before each write lands, roll back a mistake without
 leaving Foundry, and hand players a clean shareable recap.
 
+### Milestone 14 — Campaign Curation & Integrity
+
+Add source-backed tools that help a GM keep a long-running campaign coherent,
+healthy, and intentionally scoped without applying automatic corrections.
+
+1. [Campaign Health and Link Checker](https://github.com/Jonwh25/lorebridge/issues/169)
+2. [Context Profiles](https://github.com/Jonwh25/lorebridge/issues/171)
+3. [Campaign Consistency Auditor](https://github.com/Jonwh25/lorebridge/issues/167)
+
+Deterministic health checks land first, followed by reusable context boundaries
+and then AI-assisted canon analysis. Findings remain read-only and distinguish
+source evidence from inference; any proposed correction uses the existing
+preview and approval flow.
+
+Success test: a GM audits a world, finds broken references and a seeded
+contradiction, scopes the audit to one campaign region, and reviews exact
+source citations without changing any document.
+
+### Milestone 15 — Live Session Workspace
+
+Bring the most useful live-session context and roleplay controls into one
+GM-facing Foundry workspace.
+
+1. [Session Command Center](https://github.com/Jonwh25/lorebridge/issues/168)
+2. [@NPC mention in chat for live in-character dialogue](https://github.com/Jonwh25/lorebridge/issues/116)
+3. [Optional text-to-speech for NPC dialogue](https://github.com/Jonwh25/lorebridge/issues/112)
+
+The command center composes existing bounded retrieval capabilities. Inline NPC
+dialogue remains opt-in per actor, and speech remains an optional backend
+provider capability whose credentials never enter Foundry.
+
+Success test: a GM runs a session from one dashboard, reviews source-backed
+live context, addresses an enabled NPC through chat, and optionally hears the
+response without exposing hidden information.
+
+### Milestone 16 — NPC Creation & Reuse
+
+Turn LoreBridge's existing NPC generation into a reviewable, reusable creation
+workflow for complete D&D 5e actors and their artwork.
+
+1. [Generation history](https://github.com/Jonwh25/lorebridge/issues/111)
+2. [Full D&D 5e NPC stat block generation and actor creation](https://github.com/Jonwh25/lorebridge/issues/110)
+3. [AI image generation for portraits, tokens, and item icons](https://github.com/Jonwh25/lorebridge/issues/109)
+
+Generated mechanics and media are drafts. Actor creation and asset application
+remain previewed, GM-approved writes, provider credentials remain backend-only,
+and provider-specific capabilities are independently gated.
+
+Success test: a GM generates a complete NPC, retains and reopens the output,
+reviews the mechanical data and portrait, and explicitly approves creation in
+Foundry without affecting unrelated actors or assets.
+
+### Milestone 17 — Safe Player Access
+
+Expose an explicitly published, permission-checked subset of campaign lore to
+players inside Foundry and then through a read-only Discord adapter.
+
+1. [GM-published Player Lore Assistant](https://github.com/Jonwh25/lorebridge/issues/170)
+2. [Discord adapter](https://github.com/Jonwh25/lorebridge/issues/120)
+
+Player access is disabled by default. Every request must satisfy both the GM's
+publication allowlist and the requesting player's current Foundry permissions.
+Discord follows the proven Foundry authorization model and remains read-only.
+
+Success test: a player receives source-cited answers only from GM-published
+lore, with the same visibility boundary enforced through Foundry and Discord;
+revoked access takes effect immediately.
+
+### Milestone 18 — Campaign Memory & Semantic Search
+
+Add an optional private campaign index and meaning-based retrieval for worlds
+where bounded keyword search has proven insufficient.
+
+1. [Autonomous background campaign indexing](https://github.com/Jonwh25/lorebridge/issues/117)
+2. [Vector store indexing for semantic world search](https://github.com/Jonwh25/lorebridge/issues/98)
+
+The first slice establishes bounded persistence, incremental updates, deletion
+handling, visibility separation, and rebuild controls. Semantic retrieval then
+adds a local-first embedding option, explicit consent for external processing,
+and deterministic keyword fallback.
+
+Success test: LoreBridge incrementally maintains a private campaign index and
+answers a meaning-based question using local embeddings or explicitly approved
+external processing, while keyword retrieval remains available when the
+semantic service is disabled or unavailable.
+
+### Milestone 19 — Controlled Live Operations
+
+Extend the write-approval model to time-sensitive combat mutations without
+introducing automatic or generic Foundry writes.
+
+1. [Tracking epic: controlled combat write operations](https://github.com/Jonwh25/lorebridge/issues/106)
+2. [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
+3. [Advance the active combat to the next turn](https://github.com/Jonwh25/lorebridge/issues/173)
+4. [Set one combatant initiative with conflict checks](https://github.com/Jonwh25/lorebridge/issues/174)
+5. [End the active combat with destructive confirmation](https://github.com/Jonwh25/lorebridge/issues/175)
+
+Combat writes are disabled by default. Every operation is narrowly typed,
+GM-only, previewed, short-lived, single-use, validated against a captured
+combat-state snapshot, and audited. Ending combat receives a distinct
+destructive confirmation. No arbitrary JavaScript or generic document method
+can be requested.
+
+Success test: in a live Foundry v14 combat, the GM previews and approves one
+turn advance, one initiative correction, and ending the encounter. Each valid
+action affects only the previewed target, while expired, reused, or stale
+proposals are rejected without changing combat state.
+
 ## Deferred work
 
-The following have tracking issues but are intentionally outside the current
-milestones. They may become useful later but are not prerequisites for a
-dependable Foundry campaign assistant.
-
-| Feature | Issue |
-|---------|-------|
-| Vector store indexing for semantic world search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) |
-| Autonomous background campaign indexing | [#117](https://github.com/Jonwh25/lorebridge/issues/117) |
-| Combat write operations (next turn, initiative, end combat) | [#106](https://github.com/Jonwh25/lorebridge/issues/106) |
-| AI image generation for NPC portraits, tokens, and item icons | [#109](https://github.com/Jonwh25/lorebridge/issues/109) |
-| Full D&D 5e NPC stat block generation and actor creation | [#110](https://github.com/Jonwh25/lorebridge/issues/110) |
-| Generation history: save and reuse recent AI output | [#111](https://github.com/Jonwh25/lorebridge/issues/111) |
-| Text-to-speech for NPC dialogue via ElevenLabs | [#112](https://github.com/Jonwh25/lorebridge/issues/112) |
-| @NPC mention in chat for live in-character dialogue | [#116](https://github.com/Jonwh25/lorebridge/issues/116) |
-| Additional VTT adapters (Roll20, Owlbear Rodeo) | [#118](https://github.com/Jonwh25/lorebridge/issues/118) |
-| Multi-world federation | [#119](https://github.com/Jonwh25/lorebridge/issues/119) |
-| Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) |
+No tracked features are currently deferred outside the delivery milestones.
+Additional VTT adapters and multi-world federation were closed as not planned;
+LoreBridge remains focused on Foundry VTT and one connected world per backend.
 
 ## Planning workflow
 
