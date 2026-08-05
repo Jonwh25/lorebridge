@@ -122,18 +122,24 @@ function showShareDialog(title: string, markdown: string, hiddenCount: number, f
   const escaped = markdown.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const content = `
-    <div style="padding:0.5rem;display:flex;flex-direction:column;gap:6px">
+    <style>
+      .lb-share-dialog .window-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+      .lb-share { display: flex; flex-direction: column; gap: 6px; padding: 8px; height: 100%; box-sizing: border-box; min-height: 0; }
+      .lb-share__toolbar { display: flex; gap: 6px; flex-shrink: 0; }
+      .lb-share__textarea { flex: 1; min-height: 0; width: 100%; font-family: monospace; font-size: 0.82em; resize: none; box-sizing: border-box; }
+    </style>
+    <div class="lb-share">
       ${hiddenNote}
-      <div style="display:flex;gap:6px">
+      <div class="lb-share__toolbar">
         <button type="button" id="lb-party-copy" style="cursor:pointer">📋 Copy to Clipboard</button>
         <button type="button" id="lb-party-dl" style="cursor:pointer">⬇ Download .md</button>
       </div>
-      <textarea id="lb-party-text" readonly style="width:100%;height:280px;font-family:monospace;font-size:0.82em;resize:vertical;box-sizing:border-box">${escaped}</textarea>
+      <textarea id="lb-party-text" class="lb-share__textarea" readonly>${escaped}</textarea>
     </div>`;
 
   const d = new foundry.applications.api.DialogV2({
-    window: { title, resizable: true },
-    position: { width: 620, height: 440 },
+    window: { title, resizable: true, classes: ["lb-share-dialog"] },
+    position: { width: 620, height: 500 },
     content,
     buttons: [{ action: "close", label: "Close", icon: "fas fa-times", default: true }],
   });

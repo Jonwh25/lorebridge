@@ -230,7 +230,7 @@ declare const foundry: {
       ApplicationV2: typeof FoundryApplicationV2;
       DialogV2: {
         new(config: {
-          window?: { title?: string; resizable?: boolean };
+          window?: { title?: string; resizable?: boolean; classes?: string[] };
           position?: { width?: number; height?: string | number; zIndex?: number };
           content: string;
           buttons: Array<{
