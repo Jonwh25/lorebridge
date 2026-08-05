@@ -1118,6 +1118,11 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
 
       // Read each scene YAML, keep those matching rootFolderName.
+      // Also reconstruct the place/<slug>.md path from the scene name.
+      const slugify = (name: string): string => {
+        const s = name.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+        return s || "unnamed";
+      };
       const yamlSceneFiles = sceneFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
       for (let i = 0; i < yamlSceneFiles.length; i += BATCH_SIZE) {
         const batch = yamlSceneFiles.slice(i, i + BATCH_SIZE);
@@ -1128,6 +1133,10 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
             const rootName = typeof obj?.["rootFolderName"] === "string" ? obj["rootFolderName"] : undefined;
             if (rootName === folderName) {
               pathsToDelete.push(`extensions/org.ravens-eye.foundry-vtt/scenes/${batch[j]!.name}`);
+              const structure = obj["structure"] as Record<string, unknown> | undefined;
+              const sourceData = structure?.["foundrySourceData"] as Record<string, unknown> | undefined;
+              const sceneName = typeof sourceData?.["name"] === "string" ? sourceData["name"] : undefined;
+              if (sceneName) pathsToDelete.push(`place/${slugify(sceneName)}.md`);
             }
           } catch { /* skip unparseable */ }
         }
