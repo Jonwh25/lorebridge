@@ -288,6 +288,56 @@ export async function generateSessionRecap(
 }
 
 // ---------------------------------------------------------------------------
+// Party journal export — player-safe recap (#145)
+// ---------------------------------------------------------------------------
+
+export type PartyRecapInput = {
+  sessionContent: string;
+  sessionName: string;
+  tone: string;
+  length: string;
+  hiddenCount?: number;
+};
+
+export type PartyRecapOutput = {
+  recap: string;
+  provider: string;
+};
+
+export async function generatePartyRecap(
+  provider: ProviderService,
+  input: PartyRecapInput,
+): Promise<PartyRecapOutput> {
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+  const lengthNote = LENGTH_WORDS[input.length as BoxedTextLength] ?? LENGTH_WORDS.medium;
+
+  const prompt = [
+    "You are a creative assistant writing a player-safe session recap for a tabletop RPG campaign.",
+    "This recap will be shared with players after the session via Discord or email.",
+    `Tone: ${toneNote}`,
+    `Length: ${lengthNote}`,
+    "",
+    `Session: ${input.sessionName}`,
+    "",
+    "Session notes (may contain GM shorthand — interpret only what the players experienced):",
+    "---",
+    input.sessionContent,
+    "---",
+    "",
+    "Write a narrative recap of what happened this session from the players' perspective.",
+    "Write in third person past tense.",
+    "Format using Discord-compatible markdown: use **bold** for character names and key moments, *italics* for emphasis, and blank lines between paragraphs.",
+    "Do NOT include any GM-only information, secret roll results, hidden NPC motives, or behind-the-scenes details.",
+    "Focus only on events the player characters directly experienced or witnessed.",
+    "Write only the recap itself. Do not include a title, preamble, or sign-off.",
+  ].join("\n");
+
+  const recap = await callAI(provider, prompt, 600);
+
+  return { recap, provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
 // Scene encounter suggestions (#95)
 // ---------------------------------------------------------------------------
 

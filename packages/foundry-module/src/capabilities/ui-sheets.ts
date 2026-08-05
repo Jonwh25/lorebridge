@@ -114,6 +114,69 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 // Preview dialog
 // ---------------------------------------------------------------------------
 
+function showShareDialog(title: string, markdown: string, hiddenCount: number, filename: string): void {
+  const safeFilename = filename.replace(/[^a-z0-9_\- ]/gi, "").trim().replace(/\s+/g, "-") || "party-recap";
+  const hiddenNote = hiddenCount > 0
+    ? `<p style="color:#e07b39;margin:0;flex-shrink:0"><em>${hiddenCount} world entr${hiddenCount !== 1 ? "ies" : "y"} omitted — GM only</em></p>`
+    : "";
+  const escaped = markdown.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Use ApplicationV2 directly (same pattern as SessionCleanupPanel) so we
+  // own the full layout — DialogV2's footer breaks flex-fill sizing.
+  const _AppV2Base = (foundry as { applications: { api: { ApplicationV2: typeof FoundryApplicationV2 } } }).applications.api.ApplicationV2;
+
+  class SharePanel extends _AppV2Base {
+    static override DEFAULT_OPTIONS = {
+      id: "lorebridge-share",
+      classes: ["lorebridge-share"],
+      window: { title, resizable: true },
+      position: { width: 620, height: 500 },
+    };
+
+    override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
+      const container = document.createElement("div");
+      container.innerHTML = `
+        <style>
+          .lorebridge-share .window-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+          .lb-share { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box; }
+          .lb-share__toolbar { flex-shrink: 0; display: flex; gap: 6px; }
+          .lb-share__textarea { flex: 1; min-height: 0; width: 100%; font-family: monospace; font-size: 0.82em; resize: none; box-sizing: border-box; }
+        </style>
+        <div class="lb-share">
+          ${hiddenNote}
+          <div class="lb-share__toolbar">
+            <button type="button" data-action="copy">📋 Copy to Clipboard</button>
+            <button type="button" data-action="download">⬇ Download .md</button>
+          </div>
+          <textarea class="lb-share__textarea" readonly>${escaped}</textarea>
+        </div>`;
+      return container;
+    }
+
+    override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
+      content.replaceChildren(...Array.from(result.childNodes));
+    }
+
+    override _onClickAction(_event: PointerEvent, target: HTMLElement): void | Promise<void> {
+      if (target.dataset["action"] === "copy") {
+        void navigator.clipboard.writeText(markdown).then(() => {
+          ui.notifications.info("LoreBridge: Recap copied to clipboard.");
+        });
+      } else if (target.dataset["action"] === "download") {
+        const blob = new Blob([markdown], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${safeFilename}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+  }
+
+  void new SharePanel().render({ force: true });
+}
+
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
   const clean = preview.replace(/\|/g, "").replace(/^\s*[-#]+\s*/gm, "").trim();
   const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
@@ -265,6 +328,46 @@ function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
         });
       } catch (error) {
         ui.notifications.error(`LoreBridge Session Recap failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    })();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Party Recap — player-safe export (#145)
+// ---------------------------------------------------------------------------
+
+function runPartyRecap(doc: AppDoc, frame: HTMLElement): void {
+  const pageId = getActivePageId(frame);
+  const journalEntry = (game.journal as { get(id: string): FoundryJournalEntry | undefined }).get(doc.id);
+  const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
+  const rawHtml = page?.text?.content ?? "";
+  const plainText = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
+  const pageName = page?.name ?? doc.name;
+
+  showConfigDialog("Party Recap", (config) => {
+    void (async () => {
+      ui.notifications.info("LoreBridge: Generating player-safe recap…");
+      try {
+        // Count entries hidden from players to surface in the share dialog.
+        let hiddenCount = 0;
+        try {
+          const gmResults = searchCampaign({ query: pageName, mode: "gm" });
+          const playerResults = searchCampaign({ query: pageName, mode: "player" });
+          hiddenCount = Math.max(0, gmResults.hiddenCount - playerResults.hiddenCount);
+        } catch { /* best-effort */ }
+
+        const result = await postBackend<{ recap: string }>("v1/generate/party-recap", {
+          sessionContent: plainText || `Session: ${pageName}`,
+          sessionName: pageName,
+          tone: config.tone,
+          length: config.length,
+          hiddenCount,
+        });
+
+        showShareDialog(`Party Recap — ${pageName}`, result.recap, hiddenCount, pageName);
+      } catch (error) {
+        ui.notifications.error(`LoreBridge Party Recap failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     })();
   });
@@ -585,6 +688,7 @@ export function registerSheetButtons(): void {
       injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", "ui-buttons", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {
         injectHeaderButton(frame, "session-recap", "fas fa-scroll", "Session Recap", "ui-buttons", () => runSessionRecap(doc, frame));
+        injectHeaderButton(frame, "party-recap", "fas fa-users", "Party Recap", "ui-buttons", () => runPartyRecap(doc, frame));
         injectHeaderButton(frame, "lazy-dm-prep", "fas fa-hat-wizard", "Lazy DM Prep", "ui-buttons", () => runLazyDmPrep(doc, frame));
       }
       }
