@@ -60,10 +60,12 @@ function _buildPanelHtml(rows: EntityRow[]): string {
     .join("");
 
   return `<style>
-    .lb-cleanup { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
-    .lb-cleanup__toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    /* Fill the ApplicationV2 content area so resize works naturally */
+    .lorebridge-session-cleanup .window-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+    .lb-cleanup { display: flex; flex-direction: column; gap: 6px; padding: 8px; height: 100%; box-sizing: border-box; min-height: 0; }
+    .lb-cleanup__toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
     .lb-cleanup__count { margin-right: auto; font-weight: bold; }
-    .lb-cleanup__table-wrap { max-height: 420px; overflow-y: auto; border: 1px solid var(--color-border-light, #999); border-radius: 4px; }
+    .lb-cleanup__table-wrap { flex: 1; min-height: 0; overflow-y: auto; border: 1px solid var(--color-border-light, #999); border-radius: 4px; }
     .lb-cleanup__table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
     .lb-cleanup__table thead th { position: sticky; top: 0; background: var(--color-bg-header, #333); padding: 4px 6px; text-align: left; z-index: 1; }
     .lb-cleanup__table tbody tr:nth-child(even) { background: rgba(0,0,0,0.05); }
@@ -108,7 +110,7 @@ class SessionCleanupPanel extends _AppV2Base {
     id: "lorebridge-session-cleanup",
     classes: ["lorebridge-session-cleanup"],
     window: { title: "LoreBridge — Session Cleanup", resizable: true },
-    position: { width: 720 },
+    position: { width: 720, height: 560 },
   };
 
   override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
