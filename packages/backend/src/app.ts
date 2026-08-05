@@ -978,7 +978,9 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
             const name = typeof obj["name"] === "string" ? obj["name"] : "";
             const sort = typeof obj["sort"] === "number" ? obj["sort"] : 0;
             const parentSidecarId = typeof obj["parentFolderSidecarId"] === "string" ? obj["parentFolderSidecarId"] : undefined;
-            if (sidecarId && name) parsedFolders.push({ sidecarId, name, sort, ...(parentSidecarId ? { parentSidecarId } : {}) });
+            const srcDoc = obj["sourceDocument"] as Record<string, unknown> | undefined;
+            const foundryId = typeof srcDoc?.["id"] === "string" ? srcDoc["id"] : undefined;
+            if (sidecarId && name) parsedFolders.push({ sidecarId, name, sort, ...(foundryId ? { foundryId } : {}), ...(parentSidecarId ? { parentSidecarId } : {}) });
           } catch {
             warnings.push("Failed to parse a folder sidecar YAML — skipped.");
           }
@@ -1019,7 +1021,6 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
         }
       }
 
-      console.log(`[restore-debug] parsedFolders=${parsedFolders.length} parsedScenes=${parsedScenes.length} warnings=${JSON.stringify(warnings)}`);
       const output: RestoreScenesOutput = {
         commitSha: resolvedRef,
         folderName,

@@ -62,6 +62,8 @@ export const BACKUP_RESTORE_SCENES_CAPABILITY = "backup/restore/scenes" as const
 /** A folder to recreate during scene restore. */
 export interface RestoreFolderEntry {
   sidecarId: string;
+  /** Original Foundry folder ID from sourceDocument.id — used to restore with the same UUID. */
+  foundryId?: string;
   name: string;
   sort: number;
   /** Sidecar ID of the parent folder within this backup; absent = direct child of root. */

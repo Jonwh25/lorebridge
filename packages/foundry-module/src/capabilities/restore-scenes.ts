@@ -90,9 +90,16 @@ function buildRestorePlan(data: RestoreScenesOutput): RestorePlanItem[] {
 function buildFolderPlan(data: RestoreScenesOutput): Map<string, string | null> {
   const result = new Map<string, string | null>();
   const allFolders = Array.from(game.folders);
+  const folderCollection = game.folders as unknown as { get(id: string): FoundryScene | undefined };
 
   for (const folder of data.folders) {
-    // Prefer flag match — exact and unambiguous even with duplicate names.
+    // Prefer original Foundry ID — stable across restores, prevents duplicates.
+    if (folder.foundryId) {
+      const byId = folderCollection.get(folder.foundryId);
+      if (byId) { result.set(folder.sidecarId, folder.foundryId); continue; }
+    }
+
+    // Fall back to flag match.
     const byFlag = allFolders.find(
       (f) => f.type === "Scene" && f.getFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID) === folder.sidecarId,
     );
@@ -219,6 +226,7 @@ async function applyRestore(
       ? (resolvedFolderIds.get(folder.parentSidecarId) ?? rootFolderId)
       : rootFolderId;
     const newFolder = await Folder.create({
+      ...(folder.foundryId ? { _id: folder.foundryId } : {}),
       name: folder.name,
       type: "Scene",
       folder: parentId,
