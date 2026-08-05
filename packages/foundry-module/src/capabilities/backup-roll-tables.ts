@@ -232,8 +232,10 @@ export async function exportRollTableFolder(
     for (const result of results) {
       const imgSrc = result.img as string | undefined;
       if (imgSrc && !imgSrc.startsWith("icons/")) {
+        // Use description (renamed from text in Foundry v13).
+        const label = String(result.description ?? "").slice(0, 40);
         warnings.push(
-          `Asset inventoried (not exported): ${imgSrc} (roll table "${table.name}", result "${String(result.text ?? "").slice(0, 40)}")`,
+          `Asset inventoried (not exported): ${imgSrc} (roll table "${table.name}", result "${label}")`,
         );
       }
     }

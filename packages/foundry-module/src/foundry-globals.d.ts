@@ -213,7 +213,7 @@ declare const foundry: {
 type FoundryRollTableResult = {
   id: string;
   type: number; // 0=text, 1=document, 2=pack
-  text: string;
+  description: string; // renamed from text in Foundry v13
   img?: string;
   weight: number;
   range: [number, number];
