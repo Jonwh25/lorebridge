@@ -20,7 +20,12 @@ function extractUuidLinks(html: string): string[] {
   UUID_LINK_RE.lastIndex = 0;
   while ((match = UUID_LINK_RE.exec(html)) !== null && uuids.length < UUID_LINK_CAP) {
     const raw = match[1];
-    if (raw) uuids.push(raw.split("{")[0]?.trim() ?? raw);
+    if (!raw) continue;
+    // Strip {Label} suffix, then strip #fragment anchor — the page must exist,
+    // but anchor sections within a page are not separately resolvable documents.
+    const withoutLabel = raw.split("{")[0]?.trim() ?? raw;
+    const withoutFragment = withoutLabel.split("#")[0]?.trim() ?? withoutLabel;
+    if (withoutFragment) uuids.push(withoutFragment);
   }
   return uuids;
 }
