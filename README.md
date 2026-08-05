@@ -33,8 +33,10 @@ prepping:
 > *"Update my Blue Water Inn journal page to note that the players burned down the kitchen and are now banned from the common room."*
 
 The last example triggers the write approval flow — a dialog pops up in
-Foundry showing you exactly what will change, and nothing is written until you
-click **Approve**.
+Foundry showing a character-level diff of exactly what will change, and nothing
+is written until you click **Approve**. A **Rollback** button is available after
+approval if you change your mind. Multiple pending writes can be reviewed in a
+single batch approval panel.
 
 ---
 
@@ -114,6 +116,7 @@ inside Foundry without opening a browser console or MCP client.
 | Any journal page | Feather icon in header | Read-aloud boxed text appended to the active page |
 | Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
 | Session log journals | Wizard-hat icon in header | Lazy DM session prep saved to "Lazy DM Prep" journal (v0.9.0+) |
+| Session log journals | Users icon in header | Player-safe Discord-formatted Party Recap with copy/download (v0.13.0+) |
 | NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
 | Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
 | Any journal page | Question-mark input at bottom | Inline Q&A grounded in the active page content |
@@ -152,6 +155,19 @@ Journal** creates a new page in "Generated Locations" or "Generated NPCs"
 and opens the journal automatically.
 
 The optional leading number in `/lb npcs` sets the count (default 5, max 10).
+
+### `/lb cleanup` — post-session entity review (v0.13.0+)
+
+```
+/lb cleanup
+/lb cleanup Session 7 - The Crypts
+```
+
+After a session, scans the most recent session log (or the named page) for
+proper nouns — NPCs, locations, factions, items — that don't yet exist as world
+documents. Candidates appear in a resizable GM panel with checkboxes. Click
+**Create Stubs** to generate placeholder journal pages in a "Session Cleanup"
+journal for every checked entry.
 
 ### `/lb backup` — GitHub campaign backups (v0.12.0+)
 

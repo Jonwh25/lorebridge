@@ -4,6 +4,16 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-05
+
+### Added
+
+- **Batch approval queue**: a single GM panel lists every pending AI-proposed journal write. Each row shows the journal name, page, and rationale. The GM can approve or reject entries individually, select all, or select none; only one batch panel is open at a time and re-running replaces any existing one.
+- **Post-session cleanup** (`/lb cleanup [session name]`): scans the current session log for new proper nouns (NPCs, locations, factions, items) that do not yet exist in the campaign. Candidates appear in a resizable review panel with per-row checkboxes; clicking **Create Stubs** creates placeholder journal pages in a "Session Cleanup" journal for every checked entry.
+- **Diff-based write preview**: the write-approval dialog now shows a character-level side-by-side diff of the proposed change instead of only the new content, so the GM can see exactly what will be added, removed, or reworded before approving.
+- **Rollback after approval**: the write-approval flow records the pre-approval content and exposes a **Rollback** button in the result message. Clicking it reverts the page to the version that existed before the AI wrote to it, without requiring a backup.
+- **Party Recap** (`Party Recap` button on session log journals): generates a player-safe, third-person narrative recap formatted for Discord markdown. A share panel offers **Copy to Clipboard** and **Download as .md**. When GM-only entries exist in the session, an orange note counts how many were excluded from the player version.
+
 ## [0.12.0] - 2026-08-05
 
 ### Added
