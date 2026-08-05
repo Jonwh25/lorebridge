@@ -145,16 +145,11 @@ function showShareDialog(title: string, markdown: string, hiddenCount: number, f
 
     if (el && textarea && toolbar) {
       const sizeTextarea = () => {
-        const header = el.querySelector<HTMLElement>(".window-header");
-        const footer = el.querySelector<HTMLElement>("footer") ?? el.querySelector<HTMLElement>(".dialog-buttons");
+        const content = el.querySelector<HTMLElement>(".window-content");
         const note = el.querySelector<HTMLElement>("#lb-share-note");
-        const usedH =
-          (header?.offsetHeight ?? 0) +
-          (footer?.offsetHeight ?? 0) +
-          toolbar.offsetHeight +
-          (note?.offsetHeight ?? 0) +
-          40; // padding (8*2) + gaps (6*2) + buffer
-        textarea.style.height = `${Math.max(80, el.offsetHeight - usedH)}px`;
+        const availableH = content?.offsetHeight ?? el.offsetHeight;
+        const usedH = toolbar.offsetHeight + (note?.offsetHeight ?? 0) + 28; // padding 8*2 + gaps 6*2
+        textarea.style.height = `${Math.max(80, availableH - usedH)}px`;
       };
       sizeTextarea();
       const ro = new ResizeObserver(sizeTextarea);
