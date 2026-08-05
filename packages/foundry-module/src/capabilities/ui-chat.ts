@@ -662,22 +662,19 @@ async function handleHealthCheck(full: boolean): Promise<void> {
         ${truncatedNote}
       </div>`;
 
-    const buttons: Array<{ action: string; label: string; icon?: string; default?: boolean; callback?: () => void }> = [];
-    if (result.truncated && !full) {
-      buttons.push({
-        action: "full",
-        label: "Full Scan (500)",
-        icon: "fas fa-search",
-        callback: () => { void handleHealthCheck(true); },
-      });
-    }
-    buttons.push({ action: "close", label: "Close", default: true });
-
     new foundry.applications.api.DialogV2({
       window: { title: `LoreBridge Health — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
       position: { width: 800, height: "auto" },
       content,
-      buttons,
+      buttons: [
+        ...(result.truncated && !full ? [{
+          action: "full",
+          label: "Full Scan (500)",
+          icon: "fas fa-search",
+          callback: () => { void handleHealthCheck(true); },
+        }] : []),
+        { action: "close", label: "Close", default: true },
+      ],
     }).render({ force: true });
 
   } catch (error) {
