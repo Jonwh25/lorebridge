@@ -123,8 +123,11 @@ export async function exportSceneFolder(
   // Collect the root folder and every descendant folder ID.
   // Filter to Scene-type folders only — other types (JournalEntry, Actor, etc.)
   // can share the same parent IDs and would otherwise be picked up incorrectly.
+  // Strict Scene-type filter — do NOT use !f.type as a fallback, because
+  // non-Scene folders (Actor, JournalEntry, etc.) may have undefined type on
+  // our cast and would incorrectly pass through.
   const sceneFolderById = new Map(
-    Array.from(folderById.entries()).filter(([, f]) => !f.type || f.type === "Scene"),
+    Array.from(folderById.entries()).filter(([, f]) => f.type === "Scene"),
   );
   const targetFolderIds = collectSubtreeIds(rootFolder.id, sceneFolderById);
 
@@ -175,6 +178,8 @@ export async function exportSceneFolder(
 
     const foundryFolder = folderById.get(folderId);
     if (!foundryFolder) continue;
+    // Belt-and-suspenders: skip any non-Scene folder that slipped through.
+    if (foundryFolder.type && foundryFolder.type !== "Scene") continue;
 
     const folderExtId = folderSidecarIds.get(folderId)!;
     const parentId = foundryFolder.folder?.id;
