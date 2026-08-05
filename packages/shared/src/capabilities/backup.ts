@@ -54,6 +54,38 @@ export interface BackupExportOutput {
 }
 
 // ---------------------------------------------------------------------------
+// Restore types
+// ---------------------------------------------------------------------------
+
+export const BACKUP_RESTORE_SCENES_CAPABILITY = "backup/restore/scenes" as const;
+
+/** A folder to recreate during scene restore. */
+export interface RestoreFolderEntry {
+  sidecarId: string;
+  name: string;
+  sort: number;
+}
+
+/** A scene entry returned by the restore plan endpoint. */
+export interface RestoreSceneEntry {
+  sidecarId: string;
+  /** Matches the `placeRavensEyeId` flag on the Foundry scene document. */
+  placeId: string;
+  folderSidecarId?: string;
+  sceneName: string;
+  foundrySourceData: Record<string, unknown>;
+}
+
+/** Output from GET /v1/backup/github/restore/scenes. */
+export interface RestoreScenesOutput {
+  commitSha: string;
+  folderName: string;
+  scenes: RestoreSceneEntry[];
+  folders: RestoreFolderEntry[];
+  warnings: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

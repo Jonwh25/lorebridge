@@ -275,6 +275,49 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // listDirectoryAtRef — lists files in a campaign-root directory at a ref.
+  // Returns an empty array when the directory does not exist.
+  // -------------------------------------------------------------------------
+
+  async listDirectoryAtRef(
+    relativePath: string,
+    ref: string,
+  ): Promise<Array<{ name: string; sha: string; type: "file" | "dir" }>> {
+    const fullPath = resolveCampaignPath(this.config.campaignRoot, relativePath);
+    const url = `${this.repoBase()}/contents/${encodeURIPathSegments(fullPath)}?ref=${encodeURIComponent(ref)}`;
+    let data: unknown;
+    try {
+      data = await this.call(url);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError && error.code === "not_found") {
+        return [];
+      }
+      throw error;
+    }
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return (data as Array<Record<string, unknown>>).map((item) => ({
+      name: String(item["name"] ?? ""),
+      sha: String(item["sha"] ?? ""),
+      type: item["type"] === "dir" ? ("dir" as const) : ("file" as const),
+    }));
+  }
+
+  // -------------------------------------------------------------------------
+  // readBlobBySha — fetches a blob's decoded UTF-8 content by its SHA.
+  // -------------------------------------------------------------------------
+
+  async readBlobBySha(sha: string): Promise<string> {
+    const url = `${this.repoBase()}/git/blobs/${encodeURIComponent(sha)}`;
+    const data = await this.call(url) as Record<string, unknown>;
+    if (typeof data["content"] !== "string") {
+      throw new GitHubAdapterError("api_error", "Blob response missing content field.");
+    }
+    return Buffer.from((data["content"] as string).replace(/\n/g, ""), "base64").toString("utf8");
+  }
+
+  // -------------------------------------------------------------------------
   // createBackupCommit — atomically commits one or more files.
   // Fails fast on non-fast-forward conflicts without overwriting remote work.
   // -------------------------------------------------------------------------

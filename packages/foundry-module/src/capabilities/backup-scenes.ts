@@ -207,6 +207,7 @@ export async function exportSceneFolder(
             uuid: `Folder.${folderId}`,
           },
           documentType: "Scene",
+          rootFolderName: folderName,
           name: folderName_ ?? "Unknown Folder",
           sort: foundryFolder.sort ?? 0,
         };
@@ -268,6 +269,7 @@ export async function exportSceneFolder(
         uuid: `Scene.${scene.id}`,
       },
       profile: "structure",
+      rootFolderName: folderName,
       ...(folderExtId ? { folder: folderExtId } : {}),
       place: placeId,
       structure: {

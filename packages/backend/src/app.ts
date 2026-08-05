@@ -43,6 +43,8 @@ import {
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
+import { load as yamlLoad } from "js-yaml";
+import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry } from "@lorebridge/shared/capabilities";
 
 const serviceVersion = "0.2.0";
 
@@ -910,6 +912,120 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
           error.code === "access_denied" ? 403
           : error.code === "not_found" ? 404
           : error.code === "conflict" ? 409
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/backup/github/restore/scenes") {
+    if (!authenticate(pairing, request, response)) return;
+    // Validate params before checking GitHub so clients get actionable 400s.
+    const folderName = url.searchParams.get("folderName")?.trim() ?? "";
+    if (!folderName) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "The 'folderName' query parameter is required." } });
+      return;
+    }
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    const ref = url.searchParams.get("ref")?.trim() || undefined;
+
+    try {
+      // Resolve ref: if not provided, use the latest commit SHA.
+      let resolvedRef = ref;
+      if (!resolvedRef) {
+        const commits = await github.listCommits(1);
+        if (commits.length === 0) {
+          sendJson(response, 404, { error: { code: "not_found", message: "No commits found in the backup repository." } });
+          return;
+        }
+        resolvedRef = commits[0]!.sha;
+      }
+
+      // List YAML files in both subdirectories in parallel.
+      const [folderFileList, sceneFileList] = await Promise.all([
+        github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/folders", resolvedRef),
+        github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/scenes", resolvedRef),
+      ]);
+
+      const yamlFolderFiles = folderFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
+      const yamlSceneFiles = sceneFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
+
+      const warnings: string[] = [];
+      const BATCH_SIZE = 5;
+
+      // Parse folder sidecars.
+      const parsedFolders: RestoreFolderEntry[] = [];
+      for (let i = 0; i < yamlFolderFiles.length; i += BATCH_SIZE) {
+        const batch = yamlFolderFiles.slice(i, i + BATCH_SIZE);
+        const contents = await Promise.all(batch.map((f) => github.readBlobBySha(f.sha)));
+        for (const content of contents) {
+          try {
+            const obj = yamlLoad(content) as Record<string, unknown>;
+            if (!obj || typeof obj !== "object") continue;
+            const rootName = typeof obj["rootFolderName"] === "string" ? obj["rootFolderName"] : undefined;
+            if (rootName && rootName !== folderName) continue;
+            const sidecarId = typeof obj["id"] === "string" ? obj["id"] : "";
+            const name = typeof obj["name"] === "string" ? obj["name"] : "";
+            const sort = typeof obj["sort"] === "number" ? obj["sort"] : 0;
+            if (sidecarId && name) parsedFolders.push({ sidecarId, name, sort });
+          } catch {
+            warnings.push("Failed to parse a folder sidecar YAML — skipped.");
+          }
+        }
+      }
+
+      // Parse scene sidecars.
+      const parsedScenes: RestoreSceneEntry[] = [];
+      for (let i = 0; i < yamlSceneFiles.length; i += BATCH_SIZE) {
+        const batch = yamlSceneFiles.slice(i, i + BATCH_SIZE);
+        const contents = await Promise.all(batch.map((f) => github.readBlobBySha(f.sha)));
+        for (const content of contents) {
+          try {
+            const obj = yamlLoad(content) as Record<string, unknown>;
+            if (!obj || typeof obj !== "object") continue;
+            const rootName = typeof obj["rootFolderName"] === "string" ? obj["rootFolderName"] : undefined;
+            if (rootName && rootName !== folderName) continue;
+            const sidecarId = typeof obj["id"] === "string" ? obj["id"] : "";
+            const placeId = typeof obj["place"] === "string" ? obj["place"] : "";
+            const folderSidecarId = typeof obj["folder"] === "string" ? obj["folder"] : undefined;
+            const structure = obj["structure"] as Record<string, unknown> | undefined;
+            const foundrySourceData = (structure?.["foundrySourceData"] ?? {}) as Record<string, unknown>;
+            const sceneName = typeof foundrySourceData["name"] === "string" ? foundrySourceData["name"] : "Unknown Scene";
+            if (sidecarId && placeId) {
+              parsedScenes.push({
+                sidecarId,
+                placeId,
+                ...(folderSidecarId ? { folderSidecarId } : {}),
+                sceneName,
+                foundrySourceData,
+              });
+            }
+          } catch {
+            warnings.push("Failed to parse a scene sidecar YAML — skipped.");
+          }
+        }
+      }
+
+      const output: RestoreScenesOutput = {
+        commitSha: resolvedRef,
+        folderName,
+        scenes: parsedScenes,
+        folders: parsedFolders,
+        warnings,
+      };
+      sendJson(response, 200, output);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status =
+          error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
           : error.code === "rate_limited" ? 429
           : 502;
         sendJson(response, status, { error: { code: error.code, message: error.message } });

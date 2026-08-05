@@ -3,6 +3,7 @@ import { exportJournalFolder } from "./backup-journals.js";
 import { exportSceneFolder } from "./backup-scenes.js";
 import { exportActorFolder } from "./backup-actors.js";
 import { exportRollTableFolder } from "./backup-roll-tables.js";
+import { restoreSceneFolder } from "./restore-scenes.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -658,6 +659,19 @@ export function registerChatCommand(): void {
       ui.notifications.warn(
         "LoreBridge: Usage: /lb backup journals|scenes|actors|rolltables <folder name>",
       );
+      return false;
+    }
+
+    // /lb restore scenes <folder name> [from <sha>]
+    if (args.startsWith("restore ")) {
+      const restoreArgs = args.slice("restore ".length).trim();
+      const scenesMatch = restoreArgs.match(/^scenes\s+(.+?)(?:\s+from\s+([a-f0-9]+))?$/i);
+      if (scenesMatch) {
+        clearInput();
+        void restoreSceneFolder(scenesMatch[1]!.trim(), scenesMatch[2]?.trim());
+        return false;
+      }
+      ui.notifications.warn("LoreBridge: Usage: /lb restore scenes <folder name> [from <commitSha>]");
       return false;
     }
 
