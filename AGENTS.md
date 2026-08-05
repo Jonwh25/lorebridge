@@ -15,7 +15,7 @@ Important rules:
 - Use a short-lived branch from `main`; do not commit feature work directly to
   `main`.
 - Preserve the existing architecture and implement complete vertical slices.
-- Use documented public Foundry VTT v14 APIs.
+- Use documented public Foundry VTT v14 APIs - https://foundryvtt.com/api/v14/
 - Keep remote access read-only, GM-authorized, bounded, and source-attributed
   unless an issue explicitly introduces an approved write design.
 - Never store AI-provider secrets in Foundry or expose arbitrary JavaScript
