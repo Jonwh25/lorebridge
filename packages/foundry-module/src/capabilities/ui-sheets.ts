@@ -117,28 +117,22 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 function showShareDialog(title: string, markdown: string, hiddenCount: number, filename: string): void {
   const safeFilename = filename.replace(/[^a-z0-9_\- ]/gi, "").trim().replace(/\s+/g, "-") || "party-recap";
   const hiddenNote = hiddenCount > 0
-    ? `<p style="color:#e07b39;margin:0 0 6px"><em>${hiddenCount} world entr${hiddenCount !== 1 ? "ies" : "y"} omitted — GM only</em></p>`
+    ? `<p id="lb-share-note" style="color:#e07b39;margin:0"><em>${hiddenCount} world entr${hiddenCount !== 1 ? "ies" : "y"} omitted — GM only</em></p>`
     : "";
   const escaped = markdown.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const content = `
-    <style>
-      .lb-share-dialog .window-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
-      .lb-share { display: flex; flex-direction: column; gap: 6px; padding: 8px; height: 100%; box-sizing: border-box; min-height: 0; }
-      .lb-share__toolbar { display: flex; gap: 6px; flex-shrink: 0; }
-      .lb-share__textarea { flex: 1; min-height: 0; width: 100%; font-family: monospace; font-size: 0.82em; resize: none; box-sizing: border-box; }
-    </style>
-    <div class="lb-share">
+    <div style="display:flex;flex-direction:column;gap:6px;padding:8px">
       ${hiddenNote}
-      <div class="lb-share__toolbar">
+      <div id="lb-share-toolbar" style="display:flex;gap:6px">
         <button type="button" id="lb-party-copy" style="cursor:pointer">📋 Copy to Clipboard</button>
         <button type="button" id="lb-party-dl" style="cursor:pointer">⬇ Download .md</button>
       </div>
-      <textarea id="lb-party-text" class="lb-share__textarea" readonly>${escaped}</textarea>
+      <textarea id="lb-party-text" readonly style="width:100%;font-family:monospace;font-size:0.82em;box-sizing:border-box;resize:none">${escaped}</textarea>
     </div>`;
 
   const d = new foundry.applications.api.DialogV2({
-    window: { title, resizable: true, classes: ["lb-share-dialog"] },
+    window: { title, resizable: true },
     position: { width: 620, height: 500 },
     content,
     buttons: [{ action: "close", label: "Close", icon: "fas fa-times", default: true }],
@@ -146,6 +140,27 @@ function showShareDialog(title: string, markdown: string, hiddenCount: number, f
 
   void d.render({ force: true }).then(() => {
     const el = d.element;
+    const textarea = el?.querySelector<HTMLTextAreaElement>("#lb-party-text");
+    const toolbar = el?.querySelector<HTMLElement>("#lb-share-toolbar");
+
+    if (el && textarea && toolbar) {
+      const sizeTextarea = () => {
+        const header = el.querySelector<HTMLElement>(".window-header");
+        const footer = el.querySelector<HTMLElement>("footer") ?? el.querySelector<HTMLElement>(".dialog-buttons");
+        const note = el.querySelector<HTMLElement>("#lb-share-note");
+        const usedH =
+          (header?.offsetHeight ?? 0) +
+          (footer?.offsetHeight ?? 0) +
+          toolbar.offsetHeight +
+          (note?.offsetHeight ?? 0) +
+          40; // padding (8*2) + gaps (6*2) + buffer
+        textarea.style.height = `${Math.max(80, el.offsetHeight - usedH)}px`;
+      };
+      sizeTextarea();
+      const ro = new ResizeObserver(sizeTextarea);
+      ro.observe(el);
+    }
+
     el?.querySelector<HTMLButtonElement>("#lb-party-copy")?.addEventListener("click", () => {
       void navigator.clipboard.writeText(markdown).then(() => {
         ui.notifications.info("LoreBridge: Recap copied to clipboard.");
