@@ -36,6 +36,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getCompendiumEntry: "getCompendiumEntry",
   listMacroTools: "listMacroTools",
   executeMacroTool: "executeMacroTool",
+  checkCampaignHealth: "checkCampaignHealth",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
