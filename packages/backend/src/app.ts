@@ -31,7 +31,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generatePartyRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -624,6 +624,35 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const result = await generateSessionRecap(provider, { sessionContent, sessionName, tone, length });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/generate/party-recap") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const sessionContent = typeof body["sessionContent"] === "string" ? body["sessionContent"].trim() : "";
+    const sessionName = typeof body["sessionName"] === "string" ? body["sessionName"] : "Session";
+    const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
+    const length = typeof body["length"] === "string" ? body["length"] : "medium";
+    const hiddenCount = typeof body["hiddenCount"] === "number" ? body["hiddenCount"] : 0;
+    if (!sessionContent) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include non-empty sessionContent." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const result = await generatePartyRecap(provider, { sessionContent, sessionName, tone, length, hiddenCount });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {

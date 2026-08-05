@@ -240,7 +240,7 @@ declare const foundry: {
             default?: boolean;
             callback?: (event: Event, button: HTMLElement, dialog: unknown) => void;
           }>;
-        }): { render(options: { force: boolean }): void };
+        }): { element: HTMLElement; render(options: { force: boolean }): Promise<unknown> };
       };
     };
   };
