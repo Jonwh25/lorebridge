@@ -90,88 +90,174 @@ function renderDiffHtml(ops: DiffOp[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Write approval dialog
+// Batch approval panel (ApplicationV2)
+// ---------------------------------------------------------------------------
+
+type QueuedProposal = WriteApprovalPayload & { diffHtml: string; diffSummary: string };
+
+const _pendingProposals = new Map<string, QueuedProposal>();
+let _batchPanel: WriteBatchPanel | null = null;
+
+function _escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function _escapeAttr(s: string): string {
+  return s.replace(/"/g, "&quot;");
+}
+
+function _buildPanelHtml(proposals: QueuedProposal[]): string {
+  if (proposals.length === 0) {
+    return `<p style="color:#888;text-align:center;padding:16px 0;">No pending proposals.</p>`;
+  }
+
+  const count = proposals.length;
+  const header = `
+    <div style="display:flex;gap:8px;margin-bottom:12px;padding:0 2px;">
+      <button data-action="approve-all" style="flex:1;padding:6px 10px;background:#1a3a1a;color:#6fcf6f;border:1px solid #3a6a3a;border-radius:3px;cursor:pointer;">
+        <i class="fas fa-check-double"></i> Approve All (${count})
+      </button>
+      <button data-action="reject-all" style="flex:1;padding:6px 10px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a;border-radius:3px;cursor:pointer;">
+        <i class="fas fa-times-circle"></i> Reject All (${count})
+      </button>
+    </div>
+  `;
+
+  const rows = proposals.map((p) => {
+    const expiresStr = new Date(p.expiresAt).toLocaleTimeString();
+    return `
+      <div style="border:1px solid #444;border-radius:4px;padding:10px;margin-bottom:8px;">
+        <div style="font-weight:bold;margin-bottom:4px;">
+          ${_escapeHtml(p.journalName)} &rsaquo; ${_escapeHtml(p.pageName)}
+        </div>
+        <div style="margin-bottom:4px;font-size:0.9em;">${p.diffSummary}</div>
+        <div style="margin-bottom:6px;font-size:0.8em;color:#888;">${_escapeHtml(p.rationale)}</div>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer;color:#aaa;font-size:0.82em;">Show diff</summary>
+          <div style="max-height:180px;overflow-y:auto;border:1px solid #333;border-radius:3px;margin-top:6px;padding:4px;background:#111;">
+            ${p.diffHtml}
+          </div>
+        </details>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:0.75em;color:#666;">Expires ${expiresStr}</span>
+          <div style="display:flex;gap:6px;">
+            <button data-action="reject" data-token="${_escapeAttr(p.token)}"
+              style="padding:4px 12px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a;border-radius:3px;cursor:pointer;">
+              <i class="fas fa-times"></i> Reject
+            </button>
+            <button data-action="approve" data-token="${_escapeAttr(p.token)}"
+              style="padding:4px 12px;background:#1a3a1a;color:#6fcf6f;border:1px solid #3a6a3a;border-radius:3px;cursor:pointer;">
+              <i class="fas fa-check"></i> Approve
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return `<div style="padding:8px 4px;">${header}${rows}</div>`;
+}
+
+const _AppV2Base = (foundry as { applications: { api: { ApplicationV2: typeof FoundryApplicationV2 } } }).applications.api.ApplicationV2;
+
+class WriteBatchPanel extends _AppV2Base {
+  static override DEFAULT_OPTIONS = {
+    id: "lorebridge-batch-approval",
+    classes: ["lorebridge-batch-approval"],
+    window: { title: "LoreBridge — Pending Write Approvals", resizable: true },
+    position: { width: 620 },
+  };
+
+  override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
+    const proposals = Array.from(_pendingProposals.values());
+    const container = document.createElement("div");
+    container.innerHTML = _buildPanelHtml(proposals);
+    return container;
+  }
+
+  override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
+    content.replaceChildren(...Array.from(result.childNodes));
+  }
+
+  override _onClickAction(_event: PointerEvent, target: HTMLElement): void | Promise<void> {
+    const action = target.dataset.action;
+    const token = target.dataset.token ?? "";
+    if (action === "approve") return _doApprove(token, this);
+    if (action === "reject") return _doReject(token, this);
+    if (action === "approve-all") return _doApproveAll(this);
+    if (action === "reject-all") return _doRejectAll(this);
+  }
+}
+
+async function _doApprove(token: string, panel: WriteBatchPanel): Promise<void> {
+  const proposal = _pendingProposals.get(token);
+  if (!proposal) return;
+  _pendingProposals.delete(token);
+  try {
+    await approveWrite(token);
+    ui.notifications.info(`LoreBridge: "${proposal.pageName}" updated. Rollback available for 30 minutes.`);
+  } catch (err: unknown) {
+    _pendingProposals.set(token, proposal); // re-queue on failure
+    ui.notifications.error(`LoreBridge: Approve failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+  await _refreshOrClose(panel);
+}
+
+async function _doReject(token: string, panel: WriteBatchPanel): Promise<void> {
+  const proposal = _pendingProposals.get(token);
+  if (!proposal) return;
+  _pendingProposals.delete(token);
+  try {
+    await rejectWrite(token);
+    ui.notifications.info(`LoreBridge: Write proposal rejected.`);
+  } catch (err: unknown) {
+    _pendingProposals.set(token, proposal); // re-queue on failure
+    ui.notifications.error(`LoreBridge: Reject failed — ${err instanceof Error ? err.message : String(err)}`);
+  }
+  await _refreshOrClose(panel);
+}
+
+async function _doApproveAll(panel: WriteBatchPanel): Promise<void> {
+  const tokens = Array.from(_pendingProposals.keys());
+  for (const token of tokens) await _doApprove(token, panel);
+}
+
+async function _doRejectAll(panel: WriteBatchPanel): Promise<void> {
+  const tokens = Array.from(_pendingProposals.keys());
+  for (const token of tokens) await _doReject(token, panel);
+}
+
+async function _refreshOrClose(panel: WriteBatchPanel): Promise<void> {
+  if (_pendingProposals.size === 0) {
+    await panel.close();
+    _batchPanel = null;
+  } else {
+    await panel.render({ force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Write approval entry point (called per incoming approvalRequired event)
 // ---------------------------------------------------------------------------
 
 export async function showWriteApprovalChat(payload: WriteApprovalPayload): Promise<void> {
   if (!game.user?.isGM) return;
 
-  const gmIds = game.users.filter((u) => u.isGM).map((u) => u.id);
-  const expiresDate = new Date(payload.expiresAt);
-  const expiresStr = expiresDate.toLocaleTimeString();
-
-  const whisperContent = `
-    <p><strong>LoreBridge — AI Write Proposal</strong></p>
-    <p><strong>Journal:</strong> ${payload.journalName} / ${payload.pageName}</p>
-    <p><strong>Rationale:</strong> ${payload.rationale}</p>
-    <p style="font-size:0.8em;color:#888;">Expires at ${expiresStr} — respond via the popup dialog.</p>
-  `;
-
-  await ChatMessage.create({
-    content: whisperContent,
-    whisper: gmIds,
-    speaker: { alias: "LoreBridge" },
-    flags: { [MODULE_ID]: { [FLAG_WRITE_TOKEN]: payload.token } },
-  });
-
-  const diffOps = computeDiff(
-    htmlToLines(payload.currentContent),
-    htmlToLines(payload.proposedContent),
-  );
+  const diffOps = computeDiff(htmlToLines(payload.currentContent), htmlToLines(payload.proposedContent));
   const diffHtml = renderDiffHtml(diffOps);
   const addedCount = diffOps.filter((o) => o.op === "insert").length;
   const removedCount = diffOps.filter((o) => o.op === "delete").length;
   const diffSummary = `<span style="color:#6fcf6f">+${addedCount}</span> / <span style="color:#cf6f6f">-${removedCount}</span> paragraphs`;
 
-  const dialogContent = `
-    <div style="margin-bottom:8px;">
-      <p><strong>Journal:</strong> ${payload.journalName}</p>
-      <p><strong>Page:</strong> ${payload.pageName}</p>
-      <p><strong>Rationale:</strong> ${payload.rationale}</p>
-      <details open style="margin-top:8px;">
-        <summary style="cursor:pointer;font-weight:bold;">Diff — ${diffSummary}</summary>
-        <div style="max-height:300px;overflow-y:auto;border:1px solid #555;border-radius:4px;margin-top:4px;padding:4px;background:#1a1a1a;">
-          ${diffHtml}
-        </div>
-      </details>
-      <p style="margin-top:8px;font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
-    </div>
-  `;
+  _pendingProposals.set(payload.token, { ...payload, diffHtml, diffSummary });
 
-  new foundry.applications.api.DialogV2({
-    window: { title: "LoreBridge — AI Write Proposal", resizable: true },
-    position: { width: 560, height: "auto" },
-    content: dialogContent,
-    buttons: [
-      {
-        action: "approve",
-        label: "Approve",
-        icon: "fas fa-check",
-        callback: () => {
-          void approveWrite(payload.token).then(() => {
-            ui.notifications.info(`LoreBridge: "${payload.pageName}" updated. Rollback available for 30 minutes.`);
-          }).catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            ui.notifications.error(`LoreBridge: Approve failed — ${msg}`);
-          });
-        },
-      },
-      {
-        action: "reject",
-        label: "Reject",
-        icon: "fas fa-times",
-        default: true,
-        callback: () => {
-          void rejectWrite(payload.token).then(() => {
-            ui.notifications.info("LoreBridge: Write proposal rejected.");
-          }).catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            ui.notifications.error(`LoreBridge: Reject failed — ${msg}`);
-          });
-        },
-      },
-    ],
-  }).render({ force: true });
+  if (!_batchPanel || !_batchPanel.rendered) {
+    _batchPanel = new WriteBatchPanel();
+    await _batchPanel.render({ force: true });
+  } else {
+    await _batchPanel.render({ force: true });
+    _batchPanel.bringToFront();
+  }
 }
 
 // ---------------------------------------------------------------------------

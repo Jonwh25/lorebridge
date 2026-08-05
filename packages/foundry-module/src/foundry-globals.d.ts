@@ -207,9 +207,27 @@ type FoundryUser = {
   isGM: boolean;
 };
 
+declare class FoundryApplicationV2 {
+  static DEFAULT_OPTIONS: Partial<{
+    id: string;
+    classes: string[];
+    window: { title?: string; resizable?: boolean };
+    position: { width?: number | string; height?: number | string };
+  }>;
+  readonly rendered: boolean;
+  readonly element: HTMLElement;
+  render(options?: boolean | { force?: boolean }): Promise<this>;
+  close(options?: { force?: boolean }): Promise<this>;
+  bringToFront(): void;
+  _renderHTML(context: Record<string, unknown>, options: unknown): Promise<HTMLElement>;
+  _replaceHTML(result: HTMLElement, content: HTMLElement, options: unknown): void;
+  _onClickAction(event: PointerEvent, target: HTMLElement): void | Promise<void>;
+}
+
 declare const foundry: {
   applications: {
     api: {
+      ApplicationV2: typeof FoundryApplicationV2;
       DialogV2: {
         new(config: {
           window?: { title?: string; resizable?: boolean };
