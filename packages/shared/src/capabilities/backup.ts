@@ -64,6 +64,8 @@ export interface RestoreFolderEntry {
   sidecarId: string;
   name: string;
   sort: number;
+  /** Sidecar ID of the parent folder within this backup; absent = direct child of root. */
+  parentSidecarId?: string;
 }
 
 /** A scene entry returned by the restore plan endpoint. */

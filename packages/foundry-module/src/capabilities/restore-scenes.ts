@@ -92,17 +92,42 @@ function buildFolderPlan(data: RestoreScenesOutput): Map<string, string | null> 
   const allFolders = Array.from(game.folders);
 
   for (const folder of data.folders) {
+    // Prefer flag match — exact and unambiguous even with duplicate names.
     const byFlag = allFolders.find(
       (f) => f.type === "Scene" && f.getFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID) === folder.sidecarId,
     );
     if (byFlag) { result.set(folder.sidecarId, byFlag.id); continue; }
 
-    const byName = allFolders.find((f) => f.type === "Scene" && f.name === folder.name);
-    if (byName) { result.set(folder.sidecarId, byName.id); continue; }
+    // Name fallback only when this sidecar name is unique in the backup so we
+    // can't confuse two "Random Encounters" folders with each other.
+    const nameCount = data.folders.filter((f) => f.name === folder.name).length;
+    if (nameCount === 1) {
+      const byName = allFolders.find((f) => f.type === "Scene" && f.name === folder.name);
+      if (byName) { result.set(folder.sidecarId, byName.id); continue; }
+    }
 
     result.set(folder.sidecarId, null);
   }
   return result;
+}
+
+/** Topological sort: parents before children. Cycles are broken by order. */
+function topoSortFolders(folders: RestoreFolderEntry[]): RestoreFolderEntry[] {
+  const byId = new Map(folders.map((f) => [f.sidecarId, f]));
+  const sorted: RestoreFolderEntry[] = [];
+  const visited = new Set<string>();
+
+  function visit(f: RestoreFolderEntry): void {
+    if (visited.has(f.sidecarId)) return;
+    if (f.parentSidecarId && byId.has(f.parentSidecarId)) {
+      visit(byId.get(f.parentSidecarId)!);
+    }
+    visited.add(f.sidecarId);
+    sorted.push(f);
+  }
+
+  for (const f of folders) visit(f);
+  return sorted;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,29 +204,36 @@ async function applyRestore(
     rootFolderId = newRoot?.id ?? null;
   }
 
-  // Step 2: create missing subfolders; build resolved ID map.
+  // Step 2: create missing subfolders in topological order (parents first).
   const resolvedFolderIds = new Map<string, string>();
   for (const [sidecarId, existingId] of folderPlan) {
     if (existingId !== null) { resolvedFolderIds.set(sidecarId, existingId); }
   }
 
-  const toCreate = data.folders.filter((f): f is RestoreFolderEntry => folderPlan.get(f.sidecarId) === null);
+  const toCreate = topoSortFolders(
+    data.folders.filter((f): f is RestoreFolderEntry => folderPlan.get(f.sidecarId) === null),
+  );
   for (const folder of toCreate) {
+    // Place under the resolved parent, or under the root if parent is unknown.
+    const parentId = folder.parentSidecarId
+      ? (resolvedFolderIds.get(folder.parentSidecarId) ?? rootFolderId)
+      : rootFolderId;
     const newFolder = await Folder.create({
       name: folder.name,
       type: "Scene",
-      folder: rootFolderId,
+      folder: parentId,
       sort: folder.sort,
     });
     if (newFolder) {
       resolvedFolderIds.set(folder.sidecarId, newFolder.id);
       try {
         await newFolder.setFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID, folder.sidecarId);
-      } catch { /* best effort — flag persists on next backup */ }
+      } catch { /* best effort */ }
     }
   }
 
   // Step 3: create / update scenes.
+  const scenesToThumb: FoundryScene[] = [];
   for (const item of plan) {
     if (item.action === "conflict") { skipped++; continue; }
 
@@ -216,14 +248,23 @@ async function applyRestore(
 
     if (item.action === "create") {
       const newScene = await Scene.create(sceneData);
-      if (newScene) created++;
+      if (newScene) { created++; scenesToThumb.push(newScene); }
     } else if (item.action === "update" && item.existingFoundryId) {
       const existing = game.scenes.get(item.existingFoundryId);
       if (existing) {
         await existing.update(sceneData);
         updated++;
+        scenesToThumb.push(existing);
       }
     }
+  }
+
+  // Step 4: regenerate thumbnails (best-effort, non-blocking).
+  for (const scene of scenesToThumb) {
+    try {
+      const thumbData = await (scene as unknown as { createThumbnail(): Promise<{ thumb: string }> }).createThumbnail();
+      await scene.update({ thumb: thumbData.thumb });
+    } catch { /* thumbnails are non-critical */ }
   }
 
   return { created, updated, skipped };

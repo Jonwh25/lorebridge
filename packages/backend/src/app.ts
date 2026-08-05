@@ -977,7 +977,8 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
             const sidecarId = typeof obj["id"] === "string" ? obj["id"] : "";
             const name = typeof obj["name"] === "string" ? obj["name"] : "";
             const sort = typeof obj["sort"] === "number" ? obj["sort"] : 0;
-            if (sidecarId && name) parsedFolders.push({ sidecarId, name, sort });
+            const parentSidecarId = typeof obj["parentFolderSidecarId"] === "string" ? obj["parentFolderSidecarId"] : undefined;
+            if (sidecarId && name) parsedFolders.push({ sidecarId, name, sort, ...(parentSidecarId ? { parentSidecarId } : {}) });
           } catch {
             warnings.push("Failed to parse a folder sidecar YAML — skipped.");
           }

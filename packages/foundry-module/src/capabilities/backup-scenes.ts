@@ -101,8 +101,9 @@ export async function exportSceneFolder(
 
   const warnings: string[] = [];
   const files: BackupFileEntry[] = [];
-  const seenFolderIds = new Set<string>();
   const folderResourceFiles: BackupFileEntry[] = [];
+  // Maps Foundry folder ID → sidecar ID for all folders in the subtree.
+  const folderSidecarIds = new Map<string, string>();
 
   // Build a full folder map (game.folders.contents + scene.folder refs).
   const allScenes = Array.from(game.scenes);
@@ -133,6 +134,74 @@ export async function exportSceneFolder(
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Phase 1: Assign stable sidecar IDs to ALL subfolders in the subtree.
+  // This must happen before building YAMLs so parent IDs can be resolved.
+  // The root folder itself is the restore target and is NOT exported.
+  // ---------------------------------------------------------------------------
+  for (const folderId of targetFolderIds) {
+    if (folderId === rootFolder.id) continue;
+
+    const foundryFolder = folderById.get(folderId);
+    if (!foundryFolder) continue;
+
+    let folderExtId = foundryFolder.getFlag
+      ? (foundryFolder.getFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID) as string | undefined)
+      : undefined;
+    if (!folderExtId || !folderExtId.startsWith("foundry-folder:")) {
+      folderExtId = `foundry-folder:${crypto.randomUUID()}`;
+      if (foundryFolder.setFlag) {
+        try {
+          await foundryFolder.setFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID, folderExtId);
+        } catch {
+          warnings.push(`Could not persist folder ID for "${foundryFolder.name}" — it will change on the next export.`);
+        }
+      }
+    }
+    folderSidecarIds.set(folderId, folderExtId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 2: Write folder YAML files, recording parent relationships so the
+  // full hierarchy can be reconstructed on restore.
+  // ---------------------------------------------------------------------------
+  for (const folderId of targetFolderIds) {
+    if (folderId === rootFolder.id) continue;
+
+    const foundryFolder = folderById.get(folderId);
+    if (!foundryFolder) continue;
+
+    const folderExtId = folderSidecarIds.get(folderId)!;
+    const parentId = foundryFolder.folder?.id;
+    // Intermediate parent (not root): record its sidecar ID so the hierarchy
+    // can be rebuilt on restore. Direct children of root have no parentFolderSidecarId.
+    const parentSidecarId =
+      parentId && parentId !== rootFolder.id ? folderSidecarIds.get(parentId) : undefined;
+
+    const folderResource: Record<string, unknown> = {
+      id: folderExtId,
+      type: "folder",
+      sourceDocument: {
+        type: "Folder",
+        id: folderId,
+        uuid: `Folder.${folderId}`,
+      },
+      documentType: "Scene",
+      rootFolderName: folderName,
+      name: foundryFolder.name ?? "Unknown Folder",
+      sort: foundryFolder.sort ?? 0,
+      ...(parentSidecarId ? { parentFolderSidecarId: parentSidecarId } : {}),
+    };
+
+    folderResourceFiles.push({
+      path: `extensions/org.ravens-eye.foundry-vtt/folders/foundry-folder-${folderId}.yaml`,
+      content: toYamlDoc(folderResource),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 3: Export scenes.
+  // ---------------------------------------------------------------------------
   for (const scene of scenes) {
     const sExt = scene as unknown as SceneWithFlags;
 
@@ -164,93 +233,26 @@ export async function exportSceneFolder(
       }
     }
 
-    // Resolve the folder resource ID.
-    let folderExtId: string | undefined;
+    // Resolve the folder sidecar ID for this scene's parent folder.
     const folderId = scene.folder?.id;
-    const folderName_ = scene.folder?.name;
-
-    if (folderId && !seenFolderIds.has(folderId)) {
-      seenFolderIds.add(folderId);
-
-      const foundryFolder = folderId ? folderById.get(folderId) : undefined;
-
-      if (foundryFolder) {
-        folderExtId = foundryFolder.getFlag
-          ? (foundryFolder.getFlag(MODULE_ID, FLAG_FOLDER_RAVENS_EYE_ID) as
-              | string
-              | undefined)
-          : undefined;
-        if (!folderExtId || !folderExtId.startsWith("foundry-folder:")) {
-          folderExtId = `foundry-folder:${crypto.randomUUID()}`;
-          if (foundryFolder.setFlag) {
-            try {
-              await foundryFolder.setFlag(
-                MODULE_ID,
-                FLAG_FOLDER_RAVENS_EYE_ID,
-                folderExtId,
-              );
-            } catch {
-              warnings.push(
-                `Could not persist folder ID for "${folderName_}" — it will change on the next export.`,
-              );
-            }
-          }
-        }
-
-        // Build the folder resource YAML.
-        const folderResource: Record<string, unknown> = {
-          id: folderExtId,
-          type: "folder",
-          sourceDocument: {
-            type: "Folder",
-            id: folderId,
-            uuid: `Folder.${folderId}`,
-          },
-          documentType: "Scene",
-          rootFolderName: folderName,
-          name: folderName_ ?? "Unknown Folder",
-          sort: foundryFolder.sort ?? 0,
-        };
-
-        const folderYaml = toYamlDoc(folderResource);
-        const folderFilePath = `extensions/org.ravens-eye.foundry-vtt/folders/foundry-folder-${folderId}.yaml`;
-        folderResourceFiles.push({ path: folderFilePath, content: folderYaml });
-      } else {
-        folderExtId = `foundry-folder:${crypto.randomUUID()}`;
-        warnings.push(
-          `Could not resolve folder document for "${folderName_}" — folder resource ID may be unstable.`,
-        );
-      }
-    }
+    const folderExtId = folderId ? folderSidecarIds.get(folderId) : undefined;
 
     // Serialize the complete Foundry scene document for full restore fidelity.
     // toObject() returns a plain JS object with all embedded collections
-    // (walls, lights, tiles, drawings, notes, sounds, regions, etc.).
+    // (walls, lights, tiles, drawings, notes, sounds, tokens, regions, etc.).
     const rawSceneData = (scene as unknown as { toObject(): Record<string, unknown> }).toObject();
 
     // Strip fields that must not be restored verbatim:
-    //   _id      — Foundry assigns a new ID on import; restoring the old one
-    //              causes UUID collisions when the original scene still exists.
-    //   thumb    — auto-generated by Foundry; will be rebuilt on first load.
-    //   _stats   — internal Foundry housekeeping metadata.
-    //   tokens   — live token positions are dynamic runtime state, not scene
-    //              definition data. Restore them separately if needed.
+    //   _id    — Foundry assigns a new ID on import; restoring the old one
+    //            causes UUID collisions when the original scene still exists.
+    //   thumb  — auto-generated by Foundry; regenerated after restore.
+    //   _stats — internal Foundry housekeeping metadata.
     const {
       _id: _stripId,
       thumb: _stripThumb,
       _stats: _stripStats,
-      tokens: sceneTokens,
       ...foundrySourceData
-    } = rawSceneData as Record<string, unknown> & {
-      tokens?: unknown[];
-    };
-
-    // Warn about token exclusion so the user knows actors won't reappear.
-    if (Array.isArray(sceneTokens) && sceneTokens.length > 0) {
-      warnings.push(
-        `Scene "${scene.name}": ${sceneTokens.length} token(s) not included — token positions are dynamic runtime state. Re-place actors after restore.`,
-      );
-    }
+    } = rawSceneData;
 
     // Inventory asset paths (backgrounds, tiles, etc.) for user awareness.
     const backgroundSrc =
