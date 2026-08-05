@@ -80,6 +80,13 @@ export interface RestoreSceneEntry {
   foundrySourceData: Record<string, unknown>;
 }
 
+/** Output from DELETE /v1/backup/github/scenes. */
+export interface DeleteBackupScenesOutput {
+  folderName: string;
+  commitSha: string;
+  filesDeleted: number;
+}
+
 /** Output from GET /v1/backup/github/restore/scenes. */
 export interface RestoreScenesOutput {
   commitSha: string;

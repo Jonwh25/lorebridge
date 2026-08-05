@@ -4,7 +4,7 @@ import { exportSceneFolder } from "./backup-scenes.js";
 import { exportActorFolder } from "./backup-actors.js";
 import { exportRollTableFolder } from "./backup-roll-tables.js";
 import { restoreSceneFolder } from "./restore-scenes.js";
-import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType } from "@lorebridge/shared/capabilities";
+import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
 const MODULE_ID = "lorebridge";
@@ -531,6 +531,74 @@ async function handleBackupCommand(
   }).render({ force: true });
 }
 
+async function handleBackupDeleteScenesCommand(folderName: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb backup delete is only available to GMs.");
+    return;
+  }
+
+  const dialogContent = `
+    <div style="padding:4px;">
+      <p><strong>LoreBridge — Delete Backup</strong></p>
+      <p>This will permanently delete all scene and folder backup files for <strong>${folderName}</strong> from GitHub.</p>
+      <p style="color:#c0392b;margin-top:8px;"><strong>This cannot be undone.</strong> The scenes will remain in Foundry — only the GitHub backup is affected.</p>
+    </div>
+  `;
+
+  new foundry.applications.api.DialogV2({
+    window: { title: "LoreBridge — Delete Backup", resizable: false },
+    position: { width: 480, height: "auto" },
+    content: dialogContent,
+    buttons: [
+      {
+        action: "delete",
+        label: "Delete from GitHub",
+        icon: "fas fa-trash",
+        default: false,
+        callback: () => {
+          const settings = getLoreBridgeSettings();
+          if (!settings.backendUrl || !settings.clientToken) {
+            ui.notifications.error("LoreBridge backend is not configured or paired.");
+            return;
+          }
+          const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
+          const url = `${base}v1/backup/github/scenes?folderName=${encodeURIComponent(folderName)}`;
+          void fetch(url, {
+            method: "DELETE",
+            headers: { authorization: `Bearer ${settings.clientToken}` },
+          })
+            .then(async (res) => {
+              if (!res.ok) {
+                const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
+                throw new Error(err?.error?.message ?? `Backend error ${res.status}`);
+              }
+              return res.json() as Promise<DeleteBackupScenesOutput>;
+            })
+            .then((result) => {
+              const shortSha = result.commitSha.slice(0, 7);
+              ui.notifications.info(
+                `LoreBridge: Deleted ${result.filesDeleted} backup file(s) for "${folderName}" — commit ${shortSha}`,
+              );
+              const gmIds = game.users.filter((u) => u.isGM).map((u) => u.id);
+              void ChatMessage.create({
+                content: `<p><strong>LoreBridge</strong> — Deleted GitHub backup for scenes folder "<strong>${folderName}</strong>" (${result.filesDeleted} file(s), commit <code>${shortSha}</code>).</p>`,
+                whisper: gmIds,
+                speaker: { alias: "LoreBridge" },
+                flags: { [MODULE_ID]: { type: "backup-delete", folderName, commitSha: result.commitSha } },
+              });
+            })
+            .catch((err: unknown) => {
+              ui.notifications.error(
+                `LoreBridge backup delete failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        },
+      },
+      { action: "cancel", label: "Cancel", icon: "fas fa-times", default: true },
+    ],
+  }).render({ force: true });
+}
+
 function isLbCommand(value: string): boolean {
   const t = value.trim();
   return t === COMMAND_EXACT || t.startsWith(COMMAND_PREFIX);
@@ -630,12 +698,19 @@ export function registerChatCommand(): void {
     }
 
     // /lb backup journals|scenes|actors|rolltables <folder name>
+    // /lb backup delete scenes <folder name>
     if (args.startsWith("backup ")) {
       const backupArgs = args.slice("backup ".length).trim();
+      const deleteMatch = backupArgs.match(/^delete\s+scenes\s+(.+)$/i);
       const journalsMatch = backupArgs.match(/^journals\s+(.+)$/i);
       const scenesMatch = backupArgs.match(/^scenes\s+(.+)$/i);
       const actorsMatch = backupArgs.match(/^actors\s+(.+)$/i);
       const rollTablesMatch = backupArgs.match(/^rolltables\s+(.+)$/i);
+      if (deleteMatch) {
+        clearInput();
+        void handleBackupDeleteScenesCommand(deleteMatch[1]!.trim());
+        return false;
+      }
       if (journalsMatch) {
         clearInput();
         void handleBackupCommand("journals", journalsMatch[1]!.trim());

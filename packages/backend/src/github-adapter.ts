@@ -44,6 +44,7 @@ export interface BackupResult {
   sha: string;
   url: string;
   filesCommitted: number;
+  filesDeleted: number;
 }
 
 export interface CommitRecord {
@@ -325,9 +326,10 @@ export class GitHubAdapter {
   async createBackupCommit(
     message: string,
     files: BackupFile[],
+    deletePaths?: string[],
   ): Promise<BackupResult> {
-    if (!files.length) {
-      throw new GitHubAdapterError("api_error", "At least one file is required for a backup commit.");
+    if (!files.length && !deletePaths?.length) {
+      throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
     }
 
     // Validate every path before touching GitHub.
@@ -335,6 +337,9 @@ export class GitHubAdapter {
       fullPath: resolveCampaignPath(this.config.campaignRoot, f.path),
       content: f.content,
     }));
+    const resolvedDeletes = (deletePaths ?? []).map((p) =>
+      resolveCampaignPath(this.config.campaignRoot, p),
+    );
 
     // Step 1: get current HEAD SHA (null when the repository is empty).
     const refUrl = `${this.repoBase()}/git/refs/heads/${encodeURIComponent(this.config.branch)}`;
@@ -379,7 +384,7 @@ export class GitHubAdapter {
     // Step 3: create a blob for each file, in batches of 5 to avoid
     // overwhelming the GitHub API with concurrent requests on large exports.
     const BLOB_BATCH_SIZE = 5;
-    const treeEntries: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    const treeEntries: Array<{ path: string; mode: string; type: string; sha: string | null }> = [];
     for (let i = 0; i < resolvedFiles.length; i += BLOB_BATCH_SIZE) {
       const batch = resolvedFiles.slice(i, i + BLOB_BATCH_SIZE);
       const batchEntries = await Promise.all(
@@ -400,6 +405,10 @@ export class GitHubAdapter {
         }),
       );
       treeEntries.push(...batchEntries);
+    }
+    // Deletions: sha=null removes a file from the tree.
+    for (const fullPath of resolvedDeletes) {
+      treeEntries.push({ path: fullPath, mode: "100644", type: "blob", sha: null });
     }
 
     // Step 4: create a new tree (omit base_tree for the initial commit).
@@ -441,6 +450,7 @@ export class GitHubAdapter {
       sha: newCommitSha,
       url: commitUrl,
       filesCommitted: files.length,
+      filesDeleted: resolvedDeletes.length,
     };
   }
 }

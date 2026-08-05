@@ -44,7 +44,7 @@ import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
-import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry } from "@lorebridge/shared/capabilities";
+import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 
 const serviceVersion = "0.2.0";
 
@@ -888,6 +888,34 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       return;
     }
 
+    // For scene backups, detect stale folder YAML files left by previous runs
+    // (e.g. from old buggy backups that wrote non-Scene folders) and delete them.
+    const staleDeletePaths: string[] = [];
+    if (input.type === "scenes") {
+      try {
+        const commits = await github.listCommits(1);
+        if (commits.length > 0) {
+          const headSha = commits[0]!.sha;
+          const existingFolderFiles = await github.listDirectoryAtRef(
+            "extensions/org.ravens-eye.foundry-vtt/folders",
+            headSha,
+          );
+          const committedNames = new Set(
+            input.files
+              .map((f) => f.path.split("/").pop()!)
+              .filter((n) => n.endsWith(".yaml")),
+          );
+          for (const f of existingFolderFiles) {
+            if (f.type === "file" && f.name.endsWith(".yaml") && !committedNames.has(f.name)) {
+              staleDeletePaths.push(`extensions/org.ravens-eye.foundry-vtt/folders/${f.name}`);
+            }
+          }
+        }
+      } catch {
+        // Stale cleanup is best-effort; don't block the backup if it fails.
+      }
+    }
+
     // Commit to GitHub.
     const defaultMessage = `LoreBridge backup: ${input.type} folder "${input.folderName}"`;
     const commitMessage = input.commitMessage?.trim() || defaultMessage;
@@ -895,6 +923,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       const result = await github.createBackupCommit(
         commitMessage,
         input.files.map((f) => ({ path: f.path, content: f.content })),
+        staleDeletePaths,
       );
       const output: BackupExportOutput = {
         preview: false,
@@ -1027,6 +1056,98 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
         scenes: parsedScenes,
         folders: parsedFolders,
         warnings,
+      };
+      sendJson(response, 200, output);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status =
+          error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "DELETE" && url.pathname === "/v1/backup/github/scenes") {
+    if (!authenticate(pairing, request, response)) return;
+    const folderName = url.searchParams.get("folderName")?.trim() ?? "";
+    if (!folderName) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "The 'folderName' query parameter is required." } });
+      return;
+    }
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+
+    try {
+      const commits = await github.listCommits(1);
+      if (commits.length === 0) {
+        sendJson(response, 404, { error: { code: "not_found", message: "No commits found in the backup repository." } });
+        return;
+      }
+      const headSha = commits[0]!.sha;
+
+      const [folderFileList, sceneFileList] = await Promise.all([
+        github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/folders", headSha),
+        github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/scenes", headSha),
+      ]);
+
+      const BATCH_SIZE = 5;
+      const pathsToDelete: string[] = [];
+
+      // Read each folder YAML, keep those matching rootFolderName.
+      const yamlFolderFiles = folderFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
+      for (let i = 0; i < yamlFolderFiles.length; i += BATCH_SIZE) {
+        const batch = yamlFolderFiles.slice(i, i + BATCH_SIZE);
+        const contents = await Promise.all(batch.map((f) => github.readBlobBySha(f.sha)));
+        for (let j = 0; j < contents.length; j++) {
+          try {
+            const obj = yamlLoad(contents[j]!) as Record<string, unknown>;
+            const rootName = typeof obj?.["rootFolderName"] === "string" ? obj["rootFolderName"] : undefined;
+            if (rootName === folderName) {
+              pathsToDelete.push(`extensions/org.ravens-eye.foundry-vtt/folders/${batch[j]!.name}`);
+            }
+          } catch { /* skip unparseable */ }
+        }
+      }
+
+      // Read each scene YAML, keep those matching rootFolderName.
+      const yamlSceneFiles = sceneFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
+      for (let i = 0; i < yamlSceneFiles.length; i += BATCH_SIZE) {
+        const batch = yamlSceneFiles.slice(i, i + BATCH_SIZE);
+        const contents = await Promise.all(batch.map((f) => github.readBlobBySha(f.sha)));
+        for (let j = 0; j < contents.length; j++) {
+          try {
+            const obj = yamlLoad(contents[j]!) as Record<string, unknown>;
+            const rootName = typeof obj?.["rootFolderName"] === "string" ? obj["rootFolderName"] : undefined;
+            if (rootName === folderName) {
+              pathsToDelete.push(`extensions/org.ravens-eye.foundry-vtt/scenes/${batch[j]!.name}`);
+            }
+          } catch { /* skip unparseable */ }
+        }
+      }
+
+      if (pathsToDelete.length === 0) {
+        sendJson(response, 404, { error: { code: "not_found", message: `No backup files found for folder "${folderName}".` } });
+        return;
+      }
+
+      const result = await github.createBackupCommit(
+        `LoreBridge: delete backup for scenes folder "${folderName}"`,
+        [],
+        pathsToDelete,
+      );
+
+      const output: DeleteBackupScenesOutput = {
+        folderName,
+        commitSha: result.sha,
+        filesDeleted: result.filesDeleted,
       };
       sendJson(response, 200, output);
     } catch (error) {
