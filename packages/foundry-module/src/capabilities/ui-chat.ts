@@ -5,6 +5,7 @@ import { exportActorFolder } from "./backup-actors.js";
 import { exportRollTableFolder } from "./backup-roll-tables.js";
 import { restoreSceneFolder } from "./restore-scenes.js";
 import { handleSessionCleanup } from "./session-cleanup.js";
+import { checkCampaignHealth } from "./health-check.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -600,6 +601,90 @@ async function handleBackupDeleteScenesCommand(folderName: string): Promise<void
   }).render({ force: true });
 }
 
+// ---------------------------------------------------------------------------
+// Health check command (#169)
+// ---------------------------------------------------------------------------
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function handleHealthCheck(full: boolean): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb health is only available to GMs.");
+    return;
+  }
+
+  ui.notifications.info("LoreBridge: Running campaign health check…");
+
+  try {
+    const result = await checkCampaignHealth(full ? { limit: 500 } : {});
+
+    const sevIcon = (s: string) => s === "error" ? "🔴" : "⚠️";
+    const catLabel = (c: string) => c.replace(/-/g, " ");
+
+    const rows = result.findings.map((f) =>
+      `<tr style="border-bottom:1px solid #e0e0e0">
+        <td style="padding:3px 6px;white-space:nowrap">${sevIcon(f.severity)}</td>
+        <td style="padding:3px 6px;white-space:nowrap;font-size:11px;color:#666">${catLabel(f.category)}</td>
+        <td style="padding:3px 6px;font-size:12px">${escapeHtml(f.sourceName)}</td>
+        <td style="padding:3px 6px;font-size:12px;color:#444">${escapeHtml(f.detail)}</td>
+      </tr>`,
+    ).join("");
+
+    const truncatedNote = result.truncated
+      ? `<p style="color:#c0392b;margin:6px 0 0;font-size:12px">Results capped at ${result.findings.length}. Use <code>/lb health full</code> to scan up to 500.</p>`
+      : "";
+
+    const summary = `Scanned ${result.documentsScanned.toLocaleString()} documents · Checks: ${result.checksRun.join(", ")}`;
+
+    const content = `
+      <div style="font-size:13px;line-height:1.5">
+        <p style="margin:0 0 6px">
+          <strong>Campaign Health — ${escapeHtml(result.sourceName)}</strong>
+          <span style="font-size:11px;color:#888;margin-left:8px">${summary}</span>
+        </p>
+        ${result.findings.length === 0
+          ? `<p style="color:#27ae60">✅ No issues found.</p>`
+          : `<div style="max-height:440px;overflow-y:auto">
+              <table style="width:100%;border-collapse:collapse">
+                <thead>
+                  <tr style="border-bottom:2px solid #ccc">
+                    <th style="text-align:left;padding:4px 6px">Sev</th>
+                    <th style="text-align:left;padding:4px 6px">Category</th>
+                    <th style="text-align:left;padding:4px 6px">Source</th>
+                    <th style="text-align:left;padding:4px 6px">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>`}
+        ${truncatedNote}
+      </div>`;
+
+    const buttons: Array<{ action: string; label: string; icon?: string; default?: boolean; callback?: () => void }> = [];
+    if (result.truncated && !full) {
+      buttons.push({
+        action: "full",
+        label: "Full Scan (500)",
+        icon: "fas fa-search",
+        callback: () => { void handleHealthCheck(true); },
+      });
+    }
+    buttons.push({ action: "close", label: "Close", default: true });
+
+    new foundry.applications.api.DialogV2({
+      window: { title: `LoreBridge Health — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
+      position: { width: 800, height: "auto" },
+      content,
+      buttons,
+    }).render({ force: true });
+
+  } catch (error) {
+    ui.notifications.error(`LoreBridge health check failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function isLbCommand(value: string): boolean {
   const t = value.trim();
   return t === COMMAND_EXACT || t.startsWith(COMMAND_PREFIX);
@@ -748,6 +833,14 @@ export function registerChatCommand(): void {
         return false;
       }
       ui.notifications.warn("LoreBridge: Usage: /lb restore scenes <folder name> [from <commitSha>]");
+      return false;
+    }
+
+    // /lb health [full]
+    if (args === "health" || args.startsWith("health ")) {
+      const full = args === "health full";
+      clearInput();
+      void handleHealthCheck(full);
       return false;
     }
 
