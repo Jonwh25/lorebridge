@@ -209,7 +209,7 @@ export async function showRollbackAvailableChat(payload: RollbackAvailablePayloa
 // ---------------------------------------------------------------------------
 
 export function registerRollbackChatHook(): void {
-  Hooks.on("renderChatMessage", (...args: unknown[]) => {
+  Hooks.on("renderChatMessageHTML", (...args: unknown[]) => {
     const [rawMessage, rawHtml] = args;
     const message = rawMessage as { getFlag(scope: string, key: string): unknown };
     const auditToken = message.getFlag("lorebridge", "rollbackAuditToken");
