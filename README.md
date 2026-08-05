@@ -153,6 +153,32 @@ and opens the journal automatically.
 
 The optional leading number in `/lb npcs` sets the count (default 5, max 10).
 
+### `/lb backup` — GitHub campaign backups (v0.12.0+)
+
+LoreBridge can back up and restore Foundry content to a private GitHub
+repository in the [Raven's Eye](https://github.com/Jonwh25/the-ravens-eye)
+portable format. Backups are versioned commits; every restore shows a preview
+dialog before writing anything.
+
+```
+/lb backup scenes Barovia
+/lb restore scenes Barovia
+/lb restore scenes Barovia from a1b2c3d
+/lb backup journals Campaign Notes
+/lb backup actors Player Characters
+/lb backup rolltables Encounter Tables
+/lb backup commits
+/lb backup delete scenes Barovia
+```
+
+- **`backup scenes`** — serializes the named Scene folder and all subfolders to GitHub, including full scene data, tokens, walls, and lights. Non-Scene folders (actors, journals, etc.) are automatically excluded.
+- **`restore scenes`** — fetches the latest backup (or a specific commit SHA) and shows a preview of what will be created, updated, or skipped. Restoring twice does not create duplicate folders.
+- **`backup journals / actors / rolltables`** — back up other document types.
+- **`backup commits`** — list recent backup commits so you can pick a restore point.
+- **`backup delete scenes`** — permanently remove a folder's backup files from GitHub. Scenes in Foundry are not affected.
+
+GitHub credentials (`GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`) are set as backend environment variables and never stored in Foundry. See [Campaign Backups](https://github.com/Jonwh25/lorebridge/wiki/Campaign-Backups) for setup.
+
 ### Browser console API
 
 Generation is also available from the Foundry developer console for scripting
@@ -211,6 +237,7 @@ Full installation and configuration guides are on the
 - [Connecting an AI client](https://github.com/Jonwh25/lorebridge/wiki/AI-Client-Setup)
 - [Updating LoreBridge](https://github.com/Jonwh25/lorebridge/wiki/Updating)
 - [Troubleshooting](https://github.com/Jonwh25/lorebridge/wiki/Troubleshooting)
+- [Campaign backups](https://github.com/Jonwh25/lorebridge/wiki/Campaign-Backups)
 
 ## Security model
 

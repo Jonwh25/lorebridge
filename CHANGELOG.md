@@ -4,6 +4,27 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-05
+
+### Added
+
+- **GitHub campaign repository integration**: connect a private GitHub repository as a versioned campaign backup store. Set `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_BRANCH`, and `GITHUB_CAMPAIGN_ROOT` on the backend. All backups are committed atomically using the GitHub Git Data API; credentials never leave the backend.
+- **Scene folder backup** (`/lb backup scenes <folderName>`): serializes all scenes in a named folder (and all subfolders) to Raven's Eye portable YAML. Records the full folder hierarchy, all scene properties, tokens, walls, lights, tiles, and other embedded collections. Only Scene-type folders are included; Actor, JournalEntry, and other folder types are excluded. A preview dialog shows all files before they are committed.
+- **Scene folder restore** (`/lb restore scenes <folderName> [from <commitSha>]`): restores scenes from a GitHub backup commit with a GM-only preview dialog. Preserves original Foundry folder UUIDs to prevent duplicates on re-run. Detects existing scenes by flag and falls back to name matching; conflicts are surfaced and skipped. Thumbnails are regenerated after restore.
+- **Journal folder backup and restore** (`/lb backup journals <folderName>`): serializes journal entries and pages to Raven's Eye markdown and YAML sidecars, with full folder hierarchy.
+- **Actor and roll table backup** (`/lb backup actors <folderName>`, `/lb backup rolltables <folderName>`): serializes actors and roll tables to Raven's Eye YAML sidecars.
+- **Point-in-time backup browsing** (`/lb backup commits`): lists recent GitHub backup commits with short SHA and message so GMs can select a specific restore point using `/lb restore scenes <folderName> from <sha>`.
+- **Delete scene backup from GitHub** (`/lb backup delete scenes <folderName>`): permanently removes all folder YAML, scene YAML, and place markdown files for the named folder from GitHub. A confirmation dialog warns that only the GitHub backup is affected; scenes in Foundry are untouched.
+- **Automatic stale folder cleanup**: each scene backup commit automatically deletes any folder YAML files in the repository that were not part of the current backup run, preventing accumulation of stale entries from previous backups.
+- **Raven's Eye portable format**: all exports follow [The Raven's Eye](https://github.com/Jonwh25/the-ravens-eye) interoperability specification. Foundry-specific reconstruction data (tokens, walls, embedded collections) is stored in a versioned extension sidecar rather than the platform-independent core record.
+- **`list_backup_commits` MCP tool**: AI clients can browse recent campaign backup commits.
+- **`read_backup_file` MCP tool**: AI clients can read the contents of a specific file from a backup commit.
+
+### Fixed
+
+- Scene restore no longer creates duplicate folders when run multiple times; the original Foundry folder `_id` is stored in the backup and reused on restore.
+- Scene backup no longer includes non-Scene folder types (Actor, JournalEntry, Item, RollTable) even when they share a parent ID with Scene folders.
+
 ## [0.11.0] - 2026-08-04
 
 ### Added

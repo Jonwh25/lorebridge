@@ -205,14 +205,14 @@ Implementation begins only after The Raven's Eye publishes an experimental,
 versioned draft covering document identity, visibility, relationships,
 provenance, extensions, and schema evolution.
 
-1. [Tracking epic: Raven's Eye portable campaign backups and restore](https://github.com/Jonwh25/lorebridge/issues/128)
-2. [Define the Raven's Eye interoperability contract](https://github.com/Jonwh25/lorebridge/issues/133)
-3. [Connect the backend to a private GitHub campaign repository](https://github.com/Jonwh25/lorebridge/issues/134)
-4. [Back up and restore Foundry journals](https://github.com/Jonwh25/lorebridge/issues/135)
-5. [Back up and restore Foundry actors and roll tables](https://github.com/Jonwh25/lorebridge/issues/130)
-6. [Back up a Foundry scene folder as a Raven's Eye campaign area](https://github.com/Jonwh25/lorebridge/issues/129)
-7. [Restore a scene folder with UUID remapping and conflict checks](https://github.com/Jonwh25/lorebridge/issues/132)
-8. [Browse, compare, and select point-in-time campaign backups](https://github.com/Jonwh25/lorebridge/issues/131)
+1. ✅ [Tracking epic: Raven's Eye portable campaign backups and restore](https://github.com/Jonwh25/lorebridge/issues/128)
+2. ✅ [Define the Raven's Eye interoperability contract](https://github.com/Jonwh25/lorebridge/issues/133)
+3. ✅ [Connect the backend to a private GitHub campaign repository](https://github.com/Jonwh25/lorebridge/issues/134)
+4. ✅ [Back up and restore Foundry journals](https://github.com/Jonwh25/lorebridge/issues/135)
+5. ✅ [Back up and restore Foundry actors and roll tables](https://github.com/Jonwh25/lorebridge/issues/130)
+6. ✅ [Back up a Foundry scene folder as a Raven's Eye campaign area](https://github.com/Jonwh25/lorebridge/issues/129)
+7. ✅ [Restore a scene folder with UUID remapping and conflict checks](https://github.com/Jonwh25/lorebridge/issues/132)
+8. ✅ [Browse, compare, and select point-in-time campaign backups](https://github.com/Jonwh25/lorebridge/issues/131)
 
 GitHub is the first storage adapter, not a requirement of The Raven's Eye.
 Repository credentials stay in the backend, campaign repositories default to
