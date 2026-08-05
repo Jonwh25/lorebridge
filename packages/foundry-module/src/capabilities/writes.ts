@@ -185,11 +185,13 @@ export async function showRollbackAvailableChat(payload: RollbackAvailablePayloa
   const expiresDate = new Date(payload.expiresAt);
   const expiresStr = expiresDate.toLocaleTimeString();
 
+  // Inline onclick is stripped by Foundry's HTML sanitiser. The token is stored
+  // in the message flag instead and wired up via registerRollbackChatHook().
   const whisperContent = `
     <p><strong>LoreBridge — Write Applied</strong></p>
     <p><strong>Journal:</strong> ${payload.journalName} / ${payload.pageName}</p>
     <p>Rollback available until <strong>${expiresStr}</strong>.</p>
-    <button type="button" onclick="LoreBridge.rollbackWrite('${payload.auditToken}')" style="margin-top:4px;padding:4px 10px;cursor:pointer;">
+    <button type="button" data-action="lb-rollback" style="margin-top:4px;padding:4px 10px;cursor:pointer;">
       <i class="fas fa-undo"></i> Request Rollback
     </button>
   `;
@@ -198,6 +200,33 @@ export async function showRollbackAvailableChat(payload: RollbackAvailablePayloa
     content: whisperContent,
     whisper: gmIds,
     speaker: { alias: "LoreBridge" },
+    flags: { lorebridge: { rollbackAuditToken: payload.auditToken } },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// renderChatMessage hook — wires up the rollback button
+// ---------------------------------------------------------------------------
+
+export function registerRollbackChatHook(): void {
+  Hooks.on("renderChatMessage", (...args: unknown[]) => {
+    const [rawMessage, rawHtml] = args;
+    const message = rawMessage as { getFlag(scope: string, key: string): unknown };
+    const auditToken = message.getFlag("lorebridge", "rollbackAuditToken");
+    if (typeof auditToken !== "string" || !auditToken) return;
+
+    const root = rawHtml instanceof HTMLElement ? rawHtml : undefined;
+    const btn = root
+      ? root.querySelector<HTMLButtonElement>("[data-action='lb-rollback']")
+      : null;
+    if (!btn) return;
+
+    btn.addEventListener("click", () => {
+      void rollbackWrite(auditToken).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        ui.notifications.error(`LoreBridge: Rollback failed — ${msg}`);
+      });
+    });
   });
 }
 
