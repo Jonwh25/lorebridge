@@ -44,6 +44,7 @@ export interface BackupResult {
   sha: string;
   url: string;
   filesCommitted: number;
+  filesDeleted: number;
 }
 
 export interface CommitRecord {
@@ -275,6 +276,49 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // listDirectoryAtRef — lists files in a campaign-root directory at a ref.
+  // Returns an empty array when the directory does not exist.
+  // -------------------------------------------------------------------------
+
+  async listDirectoryAtRef(
+    relativePath: string,
+    ref: string,
+  ): Promise<Array<{ name: string; sha: string; type: "file" | "dir" }>> {
+    const fullPath = resolveCampaignPath(this.config.campaignRoot, relativePath);
+    const url = `${this.repoBase()}/contents/${encodeURIPathSegments(fullPath)}?ref=${encodeURIComponent(ref)}`;
+    let data: unknown;
+    try {
+      data = await this.call(url);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError && error.code === "not_found") {
+        return [];
+      }
+      throw error;
+    }
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return (data as Array<Record<string, unknown>>).map((item) => ({
+      name: String(item["name"] ?? ""),
+      sha: String(item["sha"] ?? ""),
+      type: item["type"] === "dir" ? ("dir" as const) : ("file" as const),
+    }));
+  }
+
+  // -------------------------------------------------------------------------
+  // readBlobBySha — fetches a blob's decoded UTF-8 content by its SHA.
+  // -------------------------------------------------------------------------
+
+  async readBlobBySha(sha: string): Promise<string> {
+    const url = `${this.repoBase()}/git/blobs/${encodeURIComponent(sha)}`;
+    const data = await this.call(url) as Record<string, unknown>;
+    if (typeof data["content"] !== "string") {
+      throw new GitHubAdapterError("api_error", "Blob response missing content field.");
+    }
+    return Buffer.from((data["content"] as string).replace(/\n/g, ""), "base64").toString("utf8");
+  }
+
+  // -------------------------------------------------------------------------
   // createBackupCommit — atomically commits one or more files.
   // Fails fast on non-fast-forward conflicts without overwriting remote work.
   // -------------------------------------------------------------------------
@@ -282,9 +326,10 @@ export class GitHubAdapter {
   async createBackupCommit(
     message: string,
     files: BackupFile[],
+    deletePaths?: string[],
   ): Promise<BackupResult> {
-    if (!files.length) {
-      throw new GitHubAdapterError("api_error", "At least one file is required for a backup commit.");
+    if (!files.length && !deletePaths?.length) {
+      throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
     }
 
     // Validate every path before touching GitHub.
@@ -292,6 +337,9 @@ export class GitHubAdapter {
       fullPath: resolveCampaignPath(this.config.campaignRoot, f.path),
       content: f.content,
     }));
+    const resolvedDeletes = (deletePaths ?? []).map((p) =>
+      resolveCampaignPath(this.config.campaignRoot, p),
+    );
 
     // Step 1: get current HEAD SHA (null when the repository is empty).
     const refUrl = `${this.repoBase()}/git/refs/heads/${encodeURIComponent(this.config.branch)}`;
@@ -336,7 +384,7 @@ export class GitHubAdapter {
     // Step 3: create a blob for each file, in batches of 5 to avoid
     // overwhelming the GitHub API with concurrent requests on large exports.
     const BLOB_BATCH_SIZE = 5;
-    const treeEntries: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    const treeEntries: Array<{ path: string; mode: string; type: string; sha: string | null }> = [];
     for (let i = 0; i < resolvedFiles.length; i += BLOB_BATCH_SIZE) {
       const batch = resolvedFiles.slice(i, i + BLOB_BATCH_SIZE);
       const batchEntries = await Promise.all(
@@ -357,6 +405,10 @@ export class GitHubAdapter {
         }),
       );
       treeEntries.push(...batchEntries);
+    }
+    // Deletions: sha=null removes a file from the tree.
+    for (const fullPath of resolvedDeletes) {
+      treeEntries.push({ path: fullPath, mode: "100644", type: "blob", sha: null });
     }
 
     // Step 4: create a new tree (omit base_tree for the initial commit).
@@ -398,6 +450,7 @@ export class GitHubAdapter {
       sha: newCommitSha,
       url: commitUrl,
       filesCommitted: files.length,
+      filesDeleted: resolvedDeletes.length,
     };
   }
 }

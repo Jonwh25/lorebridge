@@ -153,6 +153,24 @@ type FoundryScene = {
   journalEntryPage?: { id: string; uuid: string; name: string } | null;
   tokens: Iterable<FoundryTokenDocument> & { size: number };
   notes: Iterable<FoundryNoteDocument> & { size: number };
+  getFlag(scope: string, key: string): unknown;
+  setFlag(scope: string, key: string, value: unknown): Promise<void>;
+  update(data: Record<string, unknown>): Promise<void>;
+};
+
+type FoundryFolderDocument = {
+  id: string;
+  name: string;
+  type: string;
+  sort?: number;
+  folder?: { id: string } | null;
+  getFlag(scope: string, key: string): unknown;
+  setFlag(scope: string, key: string, value: unknown): Promise<void>;
+};
+
+type FoundryFolderCollection = Iterable<FoundryFolderDocument> & {
+  size: number;
+  get(id: string): FoundryFolderDocument | undefined;
 };
 
 type FoundrySceneCollection = Iterable<FoundryScene> & {
@@ -237,6 +255,14 @@ type FoundryRollTableCollection = Iterable<FoundryRollTable> & {
   get(id: string): FoundryRollTable | undefined;
 };
 
+declare const Scene: {
+  create(data: Record<string, unknown>): Promise<FoundryScene | undefined>;
+};
+
+declare const Folder: {
+  create(data: Record<string, unknown>): Promise<FoundryFolderDocument | undefined>;
+};
+
 declare const RollTable: {
   create(data: {
     name: string;
@@ -308,6 +334,7 @@ declare const game: {
   actors: FoundryActorCollection;
   items: FoundryItemCollection;
   scenes: FoundrySceneCollection;
+  folders: FoundryFolderCollection;
   combats: FoundryCombatCollection;
   messages: FoundryChatCollection;
   journal: FoundryJournalCollection;

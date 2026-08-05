@@ -25,7 +25,7 @@ function yamlScalar(s: string): string {
 function isComplexValue(v: unknown): boolean {
   if (typeof v !== "object" || v === null) return false;
   if (Array.isArray(v)) return (v as unknown[]).length > 0;
-  return true;
+  return Object.keys(v as Record<string, unknown>).length > 0;
 }
 
 /**
