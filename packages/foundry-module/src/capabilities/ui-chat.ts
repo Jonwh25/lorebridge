@@ -633,23 +633,23 @@ async function handleHealthCheck(full: boolean): Promise<void> {
     ).join("");
 
     const truncatedNote = result.truncated
-      ? `<span style="color:#c0392b;font-size:12px">Results capped at ${result.findings.length}. Use <code>/lb health full</code> to scan up to 500.</span>`
+      ? `<p style="color:#c0392b;font-size:12px;margin:6px 0 0">Results capped at ${result.findings.length}. Use <code>/lb health full</code> to scan up to 500.</p>`
       : "";
 
     const summary = `Scanned ${result.documentsScanned.toLocaleString()} documents · Checks: ${result.checksRun.join(", ")}`;
 
     const content = `
-      <div style="font-size:13px;line-height:1.5;height:100%;display:flex;flex-direction:column;gap:6px">
-        <p style="margin:0;flex-shrink:0">
+      <div style="font-size:13px;line-height:1.5">
+        <p style="margin:0 0 6px">
           <strong>Campaign Health — ${escapeHtml(result.sourceName)}</strong>
           <span style="font-size:11px;color:#888;margin-left:8px">${summary}</span>
         </p>
         ${result.findings.length === 0
-          ? `<p style="color:#27ae60;flex-shrink:0">✅ No issues found.</p>`
-          : `<div style="flex:1;min-height:0;overflow-y:auto">
+          ? `<p style="color:#27ae60">✅ No issues found.</p>`
+          : `<div style="overflow-y:auto;resize:vertical;min-height:100px;max-height:calc(100vh - 320px)">
               <table style="width:100%;border-collapse:collapse">
-                <thead>
-                  <tr style="border-bottom:2px solid #ccc;position:sticky;top:0;background:var(--color-bg, #1a1a1a)">
+                <thead style="position:sticky;top:0;background:var(--color-bg,#1a1a1a);z-index:1">
+                  <tr style="border-bottom:2px solid #ccc">
                     <th style="text-align:left;padding:4px 6px">Sev</th>
                     <th style="text-align:left;padding:4px 6px">Category</th>
                     <th style="text-align:left;padding:4px 6px">Source</th>
@@ -659,12 +659,12 @@ async function handleHealthCheck(full: boolean): Promise<void> {
                 <tbody>${rows}</tbody>
               </table>
             </div>`}
-        ${truncatedNote ? `<p style="flex-shrink:0;margin:0">${truncatedNote.replace(/<p[^>]*>|<\/p>/g, "")}</p>` : ""}
+        ${truncatedNote}
       </div>`;
 
     new foundry.applications.api.DialogV2({
       window: { title: `LoreBridge Health — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
-      position: { width: 800, height: 600 },
+      position: { width: 800, height: "auto" },
       content,
       buttons: [
         ...(result.truncated && !full ? [{
