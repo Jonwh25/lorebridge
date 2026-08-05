@@ -105,13 +105,27 @@ export async function exportSceneFolder(
   // Maps Foundry folder ID → sidecar ID for all folders in the subtree.
   const folderSidecarIds = new Map<string, string>();
 
-  // Build a full folder map (game.folders.contents + scene.folder refs).
   const allScenes = Array.from(game.scenes);
-  const folderById = buildFolderMap(
-    allScenes.map((s) => s.folder as unknown as FoundryFolder | null),
-  );
 
-  // Find the root folder by name (prefer Scene type; fall back to any type).
+  // Build a folder map containing ONLY Scene-type folders by filtering through
+  // Foundry's own collection API instead of casting game.folders.contents.
+  // This avoids cast-related type loss that caused non-Scene folders (Actor,
+  // JournalEntry, etc.) to slip through when checking f.type manually.
+  type FolderLike = { id: string; name?: string; type?: string; sort?: number; folder?: { id: string } | null };
+  const gFoldersCollection = (game as unknown as { folders?: { filter(fn: (f: FolderLike) => boolean): FolderLike[] } }).folders;
+  const onlySceneFolders: FolderLike[] = gFoldersCollection?.filter(f => f.type === "Scene") ?? [];
+
+  const folderById = new Map<string, FoundryFolder>();
+  for (const f of onlySceneFolders) {
+    folderById.set(f.id, f as FoundryFolder);
+  }
+  // Also add each scene's direct folder reference in case it wasn't in the collection.
+  for (const scene of allScenes) {
+    const sf = scene.folder as unknown as FoundryFolder | null;
+    if (sf?.id && !folderById.has(sf.id)) folderById.set(sf.id, sf as FoundryFolder);
+  }
+
+  // Find the root folder by name.
   const rootFolder = findRootFolder(folderName, folderById, "Scene");
 
   if (!rootFolder) {
@@ -120,16 +134,8 @@ export async function exportSceneFolder(
     );
   }
 
-  // Collect the root folder and every descendant folder ID.
-  // Filter to Scene-type folders only — other types (JournalEntry, Actor, etc.)
-  // can share the same parent IDs and would otherwise be picked up incorrectly.
-  // Strict Scene-type filter — do NOT use !f.type as a fallback, because
-  // non-Scene folders (Actor, JournalEntry, etc.) may have undefined type on
-  // our cast and would incorrectly pass through.
-  const sceneFolderById = new Map(
-    Array.from(folderById.entries()).filter(([, f]) => f.type === "Scene"),
-  );
-  const targetFolderIds = collectSubtreeIds(rootFolder.id, sceneFolderById);
+  // Collect root + all descendant Scene folder IDs.
+  const targetFolderIds = collectSubtreeIds(rootFolder.id, folderById);
 
   // Keep scenes whose immediate parent folder is in the subtree.
   const scenes = allScenes.filter(
