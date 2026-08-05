@@ -23,6 +23,14 @@ function _escAttr(s: string): string {
   return s.replace(/"/g, "&quot;");
 }
 
+// Extract plain text from Foundry journal HTML, inserting spaces at block
+// boundaries so words from adjacent paragraphs don't concatenate.
+function _htmlToText(html: string): string {
+  const spaced = html.replace(/<\/(p|h[1-6]|li|div|tr|td|th|blockquote)>/gi, " ");
+  const doc = new DOMParser().parseFromString(spaced, "text/html");
+  return doc.body.textContent ?? "";
+}
+
 function _buildPanelHtml(rows: EntityRow[]): string {
   const selectedCount = rows.filter((r) => r.selected).length;
   const typeOptions = ["NPC", "Location", "Faction", "Item", "Other"];
@@ -51,7 +59,21 @@ function _buildPanelHtml(rows: EntityRow[]): string {
     )
     .join("");
 
-  return `<div class="lb-cleanup">
+  return `<style>
+    .lb-cleanup { display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+    .lb-cleanup__toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .lb-cleanup__count { margin-right: auto; font-weight: bold; }
+    .lb-cleanup__table-wrap { max-height: 420px; overflow-y: auto; border: 1px solid var(--color-border-light, #999); border-radius: 4px; }
+    .lb-cleanup__table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    .lb-cleanup__table thead th { position: sticky; top: 0; background: var(--color-bg-header, #333); padding: 4px 6px; text-align: left; z-index: 1; }
+    .lb-cleanup__table tbody tr:nth-child(even) { background: rgba(0,0,0,0.05); }
+    .lb-cleanup__cell--check { width: 28px; text-align: center; }
+    .lb-cleanup__cell--name { width: 140px; font-weight: 500; padding: 4px 6px; vertical-align: top; }
+    .lb-cleanup__cell--type { width: 110px; padding: 4px 6px; vertical-align: top; }
+    .lb-cleanup__cell--context { padding: 4px 6px; color: var(--color-text-dark-secondary, #aaa); font-style: italic; vertical-align: top; }
+    .lb-cleanup__cell--type select { width: 100%; }
+  </style>
+  <div class="lb-cleanup">
     <div class="lb-cleanup__toolbar">
       <span class="lb-cleanup__count">${rows.length} candidate${rows.length !== 1 ? "s" : ""} found</span>
       <button type="button" data-action="select-all">Select All</button>
@@ -199,9 +221,7 @@ export async function handleSessionCleanup(args: string): Promise<void> {
     outer: for (const journal of game.journal as FoundryJournalCollection) {
       for (const page of journal.pages) {
         if (page.name.toLowerCase().includes(query)) {
-          const raw = page.text?.content ?? "";
-          const parser = new DOMParser();
-          targetContent = parser.parseFromString(raw, "text/html").body.textContent ?? "";
+          targetContent = _htmlToText(page.text?.content ?? "");
           break outer;
         }
       }
@@ -226,8 +246,7 @@ export async function handleSessionCleanup(args: string): Promise<void> {
       }
       for (const page of journal.pages) {
         if (/session\s*\d+/i.test(page.name)) {
-          const raw = page.text?.content ?? "";
-          const text = new DOMParser().parseFromString(raw, "text/html").body.textContent ?? "";
+          const text = _htmlToText(page.text?.content ?? "");
           if (text.trim()) candidates.push({ sort: page.sort, content: text });
         }
       }
@@ -238,8 +257,7 @@ export async function handleSessionCleanup(args: string): Promise<void> {
       for (const journal of game.journal as FoundryJournalCollection) {
         for (const page of journal.pages) {
           if (/session/i.test(page.name)) {
-            const raw = page.text?.content ?? "";
-            const text = new DOMParser().parseFromString(raw, "text/html").body.textContent ?? "";
+            const text = _htmlToText(page.text?.content ?? "");
             if (text.trim()) candidates.push({ sort: page.sort, content: text });
           }
         }
