@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import {
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
@@ -41,6 +42,7 @@ import {
   type McpRequestHandler,
 } from "./mcp.js";
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
+import { AuditRegistry, AuditTokenError } from "./audit-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
@@ -88,7 +90,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -469,16 +471,79 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const entry = writes.consume(token);
+      const auditEntry = audit.record({
+        journalId: entry.journalId,
+        pageId: entry.pageId,
+        pageName: entry.pageName,
+        journalName: entry.journalName,
+        sourceId: entry.sourceId,
+        previousContent: entry.currentContent,
+        newContent: entry.proposedContent,
+      });
+      adapterSessions.sendEvent(entry.sourceId, LOREBRIDGE_EVENTS.rollbackAvailable, {
+        auditToken: auditEntry.auditToken,
+        journalId: entry.journalId,
+        pageId: entry.pageId,
+        pageName: entry.pageName,
+        journalName: entry.journalName,
+        expiresAt: auditEntry.expiresAt.toISOString(),
+      });
       sendJson(response, 200, {
         journalId: entry.journalId,
         pageId: entry.pageId,
         pageName: entry.pageName,
         proposedContent: entry.proposedContent,
+        auditToken: auditEntry.auditToken,
+        auditExpiresAt: auditEntry.expiresAt.toISOString(),
       });
     } catch (error) {
       if (error instanceof WriteTokenError) {
         const status = error.reason === "not_found" ? 404 : 410;
         sendJson(response, status, { error: { code: `write_token_${error.reason}`, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/write/rollback") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const auditToken = typeof body["auditToken"] === "string" ? body["auditToken"].trim() : "";
+    if (!auditToken) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty auditToken string." } });
+      return;
+    }
+    try {
+      const auditEntry = audit.consume(auditToken);
+      // Register a new write proposal that reverts to the previous content.
+      const rollbackEntry = writes.register({
+        journalId: auditEntry.journalId,
+        pageId: auditEntry.pageId,
+        pageName: auditEntry.pageName,
+        journalName: auditEntry.journalName,
+        currentContent: auditEntry.newContent,
+        proposedContent: auditEntry.previousContent,
+        rationale: `Rollback: reverting "${auditEntry.pageName}" to its state before the AI write.`,
+        sourceId: auditEntry.sourceId,
+      });
+      adapterSessions.sendEvent(auditEntry.sourceId, LOREBRIDGE_EVENTS.approvalRequired, {
+        token: rollbackEntry.token,
+        journalId: auditEntry.journalId,
+        pageId: auditEntry.pageId,
+        pageName: auditEntry.pageName,
+        journalName: auditEntry.journalName,
+        currentContent: auditEntry.newContent,
+        proposedContent: auditEntry.previousContent,
+        rationale: rollbackEntry.rationale,
+        expiresAt: rollbackEntry.expiresAt.toISOString(),
+      });
+      sendJson(response, 200, { rollbackPending: true, token: rollbackEntry.token });
+    } catch (error) {
+      if (error instanceof AuditTokenError) {
+        const status = error.reason === "not_found" ? 404 : 410;
+        sendJson(response, status, { error: { code: `audit_token_${error.reason}`, message: error.message } });
         return;
       }
       throw error;
@@ -1182,10 +1247,11 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
   const writes = new WriteRegistry();
+  const audit = new AuditRegistry();
   const github = createGitHubAdapter(config.github);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, audit, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

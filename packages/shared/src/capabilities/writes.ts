@@ -11,6 +11,21 @@ export type ApproveWriteResult = {
   pageId: string;
   pageName: string;
   proposedContent: string;
+  auditToken?: string;
+  auditExpiresAt?: string;
+};
+
+/**
+ * Payload sent from the backend via the rollback.available event after a write
+ * is approved. Foundry uses this to surface the rollback action to the GM.
+ */
+export type RollbackAvailablePayload = {
+  auditToken: string;
+  journalId: string;
+  pageId: string;
+  pageName: string;
+  journalName: string;
+  expiresAt: string;
 };
 
 /**
