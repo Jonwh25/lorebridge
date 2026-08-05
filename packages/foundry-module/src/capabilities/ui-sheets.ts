@@ -117,60 +117,64 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
 function showShareDialog(title: string, markdown: string, hiddenCount: number, filename: string): void {
   const safeFilename = filename.replace(/[^a-z0-9_\- ]/gi, "").trim().replace(/\s+/g, "-") || "party-recap";
   const hiddenNote = hiddenCount > 0
-    ? `<p id="lb-share-note" style="color:#e07b39;margin:0"><em>${hiddenCount} world entr${hiddenCount !== 1 ? "ies" : "y"} omitted — GM only</em></p>`
+    ? `<p style="color:#e07b39;margin:0;flex-shrink:0"><em>${hiddenCount} world entr${hiddenCount !== 1 ? "ies" : "y"} omitted — GM only</em></p>`
     : "";
   const escaped = markdown.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const content = `
-    <div style="display:flex;flex-direction:column;gap:6px;padding:8px">
-      ${hiddenNote}
-      <div id="lb-share-toolbar" style="display:flex;gap:6px">
-        <button type="button" id="lb-party-copy" style="cursor:pointer">📋 Copy to Clipboard</button>
-        <button type="button" id="lb-party-dl" style="cursor:pointer">⬇ Download .md</button>
-      </div>
-      <textarea id="lb-party-text" readonly style="width:100%;font-family:monospace;font-size:0.82em;box-sizing:border-box;resize:none">${escaped}</textarea>
-    </div>`;
+  // Use ApplicationV2 directly (same pattern as SessionCleanupPanel) so we
+  // own the full layout — DialogV2's footer breaks flex-fill sizing.
+  const _AppV2Base = (foundry as { applications: { api: { ApplicationV2: typeof FoundryApplicationV2 } } }).applications.api.ApplicationV2;
 
-  const d = new foundry.applications.api.DialogV2({
-    window: { title, resizable: true },
-    position: { width: 620, height: 500 },
-    content,
-    buttons: [{ action: "close", label: "Close", icon: "fas fa-times", default: true }],
-  });
+  class SharePanel extends _AppV2Base {
+    static override DEFAULT_OPTIONS = {
+      id: "lorebridge-share",
+      classes: ["lorebridge-share"],
+      window: { title, resizable: true },
+      position: { width: 620, height: 500 },
+    };
 
-  void d.render({ force: true }).then(() => {
-    const el = d.element;
-    const textarea = el?.querySelector<HTMLTextAreaElement>("#lb-party-text");
-    const toolbar = el?.querySelector<HTMLElement>("#lb-share-toolbar");
-
-    if (el && textarea && toolbar) {
-      const sizeTextarea = () => {
-        const content = el.querySelector<HTMLElement>(".window-content");
-        const note = el.querySelector<HTMLElement>("#lb-share-note");
-        const availableH = content?.offsetHeight ?? el.offsetHeight;
-        const usedH = toolbar.offsetHeight + (note?.offsetHeight ?? 0) + 28; // padding 8*2 + gaps 6*2
-        textarea.style.height = `${Math.max(80, availableH - usedH)}px`;
-      };
-      sizeTextarea();
-      const ro = new ResizeObserver(sizeTextarea);
-      ro.observe(el);
+    override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
+      const container = document.createElement("div");
+      container.innerHTML = `
+        <style>
+          .lorebridge-share .window-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+          .lb-share { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; box-sizing: border-box; }
+          .lb-share__toolbar { flex-shrink: 0; display: flex; gap: 6px; }
+          .lb-share__textarea { flex: 1; min-height: 0; width: 100%; font-family: monospace; font-size: 0.82em; resize: none; box-sizing: border-box; }
+        </style>
+        <div class="lb-share">
+          ${hiddenNote}
+          <div class="lb-share__toolbar">
+            <button type="button" data-action="copy">📋 Copy to Clipboard</button>
+            <button type="button" data-action="download">⬇ Download .md</button>
+          </div>
+          <textarea class="lb-share__textarea" readonly>${escaped}</textarea>
+        </div>`;
+      return container;
     }
 
-    el?.querySelector<HTMLButtonElement>("#lb-party-copy")?.addEventListener("click", () => {
-      void navigator.clipboard.writeText(markdown).then(() => {
-        ui.notifications.info("LoreBridge: Recap copied to clipboard.");
-      });
-    });
-    el?.querySelector<HTMLButtonElement>("#lb-party-dl")?.addEventListener("click", () => {
-      const blob = new Blob([markdown], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${safeFilename}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  });
+    override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
+      content.replaceChildren(...Array.from(result.childNodes));
+    }
+
+    override _onClickAction(_event: PointerEvent, target: HTMLElement): void | Promise<void> {
+      if (target.dataset["action"] === "copy") {
+        void navigator.clipboard.writeText(markdown).then(() => {
+          ui.notifications.info("LoreBridge: Recap copied to clipboard.");
+        });
+      } else if (target.dataset["action"] === "download") {
+        const blob = new Blob([markdown], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${safeFilename}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+  }
+
+  void new SharePanel().render({ force: true });
 }
 
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
