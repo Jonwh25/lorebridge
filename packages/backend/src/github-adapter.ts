@@ -333,24 +333,31 @@ export class GitHubAdapter {
       baseTreeSha = (initCommit.tree as Record<string, unknown>).sha as string;
     }
 
-    // Step 3: create a blob for each file.
-    const treeEntries = await Promise.all(
-      resolvedFiles.map(async ({ fullPath, content }) => {
-        const blobData = await this.call(`${this.repoBase()}/git/blobs`, {
-          method: "POST",
-          body: {
-            content: Buffer.from(content, "utf8").toString("base64"),
-            encoding: "base64",
-          },
-        }) as Record<string, unknown>;
-        return {
-          path: fullPath,
-          mode: "100644",
-          type: "blob",
-          sha: blobData.sha as string,
-        };
-      }),
-    );
+    // Step 3: create a blob for each file, in batches of 5 to avoid
+    // overwhelming the GitHub API with concurrent requests on large exports.
+    const BLOB_BATCH_SIZE = 5;
+    const treeEntries: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+    for (let i = 0; i < resolvedFiles.length; i += BLOB_BATCH_SIZE) {
+      const batch = resolvedFiles.slice(i, i + BLOB_BATCH_SIZE);
+      const batchEntries = await Promise.all(
+        batch.map(async ({ fullPath, content }) => {
+          const blobData = await this.call(`${this.repoBase()}/git/blobs`, {
+            method: "POST",
+            body: {
+              content: Buffer.from(content, "utf8").toString("base64"),
+              encoding: "base64",
+            },
+          }) as Record<string, unknown>;
+          return {
+            path: fullPath,
+            mode: "100644",
+            type: "blob",
+            sha: blobData.sha as string,
+          };
+        }),
+      );
+      treeEntries.push(...batchEntries);
+    }
 
     // Step 4: create a new tree (omit base_tree for the initial commit).
     const treeData = await this.call(`${this.repoBase()}/git/trees`, {
