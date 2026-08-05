@@ -1,4 +1,4 @@
-import { validateApproveWriteResult, type ApproveWriteOutput } from "@lorebridge/shared/capabilities";
+import { validateApproveWriteResult, type ApproveWriteOutput, type RollbackAvailablePayload } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -16,6 +16,82 @@ export type WriteApprovalPayload = {
   rationale: string;
   expiresAt: string;
 };
+
+// ---------------------------------------------------------------------------
+// Paragraph-level diff (no external library)
+// ---------------------------------------------------------------------------
+
+type DiffOp = { op: "equal" | "insert" | "delete"; text: string };
+
+function htmlToLines(html: string): string[] {
+  return html
+    .replace(/<\/?(p|h[1-6]|li|blockquote|div|tr)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .split("\n")
+    .map((s) => s.replace(/\s+/g, " ").trim())
+    .filter((s) => s.length > 0);
+}
+
+function computeDiff(oldLines: string[], newLines: string[]): DiffOp[] {
+  const m = oldLines.length;
+  const n = newLines.length;
+  // Build LCS table
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i]![j] = oldLines[i - 1] === newLines[j - 1]
+        ? (dp[i - 1]![j - 1]! + 1)
+        : Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
+    }
+  }
+  // Backtrack to produce diff ops
+  const result: DiffOp[] = [];
+  let i = m;
+  let j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      result.unshift({ op: "equal", text: oldLines[i - 1]! });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || dp[i]![j - 1]! >= dp[i - 1]![j]!)) {
+      result.unshift({ op: "insert", text: newLines[j - 1]! });
+      j--;
+    } else {
+      result.unshift({ op: "delete", text: oldLines[i - 1]! });
+      i--;
+    }
+  }
+  return result;
+}
+
+function renderDiffHtml(ops: DiffOp[]): string {
+  if (ops.length === 0) return "<p style='color:#888;font-style:italic'>No text content to compare.</p>";
+
+  const hasChanges = ops.some((o) => o.op !== "equal");
+  if (!hasChanges) return "<p style='color:#888;font-style:italic'>Content is identical after stripping HTML.</p>";
+
+  return ops
+    .map((op) => {
+      const escaped = op.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      if (op.op === "insert") {
+        return `<div style="background:#1a4a1a;color:#6fcf6f;padding:2px 6px;margin:1px 0;border-left:3px solid #4caf50;font-family:monospace;font-size:0.85em;white-space:pre-wrap">+ ${escaped}</div>`;
+      }
+      if (op.op === "delete") {
+        return `<div style="background:#4a1a1a;color:#cf6f6f;padding:2px 6px;margin:1px 0;border-left:3px solid #f44336;font-family:monospace;font-size:0.85em;white-space:pre-wrap;text-decoration:line-through">- ${escaped}</div>`;
+      }
+      return `<div style="color:#aaa;padding:2px 6px;margin:1px 0;font-family:monospace;font-size:0.85em;white-space:pre-wrap">  ${escaped}</div>`;
+    })
+    .join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Write approval dialog
+// ---------------------------------------------------------------------------
 
 export async function showWriteApprovalChat(payload: WriteApprovalPayload): Promise<void> {
   if (!game.user?.isGM) return;
@@ -38,15 +114,24 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
     flags: { [MODULE_ID]: { [FLAG_WRITE_TOKEN]: payload.token } },
   });
 
+  const diffOps = computeDiff(
+    htmlToLines(payload.currentContent),
+    htmlToLines(payload.proposedContent),
+  );
+  const diffHtml = renderDiffHtml(diffOps);
+  const addedCount = diffOps.filter((o) => o.op === "insert").length;
+  const removedCount = diffOps.filter((o) => o.op === "delete").length;
+  const diffSummary = `<span style="color:#6fcf6f">+${addedCount}</span> / <span style="color:#cf6f6f">-${removedCount}</span> paragraphs`;
+
   const dialogContent = `
     <div style="margin-bottom:8px;">
       <p><strong>Journal:</strong> ${payload.journalName}</p>
       <p><strong>Page:</strong> ${payload.pageName}</p>
       <p><strong>Rationale:</strong> ${payload.rationale}</p>
-      <details style="margin-top:8px;">
-        <summary style="cursor:pointer;font-weight:bold;">View proposed changes</summary>
-        <div style="max-height:200px;overflow-y:auto;border:1px solid #999;border-radius:4px;margin-top:4px;padding:8px;font-size:0.85em;background:#f5f5f0;color:#222;">
-          <div style="background:#f5f5f0;color:#222;">${payload.proposedContent}</div>
+      <details open style="margin-top:8px;">
+        <summary style="cursor:pointer;font-weight:bold;">Diff — ${diffSummary}</summary>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid #555;border-radius:4px;margin-top:4px;padding:4px;background:#1a1a1a;">
+          ${diffHtml}
         </div>
       </details>
       <p style="margin-top:8px;font-size:0.8em;color:#888;">Expires at ${expiresStr}</p>
@@ -55,7 +140,7 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
 
   new foundry.applications.api.DialogV2({
     window: { title: "LoreBridge — AI Write Proposal", resizable: true },
-    position: { width: 500, height: "auto" },
+    position: { width: 560, height: "auto" },
     content: dialogContent,
     buttons: [
       {
@@ -64,7 +149,7 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
         icon: "fas fa-check",
         callback: () => {
           void approveWrite(payload.token).then(() => {
-            ui.notifications.info(`LoreBridge: "${payload.pageName}" updated.`);
+            ui.notifications.info(`LoreBridge: "${payload.pageName}" updated. Rollback available for 30 minutes.`);
           }).catch((err: unknown) => {
             const msg = err instanceof Error ? err.message : String(err);
             ui.notifications.error(`LoreBridge: Approve failed — ${msg}`);
@@ -88,6 +173,98 @@ export async function showWriteApprovalChat(payload: WriteApprovalPayload): Prom
     ],
   }).render({ force: true });
 }
+
+// ---------------------------------------------------------------------------
+// Rollback availability chat notification
+// ---------------------------------------------------------------------------
+
+export async function showRollbackAvailableChat(payload: RollbackAvailablePayload): Promise<void> {
+  if (!game.user?.isGM) return;
+
+  const gmIds = game.users.filter((u) => u.isGM).map((u) => u.id);
+  const expiresDate = new Date(payload.expiresAt);
+  const expiresStr = expiresDate.toLocaleTimeString();
+
+  const whisperContent = `
+    <p><strong>LoreBridge — Write Applied</strong></p>
+    <p><strong>Journal:</strong> ${payload.journalName} / ${payload.pageName}</p>
+    <p>Rollback available until <strong>${expiresStr}</strong>.</p>
+    <button type="button" onclick="LoreBridge.rollbackWrite('${payload.auditToken}')" style="margin-top:4px;padding:4px 10px;cursor:pointer;">
+      <i class="fas fa-undo"></i> Request Rollback
+    </button>
+  `;
+
+  await ChatMessage.create({
+    content: whisperContent,
+    whisper: gmIds,
+    speaker: { alias: "LoreBridge" },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Rollback write
+// ---------------------------------------------------------------------------
+
+export async function rollbackWrite(auditToken: string): Promise<void> {
+  requireFoundryGm("rollbackWrite");
+
+  if (typeof auditToken !== "string" || !auditToken.trim()) {
+    throw new LoreBridgeCapabilityError("INVALID_REQUEST", "rollbackWrite requires a non-empty auditToken string.");
+  }
+
+  const settings = getLoreBridgeSettings();
+  if (!settings.writesEnabled) {
+    throw new LoreBridgeCapabilityError(
+      "CAPABILITY_UNAVAILABLE",
+      "AI-proposed writes are disabled. Enable 'Enable AI-Proposed Writes' in LoreBridge world settings.",
+    );
+  }
+  if (!settings.backendUrl) {
+    throw new LoreBridgeCapabilityError("CAPABILITY_UNAVAILABLE", "LoreBridge backend URL is not configured.");
+  }
+  if (!settings.clientToken) {
+    throw new LoreBridgeCapabilityError("NOT_AUTHORIZED", "This browser is not paired with the LoreBridge backend.");
+  }
+
+  const url = settings.backendUrl.endsWith("/")
+    ? `${settings.backendUrl}v1/write/rollback`
+    : `${settings.backendUrl}/v1/write/rollback`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${settings.clientToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ auditToken: auditToken.trim() }),
+    });
+  } catch {
+    throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "Could not reach the LoreBridge backend.", { retryable: true });
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    throw new LoreBridgeCapabilityError("NOT_AUTHORIZED", "The backend rejected the pairing token.");
+  }
+  if (response.status === 404) {
+    throw new LoreBridgeCapabilityError("NOT_FOUND", "Audit token not found. The rollback window may have expired.");
+  }
+  if (response.status === 410) {
+    throw new LoreBridgeCapabilityError("NOT_FOUND", "This write has already been rolled back or the rollback window has expired.");
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+    const message = (body as { error?: { message?: string } }).error?.message ?? `Backend returned ${response.status}`;
+    throw new LoreBridgeCapabilityError("INTERNAL_ERROR", message);
+  }
+
+  ui.notifications.info("LoreBridge: Rollback approval request sent — approve it in the popup dialog.");
+}
+
+// ---------------------------------------------------------------------------
+// Roll table approval dialog
+// ---------------------------------------------------------------------------
 
 export type RollTableApprovalPayload = {
   name: string;
@@ -174,6 +351,10 @@ export async function showRollTableApprovalChat(payload: RollTableApprovalPayloa
     ],
   }).render({ force: true });
 }
+
+// ---------------------------------------------------------------------------
+// Core approve / reject
+// ---------------------------------------------------------------------------
 
 export async function rejectWrite(token: string): Promise<void> {
   requireFoundryGm("rejectWrite");

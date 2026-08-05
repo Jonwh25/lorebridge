@@ -7,6 +7,7 @@ export type PendingWrite = {
   journalId: string;
   pageId: string;
   pageName: string;
+  journalName: string;
   currentContent: string;
   proposedContent: string;
   rationale: string;

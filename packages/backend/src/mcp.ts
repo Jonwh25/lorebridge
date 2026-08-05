@@ -1135,6 +1135,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           journalId,
           pageId,
           pageName: page.name,
+          journalName: journal.name,
           currentContent,
           proposedContent,
           rationale,

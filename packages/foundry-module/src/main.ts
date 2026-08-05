@@ -65,7 +65,8 @@ import { getRelatedDocuments } from "./capabilities/related-documents.js";
 import { searchItems, getActorInventory } from "./capabilities/items.js";
 import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js";
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
-import { approveWrite, rejectWrite, showWriteApprovalChat, showRollTableApprovalChat, type WriteApprovalPayload, type RollTableApprovalPayload } from "./capabilities/writes.js";
+import { approveWrite, rejectWrite, rollbackWrite, showWriteApprovalChat, showRollTableApprovalChat, showRollbackAvailableChat, type WriteApprovalPayload, type RollTableApprovalPayload } from "./capabilities/writes.js";
+import type { RollbackAvailablePayload } from "@lorebridge/shared/capabilities";
 import { listMacroTools, executeMacroTool } from "./capabilities/macro-tools.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
@@ -276,6 +277,9 @@ Hooks.once("ready", () => {
           if (event.event === LOREBRIDGE_EVENTS.rollTableApprovalRequired) {
             void showRollTableApprovalChat(event.payload as RollTableApprovalPayload);
           }
+          if (event.event === LOREBRIDGE_EVENTS.rollbackAvailable) {
+            void showRollbackAvailableChat(event.payload as RollbackAvailablePayload);
+          }
         },
       );
 
@@ -353,6 +357,7 @@ Hooks.once("ready", () => {
       [GET_COMPENDIUM_ENTRY_CAPABILITY]: getCompendiumEntry,
       approveWrite,
       rejectWrite,
+      rollbackWrite,
       generateBoxedText,
     }),
     configurable: true,
