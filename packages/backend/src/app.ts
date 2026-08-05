@@ -47,6 +47,7 @@ import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
 import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
+import { extractSessionEntities } from "./session-scan.js";
 
 const serviceVersion = "0.2.0";
 
@@ -1236,6 +1237,24 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
       throw error;
     }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/session/scan") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const sessionContent = typeof body["sessionContent"] === "string" ? body["sessionContent"].trim() : "";
+    const existingNames = Array.isArray(body["existingNames"]) ? body["existingNames"] : null;
+    if (!sessionContent) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "'sessionContent' must be a non-empty string." } });
+      return;
+    }
+    if (!existingNames) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "'existingNames' must be an array." } });
+      return;
+    }
+    const entities = extractSessionEntities(sessionContent, existingNames as string[]);
+    sendJson(response, 200, { entities });
     return;
   }
 

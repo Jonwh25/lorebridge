@@ -4,6 +4,7 @@ import { exportSceneFolder } from "./backup-scenes.js";
 import { exportActorFolder } from "./backup-actors.js";
 import { exportRollTableFolder } from "./backup-roll-tables.js";
 import { restoreSceneFolder } from "./restore-scenes.js";
+import { handleSessionCleanup } from "./session-cleanup.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -747,6 +748,14 @@ export function registerChatCommand(): void {
         return false;
       }
       ui.notifications.warn("LoreBridge: Usage: /lb restore scenes <folder name> [from <commitSha>]");
+      return false;
+    }
+
+    // /lb cleanup [<session name>]
+    if (args === "cleanup" || args.startsWith("cleanup ")) {
+      const cleanupArgs = args.slice("cleanup".length).trim();
+      clearInput();
+      void handleSessionCleanup(cleanupArgs);
       return false;
     }
 
