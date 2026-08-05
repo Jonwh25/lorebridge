@@ -121,7 +121,12 @@ export async function exportSceneFolder(
   }
 
   // Collect the root folder and every descendant folder ID.
-  const targetFolderIds = collectSubtreeIds(rootFolder.id, folderById);
+  // Filter to Scene-type folders only — other types (JournalEntry, Actor, etc.)
+  // can share the same parent IDs and would otherwise be picked up incorrectly.
+  const sceneFolderById = new Map(
+    Array.from(folderById.entries()).filter(([, f]) => !f.type || f.type === "Scene"),
+  );
+  const targetFolderIds = collectSubtreeIds(rootFolder.id, sceneFolderById);
 
   // Keep scenes whose immediate parent folder is in the subtree.
   const scenes = allScenes.filter(
