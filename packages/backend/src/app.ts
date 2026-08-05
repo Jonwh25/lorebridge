@@ -949,13 +949,16 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
 
       // List YAML files in both subdirectories in parallel.
+      console.log(`[restore-debug] resolvedRef=${resolvedRef} folderName=${folderName}`);
       const [folderFileList, sceneFileList] = await Promise.all([
         github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/folders", resolvedRef),
         github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/scenes", resolvedRef),
       ]);
+      console.log(`[restore-debug] folderFileList.length=${folderFileList.length} sceneFileList.length=${sceneFileList.length}`);
 
       const yamlFolderFiles = folderFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
       const yamlSceneFiles = sceneFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
+      console.log(`[restore-debug] yamlFolderFiles=${yamlFolderFiles.length} yamlSceneFiles=${yamlSceneFiles.length}`);
 
       const warnings: string[] = [];
       const BATCH_SIZE = 5;
@@ -1007,12 +1010,15 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
                 foundrySourceData,
               });
             }
-          } catch {
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.log(`[restore-debug] scene parse error: ${msg}`);
             warnings.push("Failed to parse a scene sidecar YAML — skipped.");
           }
         }
       }
 
+      console.log(`[restore-debug] parsedFolders=${parsedFolders.length} parsedScenes=${parsedScenes.length} warnings=${JSON.stringify(warnings)}`);
       const output: RestoreScenesOutput = {
         commitSha: resolvedRef,
         folderName,
