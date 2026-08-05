@@ -486,7 +486,16 @@ export async function approveWrite(token: string): Promise<ApproveWriteOutput> {
     proposedContent,
   });
 
+  // Close the journal sheet before writing to avoid a Foundry v14 ProseMirror
+  // collision: programmatic page.update() while the editor is open causes
+  // _onUsersEditing to fire on the same client, crashing the ProseMirror menu.
+  const sheet = journal.sheet as { rendered?: boolean; close?: () => Promise<void>; render?: (force: boolean) => void } | undefined;
+  const wasRendered = sheet?.rendered === true;
+  if (wasRendered) await sheet?.close?.();
+
   await page.update({ "text.content": proposedContent });
+
+  if (wasRendered) sheet?.render?.(true);
 
   console.info(`LoreBridge | Write complete for "${pageName}"`, {
     journalId,
