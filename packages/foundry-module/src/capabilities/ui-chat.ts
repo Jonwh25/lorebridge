@@ -1,3 +1,4 @@
+import { openSessionCommandCenter } from "../session-command-center.js";
 import { searchCampaign } from "./search-campaign.js";
 import { exportJournalFolder } from "./backup-journals.js";
 import { exportSceneFolder } from "./backup-scenes.js";
@@ -840,6 +841,14 @@ export function registerChatCommand(): void {
         target.textContent = "";
       }
     };
+
+    // /lb session — always available to the GM regardless of chatCommandEnabled
+    if (args === "session") {
+      (options as { recordPending: boolean }).recordPending = false;
+      clearInput();
+      openSessionCommandCenter();
+      return false;
+    }
 
     if (!getLoreBridgeSettings().chatCommandEnabled) {
       // Consume disabled commands without sending them to Foundry's slash-command parser.

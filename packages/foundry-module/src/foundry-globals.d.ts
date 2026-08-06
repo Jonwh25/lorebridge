@@ -1,6 +1,7 @@
 declare const Hooks: {
   once(hook: string, callback: (...args: unknown[]) => void): void;
-  on(hook: string, callback: (...args: unknown[]) => void): void;
+  on(hook: string, callback: (...args: unknown[]) => unknown): number;
+  off(hook: string, id: number | ((...args: unknown[]) => unknown)): void;
 };
 
 type FoundrySettingConfig = {
