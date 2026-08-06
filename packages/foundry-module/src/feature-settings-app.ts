@@ -120,6 +120,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     }
 
     console.info("LoreBridge | Feature choices staged. Save Changes in the parent Game Settings window applies them.");
+    await (this as unknown as AppV2Instance).close();
   }
 
   private _stagedFeatureValues(): StagedFeatureSettings {
