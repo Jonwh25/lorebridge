@@ -34,6 +34,35 @@ function parseAtMention(rawContent: string): { actor: FoundryActor; message: str
   return null;
 }
 
+async function playTts(actor: FoundryActor, text: string): Promise<void> {
+  const voiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
+  if (!voiceId) return;
+
+  const settings = getLoreBridgeSettings();
+  if (!settings.backendUrl || !settings.clientToken) return;
+
+  const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
+  const response = await fetch(`${base}v1/tts/speak`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${settings.clientToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ text, voiceId }),
+  });
+
+  if (!response.ok) {
+    const err = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+    ui.notifications.warn(`LoreBridge TTS: ${err?.error?.message ?? `Error ${response.status}`}`);
+    return;
+  }
+
+  const data = (await response.json()) as { audio: string; mimeType: string };
+  const audio = new Audio(`data:${data.mimeType};base64,${data.audio}`);
+  audio.volume = (game.settings?.get?.("core", "globalAmbientVolume") as number | undefined) ?? 1;
+  await audio.play();
+}
+
 async function callRoleplay(actor: FoundryActor, history: Turn[], message: string): Promise<string> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) {
@@ -105,6 +134,11 @@ async function handleNpcMention(msg: unknown): Promise<void> {
       speaker: { alias: actor.name },
       flags: { [MODULE_ID]: { type: "npc-mention", actorId, actorName: actor.name } },
     });
+
+    // Fire-and-forget TTS — a missing voice ID or unconfigured key is a no-op
+    void playTts(actor, response).catch((err: unknown) => {
+      console.warn("LoreBridge | TTS playback failed:", err);
+    });
   } catch (err) {
     ui.notifications.error(
       `LoreBridge: ${err instanceof Error ? err.message : String(err)}`,
@@ -153,6 +187,7 @@ export function registerNpcMentionHook(): void {
 function openNpcPreambleDialog(actor: FoundryActor): void {
   const aiEnabled = actor.getFlag(MODULE_ID, "aiEnabled") === true;
   const preamble = (actor.getFlag(MODULE_ID, "preamble") as string | undefined) ?? "";
+  const voiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
 
   const content = `
     <form style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
@@ -167,9 +202,16 @@ function openNpcPreambleDialog(actor: FoundryActor): void {
       </div>
       <div>
         <label style="display:block;font-weight:bold;margin-bottom:4px">Personality preamble</label>
-        <textarea name="preamble" rows="6" style="width:100%;box-sizing:border-box;resize:vertical;font-size:12px;font-family:inherit" placeholder="Describe this NPC's personality, knowledge, speech patterns, and secrets the AI should know…">${preamble}</textarea>
+        <textarea name="preamble" rows="5" style="width:100%;box-sizing:border-box;resize:vertical;font-size:12px;font-family:inherit" placeholder="Describe this NPC's personality, knowledge, speech patterns, and secrets the AI should know…">${preamble}</textarea>
         <p style="margin:4px 0 0;font-size:11px;opacity:0.7">
           Overrides the actor's biography for AI roleplay. Leave blank to use the biography instead.
+        </p>
+      </div>
+      <div>
+        <label style="display:block;font-weight:bold;margin-bottom:4px">ElevenLabs Voice ID <span style="font-weight:normal;opacity:0.6">(optional)</span></label>
+        <input type="text" name="voiceId" value="${voiceId}" style="width:100%;box-sizing:border-box;font-size:12px;font-family:monospace" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM">
+        <p style="margin:4px 0 0;font-size:11px;opacity:0.7">
+          Copy a Voice ID from your ElevenLabs account. When set, AI responses will be spoken aloud.
         </p>
       </div>
     </form>`;
@@ -188,11 +230,13 @@ function openNpcPreambleDialog(actor: FoundryActor): void {
           const el = (dlg as { element: HTMLElement }).element;
           const enabled = el.querySelector<HTMLInputElement>("input[name='aiEnabled']")?.checked ?? false;
           const text = el.querySelector<HTMLTextAreaElement>("textarea[name='preamble']")?.value ?? "";
+          const voice = el.querySelector<HTMLInputElement>("input[name='voiceId']")?.value.trim() ?? "";
           void Promise.all([
             actor.setFlag(MODULE_ID, "aiEnabled", enabled),
             actor.setFlag(MODULE_ID, "preamble", text),
+            actor.setFlag(MODULE_ID, "voiceId", voice),
           ]).then(() => {
-            ui.notifications.info(`LoreBridge: Preamble saved for ${actor.name}.`);
+            ui.notifications.info(`LoreBridge: Settings saved for ${actor.name}.`);
           });
         },
       },

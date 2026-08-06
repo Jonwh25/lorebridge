@@ -749,6 +749,40 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/tts/speak") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!config.elevenLabsApiKey) {
+      sendJson(response, 503, { error: { code: "tts_unavailable", message: "ElevenLabs API key is not configured on this backend. Set ELEVENLABS_API_KEY." } });
+      return;
+    }
+    const body = await readJson(request);
+    const text = typeof body["text"] === "string" ? body["text"].trim() : "";
+    const voiceId = typeof body["voiceId"] === "string" ? body["voiceId"].trim() : "";
+    if (!text || !voiceId) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include non-empty text and voiceId strings." } });
+      return;
+    }
+    const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": config.elevenLabsApiKey,
+        "content-type": "application/json",
+        "accept": "audio/mpeg",
+      },
+      body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
+    });
+    if (!ttsResponse.ok) {
+      const errBody = await ttsResponse.json().catch(() => ({})) as { detail?: { message?: string } };
+      const msg = errBody?.detail?.message ?? `ElevenLabs error ${ttsResponse.status}`;
+      sendJson(response, 502, { error: { code: "tts_failed", message: msg } });
+      return;
+    }
+    const audioBuffer = await ttsResponse.arrayBuffer();
+    const audio = Buffer.from(audioBuffer).toString("base64");
+    sendJson(response, 200, { audio, mimeType: "audio/mpeg" });
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/v1/generate/session-prep") {
     if (!authenticate(pairing, request, response)) return;
     const body = await readJson(request);
