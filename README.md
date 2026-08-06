@@ -100,6 +100,8 @@ ownership and `hiddenCount` reports how many documents were excluded. GM mode
 | `propose_journal_update` | Propose a journal page content change; triggers a GM-only Foundry dialog with Approve/Reject buttons — no write occurs until the GM approves |
 | `list_macro_tools` | List GM-authored Foundry macros that have been exposed as MCP tools via a `@lorebridge` block in the macro description |
 | `call_macro_tool` | Execute a GM-exposed macro tool by name, passing optional arguments; requires the **Enable Macro Tools** world setting |
+| `check_campaign_health` | Scan all campaign documents for broken UUID links, missing targets, and empty stubs; returns structured findings with document names and UUIDs |
+| `audit_campaign_consistency` | Ask the AI to identify internal contradictions, timeline gaps, and naming inconsistencies across campaign documents, with source citations for every finding |
 
 The world must be open in a GM browser for live tools to work. The Foundry
 module connects automatically and reconnects after a backend restart.
@@ -155,6 +157,43 @@ Journal** creates a new page in "Generated Locations" or "Generated NPCs"
 and opens the journal automatically.
 
 The optional leading number in `/lb npcs` sets the count (default 5, max 10).
+
+### `/lb health` — campaign health check (v0.14.0+)
+
+```
+/lb health
+/lb health full
+```
+
+Scans campaign documents for broken UUID links and empty stubs. A resizable GM
+panel lists every finding with the document name and issue type. Add `full` for
+a deeper scan across all document types.
+
+### `/lb audit` — consistency audit (v0.14.0+)
+
+```
+/lb audit
+/lb audit Strahd
+/lb audit Village of Barovia
+```
+
+Asks the AI to review campaign documents for internal contradictions, timeline
+gaps, and named-entity inconsistencies. Every finding includes source citations
+so claims are traceable to the specific document. Use the optional focus
+argument to scope the audit to a character, location, or topic.
+
+### `/lb profile` — context profiles (v0.14.0+)
+
+```
+/lb profile
+/lb profile Barovia Region
+/lb profile off
+```
+
+Activates a named context profile, shows the current active profile, or clears
+it. Context profiles are created in the **Configure Profiles** settings button
+(GM-only). An active profile scopes all `search_campaign` requests to the
+configured document types and visibility mode.
 
 ### `/lb cleanup` — post-session entity review (v0.13.0+)
 

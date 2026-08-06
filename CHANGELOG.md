@@ -4,6 +4,17 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-05
+
+### Added
+
+- **Campaign Health and Link Checker** (`/lb health`, `/lb health full`): scans every journal page, actor, and scene for broken Foundry UUID links and empty document stubs. A resizable GM panel lists every finding with the document name, location, and issue type. Use `/lb health full` to include a deeper scan across all document types.
+- **`check_campaign_health` MCP tool**: AI clients can run the same health scan programmatically, receiving a structured list of broken links, missing targets, and empty stubs with document names and UUIDs.
+- **Campaign Consistency Auditor** (`/lb audit`, `/lb audit <focus>`): asks the AI to review campaign documents for internal contradictions, timeline gaps, and named-entity inconsistencies. Findings are presented in a read-only GM-only whisper with source citations so every claim is traceable to the document that contains it. Use the optional focus argument to scope the audit to a character name, location, or topic.
+- **`audit_campaign_consistency` MCP tool**: AI clients can request a consistency audit directly, receiving structured findings with severity, description, and supporting source citations.
+- **Context Profiles v1**: a **Configure Profiles** button in LoreBridge module settings opens a GM-only dialog for creating and managing reusable context profiles. Each profile defines which document types (journals, actors, scenes) are accessible, a visibility mode (all, player-safe, or GM-only), and an optional document cap. The active profile automatically scopes all `search_campaign` requests.
+- **`/lb profile [name]`** chat command: activate a context profile by name (`/lb profile Barovia Region`), check the currently active profile (`/lb profile`), or clear it (`/lb profile off`). Result is whispered to GM users only.
+
 ## [0.13.0] - 2026-08-05
 
 ### Added

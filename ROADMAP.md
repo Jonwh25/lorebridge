@@ -240,14 +240,14 @@ new world entries, approve a batch of proposed stubs in one review flow, see a
 character-level diff before each write lands, roll back a mistake without
 leaving Foundry, and hand players a clean shareable recap.
 
-### Milestone 14 — Campaign Curation & Integrity
+### Milestone 14 — Campaign Curation & Integrity ✅
 
 Add source-backed tools that help a GM keep a long-running campaign coherent,
 healthy, and intentionally scoped without applying automatic corrections.
 
-1. [Campaign Health and Link Checker](https://github.com/Jonwh25/lorebridge/issues/169)
-2. [Context Profiles](https://github.com/Jonwh25/lorebridge/issues/171)
-3. [Campaign Consistency Auditor](https://github.com/Jonwh25/lorebridge/issues/167)
+1. ✅ [Campaign Health and Link Checker](https://github.com/Jonwh25/lorebridge/issues/169)
+2. ✅ [Context Profiles](https://github.com/Jonwh25/lorebridge/issues/171)
+3. ✅ [Campaign Consistency Auditor](https://github.com/Jonwh25/lorebridge/issues/167)
 
 Deterministic health checks land first, followed by reusable context boundaries
 and then AI-assisted canon analysis. Findings remain read-only and distinguish
