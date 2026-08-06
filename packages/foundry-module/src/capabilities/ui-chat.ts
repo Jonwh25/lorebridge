@@ -647,7 +647,7 @@ async function handleHealthCheck(full: boolean): Promise<void> {
         </p>
         ${result.findings.length === 0
           ? `<p style="color:#27ae60">✅ No issues found.</p>`
-          : `<div style="overflow-y:auto;resize:vertical;min-height:100px;max-height:calc(100vh - 320px)">
+          : `<div style="overflow-y:auto;min-height:100px;max-height:calc(100vh - 320px)">
               <table style="width:100%;border-collapse:collapse">
                 <thead style="position:sticky;top:0;background:var(--color-bg,#1a1a1a);z-index:1">
                   <tr style="border-bottom:2px solid #ccc">
@@ -674,6 +674,7 @@ async function handleHealthCheck(full: boolean): Promise<void> {
           icon: "fas fa-search",
           callback: () => { void handleHealthCheck(true); },
         }] : []),
+        { action: "close", label: "Close", default: true },
       ],
     }).render({ force: true });
 
@@ -718,7 +719,7 @@ async function handleConsistencyAudit(focus?: string): Promise<void> {
         </p>
         ${result.findings.length === 0
           ? `<p style="color:#27ae60">✅ No inconsistencies found.</p>`
-          : `<div style="overflow-y:auto;resize:vertical;min-height:100px;max-height:calc(100vh - 320px)">
+          : `<div style="overflow-y:auto;min-height:100px;max-height:calc(100vh - 320px)">
               <table style="width:100%;border-collapse:collapse">
                 <thead style="position:sticky;top:0;background:var(--color-bg,#1a1a1a);z-index:1">
                   <tr style="font-size:11px;color:#888;text-align:left;border-bottom:2px solid #444">
@@ -737,7 +738,7 @@ async function handleConsistencyAudit(focus?: string): Promise<void> {
       window: { title: `LoreBridge Audit — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
       position: { width: 850, height: "auto" },
       content,
-      buttons: [],
+      buttons: [{ action: "close", label: "Close", default: true }],
     }).render({ force: true });
 
   } catch (error) {
