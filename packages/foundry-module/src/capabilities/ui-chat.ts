@@ -738,9 +738,7 @@ async function handleConsistencyAudit(focus?: string): Promise<void> {
       window: { title: `LoreBridge Audit — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
       position: { width: 850, height: "auto" },
       content,
-      buttons: [
-        { action: "close", label: "Close", default: true },
-      ],
+      buttons: [],
     }).render({ force: true });
 
   } catch (error) {
