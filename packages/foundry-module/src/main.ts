@@ -77,6 +77,7 @@ import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
+import { openSessionCommandCenter } from "./session-command-center.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
   getLoreBridgeSettings,
@@ -105,6 +106,23 @@ Hooks.once("init", () => {
   registerChatCommand();
   registerSheetButtons();
   registerRollbackChatHook();
+
+  // Scene Controls button — GM-only shortcut to open the Session Command Center
+  Hooks.on("getSceneControlButtons", (controls: unknown) => {
+    if (!game.user?.isGM) return;
+    const groups = controls as Array<{ name: string; tools?: Array<{ name: string; title: string; icon: string; button?: boolean; visible?: boolean; onClick?: () => void }> }>;
+    const notes = groups.find((g) => g.name === "notes");
+    if (notes?.tools) {
+      notes.tools.push({
+        name: "lorebridge-session",
+        title: "LoreBridge Session Center",
+        icon: "fas fa-bridge",
+        button: true,
+        visible: true,
+        onClick: () => { openSessionCommandCenter(); },
+      });
+    }
+  });
 
   console.info(
     `${MODULE_LABEL} | Initializing ${MODULE_LABEL} ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`

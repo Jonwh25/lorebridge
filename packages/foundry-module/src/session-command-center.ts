@@ -1,0 +1,545 @@
+import { getLoreBridgeSettings } from "./settings.js";
+import { checkCampaignHealth } from "./capabilities/health-check.js";
+import { handleSessionCleanup } from "./capabilities/session-cleanup.js";
+
+// ---------------------------------------------------------------------------
+// Test-safe ApplicationV2 base
+// ---------------------------------------------------------------------------
+
+const _TestSafeBase = class {
+  static DEFAULT_OPTIONS = {};
+  readonly rendered = false;
+  readonly element: HTMLElement = document.createElement("div");
+  render(_o?: boolean | { force?: boolean }): Promise<unknown> { return Promise.resolve(undefined); }
+  close(_o?: { force?: boolean }): Promise<unknown> { return Promise.resolve(undefined); }
+  bringToFront(): void { return; }
+  async _renderHTML(_c: Record<string, unknown>, _o: unknown): Promise<HTMLElement> { return document.createElement("div"); }
+  _replaceHTML(_r: HTMLElement, _c: HTMLElement, _o: unknown): void { return; }
+  _onClickAction(_e: PointerEvent, _t: HTMLElement): void { return; }
+} as unknown as typeof FoundryApplicationV2;
+
+const _AppBase: typeof FoundryApplicationV2 = (
+  globalThis as unknown as {
+    foundry?: { applications?: { api?: { ApplicationV2?: typeof FoundryApplicationV2 } } };
+  }
+).foundry?.applications?.api?.ApplicationV2 ?? _TestSafeBase;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function _escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function _postBackend<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const settings = getLoreBridgeSettings();
+  if (!settings.backendUrl || !settings.clientToken) {
+    throw new Error("LoreBridge backend is not configured or paired.");
+  }
+  const base = settings.backendUrl;
+  const url = base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${settings.clientToken}`, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
+    throw new Error(err?.error?.message ?? `Backend error ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+// ---------------------------------------------------------------------------
+// Data gathering — synchronous reads from local Foundry state
+// ---------------------------------------------------------------------------
+
+type SceneInfo = {
+  id: string;
+  name: string;
+  tokenActors: Array<{ id: string; name: string; type: string }>;
+  linkedJournalId: string | null;
+  linkedJournalName: string | null;
+};
+
+type CombatInfo = {
+  active: boolean;
+  round: number;
+  currentName: string;
+  combatants: Array<{ name: string; initiative: number | null; defeated: boolean; hidden: boolean }>;
+};
+
+type ChatInfo = {
+  messages: Array<{ speaker: string; excerpt: string; isWhisper: boolean }>;
+};
+
+type SessionInfo = {
+  journalId: string | null;
+  journalName: string;
+  latestPageName: string | null;
+  excerpt: string | null;
+};
+
+function _gatherScene(): SceneInfo | null {
+  const scene = game.scenes.active;
+  if (!scene) return null;
+  const tokenActors = Array.from(scene.tokens)
+    .filter((t) => Boolean(t.actorId))
+    .slice(0, 12)
+    .map((t) => ({
+      id: t.actorId ?? "",
+      name: t.name,
+      type: (t.actor as { type?: string } | null | undefined)?.type ?? "",
+    }));
+  return {
+    id: scene.id,
+    name: scene.name,
+    tokenActors,
+    linkedJournalId: scene.journal?.id ?? null,
+    linkedJournalName: scene.journal?.name ?? null,
+  };
+}
+
+function _gatherCombat(): CombatInfo {
+  const combat = game.combats.active;
+  if (!combat?.started) {
+    return { active: false, round: 0, currentName: "", combatants: [] };
+  }
+  return {
+    active: true,
+    round: combat.current.round ?? 1,
+    currentName: combat.combatant?.name ?? "",
+    combatants: combat.turns.map((c) => ({
+      name: c.name,
+      initiative: c.initiative ?? null,
+      defeated: c.isDefeated,
+      hidden: c.hidden,
+    })),
+  };
+}
+
+function _gatherChat(): ChatInfo {
+  const recent = Array.from(game.messages).slice(-6);
+  return {
+    messages: recent.map((m) => ({
+      speaker: m.speaker?.alias ?? m.author?.name ?? "Unknown",
+      excerpt: m.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 90),
+      isWhisper: m.whisper.length > 0,
+    })),
+  };
+}
+
+function _gatherSession(): SessionInfo {
+  const settings = getLoreBridgeSettings();
+  const folderName = settings.sessionLogFolder || "Session Logs";
+  const journal = Array.from(game.journal).find((j) => j.name === folderName);
+  if (!journal) return { journalId: null, journalName: folderName, latestPageName: null, excerpt: null };
+  const pages = Array.from(journal.pages);
+  const latest = pages[pages.length - 1];
+  if (!latest) return { journalId: journal.id, journalName: journal.name, latestPageName: null, excerpt: null };
+  const excerpt = (latest.text?.content ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  return { journalId: journal.id, journalName: journal.name, latestPageName: latest.name, excerpt };
+}
+
+// ---------------------------------------------------------------------------
+// HTML section builders
+// ---------------------------------------------------------------------------
+
+function _sceneHtml(scene: SceneInfo | null): string {
+  if (!scene) {
+    return `<p class="lb-scc__empty">No active scene.</p>`;
+  }
+  const actorRows = scene.tokenActors.length > 0
+    ? scene.tokenActors
+        .map((a) =>
+          `<span class="lb-scc__tag lb-scc__link" data-action="open-actor" data-id="${_escHtml(a.id)}" title="Open actor sheet">${_escHtml(a.name)}</span>`,
+        )
+        .join(" ")
+    : `<em style="color:var(--color-text-subtle,#888)">No tokens</em>`;
+  const journalLink = scene.linkedJournalId
+    ? `<span class="lb-scc__link" data-action="open-journal" data-id="${_escHtml(scene.linkedJournalId)}" title="Open linked journal">${_escHtml(scene.linkedJournalName ?? "Linked Journal")}</span>`
+    : `<em style="color:var(--color-text-subtle,#888)">None</em>`;
+  return `
+    <div class="lb-scc__row">
+      <strong class="lb-scc__link" data-action="open-scene" title="Open scene sheet">${_escHtml(scene.name)}</strong>
+    </div>
+    <div class="lb-scc__row"><span class="lb-scc__label">Tokens:</span> ${actorRows}</div>
+    <div class="lb-scc__row"><span class="lb-scc__label">Journal:</span> ${journalLink}</div>`;
+}
+
+function _combatHtml(combat: CombatInfo): string {
+  if (!combat.active) {
+    return `<p class="lb-scc__empty">No active combat.</p>`;
+  }
+  const rows = combat.combatants
+    .map((c) => {
+      const cls = c.defeated ? "lb-scc__combatant--defeated" : "";
+      const arrow = c.name === combat.currentName ? " ▶" : "";
+      const init = c.initiative !== null ? String(c.initiative) : "—";
+      return `<li class="${cls}">${_escHtml(c.name)}${arrow} <span class="lb-scc__dim">(${init})</span></li>`;
+    })
+    .join("");
+  return `
+    <div class="lb-scc__row">
+      <span class="lb-scc__label">Round ${combat.round}</span> · Current: <strong>${_escHtml(combat.currentName)}</strong>
+    </div>
+    <ul class="lb-scc__list">${rows}</ul>`;
+}
+
+function _chatHtml(chat: ChatInfo): string {
+  if (chat.messages.length === 0) {
+    return `<p class="lb-scc__empty">No recent chat messages.</p>`;
+  }
+  const rows = chat.messages
+    .map((m) => {
+      const whisper = m.isWhisper ? ` <span class="lb-scc__dim">[whisper]</span>` : "";
+      return `<li><strong>${_escHtml(m.speaker)}</strong>${whisper}: ${_escHtml(m.excerpt)}</li>`;
+    })
+    .join("");
+  return `<ul class="lb-scc__list lb-scc__list--chat">${rows}</ul>`;
+}
+
+function _sessionHtml(session: SessionInfo): string {
+  if (!session.journalId) {
+    return `<p class="lb-scc__empty">Journal "<em>${_escHtml(session.journalName)}</em>" not found.</p>`;
+  }
+  const label = session.latestPageName ?? session.journalName;
+  const pageLink = `<span class="lb-scc__link" data-action="open-journal" data-id="${_escHtml(session.journalId)}" title="Open session log">${_escHtml(label)}</span>`;
+  const excerptBlock = session.excerpt
+    ? `<div class="lb-scc__excerpt">${_escHtml(session.excerpt)}…</div>`
+    : "";
+  return `<div class="lb-scc__row">${pageLink}</div>${excerptBlock}`;
+}
+
+function _actionsHtml(scene: SceneInfo | null): string {
+  const settings = getLoreBridgeSettings();
+  const buttons: string[] = [];
+
+  if (scene) {
+    buttons.push(
+      `<button type="button" class="lb-scc__action-btn" data-action="open-scene" title="Open active scene sheet"><i class="fas fa-map"></i> Scene Sheet</button>`,
+    );
+  }
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="health-check" title="Run campaign health check"><i class="fas fa-heartbeat"></i> Health Check</button>`,
+  );
+  if (settings.uiButtonsEnabled && scene) {
+    buttons.push(
+      `<button type="button" class="lb-scc__action-btn" data-action="encounter-suggestions" title="Suggest encounters for the active scene"><i class="fas fa-dice-d20"></i> Encounter Ideas</button>`,
+    );
+  }
+  if (settings.chatCommandEnabled) {
+    buttons.push(
+      `<button type="button" class="lb-scc__action-btn" data-action="session-cleanup" title="Detect new entities from the session log"><i class="fas fa-broom"></i> Session Cleanup</button>`,
+    );
+  }
+  return buttons.length > 0
+    ? `<div class="lb-scc__actions">${buttons.join("")}</div>`
+    : `<p class="lb-scc__empty">All LoreBridge actions are currently disabled in settings.</p>`;
+}
+
+// ---------------------------------------------------------------------------
+// Panel CSS (injected once)
+// ---------------------------------------------------------------------------
+
+const _CSS = `
+.lorebridge-scc .window-content { padding: 0; overflow-y: auto; }
+.lb-scc { padding: 6px 8px; font-size: 12px; line-height: 1.45; }
+.lb-scc__toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.lb-scc__toolbar button { font-size: 11px; padding: 2px 8px; cursor: pointer; }
+.lb-scc__ts { font-size: 10px; color: var(--color-text-subtle, #888); margin-left: auto; }
+.lb-scc__section { margin-bottom: 4px; border: 1px solid var(--color-border-light, #ccc); border-radius: 4px; overflow: hidden; }
+.lb-scc__section summary { cursor: pointer; padding: 4px 8px; font-weight: bold; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; background: var(--color-bg-option, #f0ece0); user-select: none; }
+.lb-scc__section > *:not(summary) { padding: 6px 8px; }
+.lb-scc__row { margin-bottom: 3px; }
+.lb-scc__label { color: var(--color-text-subtle, #888); font-size: 11px; }
+.lb-scc__tag { display: inline-block; background: var(--color-bg-option, #e8e0d0); border-radius: 3px; padding: 1px 5px; margin: 1px; font-size: 11px; }
+.lb-scc__link { cursor: pointer; color: var(--color-hyperlink, #4a90d9); text-decoration: underline; }
+.lb-scc__link:hover { opacity: 0.8; }
+.lb-scc__dim { color: var(--color-text-subtle, #888); font-size: 10px; }
+.lb-scc__empty { color: var(--color-text-subtle, #888); font-style: italic; margin: 0; }
+.lb-scc__list { margin: 2px 0; padding-left: 16px; }
+.lb-scc__list--chat li { margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-scc__combatant--defeated { opacity: 0.4; text-decoration: line-through; }
+.lb-scc__excerpt { margin-top: 4px; color: var(--color-text-subtle, #777); font-style: italic; font-size: 11px; }
+.lb-scc__actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.lb-scc__action-btn { font-size: 11px; padding: 3px 8px; cursor: pointer; border: 1px solid var(--color-border-medium, #aaa); border-radius: 3px; background: var(--color-bg-btn, transparent); }
+.lb-scc__action-btn:hover { background: var(--color-bg-option, #e8e0d0); }
+`.trim();
+
+let _cssInjected = false;
+function _injectCss(): void {
+  if (_cssInjected) return;
+  _cssInjected = true;
+  const style = document.createElement("style");
+  style.id = "lorebridge-scc-styles";
+  style.textContent = _CSS;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Session Command Center application
+// ---------------------------------------------------------------------------
+
+class SessionCommandCenter extends _AppBase {
+  static override DEFAULT_OPTIONS = {
+    id: "lorebridge-session-command-center",
+    classes: ["lorebridge-scc"],
+    window: { title: "LoreBridge — Session Command Center", resizable: true },
+    position: { width: 400, height: 620 },
+  };
+
+  private _hookIds: number[] = [];
+  private _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  override async _renderHTML(
+    _context: Record<string, unknown>,
+    _options: unknown,
+  ): Promise<HTMLElement> {
+    _injectCss();
+
+    if (!game.user?.isGM) {
+      const el = document.createElement("div");
+      el.style.padding = "1rem";
+      el.textContent = "Session Command Center is only available to the GM.";
+      return el;
+    }
+
+    const scene = _gatherScene();
+    const combat = _gatherCombat();
+    const chat = _gatherChat();
+    const session = _gatherSession();
+    const now = new Date().toLocaleTimeString();
+
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div class="lb-scc">
+        <div class="lb-scc__toolbar">
+          <button type="button" data-action="refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+          <span class="lb-scc__ts">Updated ${_escHtml(now)}</span>
+        </div>
+
+        <details class="lb-scc__section" open>
+          <summary>📍 Active Scene</summary>
+          ${_sceneHtml(scene)}
+        </details>
+
+        <details class="lb-scc__section" open>
+          <summary>⚔️ Combat</summary>
+          ${_combatHtml(combat)}
+        </details>
+
+        <details class="lb-scc__section">
+          <summary>💬 Recent Chat</summary>
+          ${_chatHtml(chat)}
+        </details>
+
+        <details class="lb-scc__section">
+          <summary>📜 Session Log</summary>
+          ${_sessionHtml(session)}
+        </details>
+
+        <details class="lb-scc__section" open>
+          <summary>⚡ Quick Actions</summary>
+          ${_actionsHtml(scene)}
+        </details>
+      </div>`;
+    return container;
+  }
+
+  override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
+    content.replaceChildren(...Array.from(result.childNodes));
+  }
+
+  override _onClickAction(event: PointerEvent, target: HTMLElement): void | Promise<void> {
+    const action = target.dataset["action"];
+    const id = target.dataset["id"] ?? "";
+
+    if (action === "refresh") {
+      void this.render();
+      return;
+    }
+    if (action === "open-scene") {
+      const scene = (game.scenes.active as { sheet?: { render(f: boolean): void } } | null);
+      scene?.sheet?.render(true);
+      return;
+    }
+    if (action === "open-actor") {
+      const actor = (game.actors as { get(id: string): { sheet?: { render(f: boolean): void } } | undefined }).get(id);
+      actor?.sheet?.render(true);
+      return;
+    }
+    if (action === "open-journal") {
+      const journal = (game.journal as { get(id: string): { sheet?: { render(f: boolean): void } } | undefined }).get(id);
+      journal?.sheet?.render(true);
+      return;
+    }
+    if (action === "encounter-suggestions") {
+      void this._runEncounterSuggestions();
+      return;
+    }
+    if (action === "health-check") {
+      void this._runHealthCheck();
+      return;
+    }
+    if (action === "session-cleanup") {
+      void handleSessionCleanup("");
+      return;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Action implementations
+  // -------------------------------------------------------------------------
+
+  private async _runEncounterSuggestions(): Promise<void> {
+    const scene = game.scenes.active;
+    if (!scene) {
+      ui.notifications.warn("LoreBridge: No active scene for encounter suggestions.");
+      return;
+    }
+    ui.notifications.info("LoreBridge: Generating encounter suggestions…");
+    try {
+      const tokens = Array.from(scene.tokens).map((t) => t.name).filter(Boolean);
+      const result = await _postBackend<{ suggestions: string[] }>("v1/generate/encounter-suggestions", {
+        sceneName: scene.name,
+        linkedJournal: scene.journal?.name,
+        tokens,
+        tone: "neutral",
+      });
+      const listItems = result.suggestions
+        .map((s, i) => `<p><strong>${i + 1}.</strong> ${s}</p>`)
+        .join("\n");
+      new foundry.applications.api.DialogV2({
+        window: { title: `Encounter Ideas — ${scene.name}`, resizable: true },
+        position: { width: 480, height: "auto" },
+        content: `<div style="padding:0.5rem;font-size:0.9em">${listItems}</div>`,
+        buttons: [{ action: "close", label: "Close", icon: "fas fa-times", default: true }],
+      }).render({ force: true });
+    } catch (error) {
+      ui.notifications.error(`LoreBridge encounter suggestions failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async _runHealthCheck(): Promise<void> {
+    ui.notifications.info("LoreBridge: Running campaign health check…");
+    try {
+      const result = await checkCampaignHealth({});
+      const sevIcon = (s: string) => (s === "error" ? "🔴" : "⚠️");
+      const rows = result.findings
+        .map(
+          (f) =>
+            `<tr>
+              <td style="padding:2px 6px">${sevIcon(f.severity)}</td>
+              <td style="padding:2px 6px;font-size:11px;color:#888">${_escHtml(f.category)}</td>
+              <td style="padding:2px 6px">${_escHtml(f.sourceName)}</td>
+              <td style="padding:2px 6px;color:#444">${_escHtml(f.detail)}</td>
+            </tr>`,
+        )
+        .join("");
+      const content =
+        result.findings.length === 0
+          ? `<p style="color:#27ae60;padding:0.5rem">✅ No issues found. Scanned ${result.documentsScanned} documents.</p>`
+          : `<div style="overflow-y:auto;max-height:400px;font-size:12px">
+              <p style="margin:4px 8px;color:#888">Scanned ${result.documentsScanned} documents</p>
+              <table style="width:100%;border-collapse:collapse"><tbody>${rows}</tbody></table>
+            </div>`;
+      new foundry.applications.api.DialogV2({
+        window: { title: `Health Check — ${result.findings.length} finding(s)`, resizable: true },
+        position: { width: 740, height: "auto" },
+        content,
+        buttons: [{ action: "close", label: "Close", default: true }],
+      }).render({ force: true });
+    } catch (error) {
+      ui.notifications.error(`LoreBridge health check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Reactive hooks
+  // -------------------------------------------------------------------------
+
+  _scheduleRefresh(): void {
+    if (this._refreshTimer !== null) return;
+    this._refreshTimer = setTimeout(() => {
+      this._refreshTimer = null;
+      if (this.rendered) void this.render();
+    }, 1500);
+  }
+
+  _registerHooks(): void {
+    const refresh = () => { this._scheduleRefresh(); };
+    const onClose = (app: unknown) => {
+      if ((app as { id?: string }).id === "lorebridge-feature-settings") {
+        setTimeout(() => { if (this.rendered) void this.render(); }, 200);
+      }
+    };
+    this._hookIds = [
+      Hooks.on("updateScene", refresh),
+      Hooks.on("canvasReady", refresh),
+      Hooks.on("createCombat", refresh),
+      Hooks.on("deleteCombat", refresh),
+      Hooks.on("updateCombat", refresh),
+      Hooks.on("updateCombatant", refresh),
+      Hooks.on("createChatMessage", refresh),
+      Hooks.on("closeApplication", onClose),
+    ];
+  }
+
+  _unregisterHooks(): void {
+    const hookNames = [
+      "updateScene", "canvasReady", "createCombat", "deleteCombat",
+      "updateCombat", "updateCombatant", "createChatMessage", "closeApplication",
+    ];
+    for (let i = 0; i < this._hookIds.length; i++) {
+      const name = hookNames[i];
+      const id = this._hookIds[i];
+      if (name !== undefined && id !== undefined) Hooks.off(name, id);
+    }
+    this._hookIds = [];
+    if (this._refreshTimer !== null) {
+      clearTimeout(this._refreshTimer);
+      this._refreshTimer = null;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Singleton
+// ---------------------------------------------------------------------------
+
+let _instance: SessionCommandCenter | null = null;
+
+export function openSessionCommandCenter(): void {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: Session Command Center is only available to the GM.");
+    return;
+  }
+  if (_instance?.rendered) {
+    _instance.bringToFront();
+    return;
+  }
+  _instance = new SessionCommandCenter();
+  void _instance.render({ force: true }).then(() => {
+    (_instance as SessionCommandCenter)._registerHooks();
+  });
+
+  // Clean up on window close
+  const onCloseSelf = (app: unknown) => {
+    if ((app as { id?: string }).id === "lorebridge-session-command-center") {
+      (_instance as SessionCommandCenter | null)?._unregisterHooks();
+      _instance = null;
+      Hooks.off("closeApplication", onCloseSelf);
+    }
+  };
+  Hooks.on("closeApplication", onCloseSelf);
+}
