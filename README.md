@@ -3,7 +3,6 @@
 [![Release](https://img.shields.io/github/v/release/Jonwh25/lorebridge?label=release)](https://github.com/Jonwh25/lorebridge/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Jonwh25/lorebridge/total?label=downloads)](https://github.com/Jonwh25/lorebridge/releases)
 [![License](https://img.shields.io/github/license/Jonwh25/lorebridge)](https://github.com/Jonwh25/lorebridge/blob/main/LICENSE)
-[![Validation](https://github.com/Jonwh25/lorebridge/actions/workflows/validate.yml/badge.svg)](https://github.com/Jonwh25/lorebridge/actions/workflows/validate.yml)
 
 LoreBridge is a secure, GM-controlled bridge that lets an AI assistant retrieve
 live campaign information from a loaded Foundry Virtual Tabletop world.
