@@ -107,26 +107,25 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
 
-  // Inject a standalone button into the scene controls toolbar via DOM
-  Hooks.on("renderSceneControls", (_app: unknown, element: unknown) => {
+  // Add a standalone sidebar button via the v14 getSceneControlButtons hook.
+  // In v14 the controls argument is a keyed object (not an array); button:true
+  // makes it a direct-click control with no sub-toolbar.
+  Hooks.on("getSceneControlButtons", (controls: unknown) => {
     if (!game.user?.isGM) return;
-    const el = element as HTMLElement;
-    if (el.querySelector?.("#lorebridge-scc-btn")) return;
-    const ol = el.querySelector?.("ol.main-controls") ?? el.querySelector?.("ol");
-    if (!ol) return;
-    const li = document.createElement("li");
-    li.id = "lorebridge-scc-btn";
-    li.className = "scene-control";
-    li.title = "LoreBridge Session Center";
-    li.setAttribute("aria-label", "LoreBridge Session Center");
-    li.innerHTML = '<i class="fas fa-bridge"></i>';
-    li.style.cursor = "pointer";
-    li.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openSessionCommandCenter();
-    });
-    ol.appendChild(li);
+    (controls as Record<string, unknown>)["lorebridge"] = {
+      name: "lorebridge",
+      title: "LoreBridge Session Center",
+      icon: "fas fa-bridge",
+      visible: true,
+      order: 999,
+      button: true,
+      onChange: (_event: unknown, active: unknown) => {
+        if (active === false) return;
+        openSessionCommandCenter();
+      },
+      tools: {},
+      layer: "controls",
+    };
   });
 
   console.info(
