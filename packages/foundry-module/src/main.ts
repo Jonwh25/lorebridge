@@ -107,9 +107,11 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
 
-  // Add a standalone sidebar button via the v14 getSceneControlButtons hook.
-  // In v14 the controls argument is a keyed object (not an array); button:true
-  // makes it a direct-click control with no sub-toolbar.
+  // Add a standalone sidebar button. In v14 the controls arg is a keyed object.
+  // onChange is intentionally empty — the click is intercepted in the capture
+  // phase (same pattern as FXMaster) so Foundry's toggle logic never runs and
+  // the button fires openSessionCommandCenter() on every click.
+  let _sccClickRegistered = false;
   Hooks.on("getSceneControlButtons", (controls: unknown) => {
     if (!game.user?.isGM) return;
     (controls as Record<string, unknown>)["lorebridge"] = {
@@ -119,10 +121,21 @@ Hooks.once("init", () => {
       visible: true,
       order: 999,
       button: true,
-      onChange: () => { openSessionCommandCenter(); },
+      onChange: () => {},
       tools: {},
       layer: "controls",
     };
+    if (_sccClickRegistered) return;
+    _sccClickRegistered = true;
+    document.addEventListener("click", (event) => {
+      if (!game.user?.isGM) return;
+      const btn = (event.target as Element | null)?.closest?.("[data-control='lorebridge']");
+      if (!btn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      openSessionCommandCenter();
+    }, true);
   });
 
   console.info(
