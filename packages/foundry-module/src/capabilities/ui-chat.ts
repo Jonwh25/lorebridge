@@ -674,7 +674,6 @@ async function handleHealthCheck(full: boolean): Promise<void> {
           icon: "fas fa-search",
           callback: () => { void handleHealthCheck(true); },
         }] : []),
-        { action: "close", label: "Close", default: true },
       ],
     }).render({ force: true });
 
