@@ -1,5 +1,6 @@
 import { LoreBridgeConfigurationApp } from "./configuration-app.js";
 import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
+import { LoreBridgeContextProfilesApp } from "./context-profiles-app.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -12,7 +13,7 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp;
+      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp;
       restricted: boolean;
     },
   ): void;
@@ -36,6 +37,8 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   uiButtonsEnabled: "uiButtonsEnabled",
   chatCommandEnabled: "chatCommandEnabled",
   journalQaEnabled: "journalQaEnabled",
+  contextProfiles: "contextProfiles",
+  activeContextProfileId: "activeContextProfileId",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -73,6 +76,33 @@ export function registerLoreBridgeSettings(): void {
     icon: "fas fa-sliders-h",
     type: LoreBridgeFeatureSettingsApp,
     restricted: true,
+  });
+
+  settings.registerMenu(MODULE_ID, "contextProfiles", {
+    name: "Configure Context Profiles",
+    label: "Configure Profiles",
+    hint: "Create and manage reusable scopes that limit which documents LoreBridge can access.",
+    icon: "fas fa-filter",
+    type: LoreBridgeContextProfilesApp,
+    restricted: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.contextProfiles, {
+    name: "LoreBridge Context Profiles",
+    hint: "JSON array of context profile definitions.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "[]",
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.activeContextProfileId, {
+    name: "Active Context Profile",
+    hint: "ID of the currently active context profile, or empty string for no restriction.",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "",
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.capabilityApiEnabled, {

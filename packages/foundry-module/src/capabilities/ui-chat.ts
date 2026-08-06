@@ -7,6 +7,7 @@ import { restoreSceneFolder } from "./restore-scenes.js";
 import { handleSessionCleanup } from "./session-cleanup.js";
 import { checkCampaignHealth } from "./health-check.js";
 import { auditCampaignConsistency } from "./consistency-audit.js";
+import { getContextProfiles, getActiveProfile, setActiveProfileId } from "./context-profile.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -684,6 +685,62 @@ async function handleHealthCheck(full: boolean): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Context profile command (#171)
+// ---------------------------------------------------------------------------
+
+async function handleProfileCommand(arg: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb profile is only available to GMs.");
+    return;
+  }
+
+  const gmIds = game.users?.filter((u) => u.isGM).map((u) => u.id);
+
+  const whisperGm = async (content: string) => {
+    await ChatMessage.create({
+      content,
+      whisper: gmIds,
+      speaker: { alias: "LoreBridge" },
+      flags: { lorebridge: { type: "profile-status" } },
+    });
+  };
+
+  // /lb profile off — clear active profile
+  if (arg === "off" || arg === "none") {
+    await setActiveProfileId("");
+    await whisperGm(`<p><em>LoreBridge: Context profile cleared. All documents are now accessible.</em></p>`);
+    return;
+  }
+
+  // /lb profile (no arg) — show current profile
+  if (!arg) {
+    const active = getActiveProfile();
+    if (!active) {
+      await whisperGm(`<p><em>LoreBridge: No active context profile. Type <code>/lb profile &lt;name&gt;</code> to activate one.</em></p>`);
+    } else {
+      await whisperGm(`<p><em>LoreBridge: Active profile: <strong>${active.name}</strong> (types: ${active.allowedDocTypes.join(", ")}; visibility: ${active.visibilityMode}; max docs: ${active.maxDocs}).</em></p>`);
+    }
+    return;
+  }
+
+  // /lb profile <name> — activate by name (case-insensitive prefix match)
+  const profiles = getContextProfiles();
+  const needle = arg.toLowerCase();
+  const match = profiles.find((p) => p.name.toLowerCase() === needle)
+    ?? profiles.find((p) => p.name.toLowerCase().startsWith(needle));
+
+  if (!match) {
+    const names = profiles.map((p) => `<code>${p.name}</code>`).join(", ");
+    const hint = names ? `Available profiles: ${names}.` : "No profiles have been created yet. Use LoreBridge Settings → Configure Profiles.";
+    await whisperGm(`<p><em>LoreBridge: No profile matching "${arg}". ${hint}</em></p>`);
+    return;
+  }
+
+  await setActiveProfileId(match.id);
+  await whisperGm(`<p><em>LoreBridge: Context profile set to <strong>${match.name}</strong>.</em></p>`);
+}
+
+// ---------------------------------------------------------------------------
 // Consistency audit command (#167)
 // ---------------------------------------------------------------------------
 
@@ -910,6 +967,14 @@ export function registerChatCommand(): void {
       const focus = args.slice("audit".length).trim() || undefined;
       clearInput();
       void handleConsistencyAudit(focus);
+      return false;
+    }
+
+    // /lb profile [name|off]
+    if (args === "profile" || args.startsWith("profile ")) {
+      const profileArg = args.slice("profile".length).trim();
+      clearInput();
+      void handleProfileCommand(profileArg);
       return false;
     }
 
