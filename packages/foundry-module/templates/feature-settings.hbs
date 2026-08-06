@@ -18,6 +18,10 @@
       <label class="checkbox"><input type="checkbox" name="writesEnabled" {{checked writesEnabled}}> Enable AI-Proposed Writes</label>
       <p class="hint">Allow AI assistants to propose journal page updates. Every change still requires explicit GM approval.</p>
     </div>
+    <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="npcMentionEnabled" {{checked npcMentionEnabled}}> Enable @NPC Mention Responses</label>
+      <p class="hint">Allow players and the GM to address AI-enabled NPCs in chat using @ActorName. Enable individual NPCs with /lb npc enable &lt;name&gt;.</p>
+    </div>
   </fieldset>
   <footer class="sheet-footer flexrow"><button type="button" data-action="save"><i class="fas fa-save"></i> Save Features</button></footer>
 </form>

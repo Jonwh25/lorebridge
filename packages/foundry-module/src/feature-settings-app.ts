@@ -6,7 +6,7 @@ import {
 
 const MODULE_ID = "lorebridge";
 type AnyRecord = Record<string, unknown>;
-type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
+type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; close(): Promise<unknown>; readonly element: HTMLElement };
 type AppV2Static = { new (options?: AnyRecord): AppV2Instance; DEFAULT_OPTIONS: AnyRecord; PARTS?: AnyRecord };
 
 const foundryApi = (
@@ -23,6 +23,7 @@ const TestSafeBase: AppV2Static = class implements AppV2Instance {
   static PARTS: AnyRecord = {};
   readonly element: HTMLElement = document.createElement("div");
   async render(_options?: AnyRecord): Promise<unknown> { return undefined; }
+  async close(): Promise<unknown> { return undefined; }
 };
 
 const ApplicationV2 = foundryApi?.ApplicationV2 ?? TestSafeBase;
@@ -35,6 +36,7 @@ type FeatureSettingsContext = {
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
+  npcMentionEnabled: boolean;
 };
 
 type StagedFeatureSettings = {
@@ -71,6 +73,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: staged.uiButtonsEnabled ?? settings.uiButtonsEnabled,
       chatCommandEnabled: staged.chatCommandEnabled ?? settings.chatCommandEnabled,
       journalQaEnabled: staged.journalQaEnabled ?? settings.journalQaEnabled,
+      npcMentionEnabled: staged.npcMentionEnabled ?? settings.npcMentionEnabled,
     };
   }
 
@@ -91,12 +94,14 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: checked("uiButtonsEnabled"),
       chatCommandEnabled: checked("chatCommandEnabled"),
       journalQaEnabled: checked("journalQaEnabled"),
+      npcMentionEnabled: checked("npcMentionEnabled"),
     };
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
       [LOREBRIDGE_SETTINGS.uiButtonsEnabled, "uiButtonsEnabled"],
       [LOREBRIDGE_SETTINGS.chatCommandEnabled, "chatCommandEnabled"],
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
+      [LOREBRIDGE_SETTINGS.npcMentionEnabled, "npcMentionEnabled"],
     ] as const;
 
     const parentForm = this._parentSettingsForm();
@@ -116,6 +121,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     }
 
     console.info("LoreBridge | Feature choices staged. Save Changes in the parent Game Settings window applies them.");
+    await (this as unknown as AppV2Instance).close();
   }
 
   private _stagedFeatureValues(): StagedFeatureSettings {
@@ -126,6 +132,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
         uiButtonsEnabled: undefined,
         chatCommandEnabled: undefined,
         journalQaEnabled: undefined,
+        npcMentionEnabled: undefined,
       };
     }
     const read = (setting: string): boolean | undefined =>
@@ -135,6 +142,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: read(LOREBRIDGE_SETTINGS.uiButtonsEnabled),
       chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
       journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),
+      npcMentionEnabled: read(LOREBRIDGE_SETTINGS.npcMentionEnabled),
     };
   }
 

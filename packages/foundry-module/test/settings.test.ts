@@ -53,7 +53,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.get("features")?.restricted, true);
   assert.equal(menus.get("contextProfiles")?.restricted, true);
 
-  assert.equal(registrations.size, 13);
+  assert.equal(registrations.size, 14);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -66,6 +66,8 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcMentionEnabled)?.default, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcMentionEnabled)?.requiresReload, true);
 
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.config, true);
@@ -122,6 +124,7 @@ test("reads and normalizes configured values", () => {
     uiButtonsEnabled: false,
     chatCommandEnabled: false,
     journalQaEnabled: false,
+    npcMentionEnabled: false,
   });
 });
 

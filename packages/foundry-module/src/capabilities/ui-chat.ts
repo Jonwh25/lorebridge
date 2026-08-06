@@ -1,4 +1,5 @@
 import { openSessionCommandCenter } from "../session-command-center.js";
+import { setNpcAiEnabled, setNpcPreamble, clearNpcHistory, listEnabledNpcs } from "./npc-mention.js";
 import { searchCampaign } from "./search-campaign.js";
 import { exportJournalFolder } from "./backup-journals.js";
 import { exportSceneFolder } from "./backup-scenes.js";
@@ -213,6 +214,95 @@ async function startRoleplay(actorName: string): Promise<void> {
     speaker: { alias: "LoreBridge" },
     flags: { [MODULE_ID]: { type: "roleplay-start", actorName: actor.name } },
   });
+}
+
+// ---------------------------------------------------------------------------
+// @NPC mention management commands (#116)
+// ---------------------------------------------------------------------------
+
+function findActor(name: string): FoundryActor | undefined {
+  const actors = Array.from(game.actors as Iterable<FoundryActor>);
+  return (
+    actors.find((a) => a.name.toLowerCase() === name.toLowerCase()) ??
+    actors.find((a) => a.name.toLowerCase().includes(name.toLowerCase()))
+  );
+}
+
+async function handleNpcCommand(sub: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb npc is only available to GMs.");
+    return;
+  }
+
+  const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
+    .filter((u) => u.isGM)
+    .map((u) => u.id);
+
+  // /lb npc list
+  if (!sub || sub === "list") {
+    const npcs = listEnabledNpcs();
+    const body = npcs.length === 0
+      ? "<em>No AI-enabled NPCs. Use <code>/lb npc enable &lt;name&gt;</code> to enable one.</em>"
+      : `<ul>${npcs.map((n) => `<li><strong>${n.name}</strong>${n.preamble ? ` — ${n.preamble.slice(0, 80)}` : ""}</li>`).join("")}</ul>`;
+    await ChatMessage.create({
+      content: `<p><strong>LoreBridge — AI-enabled NPCs:</strong></p>${body}`,
+      whisper: gmIds,
+      speaker: { alias: "LoreBridge" },
+      flags: { lorebridge: { type: "npc-list" } },
+    });
+    return;
+  }
+
+  // /lb npc enable <name>
+  if (sub.startsWith("enable ")) {
+    const name = sub.slice("enable ".length).trim();
+    const actor = findActor(name);
+    if (!actor) { ui.notifications.warn(`LoreBridge: No actor found matching "${name}".`); return; }
+    await setNpcAiEnabled(actor, true);
+    ui.notifications.info(`LoreBridge: ${actor.name} is now AI-enabled. Address them with @${actor.name} <message>.`);
+    return;
+  }
+
+  // /lb npc disable <name>
+  if (sub.startsWith("disable ")) {
+    const name = sub.slice("disable ".length).trim();
+    const actor = findActor(name);
+    if (!actor) { ui.notifications.warn(`LoreBridge: No actor found matching "${name}".`); return; }
+    await setNpcAiEnabled(actor, false);
+    ui.notifications.info(`LoreBridge: ${actor.name} AI responses disabled.`);
+    return;
+  }
+
+  // /lb npc preamble <name> | <text>
+  if (sub.startsWith("preamble ")) {
+    const rest = sub.slice("preamble ".length);
+    const sep = rest.indexOf("|");
+    if (sep === -1) {
+      ui.notifications.warn("LoreBridge: Usage: /lb npc preamble <name> | <personality text>");
+      return;
+    }
+    const name = rest.slice(0, sep).trim();
+    const text = rest.slice(sep + 1).trim();
+    const actor = findActor(name);
+    if (!actor) { ui.notifications.warn(`LoreBridge: No actor found matching "${name}".`); return; }
+    await setNpcPreamble(actor, text);
+    ui.notifications.info(`LoreBridge: Preamble set for ${actor.name}.`);
+    return;
+  }
+
+  // /lb npc clear <name>
+  if (sub.startsWith("clear ")) {
+    const name = sub.slice("clear ".length).trim();
+    const actor = findActor(name);
+    if (!actor) { ui.notifications.warn(`LoreBridge: No actor found matching "${name}".`); return; }
+    clearNpcHistory(actor.id);
+    ui.notifications.info(`LoreBridge: Conversation history cleared for ${actor.name}.`);
+    return;
+  }
+
+  ui.notifications.warn(
+    "LoreBridge: Usage: /lb npc list | enable <name> | disable <name> | preamble <name> | <text> | clear <name>",
+  );
 }
 
 function markdownToHtml(text: string): string {
@@ -992,6 +1082,13 @@ export function registerChatCommand(): void {
       const cleanupArgs = args.slice("cleanup".length).trim();
       clearInput();
       void handleSessionCleanup(cleanupArgs);
+      return false;
+    }
+
+    // /lb npc enable|disable|preamble|clear|list
+    if (args.startsWith("npc ") || args === "npc") {
+      clearInput();
+      void handleNpcCommand(args.slice("npc".length).trim());
       return false;
     }
 

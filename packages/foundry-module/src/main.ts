@@ -76,6 +76,7 @@ import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
+import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { openSessionCommandCenter } from "./session-command-center.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
@@ -106,6 +107,8 @@ Hooks.once("init", () => {
   registerChatCommand();
   registerSheetButtons();
   registerRollbackChatHook();
+  registerNpcMentionHook();
+  registerNpcPreambleSheetHook();
 
   // Add a standalone sidebar button. In v14 the controls arg is a keyed object.
   // onChange is intentionally empty — the click is intercepted in the capture
