@@ -119,10 +119,7 @@ Hooks.once("init", () => {
       visible: true,
       order: 999,
       button: true,
-      onChange: (_event: unknown, active: unknown) => {
-        if (active === false) return;
-        openSessionCommandCenter();
-      },
+      onChange: () => { openSessionCommandCenter(); },
       tools: {},
       layer: "controls",
     };
