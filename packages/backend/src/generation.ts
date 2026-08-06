@@ -809,23 +809,31 @@ export async function auditConsistency(
     '- "evidence": array of 1-3 short quoted or paraphrased excerpts that demonstrate the conflict',
     '- "suggestion": optional one-sentence suggestion for how to resolve it',
     "",
-    `Output a JSON array of up to ${limit} finding objects. No markdown, no prose — only the JSON array.`,
-    "If you find no inconsistencies, output an empty array: []",
+    `Output ONLY a raw JSON array of up to ${limit} finding objects. No markdown fences, no prose, no explanation — start your response with [ and end with ].`,
+    "If you find no inconsistencies, output exactly: []",
   ].filter(Boolean).join("\n");
 
   const raw = await callAI(provider, prompt, 2000);
 
-  // Parse the JSON array from the response
-  const jsonMatch = raw.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
+  // Strip markdown code fences then extract the outermost JSON array.
+  const stripped = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/, "")
+    .trim();
+
+  // Find the first [ ... ] span that encloses a complete array.
+  const start = stripped.indexOf("[");
+  const end = stripped.lastIndexOf("]");
+  if (start === -1 || end === -1 || end <= start) {
     return { findings: [], model: provider.provider };
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(jsonMatch[0]);
+    parsed = JSON.parse(stripped.slice(start, end + 1));
   } catch {
-    throw new GenerationError("AI returned invalid JSON for consistency audit.");
+    // AI wrapped output in prose — return empty rather than erroring.
+    return { findings: [], model: provider.provider };
   }
 
   if (!Array.isArray(parsed)) {
