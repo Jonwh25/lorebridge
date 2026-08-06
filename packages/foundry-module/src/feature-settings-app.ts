@@ -35,6 +35,7 @@ type FeatureSettingsContext = {
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
+  npcMentionEnabled: boolean;
 };
 
 type StagedFeatureSettings = {
@@ -71,6 +72,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: staged.uiButtonsEnabled ?? settings.uiButtonsEnabled,
       chatCommandEnabled: staged.chatCommandEnabled ?? settings.chatCommandEnabled,
       journalQaEnabled: staged.journalQaEnabled ?? settings.journalQaEnabled,
+      npcMentionEnabled: staged.npcMentionEnabled ?? settings.npcMentionEnabled,
     };
   }
 
@@ -91,12 +93,14 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: checked("uiButtonsEnabled"),
       chatCommandEnabled: checked("chatCommandEnabled"),
       journalQaEnabled: checked("journalQaEnabled"),
+      npcMentionEnabled: checked("npcMentionEnabled"),
     };
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
       [LOREBRIDGE_SETTINGS.uiButtonsEnabled, "uiButtonsEnabled"],
       [LOREBRIDGE_SETTINGS.chatCommandEnabled, "chatCommandEnabled"],
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
+      [LOREBRIDGE_SETTINGS.npcMentionEnabled, "npcMentionEnabled"],
     ] as const;
 
     const parentForm = this._parentSettingsForm();
@@ -126,6 +130,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
         uiButtonsEnabled: undefined,
         chatCommandEnabled: undefined,
         journalQaEnabled: undefined,
+        npcMentionEnabled: undefined,
       };
     }
     const read = (setting: string): boolean | undefined =>
@@ -135,6 +140,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       uiButtonsEnabled: read(LOREBRIDGE_SETTINGS.uiButtonsEnabled),
       chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
       journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),
+      npcMentionEnabled: read(LOREBRIDGE_SETTINGS.npcMentionEnabled),
     };
   }
 
