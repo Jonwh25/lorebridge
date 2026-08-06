@@ -36,6 +36,7 @@ function parseAtMention(rawContent: string): { actor: FoundryActor; message: str
 
 async function playTts(actor: FoundryActor, text: string): Promise<void> {
   const voiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
+  console.log(`LoreBridge | TTS check — actor: ${actor.name} (${actor.id}), voiceId: "${voiceId}"`);
   if (!voiceId) return;
 
   const settings = getLoreBridgeSettings();
