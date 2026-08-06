@@ -6,7 +6,7 @@ import {
 
 const MODULE_ID = "lorebridge";
 type AnyRecord = Record<string, unknown>;
-type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
+type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; close(): Promise<unknown>; readonly element: HTMLElement };
 type AppV2Static = { new (options?: AnyRecord): AppV2Instance; DEFAULT_OPTIONS: AnyRecord; PARTS?: AnyRecord };
 
 const foundryApi = (
@@ -23,6 +23,7 @@ const TestSafeBase: AppV2Static = class implements AppV2Instance {
   static PARTS: AnyRecord = {};
   readonly element: HTMLElement = document.createElement("div");
   async render(_options?: AnyRecord): Promise<unknown> { return undefined; }
+  async close(): Promise<unknown> { return undefined; }
 };
 
 const ApplicationV2 = foundryApi?.ApplicationV2 ?? TestSafeBase;

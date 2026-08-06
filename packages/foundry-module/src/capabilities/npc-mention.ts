@@ -145,3 +145,75 @@ export function registerNpcMentionHook(): void {
     void handleNpcMention(msg);
   });
 }
+
+// ---------------------------------------------------------------------------
+// Actor sheet header button — Configure NPC Preamble
+// ---------------------------------------------------------------------------
+
+function openNpcPreambleDialog(actor: FoundryActor): void {
+  const aiEnabled = actor.getFlag(MODULE_ID, "aiEnabled") === true;
+  const preamble = (actor.getFlag(MODULE_ID, "preamble") as string | undefined) ?? "";
+
+  const content = `
+    <form style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
+      <div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:bold;cursor:pointer">
+          <input type="checkbox" name="aiEnabled"${aiEnabled ? " checked" : ""}>
+          Enable AI responses for this NPC
+        </label>
+        <p style="margin:4px 0 0 24px;font-size:11px;opacity:0.7">
+          When enabled, players can address this NPC in chat with <code>@${actor.name} &lt;message&gt;</code>.
+        </p>
+      </div>
+      <div>
+        <label style="display:block;font-weight:bold;margin-bottom:4px">Personality preamble</label>
+        <textarea name="preamble" rows="6" style="width:100%;box-sizing:border-box;resize:vertical;font-size:12px;font-family:inherit" placeholder="Describe this NPC's personality, knowledge, speech patterns, and secrets the AI should know…">${preamble}</textarea>
+        <p style="margin:4px 0 0;font-size:11px;opacity:0.7">
+          Overrides the actor's biography for AI roleplay. Leave blank to use the biography instead.
+        </p>
+      </div>
+    </form>`;
+
+  const dialog = new foundry.applications.api.DialogV2({
+    window: { title: `LoreBridge — NPC Preamble: ${actor.name}`, resizable: true },
+    position: { width: 480 },
+    content,
+    buttons: [
+      {
+        action: "save",
+        label: "Save",
+        icon: "fas fa-save",
+        default: true,
+        callback: (_event: Event, _button: HTMLElement, dlg: unknown) => {
+          const el = (dlg as { element: HTMLElement }).element;
+          const enabled = el.querySelector<HTMLInputElement>("input[name='aiEnabled']")?.checked ?? false;
+          const text = el.querySelector<HTMLTextAreaElement>("textarea[name='preamble']")?.value ?? "";
+          void Promise.all([
+            actor.setFlag(MODULE_ID, "aiEnabled", enabled),
+            actor.setFlag(MODULE_ID, "preamble", text),
+          ]).then(() => {
+            ui.notifications.info(`LoreBridge: Preamble saved for ${actor.name}.`);
+          });
+        },
+      },
+      { action: "cancel", label: "Cancel" },
+    ],
+  });
+  void dialog.render({ force: true });
+}
+
+export function registerNpcPreambleSheetHook(): void {
+  Hooks.on("getActorSheetHeaderButtons", (...args: unknown[]) => {
+    const [sheet, buttons] = args as [unknown, unknown[]];
+    if (!game.user?.isGM) return;
+    const actor = (sheet as { actor?: FoundryActor; document?: FoundryActor }).actor
+      ?? (sheet as { document?: FoundryActor }).document;
+    if (!actor) return;
+    buttons.unshift({
+      label: "Configure NPC Preamble",
+      class: "lorebridge-npc-preamble",
+      icon: "fas fa-bridge",
+      onclick: () => openNpcPreambleDialog(actor),
+    });
+  });
+}
