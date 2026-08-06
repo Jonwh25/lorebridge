@@ -3,6 +3,7 @@ import type {
   BoxedTextTone,
   GenerateBoxedTextInput,
   GenerateBoxedTextOutput,
+  ConsistencyFinding,
 } from "@lorebridge/shared/capabilities";
 import type { ProviderService } from "./provider.js";
 
@@ -749,4 +750,101 @@ export async function generateRollTable(
   }
 
   return { name, entries, provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Consistency Audit (#167)
+// ---------------------------------------------------------------------------
+
+export type ConsistencyAuditContentDocument = {
+  uuid: string;
+  name: string;
+  type: string;
+  content: string;
+};
+
+export type ConsistencyAuditInput = {
+  documents: ConsistencyAuditContentDocument[];
+  worldName: string;
+  focus?: string;
+  limit?: number;
+};
+
+export type ConsistencyAuditOutput = {
+  findings: ConsistencyFinding[];
+  model: string;
+};
+
+export async function auditConsistency(
+  provider: ProviderService,
+  input: ConsistencyAuditInput,
+): Promise<ConsistencyAuditOutput> {
+  const { documents, worldName, focus, limit = 20 } = input;
+
+  const docBlock = documents
+    .map((d, i) => `[${i + 1}] ${d.name} (${d.type}, UUID: ${d.uuid})\n${d.content}`)
+    .join("\n\n---\n\n");
+
+  const focusNote = focus
+    ? `Focus: Pay special attention to documents mentioning "${focus}".`
+    : "";
+
+  const prompt = [
+    `You are a tabletop RPG campaign editor reviewing documents for the campaign "${worldName}".`,
+    "Identify internal inconsistencies: contradictory facts, duplicate entities by different names, and timeline conflicts.",
+    focusNote,
+    "",
+    "Campaign documents:",
+    "---",
+    docBlock,
+    "---",
+    "",
+    `Find up to ${limit} issues. For each finding, respond with a JSON object with these exact keys:`,
+    '- "category": one of "contradiction", "duplicate-entity", "timeline-conflict"',
+    '- "severity": one of "high", "medium", "low"',
+    '- "confidence": one of "high", "medium", "low"',
+    '- "sourceUuids": array of UUID strings from the documents involved (e.g. ["JournalEntry.abc.JournalEntryPage.xyz"])',
+    '- "sourceNames": array of document name strings matching the UUIDs',
+    '- "explanation": one sentence describing the inconsistency',
+    '- "evidence": array of 1-3 short quoted or paraphrased excerpts that demonstrate the conflict',
+    '- "suggestion": optional one-sentence suggestion for how to resolve it',
+    "",
+    `Output a JSON array of up to ${limit} finding objects. No markdown, no prose — only the JSON array.`,
+    "If you find no inconsistencies, output an empty array: []",
+  ].filter(Boolean).join("\n");
+
+  const raw = await callAI(provider, prompt, 2000);
+
+  // Parse the JSON array from the response
+  const jsonMatch = raw.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    return { findings: [], model: provider.provider };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new GenerationError("AI returned invalid JSON for consistency audit.");
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { findings: [], model: provider.provider };
+  }
+
+  const findings = (parsed as unknown[]).filter((f): f is ConsistencyFinding => {
+    if (typeof f !== "object" || f === null) return false;
+    const obj = f as Record<string, unknown>;
+    return (
+      typeof obj["category"] === "string" &&
+      typeof obj["severity"] === "string" &&
+      typeof obj["confidence"] === "string" &&
+      Array.isArray(obj["sourceUuids"]) &&
+      Array.isArray(obj["sourceNames"]) &&
+      typeof obj["explanation"] === "string" &&
+      Array.isArray(obj["evidence"])
+    );
+  }).slice(0, limit);
+
+  return { findings, model: provider.provider };
 }

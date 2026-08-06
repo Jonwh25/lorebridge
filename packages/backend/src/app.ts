@@ -31,7 +31,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
-import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generatePartyRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, GenerationError } from "./generation.js";
+import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generatePartyRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, auditConsistency, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
   AdapterSessionRegistry,
@@ -1284,6 +1284,35 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     const entities = extractSessionEntities(sessionContent, existingNames as string[]);
     sendJson(response, 200, { entities });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/audit/consistency") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const documents = Array.isArray(body["documents"]) ? body["documents"] : [];
+    const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
+    const focus = typeof body["focus"] === "string" && body["focus"].trim() ? body["focus"].trim() : undefined;
+    const limit = typeof body["limit"] === "number" && body["limit"] > 0 ? Math.min(body["limit"], 50) : 20;
+    if (documents.length === 0) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty documents array." } });
+      return;
+    }
+    if (!provider.enabled) {
+      sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
+      return;
+    }
+    try {
+      const docs = documents as Parameters<typeof auditConsistency>[1]["documents"];
+      const result = await auditConsistency(provider, { documents: docs, worldName, ...(focus !== undefined ? { focus } : {}), limit });
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof GenerationError) {
+        sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
     return;
   }
 

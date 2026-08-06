@@ -33,6 +33,10 @@ import {
   CHECK_CAMPAIGN_HEALTH_CAPABILITY,
   ALL_HEALTH_CHECK_CATEGORIES,
   HEALTH_CHECK_MAX_LIMIT,
+  validateAuditCampaignConsistencyOutput,
+  AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY,
+  ALL_CONSISTENCY_FINDING_CATEGORIES,
+  CONSISTENCY_AUDIT_MAX_LIMIT,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -1411,6 +1415,58 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not run the campaign health check.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "audit_campaign_consistency",
+    {
+      title: "Audit campaign consistency",
+      description: "Use AI to audit campaign documents for contradictory facts, duplicate entities, and timeline conflicts. Gathers journal pages, actor biographies, and scene descriptions from the connected Foundry world and analyzes them for internal inconsistencies. Returns structured findings with severity, confidence, affected sources, and suggested fixes.",
+      inputSchema: z.object({
+        focus: z.string().trim().min(1).max(200).optional().describe(
+          "Optional keyword to prioritize documents about a specific topic, NPC, or location (e.g. 'Ironhold', 'Theron').",
+        ),
+        limit: z.number().int().min(1).max(CONSISTENCY_AUDIT_MAX_LIMIT).optional().describe(
+          `Maximum number of findings to return. Defaults to 20, max ${CONSISTENCY_AUDIT_MAX_LIMIT}.`,
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ focus, limit, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY,
+          {
+            ...(focus !== undefined ? { focus } : {}),
+            ...(limit !== undefined ? { limit } : {}),
+          },
+        );
+        const validation = validateAuditCampaignConsistencyOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid campaign consistency audit results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not run the campaign consistency audit.");
       }
     },
   );
