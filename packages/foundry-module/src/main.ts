@@ -50,6 +50,8 @@ import {
   EXECUTE_MACRO_TOOL_DECLARATION,
   CHECK_CAMPAIGN_HEALTH_CAPABILITY,
   CHECK_CAMPAIGN_HEALTH_DECLARATION,
+  AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY,
+  AUDIT_CAMPAIGN_CONSISTENCY_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
@@ -72,6 +74,7 @@ import type { RollbackAvailablePayload } from "@lorebridge/shared/capabilities";
 import { listMacroTools, executeMacroTool } from "./capabilities/macro-tools.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
+import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
@@ -165,6 +168,7 @@ Hooks.once("ready", () => {
           LIST_MACRO_TOOLS_DECLARATION,
           EXECUTE_MACRO_TOOL_DECLARATION,
           CHECK_CAMPAIGN_HEALTH_DECLARATION,
+          AUDIT_CAMPAIGN_CONSISTENCY_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -272,6 +276,9 @@ Hooks.once("ready", () => {
           if (request.capability === CHECK_CAMPAIGN_HEALTH_CAPABILITY) {
             return checkCampaignHealth(request.input as Parameters<typeof checkCampaignHealth>[0]);
           }
+          if (request.capability === AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY) {
+            return auditCampaignConsistency(request.input as Parameters<typeof auditCampaignConsistency>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -368,6 +375,7 @@ Hooks.once("ready", () => {
       rollbackWrite,
       generateBoxedText,
       [CHECK_CAMPAIGN_HEALTH_CAPABILITY]: checkCampaignHealth,
+      [AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY]: auditCampaignConsistency,
     }),
     configurable: true,
     writable: false

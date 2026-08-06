@@ -6,6 +6,7 @@ import { exportRollTableFolder } from "./backup-roll-tables.js";
 import { restoreSceneFolder } from "./restore-scenes.js";
 import { handleSessionCleanup } from "./session-cleanup.js";
 import { checkCampaignHealth } from "./health-check.js";
+import { auditCampaignConsistency } from "./consistency-audit.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
 
@@ -646,7 +647,7 @@ async function handleHealthCheck(full: boolean): Promise<void> {
         </p>
         ${result.findings.length === 0
           ? `<p style="color:#27ae60">✅ No issues found.</p>`
-          : `<div style="overflow-y:auto;resize:vertical;min-height:100px;max-height:calc(100vh - 320px)">
+          : `<div style="overflow-y:auto;min-height:100px;max-height:calc(100vh - 320px)">
               <table style="width:100%;border-collapse:collapse">
                 <thead style="position:sticky;top:0;background:var(--color-bg,#1a1a1a);z-index:1">
                   <tr style="border-bottom:2px solid #ccc">
@@ -679,6 +680,69 @@ async function handleHealthCheck(full: boolean): Promise<void> {
 
   } catch (error) {
     ui.notifications.error(`LoreBridge health check failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Consistency audit command (#167)
+// ---------------------------------------------------------------------------
+
+async function handleConsistencyAudit(focus?: string): Promise<void> {
+  if (!game.user?.isGM) {
+    ui.notifications.warn("LoreBridge: /lb audit is only available to GMs.");
+    return;
+  }
+
+  const focusNote = focus ? ` (focus: "${focus}")` : "";
+  ui.notifications.info(`LoreBridge: Running campaign consistency audit${focusNote}…`);
+
+  try {
+    const result = await auditCampaignConsistency(focus ? { focus } : {});
+
+    const sevIcon = (s: string) => s === "high" ? "🔴" : s === "medium" ? "⚠️" : "🔵";
+    const catLabel = (c: string) => c.replace(/-/g, " ");
+
+    const rows = result.findings.map((f) =>
+      `<tr style="border-bottom:1px solid #e0e0e0">
+        <td style="padding:3px 6px;white-space:nowrap">${sevIcon(f.severity)}</td>
+        <td style="padding:3px 6px;white-space:nowrap;font-size:11px;color:#666">${catLabel(f.category)}</td>
+        <td style="padding:3px 6px;font-size:12px">${escapeHtml(f.sourceNames.join(", "))}</td>
+        <td style="padding:3px 6px;font-size:12px;color:#444">${escapeHtml(f.explanation)}${f.suggestion ? ` <em style="color:#888;font-size:11px">${escapeHtml(f.suggestion)}</em>` : ""}</td>
+      </tr>`,
+    ).join("");
+
+    const content = `
+      <div style="font-size:13px;line-height:1.5">
+        <p style="margin:0 0 6px">
+          <strong>Consistency Audit — ${escapeHtml(result.sourceName)}</strong>
+          <span style="font-size:11px;color:#888;margin-left:8px">Analyzed ${result.documentsAnalyzed} documents · Model: ${escapeHtml(result.model)}</span>
+        </p>
+        ${result.findings.length === 0
+          ? `<p style="color:#27ae60">✅ No inconsistencies found.</p>`
+          : `<div style="overflow-y:auto;min-height:100px;max-height:calc(100vh - 320px)">
+              <table style="width:100%;border-collapse:collapse">
+                <thead style="position:sticky;top:0;background:var(--color-bg,#1a1a1a);z-index:1">
+                  <tr style="font-size:11px;color:#888;text-align:left;border-bottom:2px solid #444">
+                    <th style="padding:2px 6px">Sev</th>
+                    <th style="padding:2px 6px">Category</th>
+                    <th style="padding:2px 6px">Sources</th>
+                    <th style="padding:2px 6px">Issue / Suggestion</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>`}
+      </div>`;
+
+    new foundry.applications.api.DialogV2({
+      window: { title: `LoreBridge Audit — ${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}`, resizable: true },
+      position: { width: 850, height: "auto" },
+      content,
+      buttons: [{ action: "close", label: "Close", default: true }],
+    }).render({ force: true });
+
+  } catch (error) {
+    ui.notifications.error(`LoreBridge consistency audit failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -838,6 +902,14 @@ export function registerChatCommand(): void {
       const full = args === "health full";
       clearInput();
       void handleHealthCheck(full);
+      return false;
+    }
+
+    // /lb audit [focus]
+    if (args === "audit" || args.startsWith("audit ")) {
+      const focus = args.slice("audit".length).trim() || undefined;
+      clearInput();
+      void handleConsistencyAudit(focus);
       return false;
     }
 
