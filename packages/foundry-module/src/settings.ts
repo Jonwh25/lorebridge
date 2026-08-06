@@ -37,6 +37,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   uiButtonsEnabled: "uiButtonsEnabled",
   chatCommandEnabled: "chatCommandEnabled",
   journalQaEnabled: "journalQaEnabled",
+  npcMentionEnabled: "npcMentionEnabled",
   contextProfiles: "contextProfiles",
   activeContextProfileId: "activeContextProfileId",
 });
@@ -55,6 +56,7 @@ export type LoreBridgeSettings = {
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
+  npcMentionEnabled: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -198,6 +200,16 @@ export function registerLoreBridgeSettings(): void {
     requiresReload: true,
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled, {
+    name: "Enable @NPC Mention Responses",
+    hint: "Allow players and the GM to address AI-enabled NPCs in chat using @ActorName.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -232,6 +244,7 @@ export function registerFeatureSettingsPresentation(): void {
       LOREBRIDGE_SETTINGS.uiButtonsEnabled,
       LOREBRIDGE_SETTINGS.chatCommandEnabled,
       LOREBRIDGE_SETTINGS.journalQaEnabled,
+      LOREBRIDGE_SETTINGS.npcMentionEnabled,
     ]) {
       const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
       const row = input?.closest<HTMLElement>(".form-group");
@@ -276,6 +289,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ),
     journalQaEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled) ?? true,
+    ),
+    npcMentionEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled),
     ),
   };
 }

@@ -72,6 +72,8 @@ type FoundryActor = {
   system: Record<string, unknown>;
   ownership?: Record<string, number>;
   items: FoundryItemCollection;
+  getFlag(scope: string, key: string): unknown;
+  setFlag(scope: string, key: string, value: unknown): Promise<void>;
 };
 
 type FoundryCompendiumIndexEntry = {
