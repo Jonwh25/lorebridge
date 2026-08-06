@@ -203,13 +203,15 @@ function openNpcPreambleDialog(actor: FoundryActor): void {
 }
 
 export function registerNpcPreambleSheetHook(): void {
-  Hooks.on("getActorSheetHeaderButtons", (...args: unknown[]) => {
-    const [sheet, buttons] = args as [unknown, unknown[]];
+  // Foundry v14 ApplicationV2 hook; dnd5e 5.x sheets all extend ActorSheetV2
+  Hooks.on("getHeaderControlsActorSheetV2", (...args: unknown[]) => {
+    const [app, controls] = args as [{ document?: FoundryActor }, unknown[]];
     if (!game.user?.isGM) return;
-    const actor = (sheet as { actor?: FoundryActor; document?: FoundryActor }).actor
-      ?? (sheet as { document?: FoundryActor }).document;
+    const actor = app.document;
     if (!actor) return;
-    buttons.unshift({
+    // Guard against the known duplicate-entry bug in Foundry v14
+    if ((controls as Array<{ class?: string }>).some((c) => c.class === "lorebridge-npc-preamble")) return;
+    controls.push({
       label: "Configure NPC Preamble",
       class: "lorebridge-npc-preamble",
       icon: "fas fa-bridge",
