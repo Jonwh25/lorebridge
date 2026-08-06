@@ -2,8 +2,8 @@ export const AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY = "auditCampaignConsistency";
 
 export const AUDIT_CAMPAIGN_CONSISTENCY_DECLARATION = Object.freeze({
   name: AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY,
-  description:
-    "Audit campaign documents for contradictory facts, duplicate entities, and timeline conflicts using AI analysis.",
+  mode: "read" as const,
+  version: "0.1",
 });
 
 export const ALL_CONSISTENCY_FINDING_CATEGORIES = [

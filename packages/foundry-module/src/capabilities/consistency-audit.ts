@@ -164,7 +164,7 @@ async function callConsistencyAudit(
     const code = err?.error?.code ?? `http_${response.status}`;
     const message = err?.error?.message ?? `Backend error ${response.status}`;
     if (response.status === 503) {
-      throw new LoreBridgeCapabilityError("PROVIDER_UNAVAILABLE", message, { retryable: false });
+      throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", message, { retryable: false });
     }
     throw new LoreBridgeCapabilityError("INTERNAL_ERROR", message, { details: { code } });
   }
