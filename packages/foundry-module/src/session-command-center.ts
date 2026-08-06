@@ -164,10 +164,10 @@ function _sceneHtml(scene: SceneInfo | null): string {
           `<span class="lb-scc__tag lb-scc__link" data-action="open-actor" data-id="${_escHtml(a.id)}" title="Open actor sheet">${_escHtml(a.name)}</span>`,
         )
         .join(" ")
-    : `<em style="color:var(--color-text-subtle,#888)">No tokens</em>`;
+    : `<em style="color:rgba(255,255,255,0.5)">No tokens</em>`;
   const journalLink = scene.linkedJournalId
     ? `<span class="lb-scc__link" data-action="open-journal" data-id="${_escHtml(scene.linkedJournalId)}" title="Open linked journal">${_escHtml(scene.linkedJournalName ?? "Linked Journal")}</span>`
-    : `<em style="color:var(--color-text-subtle,#888)">None</em>`;
+    : `<em style="color:rgba(255,255,255,0.5)">None</em>`;
   return `
     <div class="lb-scc__row">
       <strong class="lb-scc__link" data-action="open-scene" title="Open scene sheet">${_escHtml(scene.name)}</strong>
@@ -256,24 +256,24 @@ const _CSS = `
 .lb-scc { padding: 6px 8px; font-size: 12px; line-height: 1.45; }
 .lb-scc__toolbar { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .lb-scc__toolbar button { font-size: 11px; padding: 2px 8px; cursor: pointer; }
-.lb-scc__ts { font-size: 10px; color: var(--color-text-subtle, #888); margin-left: auto; }
-.lb-scc__section { margin-bottom: 4px; border: 1px solid var(--color-border-light, #ccc); border-radius: 4px; overflow: hidden; }
-.lb-scc__section summary { cursor: pointer; padding: 4px 8px; font-weight: bold; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; background: var(--color-bg-option, #f0ece0); user-select: none; }
+.lb-scc__ts { font-size: 10px; color: rgba(255,255,255,0.55); margin-left: auto; }
+.lb-scc__section { margin-bottom: 4px; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
+.lb-scc__section summary { cursor: pointer; padding: 4px 8px; font-weight: bold; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(255,255,255,0.06); user-select: none; }
 .lb-scc__section > *:not(summary) { padding: 6px 8px; }
 .lb-scc__row { margin-bottom: 3px; }
-.lb-scc__label { color: var(--color-text-subtle, #888); font-size: 11px; }
-.lb-scc__tag { display: inline-block; background: var(--color-bg-option, #e8e0d0); border-radius: 3px; padding: 1px 5px; margin: 1px; font-size: 11px; }
-.lb-scc__link { cursor: pointer; color: var(--color-hyperlink, #4a90d9); text-decoration: underline; }
+.lb-scc__label { color: rgba(255,255,255,0.55); font-size: 11px; }
+.lb-scc__tag { display: inline-block; background: rgba(255,255,255,0.1); border-radius: 3px; padding: 1px 5px; margin: 1px; font-size: 11px; }
+.lb-scc__link { cursor: pointer; color: #7ab5e8; text-decoration: underline; }
 .lb-scc__link:hover { opacity: 0.8; }
-.lb-scc__dim { color: var(--color-text-subtle, #888); font-size: 10px; }
-.lb-scc__empty { color: var(--color-text-subtle, #888); font-style: italic; margin: 0; }
+.lb-scc__dim { color: rgba(255,255,255,0.4); font-size: 10px; }
+.lb-scc__empty { color: rgba(255,255,255,0.5); font-style: italic; margin: 0; }
 .lb-scc__list { margin: 2px 0; padding-left: 16px; }
 .lb-scc__list--chat li { margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lb-scc__combatant--defeated { opacity: 0.4; text-decoration: line-through; }
-.lb-scc__excerpt { margin-top: 4px; color: var(--color-text-subtle, #777); font-style: italic; font-size: 11px; }
+.lb-scc__excerpt { margin-top: 4px; color: rgba(255,255,255,0.5); font-style: italic; font-size: 11px; }
 .lb-scc__actions { display: flex; flex-wrap: wrap; gap: 4px; }
-.lb-scc__action-btn { font-size: 11px; padding: 3px 8px; cursor: pointer; border: 1px solid var(--color-border-medium, #aaa); border-radius: 3px; background: var(--color-bg-btn, transparent); }
-.lb-scc__action-btn:hover { background: var(--color-bg-option, #e8e0d0); }
+.lb-scc__action-btn { font-size: 11px; padding: 3px 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(255,255,255,0.05); }
+.lb-scc__action-btn:hover { background: rgba(255,255,255,0.12); }
 `.trim();
 
 let _cssInjected = false;
@@ -295,7 +295,7 @@ class SessionCommandCenter extends _AppBase {
     id: "lorebridge-session-command-center",
     classes: ["lorebridge-scc"],
     window: { title: "LoreBridge — Session Command Center", resizable: true },
-    position: { width: 400, height: 620 },
+    position: { width: 560, height: 620 },
   };
 
   private _hookIds: number[] = [];
