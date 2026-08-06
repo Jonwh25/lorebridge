@@ -215,7 +215,8 @@ export function registerNpcPreambleSheetHook(): void {
       label: "Configure NPC Preamble",
       class: "lorebridge-npc-preamble",
       icon: "fas fa-bridge",
-      onclick: () => openNpcPreambleDialog(actor),
+      // ApplicationHeaderControlsEntry uses onClick (capital C), not onclick
+      onClick: () => openNpcPreambleDialog(actor),
     });
   });
 }
