@@ -29,6 +29,10 @@ import {
   EXECUTE_MACRO_TOOL_CAPABILITY,
   validateListMacroToolsOutput,
   validateExecuteMacroToolOutput,
+  validateCheckCampaignHealthOutput,
+  CHECK_CAMPAIGN_HEALTH_CAPABILITY,
+  ALL_HEALTH_CHECK_CATEGORIES,
+  HEALTH_CHECK_MAX_LIMIT,
   validateGetActorOutput,
   validateGetJournalPageOutput,
   validateGetSceneOutput,
@@ -1355,6 +1359,58 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not list backup commits.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "check_campaign_health",
+    {
+      title: "Check campaign health",
+      description: "Run a read-only audit of the connected Foundry world and return categorized integrity findings: broken @UUID links, missing or unavailable image assets, player-visible documents linking to GM-only content, suspiciously duplicate names, and empty folders. Each finding includes the source UUID and a description. No world data is modified.",
+      inputSchema: z.object({
+        checks: z.array(z.enum(ALL_HEALTH_CHECK_CATEGORIES as [string, ...string[]])).min(1).optional().describe(
+          `Checks to run. Defaults to all: ${ALL_HEALTH_CHECK_CATEGORIES.join(", ")}.`,
+        ),
+        limit: z.number().int().min(1).max(HEALTH_CHECK_MAX_LIMIT).optional().describe(
+          `Maximum number of findings to return. Defaults to 100, max ${HEALTH_CHECK_MAX_LIMIT}.`,
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ checks, limit, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          CHECK_CAMPAIGN_HEALTH_CAPABILITY,
+          {
+            ...(checks !== undefined ? { checks } : {}),
+            ...(limit !== undefined ? { limit } : {}),
+          },
+        );
+        const validation = validateCheckCampaignHealthOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid campaign health results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not run the campaign health check.");
       }
     },
   );

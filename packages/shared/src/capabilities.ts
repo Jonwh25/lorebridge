@@ -17,3 +17,4 @@ export * from "./capabilities/compendium.js";
 export * from "./capabilities/writes.js";
 export * from "./capabilities/macro-tools.js";
 export * from "./capabilities/backup.js";
+export * from "./capabilities/health-check.js";
