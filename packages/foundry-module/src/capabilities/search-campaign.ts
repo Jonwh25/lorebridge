@@ -10,6 +10,7 @@ import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { searchJournals } from "./journals.js";
 import { searchActors } from "./actors.js";
 import { searchScenes } from "./scenes.js";
+import { getActiveProfile, getProfileFilter } from "./context-profile.js";
 
 const DEFAULT_LIMIT = 20;
 const INTERNAL_LIMIT = 50;
@@ -43,12 +44,29 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Campaign search input is invalid.", { details: { validationErrors: validated.errors } });
   }
 
-  const { query, limit = DEFAULT_LIMIT, types = ["journal", "actor", "scene"], mode } = validated.value;
+  const profileFilter = getProfileFilter(getActiveProfile());
+  const allowedTypes = ["journal", "actor", "scene"] as const;
+  const {
+    query,
+    limit: inputLimit = DEFAULT_LIMIT,
+    types = allowedTypes.filter((t) => profileFilter[t === "journal" ? "journals" : t === "actor" ? "actors" : "scenes"]),
+    mode: inputMode,
+  } = validated.value;
+  // Profile caps the limit and overrides the visibility mode when not explicitly supplied.
+  const limit = Math.min(inputLimit, profileFilter.maxDocs);
+  const mode = inputMode ?? profileFilter.mode;
+  // Filter types to those allowed by the active profile.
+  const effectiveTypes = types.filter((t) => {
+    if (t === "journal") return profileFilter.journals;
+    if (t === "actor") return profileFilter.actors;
+    if (t === "scene") return profileFilter.scenes;
+    return true;
+  });
   const needle = query.trim().toLocaleLowerCase();
   const scored: Array<{ key: string; match: CampaignSearchMatch }> = [];
   let hiddenCount = 0;
 
-  if (types.includes("journal")) {
+  if (effectiveTypes.includes("journal")) {
     try {
       const sub = searchJournals({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
       hiddenCount += sub.hiddenCount;
@@ -62,7 +80,7 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     }
   }
 
-  if (types.includes("actor")) {
+  if (effectiveTypes.includes("actor")) {
     try {
       const sub = searchActors({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
       hiddenCount += sub.hiddenCount;
@@ -76,7 +94,7 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     }
   }
 
-  if (types.includes("scene")) {
+  if (effectiveTypes.includes("scene")) {
     try {
       const sub = searchScenes({ query, limit: INTERNAL_LIMIT, ...(mode === undefined ? {} : { mode }) });
       hiddenCount += sub.hiddenCount;
@@ -90,7 +108,7 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     }
   }
 
-  if (scored.length === 0 && types.length > 0) {
+  if (scored.length === 0 && effectiveTypes.length > 0) {
     // Verify at least one collection is reachable — surface the error if all failed.
     if (!game.journal && !game.actors && !game.scenes) {
       throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "No Foundry document collections are available.", { retryable: true });

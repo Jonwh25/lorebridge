@@ -48,11 +48,12 @@ test("registers safe world and client scoped defaults", () => {
 
   registerLoreBridgeSettings();
 
-  assert.equal(menus.size, 2);
+  assert.equal(menus.size, 3);
   assert.equal(menus.get("configuration")?.restricted, true);
   assert.equal(menus.get("features")?.restricted, true);
+  assert.equal(menus.get("contextProfiles")?.restricted, true);
 
-  assert.equal(registrations.size, 11);
+  assert.equal(registrations.size, 13);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -77,6 +78,10 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backendUrl)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.clientToken)?.scope, "client");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.clientToken)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.contextProfiles)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.contextProfiles)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.activeContextProfileId)?.scope, "client");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.activeContextProfileId)?.config, false);
 });
 
 test("reads and normalizes configured values", () => {

@@ -1,0 +1,53 @@
+<div class="lb-context-profiles" style="padding:12px">
+  <p class="hint" style="margin:0 0 10px">Profiles scope which documents LoreBridge can access during search and audit queries. The active profile applies to all requests from Claude.</p>
+
+  {{#if hasActive}}
+  <div class="notification info" style="margin:0 0 10px;padding:6px 10px;background:rgba(52,152,219,.15);border:1px solid rgba(52,152,219,.4);border-radius:4px;font-size:13px">
+    Active profile:&nbsp;<strong>{{activeProfileName}}</strong>
+    <button type="button" data-action="clear-active" style="float:right;margin-left:16px;padding:1px 8px;font-size:12px">Clear</button>
+  </div>
+  {{else}}
+  <div class="notification" style="margin:0 0 10px;padding:6px 10px;background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.15);border-radius:4px;font-size:13px;color:#888">
+    No active profile — all documents are accessible.
+  </div>
+  {{/if}}
+
+  {{#if hasProfiles}}
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="border-bottom:2px solid #aaa;text-align:left">
+        <th style="padding:4px 8px">Name</th>
+        <th style="padding:4px 8px">Types</th>
+        <th style="padding:4px 8px">Visibility</th>
+        <th style="padding:4px 8px">Max Docs</th>
+        <th style="padding:4px 8px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each profiles}}
+      <tr style="border-bottom:1px solid #ddd{{#if isActive}};background:rgba(52,152,219,.08){{/if}}">
+        <td style="padding:5px 8px;font-weight:{{#if isActive}}bold{{else}}normal{{/if}}">{{name}}</td>
+        <td style="padding:5px 8px;color:#555">{{typesLabel}}</td>
+        <td style="padding:5px 8px;color:#555">{{visibilityLabel}}</td>
+        <td style="padding:5px 8px;color:#555">{{maxDocs}}</td>
+        <td style="padding:5px 8px;white-space:nowrap">
+          {{#if isActive}}
+          <em style="color:#3498db;font-size:12px">Active</em>
+          {{else}}
+          <button type="button" data-action="activate-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Set Active</button>
+          {{/if}}
+          <button type="button" data-action="edit-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Edit</button>
+          <button type="button" data-action="delete-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Delete</button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p style="text-align:center;color:#888;margin:16px 0;font-size:13px">No profiles yet. Create one to scope LoreBridge queries.</p>
+  {{/if}}
+
+  <div style="margin-top:12px;text-align:right">
+    <button type="button" data-action="new-profile"><i class="fas fa-plus"></i> New Profile</button>
+  </div>
+</div>
