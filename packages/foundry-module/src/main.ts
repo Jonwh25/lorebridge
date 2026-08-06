@@ -107,21 +107,26 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
 
-  // Scene Controls button — GM-only shortcut to open the Session Command Center
-  Hooks.on("getSceneControlButtons", (controls: unknown) => {
+  // Inject a standalone button into the scene controls toolbar via DOM
+  Hooks.on("renderSceneControls", (_app: unknown, element: unknown) => {
     if (!game.user?.isGM) return;
-    const groups = controls as Array<{ name: string; tools?: Array<{ name: string; title: string; icon: string; button?: boolean; visible?: boolean; onClick?: () => void }> }>;
-    const notes = groups.find((g) => g.name === "notes");
-    if (notes?.tools) {
-      notes.tools.push({
-        name: "lorebridge-session",
-        title: "LoreBridge Session Center",
-        icon: "fas fa-bridge",
-        button: true,
-        visible: true,
-        onClick: () => { openSessionCommandCenter(); },
-      });
-    }
+    const el = element as HTMLElement;
+    if (el.querySelector?.("#lorebridge-scc-btn")) return;
+    const ol = el.querySelector?.("ol.main-controls") ?? el.querySelector?.("ol");
+    if (!ol) return;
+    const li = document.createElement("li");
+    li.id = "lorebridge-scc-btn";
+    li.className = "scene-control";
+    li.title = "LoreBridge Session Center";
+    li.setAttribute("aria-label", "LoreBridge Session Center");
+    li.innerHTML = '<i class="fas fa-bridge"></i>';
+    li.style.cursor = "pointer";
+    li.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openSessionCommandCenter();
+    });
+    ol.appendChild(li);
   });
 
   console.info(
