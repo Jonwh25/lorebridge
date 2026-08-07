@@ -240,7 +240,8 @@ declare const foundry: {
       ApplicationV2: typeof FoundryApplicationV2;
       DialogV2: {
         new(config: {
-          window?: { title?: string; resizable?: boolean; classes?: string[] };
+          classes?: string[];
+          window?: { title?: string; resizable?: boolean };
           position?: { width?: number; height?: string | number; zIndex?: number };
           content: string;
           buttons: Array<{
@@ -251,6 +252,11 @@ declare const foundry: {
             callback?: (event: Event, button: HTMLElement, dialog: unknown) => void;
           }>;
         }): { element: HTMLElement; render(options: { force: boolean }): Promise<unknown> };
+      };
+    };
+    apps: {
+      FilePicker: {
+        implementation: FoundryFilePickerImpl;
       };
     };
   };
@@ -340,7 +346,16 @@ declare const Roll: {
   };
   validate(formula: string): boolean;
 };
-declare const FilePicker: { browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }> };
+declare const FilePicker: {
+  browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }>;
+  upload(source: "data", path: string, file: File, options?: Record<string, unknown>): Promise<{ path?: string } | false>;
+};
+
+type FoundryFilePickerImpl = {
+  browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }>;
+  upload(source: "data", path: string, file: File, options?: Record<string, unknown>): Promise<{ path?: string } | false>;
+  createDirectory(source: "data", path: string, options?: Record<string, unknown>): Promise<unknown>;
+};
 
 declare const game: {
   version: string;

@@ -44,6 +44,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   generationHistory: "generationHistory",
   maxHistoryLength: "maxHistoryLength",
   historySaveImages: "historySaveImages",
+  portraitSaveDirectory: "portraitSaveDirectory",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -61,6 +62,7 @@ export type LoreBridgeSettings = {
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
   npcMentionEnabled: boolean;
+  portraitSaveDirectory: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -250,6 +252,15 @@ export function registerLoreBridgeSettings(): void {
     requiresReload: true,
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.portraitSaveDirectory, {
+    name: "Portrait Save Directory",
+    hint: "Directory (relative to Foundry's Data folder) where AI-generated portraits are saved. Example: Artwork/Portraits/LoreBridge",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "modules/lorebridge/images",
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -333,6 +344,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     npcMentionEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled),
     ),
+    portraitSaveDirectory: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.portraitSaveDirectory) ?? "modules/lorebridge/images",
+    ).trim(),
   };
 }
 

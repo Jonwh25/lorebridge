@@ -83,8 +83,8 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
   `;
 
   new foundry.applications.api.DialogV2({
-    window: { title, resizable: false },
-    position: { width: 360 },
+    window: { title, resizable: true },
+    position: { width: 380, height: 220 },
     content,
     buttons: [
       {
@@ -184,7 +184,7 @@ function showPreviewDialog(title: string, preview: string, onPropose: () => void
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
-    position: { width: 540, height: "auto" },
+    position: { width: 560, height: 560 },
     content,
     buttons: [
       {
@@ -217,7 +217,7 @@ function runNpcQuickGen(doc: AppDoc): void {
     void (async () => {
       ui.notifications.info("LoreBridge: Generating NPC profile…");
       try {
-        const result = await postBackend<{ personality: string; mannerism: string; secret: string }>(
+        const result = await postBackend<{ personality: string; mannerism: string; secret: string; appearance?: string }>(
           "v1/generate/npc-profile",
           { name: doc.name, type: doc.type ?? "npc", biography, tone: config.tone },
         );
@@ -227,6 +227,7 @@ function runNpcQuickGen(doc: AppDoc): void {
           `Mannerism: ${result.mannerism}`,
           ``,
           `Secret (GM only): ${result.secret}`,
+          ...(result.appearance ? [``, `Appearance: ${result.appearance}`] : []),
         ].join("\n");
 
         void addHistoryEntry({
@@ -237,16 +238,20 @@ function runNpcQuickGen(doc: AppDoc): void {
         });
 
         showPreviewDialog(`NPC Profile — ${doc.name}`, preview, () => {
-          const actor = (game.actors as { get(id: string): { update(d: Record<string, unknown>): Promise<void> } | undefined }).get(doc.id);
+          const actor = game.actors.get(doc.id) as (FoundryActor & { update(d: Record<string, unknown>): Promise<void> }) | undefined;
           if (!actor) return;
           const existing = (doc.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
           const html = [
             `<h3>LoreBridge Profile</h3>`,
             `<p><strong>Personality:</strong> ${result.personality}</p>`,
             `<p><strong>Mannerism:</strong> ${result.mannerism}</p>`,
+            result.appearance ? `<p><strong>Appearance:</strong> ${result.appearance}</p>` : "",
             `<section class="secret"><p><strong>Secret (GM only):</strong> ${result.secret}</p></section>`,
-          ].join("\n");
+          ].filter(Boolean).join("\n");
           void actor.update({ "system.details.biography.value": `${existing}\n${html}` });
+          if (result.appearance) {
+            void actor.setFlag("lorebridge", "portraitDescription", result.appearance);
+          }
         });
       } catch (error) {
         ui.notifications.error(`LoreBridge NPC Profile failed: ${error instanceof Error ? error.message : String(error)}`);
