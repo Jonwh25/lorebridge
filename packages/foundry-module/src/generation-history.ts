@@ -173,7 +173,23 @@ function buildPanelHtml(entries: GenerationHistoryEntry[]): string {
 // Panel (ApplicationV2)
 // ---------------------------------------------------------------------------
 
-const _AppV2Base = (foundry as { applications: { api: { ApplicationV2: typeof FoundryApplicationV2 } } }).applications.api.ApplicationV2;
+const _StubBase: typeof FoundryApplicationV2 = class {
+  static DEFAULT_OPTIONS = {};
+  readonly element: HTMLElement = document.createElement("div");
+  rendered = false;
+  bringToFront(): void { return; }
+  async render(_opts?: unknown): Promise<this> { return this; }
+  async close(_opts?: unknown): Promise<this> { return this; }
+  _onClickAction(_e: PointerEvent, _t: HTMLElement): void { return; }
+  _renderHTML(_ctx: Record<string, unknown>, _opts: unknown): Promise<HTMLElement> { return Promise.resolve(document.createElement("div")); }
+  _replaceHTML(_r: HTMLElement, _c: HTMLElement, _opts: unknown): void { return; }
+} as unknown as typeof FoundryApplicationV2;
+
+const _AppV2Base: typeof FoundryApplicationV2 = (
+  globalThis as unknown as {
+    foundry?: { applications?: { api?: { ApplicationV2?: typeof FoundryApplicationV2 } } };
+  }
+).foundry?.applications?.api?.ApplicationV2 ?? _StubBase;
 
 let _panel: GenerationHistoryPanel | null = null;
 

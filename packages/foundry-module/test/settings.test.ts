@@ -48,12 +48,13 @@ test("registers safe world and client scoped defaults", () => {
 
   registerLoreBridgeSettings();
 
-  assert.equal(menus.size, 3);
+  assert.equal(menus.size, 4);
   assert.equal(menus.get("configuration")?.restricted, true);
   assert.equal(menus.get("features")?.restricted, true);
   assert.equal(menus.get("contextProfiles")?.restricted, true);
+  assert.equal(menus.get("generationHistory")?.restricted, true);
 
-  assert.equal(registrations.size, 14);
+  assert.equal(registrations.size, 17);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -84,6 +85,16 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.contextProfiles)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.activeContextProfileId)?.scope, "client");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.activeContextProfileId)?.config, false);
+
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.generationHistory)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.generationHistory)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.generationHistory)?.default, "[]");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.default, 10);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.default, true);
 });
 
 test("reads and normalizes configured values", () => {
