@@ -176,6 +176,7 @@ release-ready:
    agree with the shipped implementation.
 6. Merge the repository documentation PR, then close the GitHub milestone object
    only after its issues and closeout documentation are complete.
+7. Create the new release and tag it with the updated version.
 
 The LoreBridge wiki repository is:
 
