@@ -902,6 +902,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const subject = typeof body["subject"] === "string" ? body["subject"].trim() : "";
     const context = typeof body["context"] === "string" ? body["context"].trim() : "";
     const style = typeof body["style"] === "string" ? body["style"].trim() : "";
+    const gender = typeof body["gender"] === "string" ? body["gender"].trim().toLowerCase() : "";
     if (!subject) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty subject string." } });
       return;
@@ -910,14 +911,38 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 503, { error: { code: "image_provider_unavailable", message: "No image provider is configured on this backend. Set STABILITY_API_KEY or IMAGE_PROVIDER=openai with OPENAI_API_KEY." } });
       return;
     }
-    // Style leads — image models weight early tokens more heavily
-    const promptParts: string[] = [];
-    if (style) promptParts.push(style);
-    else promptParts.push("Fantasy RPG character portrait. Painterly illustration. Not photorealistic.");
-    promptParts.push(`Portrait of ${subject}`);
-    if (context) promptParts.push(context);
-    const prompt = promptParts.join(". ");
-    const negativePrompt = "photo, photograph, photorealistic, realism, cinematic, 8k photo, camera, lens, DSLR, film, skin pores, HDR, studio lighting, hyperrealistic, AI headshot, 3d render, CGI, render";
+
+    // Detect gender from explicit field or from subject text
+    const isFemale = gender === "female" || /\bfemale\b|\bwoman\b/i.test(subject);
+    const isMale = !isFemale && (gender === "male" || /\bmale\b|\bman\b/i.test(subject));
+
+    // Prompt order: IDENTITY first (who), STYLE second (how), COMPOSITION, APPEARANCE last
+    const parts: string[] = [];
+
+    // Identity — anchor gender and name before anything else
+    parts.push(`Portrait of ${subject}.`);
+    if (isFemale) parts.push("Female. Female. Woman. Not male. No beard. No mustache.");
+    else if (isMale) parts.push("Male. Man. Not female.");
+
+    // Style
+    parts.push(style || "Fantasy RPG character portrait. Painterly illustration. Not photorealistic.");
+
+    // Composition
+    parts.push("Waist-up portrait. Three-quarter view. Neutral painted background.");
+
+    // Appearance details
+    if (context) parts.push(context);
+
+    const prompt = parts.join(" ");
+
+    // Negative prompt: photorealism rejection + gender-opposite traits
+    const negBase = "photo, photograph, photorealistic, realism, cinematic, 8k photo, camera, lens, DSLR, film, skin pores, HDR, studio lighting, hyperrealistic, AI headshot, 3d render, CGI, render";
+    const negGender = isFemale
+      ? ", male, man, masculine face, beard, mustache, goatee, male armor, viking helmet, male warrior, male face"
+      : isMale
+      ? ", female, woman, feminine face, dress"
+      : "";
+    const negativePrompt = negBase + negGender;
     try {
       const result = await imageProvider.generateImage(prompt, negativePrompt);
       sendJson(response, 200, { base64: result.base64, mimeType: result.mimeType, prompt });

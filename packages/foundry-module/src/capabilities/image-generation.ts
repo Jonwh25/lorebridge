@@ -126,8 +126,24 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
     if (match?.[1]) savedDescription = match[1].trim();
   }
 
-  const creatureType = (system["details"] as Record<string, unknown> | undefined)?.["type"] as Record<string, unknown> | undefined;
-  const typeLabel = typeof creatureType?.["value"] === "string" ? creatureType["value"] : "";
+  // Extract identity fields to build a richer subject line and pass gender to backend
+  const details = (system["details"] as Record<string, unknown> | undefined);
+  const creatureType = (details?.["type"]) as Record<string, unknown> | undefined;
+  const gender = typeof details?.["gender"] === "string" ? details["gender"].trim() : "";
+  const raceRaw = details?.["race"];
+  const race = typeof raceRaw === "string" ? raceRaw.trim()
+    : typeof (raceRaw as Record<string, unknown>)?.["value"] === "string"
+      ? ((raceRaw as Record<string, unknown>)["value"] as string).trim()
+      : "";
+  const subtype = typeof creatureType?.["subtype"] === "string" ? (creatureType["subtype"] as string).trim() : "";
+  const raceOrSubtype = race || subtype;
+
+  // Build subject with identity baked in ("Captain Durga Ironjaw, female half-orc")
+  const identityParts = [name];
+  if (gender && raceOrSubtype) identityParts.push(`${gender.toLowerCase()} ${raceOrSubtype.toLowerCase()}`);
+  else if (gender) identityParts.push(gender.toLowerCase());
+  else if (raceOrSubtype) identityParts.push(raceOrSubtype.toLowerCase());
+  const defaultSubject = identityParts.join(", ");
 
   const styleSelect = STYLE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
 
@@ -145,8 +161,8 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
     <form class="lb-portrait-form">
       <div style="${ROW}">
         <label style="${LBL}">Subject / Description</label>
-        <input name="subject" type="text" value="${name.replace(/"/g, "&quot;")}" style="${INPUT}">
-        <span style="${HINT}">Edit the name or add physical details (race, hair, build, age…).</span>
+        <input name="subject" type="text" value="${defaultSubject.replace(/"/g, "&quot;")}" style="${INPUT}">
+        <span style="${HINT}">Include gender and race for best results (e.g. "Captain Durga, female half-orc").</span>
       </div>
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;">
         <label style="${LBL}">Additional Context</label>
@@ -173,10 +189,10 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
           const form = (dialog as { element?: HTMLElement }).element?.querySelector("form");
           if (!form) return;
           const data = new FormData(form);
-          const subject = (data.get("subject") as string ?? "").trim() || name;
+          const subject = (data.get("subject") as string ?? "").trim() || defaultSubject;
           const context = (data.get("context") as string ?? "").trim();
           const style = data.get("style") as string ?? "";
-          void generateAndPreview(actor, subject, context, style, typeLabel);
+          void generateAndPreview(actor, subject, context, style, gender);
         },
       },
       {
@@ -194,15 +210,16 @@ async function generateAndPreview(
   subject: string,
   context: string,
   style: string,
-  typeLabel: string,
+  gender: string,
 ): Promise<void> {
   ui.notifications.info("LoreBridge: Generating portrait… (this may take up to 30 seconds)");
   let result: ImageResult;
   try {
     result = await postBackend<ImageResult>("v1/generate/image", {
-      subject: typeLabel ? `${subject} (${typeLabel})` : subject,
+      subject,
       context,
       style,
+      gender,
     });
   } catch (err) {
     ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Image generation failed."}`);
@@ -234,7 +251,7 @@ async function generateAndPreview(
         action: "regenerate",
         label: "Regenerate",
         icon: "fas fa-redo",
-        callback: () => { void generateAndPreview(actor, subject, context, style, typeLabel); },
+        callback: () => { void generateAndPreview(actor, subject, context, style, gender); },
       },
       {
         action: "close",
