@@ -111,31 +111,31 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
 
   const styleSelect = STYLE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
 
+  const hintText = savedDescription ? "Pre-filled from NPC Profile — edit as needed." : "Clothing, expression, background setting, notable features.";
+  const ROW = "flex-shrink:0;display:flex;flex-direction:column;gap:2px;";
+  const LBL = "font-weight:bold;display:block;width:100%;margin:0 0 2px;";
+  const HINT = "font-size:0.8em;color:#888;margin:2px 0 0;display:block;";
+  const INPUT = "width:100%;box-sizing:border-box;display:block;";
+
   const content = `
     <style>
-      .lb-portrait-dialog .window-content { display:flex; flex-direction:column; overflow:hidden; padding:0; }
-      .lb-portrait-form { flex:1; min-height:0; display:flex; flex-direction:column; padding:0.75rem; box-sizing:border-box; gap:0.5rem; overflow:hidden; }
-      .lb-portrait-form .lb-field-fixed { flex-shrink:0; display:flex; flex-direction:column; gap:2px; }
-      .lb-portrait-form .lb-field-grow { flex:1; min-height:0; display:flex; flex-direction:column; gap:2px; }
-      .lb-portrait-form .lb-field-grow textarea { flex:1; min-height:160px; width:100%; box-sizing:border-box; resize:vertical; }
-      .lb-portrait-form .lb-hint { font-size:0.8em; color:#888; margin:0; }
-      .lb-portrait-form label { font-weight:bold; }
-      .lb-portrait-form input, .lb-portrait-form select { width:100%; box-sizing:border-box; }
+      .lb-portrait-dialog .window-content { display:flex !important; flex-direction:column !important; overflow:hidden !important; padding:0 !important; }
+      .lb-portrait-form { flex:1; min-height:0; display:flex; flex-direction:column; padding:0.75rem; box-sizing:border-box; gap:0.6rem; overflow:hidden; }
     </style>
     <form class="lb-portrait-form">
-      <div class="lb-field-fixed">
-        <label>Subject / Description</label>
-        <input name="subject" type="text" value="${name.replace(/"/g, "&quot;")}">
-        <p class="lb-hint">Edit the name or add physical details (race, hair, build, age…).</p>
+      <div style="${ROW}">
+        <label style="${LBL}">Subject / Description</label>
+        <input name="subject" type="text" value="${name.replace(/"/g, "&quot;")}" style="${INPUT}">
+        <span style="${HINT}">Edit the name or add physical details (race, hair, build, age…).</span>
       </div>
-      <div class="lb-field-grow">
-        <label>Additional Context</label>
-        <textarea name="context">${savedDescription.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
-        <p class="lb-hint">${savedDescription ? "Pre-filled from NPC Profile — edit as needed." : "Clothing, expression, background setting, notable features."}</p>
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;">
+        <label style="${LBL}">Additional Context</label>
+        <textarea name="context" style="flex:1;min-height:160px;width:100%;box-sizing:border-box;display:block;resize:vertical;">${savedDescription.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
+        <span style="${HINT}">${hintText}</span>
       </div>
-      <div class="lb-field-fixed">
-        <label>Art Style</label>
-        <select name="style">${styleSelect}</select>
+      <div style="${ROW}">
+        <label style="${LBL}">Art Style</label>
+        <select name="style" style="${INPUT}">${styleSelect}</select>
       </div>
     </form>`;
 
