@@ -913,24 +913,38 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
 
     // Detect gender from explicit field or from subject text
-    const isFemale = gender === "female" || /\bfemale\b|\bwoman\b/i.test(subject);
-    const isMale = !isFemale && (gender === "male" || /\bmale\b|\bman\b/i.test(subject));
+    const isFemale = gender === "female" || /\bfemale\b|\bwoman\b/i.test(subject + " " + context);
+    const isMale = !isFemale && (gender === "male" || /\bmale\b|\bman\b/i.test(subject + " " + context));
 
-    // Prompt order: IDENTITY first (who), STYLE second (how), COMPOSITION, APPEARANCE last
+    // Extract first sentence of appearance for high-weight placement
+    const firstAppearanceSentence = context
+      ? (context.match(/^[^.!?]+[.!?]/)?.[0]?.trim() ?? context.slice(0, 150).trim())
+      : "";
+
+    // Truncate style to first 4 sentences — style block must stay short so
+    // appearance details don't get pushed into low-weight token positions
+    const styleText = style || "Fantasy RPG character portrait. Painterly illustration. Not photorealistic.";
+    const styleSentences = styleText.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const styleShort = styleSentences.slice(0, 4).join(" ");
+
+    // Prompt order: IDENTITY → KEY APPEARANCE (high weight) → STYLE → COMPOSITION → FULL APPEARANCE
     const parts: string[] = [];
 
-    // Identity — anchor gender and name before anything else
+    // Identity anchor — who this person is
     parts.push(`Portrait of ${subject}.`);
     if (isFemale) parts.push("Female. Female. Woman. Not male. No beard. No mustache.");
     else if (isMale) parts.push("Male. Man. Not female.");
 
-    // Style
-    parts.push(style || "Fantasy RPG character portrait. Painterly illustration. Not photorealistic.");
+    // First appearance sentence at high-weight position — locks in race/gender/scars/etc.
+    if (firstAppearanceSentence) parts.push(firstAppearanceSentence);
+
+    // Style (truncated to 4 sentences)
+    parts.push(styleShort);
 
     // Composition
-    parts.push("Waist-up portrait. Three-quarter view. Neutral painted background.");
+    parts.push("Waist-up portrait. Three-quarter view. Neutral background.");
 
-    // Appearance details
+    // Full appearance
     if (context) parts.push(context);
 
     const prompt = parts.join(" ");
