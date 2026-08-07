@@ -89,13 +89,14 @@ const STYLE_OPTIONS: StylePreset[] = [
 // Dialog
 // ---------------------------------------------------------------------------
 
-export async function runImageGeneration(actor: { id: string; name: string; system: Record<string, unknown>; img?: string }): Promise<void> {
+export async function runImageGeneration(actor: { id: string; name: string; system: Record<string, unknown>; img?: string; getFlag?: (scope: string, key: string) => unknown }): Promise<void> {
   const name = actor.name;
   const system = actor.system;
 
-  const bio = (system["details"] as Record<string, unknown> | undefined)?.["biography"] as Record<string, unknown> | undefined;
-  const bioText = typeof bio?.["value"] === "string"
-    ? bio["value"].replace(/<[^>]+>/g, "").trim().slice(0, 400)
+  // Read the portrait description flag saved by NPC Profile generation.
+  // Falls back to empty — the DM can fill in the context field manually.
+  const savedDescription = typeof actor.getFlag?.("lorebridge", "portraitDescription") === "string"
+    ? (actor.getFlag("lorebridge", "portraitDescription") as string).trim()
     : "";
 
   const creatureType = (system["details"] as Record<string, unknown> | undefined)?.["type"] as Record<string, unknown> | undefined;
@@ -121,8 +122,8 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
       </div>
       <div class="lb-field-grow">
         <label>Additional Context</label>
-        <textarea name="context">${bioText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
-        <p class="lb-hint">Clothing, expression, background setting, notable features.</p>
+        <textarea name="context">${savedDescription.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
+        <p class="lb-hint">${savedDescription ? "Pre-filled from NPC Profile — edit as needed." : "Clothing, expression, background setting, notable features."}</p>
       </div>
       <div class="lb-field-fixed">
         <label>Art Style</label>
@@ -252,7 +253,7 @@ export function registerPortraitMenuHook(): void {
       class: "lorebridge-generate-portrait",
       icon: "fas fa-portrait",
       onClick: () => {
-        void runImageGeneration(actor as unknown as { id: string; name: string; system: Record<string, unknown>; img?: string });
+        void runImageGeneration(actor as unknown as { id: string; name: string; system: Record<string, unknown>; img?: string; getFlag?: (scope: string, key: string) => unknown });
       },
     });
   });

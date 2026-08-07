@@ -201,6 +201,7 @@ export type NpcProfileOutput = {
   personality: string;
   mannerism: string;
   secret: string;
+  appearance: string;
   provider: string;
 };
 
@@ -222,24 +223,27 @@ export async function generateNpcProfile(
     "1. PERSONALITY: A 2–3 sentence personality summary.",
     "2. MANNERISM: One specific verbal tic, speech habit, or physical mannerism.",
     "3. SECRET: One secret this NPC holds that the players don't yet know.",
+    "4. APPEARANCE: 1–2 sentences describing their visual appearance for a portrait artist — race/species, approximate age, build, hair/skin, clothing style, notable physical features, and overall expression or bearing. Write it as image generation context, not prose.",
     "",
     "Respond in this exact format:",
     "PERSONALITY: <text>",
     "MANNERISM: <text>",
     "SECRET: <text>",
+    "APPEARANCE: <text>",
   ].join("\n");
 
-  const raw = await callAI(provider, prompt, 512);
+  const raw = await callAI(provider, prompt, 640);
 
   const personality = raw.match(/PERSONALITY:\s*(.+?)(?=\nMANNERISM:|\n\n|$)/s)?.[1]?.trim() ?? "";
-  const mannerism = raw.match(/MANNERISM:\s*(.+?)(?=\nSECRET:|\n\n|$)/s)?.[1]?.trim() ?? "";
-  const secret = raw.match(/SECRET:\s*(.+?)$/s)?.[1]?.trim() ?? "";
+  const mannerism  = raw.match(/MANNERISM:\s*(.+?)(?=\nSECRET:|\n\n|$)/s)?.[1]?.trim() ?? "";
+  const secret     = raw.match(/SECRET:\s*(.+?)(?=\nAPPEARANCE:|\n\n|$)/s)?.[1]?.trim() ?? "";
+  const appearance = raw.match(/APPEARANCE:\s*(.+?)$/s)?.[1]?.trim() ?? "";
 
   if (!personality || !mannerism || !secret) {
     throw new GenerationError("AI returned an unexpected format for the NPC profile.");
   }
 
-  return { personality, mannerism, secret, provider: provider.provider };
+  return { personality, mannerism, secret, appearance, provider: provider.provider };
 }
 
 // ---------------------------------------------------------------------------
