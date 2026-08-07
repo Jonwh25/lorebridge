@@ -420,12 +420,14 @@ const PANEL_STYLES = `
   }
   .lb-panel__title { flex: 1; font-weight: bold; font-size: 0.9em; }
   .lb-panel__toggle { font-size: 0.75em; opacity: 0.6; }
-  .lb-panel__gen-all {
+  .lb-panel__gen-all, .lb-panel__gen-gendered {
     padding: 2px 8px; border: 1px solid #3a5e9e; border-radius: 3px;
     background: #4e7ac7; color: #fff; cursor: pointer; font-size: 0.78em; white-space: nowrap;
   }
+  .lb-panel__gen-gendered { background: #5a7a4e; border-color: #3a5e30; }
   .lb-panel__gen-all:hover:not(:disabled) { background: #3a5e9e; }
-  .lb-panel__gen-all:disabled { opacity: 0.5; cursor: not-allowed; }
+  .lb-panel__gen-gendered:hover:not(:disabled) { background: #3a5e30; }
+  .lb-panel__gen-all:disabled, .lb-panel__gen-gendered:disabled { opacity: 0.5; cursor: not-allowed; }
   .lb-panel__body { padding: 4px 0; }
   .lb-panel__body.hidden { display: none; }
   .lb-sec { border-bottom: 1px solid; }
@@ -555,8 +557,11 @@ function buildPanelHtml(actor: FoundryActor, collapsed: boolean): string {
       <div class="lb-panel__header" data-lb-action="toggle-panel">
         <span>🤖</span>
         <span class="lb-panel__title">LoreBridge NPC Profile</span>
-        <button class="lb-panel__gen-all" data-lb-action="gen-all" title="Generate all sections">
-          <i class="fas fa-magic"></i> Generate Full Profile
+        <button class="lb-panel__gen-all" data-lb-action="gen-all" title="Generate all sections including gender">
+          <i class="fas fa-magic"></i> Generate Full
+        </button>
+        <button class="lb-panel__gen-gendered" data-lb-action="gen-all-hold-gender" title="Generate all sections except gender (keeps current gender settings)">
+          <i class="fas fa-venus-mars"></i> Hold Gender
         </button>
         <span class="lb-panel__toggle">${collapsed ? "▶" : "▼"}</span>
       </div>
@@ -706,13 +711,17 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
       return;
     }
 
-    if (action === "gen-all") {
+    if (action === "gen-all" || action === "gen-all-hold-gender") {
       e.stopPropagation();
+      const holdGender = action === "gen-all-hold-gender";
       void (async () => {
         const genAllBtn = panel.querySelector<HTMLButtonElement>(".lb-panel__gen-all");
+        const genGenderedBtn = panel.querySelector<HTMLButtonElement>(".lb-panel__gen-gendered");
         if (genAllBtn) genAllBtn.disabled = true;
+        if (genGenderedBtn) genGenderedBtn.disabled = true;
         let errCount = 0;
         for (const meta of SECTION_META) {
+          if (holdGender && meta.id === "gender") continue;
           setGeneratingState(panel, meta.id, true);
           try {
             await generateSection(actor, meta.id);
@@ -721,15 +730,16 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
             errCount++;
           }
         }
+        const label = holdGender ? "Profile (gender preserved)" : "Full profile";
         if (errCount > 0) {
-          ui.notifications.warn(`LoreBridge: Full profile generated with ${errCount} error(s).`);
+          ui.notifications.warn(`LoreBridge: ${label} generated with ${errCount} error(s).`);
         } else {
-          ui.notifications.info(`LoreBridge: Full NPC profile generated for ${actor.name ?? "NPC"}.`);
+          ui.notifications.info(`LoreBridge: ${label} generated for ${actor.name ?? "NPC"}.`);
         }
         void addHistoryEntry({
           type: "npc-profile",
-          label: `NPC Full Profile — ${actor.name ?? ""}`,
-          prompt: "Full profile generation",
+          label: `NPC ${label} — ${actor.name ?? ""}`,
+          prompt: holdGender ? "Full profile generation (gender held)" : "Full profile generation",
           content: JSON.stringify(getProfile(actor), null, 2),
         });
         refreshPanel(frame, actor);
@@ -927,12 +937,15 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
             background:var(--color-bg-option, #252525);
           }
           .lb-ws-portrait { width:100%; max-height:100px; object-fit:cover; display:block; }
-          .lb-ws-full-gen {
-            display:block; width:calc(100% - 10px); margin:5px; padding:4px;
+          .lb-ws-full-gen, .lb-ws-full-gen-gendered {
+            display:block; width:calc(100% - 10px); margin:5px 5px 0; padding:4px;
             background:#4e7ac7; color:#fff; border:none; border-radius:3px;
             cursor:pointer; font-size:0.76em; text-align:center;
           }
-          .lb-ws-full-gen:disabled { opacity:0.5; cursor:not-allowed; }
+          .lb-ws-full-gen-gendered { background:#5a7a4e; margin-top:3px; }
+          .lb-ws-full-gen:hover:not(:disabled) { background:#3a5e9e; }
+          .lb-ws-full-gen-gendered:hover:not(:disabled) { background:#3a5e30; }
+          .lb-ws-full-gen:disabled, .lb-ws-full-gen-gendered:disabled { opacity:0.5; cursor:not-allowed; }
           .lb-ws-nav { list-style:none; margin:0; padding:0; flex:1; overflow-y:auto; }
           .lb-ws-nav__item {
             display:flex; align-items:center; gap:6px; padding:7px 8px;
@@ -977,6 +990,9 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
             <button type="button" class="lb-ws-full-gen" data-action="generateFull" ${isGeneratingAny ? "disabled" : ""}>
               <i class="fas fa-magic"></i> Generate Full
             </button>
+            <button type="button" class="lb-ws-full-gen-gendered" data-action="generateFullHoldGender" ${isGeneratingAny ? "disabled" : ""}>
+              <i class="fas fa-venus-mars"></i> Hold Gender
+            </button>
             <ul class="lb-ws-nav">${navItems}</ul>
           </aside>
           <div class="lb-ws-content">
@@ -1014,7 +1030,8 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         void this._doGenerate(section, actor);
         return;
       }
-      if (action === "generateFull") { void this._doGenerateFull(actor); return; }
+      if (action === "generateFull") { void this._doGenerateFull(actor, false); return; }
+      if (action === "generateFullHoldGender") { void this._doGenerateFull(actor, true); return; }
       if (action === "editSection") { this._editMode = true; void this.render({ force: true }); return; }
       if (action === "cancelEdit") { this._editMode = false; void this.render({ force: true }); return; }
       if (action === "saveSection") { void this._doSaveEdit(actor); return; }
@@ -1037,18 +1054,20 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       }
     }
 
-    private async _doGenerateFull(actor: FoundryActor): Promise<void> {
+    private async _doGenerateFull(actor: FoundryActor, holdGender: boolean): Promise<void> {
       this._generatingFull = true;
       this._editMode = false;
       await this.render({ force: true });
       let errCount = 0;
       for (const meta of SECTION_META) {
+        if (holdGender && meta.id === "gender") continue;
         try { await generateSection(actor, meta.id); } catch { errCount++; }
       }
       this._generatingFull = false;
-      if (errCount > 0) ui.notifications.warn(`LoreBridge: Full profile with ${errCount} error(s).`);
-      else ui.notifications.info(`LoreBridge: Full NPC profile generated.`);
-      void addHistoryEntry({ type: "npc-profile", label: `NPC Full Profile — ${actor.name ?? ""}`, prompt: "Full profile generation", content: JSON.stringify(getProfile(actor), null, 2) });
+      const label = holdGender ? "Profile (gender preserved)" : "Full NPC profile";
+      if (errCount > 0) ui.notifications.warn(`LoreBridge: ${label} generated with ${errCount} error(s).`);
+      else ui.notifications.info(`LoreBridge: ${label} generated.`);
+      void addHistoryEntry({ type: "npc-profile", label: `NPC ${label} — ${actor.name ?? ""}`, prompt: holdGender ? "Full profile (gender held)" : "Full profile generation", content: JSON.stringify(getProfile(actor), null, 2) });
       await this.render({ force: true });
     }
 
