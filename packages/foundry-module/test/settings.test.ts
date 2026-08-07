@@ -54,7 +54,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.get("contextProfiles")?.restricted, true);
   assert.equal(menus.get("generationHistory")?.restricted, true);
 
-  assert.equal(registrations.size, 17);
+  assert.equal(registrations.size, 18);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -136,6 +136,7 @@ test("reads and normalizes configured values", () => {
     chatCommandEnabled: false,
     journalQaEnabled: false,
     npcMentionEnabled: false,
+    portraitSaveDirectory: "modules/lorebridge/images",
   });
 });
 
