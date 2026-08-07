@@ -162,6 +162,53 @@ and opens the journal automatically.
 
 The optional leading number in `/lb npcs` sets the count (default 5, max 10).
 
+### Session Command Center (v0.15.0+)
+
+A dedicated `⚔️` button in the Foundry scene controls sidebar (GM only) opens the **Session Command Center** — a floating panel showing the active scene, combat tracker, recent chat, and quick-action links. Designed to be glanceable during live play without switching windows.
+
+### @NPC Mention — live in-character NPC dialogue (v0.15.0+)
+
+```
+@Morgantha Are you really just a pie merchant?
+@Vistani What do you know about the castle?
+```
+
+Type `@ActorName <message>` in the Foundry chat bar to speak directly to an AI-enabled NPC. The NPC's response is posted publicly in chat, attributed to the NPC by name. Conversation history is maintained per actor for the session (up to 20 turns).
+
+**Setup:**
+1. Enable **@NPC Mention Responses** in LoreBridge Features settings (GM only, off by default)
+2. Open an actor sheet → ⋮ menu → **Configure NPC Preamble**
+3. Check **Enable AI responses for this NPC** and optionally write a personality preamble
+4. Players or GM can now address the NPC in chat with `@ActorName <message>`
+
+**GM commands:**
+```
+/lb npc enable Morgantha       — enable AI responses for an actor
+/lb npc disable Morgantha      — disable AI responses
+/lb npc preamble Morgantha | She speaks in riddles and half-truths
+/lb npc clear Morgantha        — reset conversation history
+/lb npc list                   — show all AI-enabled actors
+```
+
+### ElevenLabs TTS for NPC dialogue (v0.15.0+)
+
+When configured, AI NPC responses are spoken aloud automatically after appearing in chat.
+
+**Requirements:**
+- An ElevenLabs account at **Starter plan or higher** — the free tier does not allow voice API access
+- `ELEVENLABS_API_KEY` set as a backend environment variable (key never leaves the server)
+- A Voice ID set per actor in **Configure NPC Preamble** (actor sheet ⋮ menu)
+
+**Backend setup:**
+```bash
+# Add to your pm2 ecosystem config env block
+ELEVENLABS_API_KEY: "sk_..."
+# Then reload
+pm2 startOrRestart /path/to/ecosystem.config.cjs --update-env
+```
+
+Copy a Voice ID from your [ElevenLabs Voices](https://elevenlabs.io/app/voices) page and paste it into the Configure NPC Preamble dialog for each NPC. Each NPC can have a distinct voice.
+
 ### `/lb health` — campaign health check (v0.14.0+)
 
 ```
