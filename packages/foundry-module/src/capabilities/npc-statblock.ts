@@ -253,9 +253,16 @@ async function findCompendiumItemData(
 ): Promise<Record<string, unknown> | null> {
   const nameLower = name.toLowerCase().trim();
   const packs = await getDnd5eItemPacks(edition);
-  for (const pack of packs) {
-    for (const entry of pack.index) {
-      if (entry.name.toLowerCase().trim() === nameLower) {
+
+  // Two-pass: exact match first, then prefix match (e.g. "Claw" → "Claw (Hybrid Form Only)")
+  for (const pass of [0, 1]) {
+    for (const pack of packs) {
+      for (const entry of pack.index) {
+        const entryLower = entry.name.toLowerCase().trim();
+        const match = pass === 0
+          ? entryLower === nameLower
+          : entryLower.startsWith(nameLower) || nameLower.startsWith(entryLower);
+        if (!match) continue;
         try {
           const doc = await pack.getDocument(entry._id);
           if (doc) return doc.toObject();
@@ -662,16 +669,12 @@ async function createNpcActor(stat: NpcStatBlockResult, edition: RulesEdition): 
 export function injectActorsSidebarButton(frame: HTMLElement, app?: unknown): void {
   if (frame.querySelector("[data-lb-btn='generate-npc']")) return;
 
-  // Detect the Create Actor dialog by the presence of document-type radio options
-  // and a create/submit button. Foundry v14 renders this as an ApplicationV2 dialog.
-  const hasTypeList = Boolean(
-    frame.querySelector(".document-type-select, .type-picker, [data-type], input[name='type']")
-  );
-  const hasCreateButton = Boolean(
-    frame.querySelector("button[data-action='create'], button[data-action='submit'], .create-document")
-      ?? Array.from(frame.querySelectorAll("button")).find(b => /create/i.test(b.textContent ?? ""))
-  );
-  if (!hasTypeList || !hasCreateButton) return;
+  // Detect the Create Actor dialog by its window title — reliable and specific.
+  // The activity type picker, item dialogs, etc. all have different titles.
+  const windowTitle = (
+    frame.querySelector(".window-title, header .title, .app-title")?.textContent ?? ""
+  ).trim().toLowerCase();
+  if (!windowTitle.includes("create actor") && !windowTitle.includes("new actor")) return;
 
   // Find the footer row (Folder selector + Create Actor button) to insert before it
   const footer = frame.querySelector<HTMLElement>(".form-footer, .dialog-buttons");
