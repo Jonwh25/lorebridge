@@ -1,4 +1,4 @@
-export type ImageProviderName = "stability" | "flux" | "openai" | "ideogram" | "none";
+export type ImageProviderName = "stability" | "flux" | "openai" | "ideogram" | "workersai" | "none";
 
 export interface ImageProviderStatus {
   provider: ImageProviderName;
@@ -36,7 +36,14 @@ interface IdeogramConfig {
   model: string;
 }
 
-type ImageConfig = StabilityConfig | FluxConfig | OpenAIImageConfig | IdeogramConfig;
+interface WorkersAIConfig {
+  provider: "workersai";
+  accountId: string;
+  apiToken: string;
+  model: string;
+}
+
+type ImageConfig = StabilityConfig | FluxConfig | OpenAIImageConfig | IdeogramConfig | WorkersAIConfig;
 
 export class ImageProviderError extends Error {
   constructor(message: string) {
@@ -68,6 +75,18 @@ function readImageConfig(env: NodeJS.ProcessEnv): ImageConfig | null {
     const key = env.IDEOGRAM_API_KEY?.trim();
     if (!key) return null;
     return { provider: "ideogram", apiKey: key, model: env.IDEOGRAM_MODEL?.trim() || "V_3" };
+  }
+
+  if (explicit === "workersai" || (!explicit && env.CLOUDFLARE_ACCOUNT_ID?.trim() && env.CLOUDFLARE_API_TOKEN?.trim())) {
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const apiToken = env.CLOUDFLARE_API_TOKEN?.trim();
+    if (!accountId || !apiToken) return null;
+    return {
+      provider: "workersai",
+      accountId,
+      apiToken,
+      model: env.CLOUDFLARE_IMAGE_MODEL?.trim() || "@cf/black-forest-labs/flux-1-schnell",
+    };
   }
 
   // OpenAI last — it also supplies the text provider key, so only activate for
@@ -246,6 +265,41 @@ async function generateViaIdeogram(config: IdeogramConfig, prompt: string): Prom
 }
 
 // ---------------------------------------------------------------------------
+// Cloudflare Workers AI
+// ---------------------------------------------------------------------------
+
+async function generateViaWorkersAI(config: WorkersAIConfig, prompt: string, negativePrompt?: string): Promise<ImageGenerationResult> {
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/run/${config.model}`;
+
+  const body: Record<string, unknown> = {
+    prompt,
+    seed: Math.floor(Math.random() * 4294967295),
+  };
+  if (negativePrompt) body["negative_prompt"] = negativePrompt;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${config.apiToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as { errors?: { message?: string }[]; error?: string };
+    const msg = err?.errors?.[0]?.message ?? err?.error ?? `status ${response.status}`;
+    throw new ImageProviderError(`Cloudflare Workers AI error: ${msg}`);
+  }
+
+  // Workers AI returns raw binary image data
+  const buffer = await response.arrayBuffer();
+  const base64 = Buffer.from(buffer).toString("base64");
+  const mimeType = response.headers.get("content-type") ?? "image/png";
+  return { base64, mimeType };
+}
+
+// ---------------------------------------------------------------------------
 // Public service
 // ---------------------------------------------------------------------------
 
@@ -279,6 +333,7 @@ export class ImageProviderService {
       case "flux":      return generateViaFlux(this.config, prompt);
       case "openai":    return generateViaOpenAI(this.config, prompt);
       case "ideogram":  return generateViaIdeogram(this.config, prompt);
+      case "workersai": return generateViaWorkersAI(this.config, prompt, negativePrompt);
     }
   }
 }
