@@ -210,23 +210,63 @@ function buildDnd5eActorData(stat: NpcStatBlockResult): Record<string, unknown> 
   };
 }
 
-// Build embedded item data for actions, traits, bonus actions, reactions
-function buildEmbeddedItems(stat: NpcStatBlockResult): Record<string, unknown>[] {
+// ---------------------------------------------------------------------------
+// Compendium item lookup
+// ---------------------------------------------------------------------------
+
+// dnd5e compendium pack IDs to search for weapons/equipment
+const EQUIPMENT_PACKS = ["dnd5e.equipment", "dnd5e.weapons", "dnd5e.items"];
+// dnd5e compendium pack IDs to search for monster traits/features
+const FEATURE_PACKS = ["dnd5e.monsterfeatures", "dnd5e.features", "dnd5e.classfeatures"];
+
+async function findCompendiumItemData(name: string, packIds: string[]): Promise<Record<string, unknown> | null> {
+  const nameLower = name.toLowerCase().trim();
+  for (const packId of packIds) {
+    const pack = game.packs.get(packId);
+    if (!pack) continue;
+    for (const entry of pack.index) {
+      if (entry.name.toLowerCase().trim() === nameLower) {
+        try {
+          const doc = await pack.getDocument(entry._id);
+          if (doc) return doc.toObject();
+        } catch {
+          // skip failed compendium loads
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Build embedded item data, pulling from dnd5e compendiums where possible
+async function buildEmbeddedItems(stat: NpcStatBlockResult): Promise<Record<string, unknown>[]> {
   const items: Record<string, unknown>[] = [];
 
   for (const trait of stat.traits) {
-    items.push({
-      name: trait.name,
-      type: "feat",
-      system: {
-        description: { value: `<p>${trait.description}</p>` },
-        activation: { type: "passive" },
-      },
-    });
+    const compendium = await findCompendiumItemData(trait.name, FEATURE_PACKS);
+    if (compendium) {
+      items.push(compendium);
+    } else {
+      items.push({
+        name: trait.name,
+        type: "feat",
+        system: {
+          description: { value: `<p>${trait.description}</p>` },
+          activation: { type: "passive" },
+        },
+      });
+    }
   }
 
   for (const action of stat.actions) {
     const isAttack = action.attackBonus !== undefined;
+    if (isAttack) {
+      const compendium = await findCompendiumItemData(action.name, EQUIPMENT_PACKS);
+      if (compendium) {
+        items.push(compendium);
+        continue;
+      }
+    }
     items.push({
       name: action.name,
       type: isAttack ? "weapon" : "feat",
@@ -236,7 +276,6 @@ function buildEmbeddedItems(stat: NpcStatBlockResult): Record<string, unknown>[]
         ...(isAttack ? {
           equipped: true,
           proficient: true,
-          attackBonus: String(action.attackBonus ?? 0),
           damage: {
             parts: action.damage
               ? [[action.damage, action.damageType ?? "slashing"]]
@@ -510,7 +549,7 @@ async function createNpcActor(stat: NpcStatBlockResult): Promise<void> {
     const actorData: Record<string, unknown> = {
       ...buildDnd5eActorData(stat),
       folder: folder?.id ?? null,
-      items: buildEmbeddedItems(stat),
+      items: await buildEmbeddedItems(stat),
     };
 
     const actor = await Actor.create(actorData);
@@ -543,20 +582,25 @@ export function injectActorsSidebarButton(frame: HTMLElement, app?: unknown): vo
   );
   if (!hasTypeList || !hasCreateButton) return;
 
-  // Find the footer / button row to append our button beneath it
-  const footer = frame.querySelector<HTMLElement>(".form-footer, .dialog-buttons")
-    ?? frame.querySelector<HTMLElement>(".window-content");
-  if (!footer) return;
+  // Find the footer row (Folder selector + Create Actor button) to insert before it
+  const footer = frame.querySelector<HTMLElement>(".form-footer, .dialog-buttons");
+  const insertTarget = footer ?? frame.querySelector<HTMLElement>(".window-content");
+  if (!insertTarget) return;
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset["lbBtn"] = "generate-npc";
-  btn.style.cssText = "margin-top:6px;width:100%;";
+  btn.style.cssText = "width:100%;margin-bottom:6px;";
   btn.innerHTML = '<i class="fas fa-dragon"></i> Generate Full Stat Block with AI';
   btn.addEventListener("click", () => {
     void (app as { close?: () => Promise<unknown> })?.close?.();
     void showNpcStatBlockDialog();
   });
 
-  footer.appendChild(btn);
+  // Insert above the footer (Folder / Create Actor row)
+  if (footer) {
+    footer.insertAdjacentElement("beforebegin", btn);
+  } else {
+    insertTarget.appendChild(btn);
+  }
 }

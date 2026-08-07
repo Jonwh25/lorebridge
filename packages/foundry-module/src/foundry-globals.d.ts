@@ -98,6 +98,7 @@ type FoundryCompendiumPack = {
     size: number;
     get(id: string): FoundryCompendiumIndexEntry | undefined;
   };
+  getDocument(id: string): Promise<{ toObject(): Record<string, unknown> } | null | undefined>;
 };
 
 type FoundryCompendiumCollection = Iterable<FoundryCompendiumPack> & {
