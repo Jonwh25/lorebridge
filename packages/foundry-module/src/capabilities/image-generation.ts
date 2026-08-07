@@ -93,11 +93,18 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
   const name = actor.name;
   const system = actor.system;
 
-  // Read the portrait description flag saved by NPC Profile generation.
-  // Falls back to empty — the DM can fill in the context field manually.
-  const savedDescription = typeof actor.getFlag?.("lorebridge", "portraitDescription") === "string"
+  // Read portrait description: flag first (set by NPC Profile), then
+  // fall back to extracting the Appearance line from biography HTML.
+  let savedDescription = typeof actor.getFlag?.("lorebridge", "portraitDescription") === "string"
     ? (actor.getFlag("lorebridge", "portraitDescription") as string).trim()
     : "";
+
+  if (!savedDescription) {
+    const bio = (system["details"] as Record<string, unknown> | undefined)?.["biography"] as Record<string, unknown> | undefined;
+    const bioHtml = typeof bio?.["value"] === "string" ? bio["value"] : "";
+    const match = bioHtml.match(/<strong>Appearance:<\/strong>\s*([^<]+)/i);
+    if (match?.[1]) savedDescription = match[1].trim();
+  }
 
   const creatureType = (system["details"] as Record<string, unknown> | undefined)?.["type"] as Record<string, unknown> | undefined;
   const typeLabel = typeof creatureType?.["value"] === "string" ? creatureType["value"] : "";
@@ -110,7 +117,7 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
       .lb-portrait-form { flex:1; min-height:0; display:flex; flex-direction:column; padding:0.75rem; box-sizing:border-box; gap:0.5rem; overflow:hidden; }
       .lb-portrait-form .lb-field-fixed { flex-shrink:0; display:flex; flex-direction:column; gap:2px; }
       .lb-portrait-form .lb-field-grow { flex:1; min-height:0; display:flex; flex-direction:column; gap:2px; }
-      .lb-portrait-form .lb-field-grow textarea { flex:1; min-height:60px; width:100%; box-sizing:border-box; resize:none; }
+      .lb-portrait-form .lb-field-grow textarea { flex:1; min-height:160px; width:100%; box-sizing:border-box; resize:vertical; }
       .lb-portrait-form .lb-hint { font-size:0.8em; color:#888; margin:0; }
       .lb-portrait-form label { font-weight:bold; }
       .lb-portrait-form input, .lb-portrait-form select { width:100%; box-sizing:border-box; }
@@ -133,7 +140,8 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
     </form>`;
 
   new foundry.applications.api.DialogV2({
-    window: { title: `LoreBridge — Generate Portrait: ${name}`, resizable: true, classes: ["lb-portrait-dialog"] },
+    classes: ["lb-portrait-dialog"],
+    window: { title: `LoreBridge — Generate Portrait: ${name}`, resizable: true },
     position: { width: 520, height: 480 },
     content,
     buttons: [

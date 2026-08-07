@@ -180,11 +180,11 @@ function showShareDialog(title: string, markdown: string, hiddenCount: number, f
 
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
   const clean = preview.replace(/\|/g, "").replace(/^\s*[-#]+\s*/gm, "").trim();
-  const content = `<div style="padding:0.5rem;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
+  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
-    position: { width: 560, height: 520 },
+    position: { width: 560, height: 560 },
     content,
     buttons: [
       {
