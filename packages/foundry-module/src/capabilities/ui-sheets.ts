@@ -1,4 +1,5 @@
 import { getLoreBridgeSettings } from "../settings.js";
+import { addHistoryEntry } from "../generation-history.js";
 import { searchCampaign } from "./search-campaign.js";
 import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
 
@@ -228,6 +229,13 @@ function runNpcQuickGen(doc: AppDoc): void {
           `Secret (GM only): ${result.secret}`,
         ].join("\n");
 
+        void addHistoryEntry({
+          type: "npc-profile",
+          label: `NPC Profile — ${doc.name}`,
+          prompt: `Tone: ${config.tone}`,
+          content: preview,
+        });
+
         showPreviewDialog(`NPC Profile — ${doc.name}`, preview, () => {
           const actor = (game.actors as { get(id: string): { update(d: Record<string, unknown>): Promise<void> } | undefined }).get(doc.id);
           if (!actor) return;
@@ -273,6 +281,13 @@ function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
           length: config.length,
           audience: "players",
         });
+        void addHistoryEntry({
+          type: "room-description",
+          label: `Room Description — ${pageName}`,
+          prompt: `Tone: ${config.tone}, Length: ${config.length}`,
+          content: result.preview,
+        });
+
         showPreviewDialog(`Description — ${pageName}`, result.preview, () => {
           const lines = result.preview.split("\n");
           const titleMatch = lines[0]?.match(/^#+\s+(.+)/);
@@ -316,6 +331,13 @@ function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
           tone: config.tone,
           length: config.length,
         });
+        void addHistoryEntry({
+          type: "session-recap",
+          label: `Session Recap — ${pageName}`,
+          prompt: `Tone: ${config.tone}, Length: ${config.length}`,
+          content: result.recap,
+        });
+
         showPreviewDialog(`Session Recap — ${pageName}`, result.recap, () => {
           const html = `<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
           if (page) {
@@ -363,6 +385,13 @@ function runPartyRecap(doc: AppDoc, frame: HTMLElement): void {
           tone: config.tone,
           length: config.length,
           hiddenCount,
+        });
+
+        void addHistoryEntry({
+          type: "party-recap",
+          label: `Party Recap — ${pageName}`,
+          prompt: `Tone: ${config.tone}, Length: ${config.length}`,
+          content: result.recap,
         });
 
         showShareDialog(`Party Recap — ${pageName}`, result.recap, hiddenCount, pageName);
@@ -426,6 +455,13 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
             return `<p>${line}</p>`;
           })
           .join("\n");
+
+        void addHistoryEntry({
+          type: "session-prep",
+          label: `Lazy DM Prep — ${pageName}`,
+          prompt: `Tone: ${config.tone}`,
+          content: result.prep,
+        });
 
         const previewContent = `<div style="padding:0.5rem;max-height:500px;overflow-y:auto;font-size:0.88em">${html}</div>`;
 
@@ -520,6 +556,13 @@ function runEncounterSuggester(doc: AppDoc): void {
           tone: config.tone,
         });
 
+        void addHistoryEntry({
+          type: "encounter-suggestions",
+          label: `Encounter Hooks — ${doc.name}`,
+          prompt: `Tone: ${config.tone}`,
+          content: result.suggestions.map((s, i) => `${i + 1}. ${s}`).join("\n"),
+        });
+
         const listItems = result.suggestions.map((s, i) => `<p><strong>${i + 1}.</strong> ${s}</p>`).join("\n");
         const content = `<div style="padding:0.5rem;font-size:0.9em">${listItems}</div>`;
 
@@ -587,6 +630,13 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
         pageContent,
         pageName,
         journalName: doc.name,
+      });
+
+      void addHistoryEntry({
+        type: "journal-qa",
+        label: `Journal Q&A — ${pageName}`,
+        prompt: question,
+        content: result.answer,
       });
 
       const content = `

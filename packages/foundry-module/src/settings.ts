@@ -1,6 +1,7 @@
 import { LoreBridgeConfigurationApp } from "./configuration-app.js";
 import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
 import { LoreBridgeContextProfilesApp } from "./context-profiles-app.js";
+import { GenerationHistoryPanel } from "./generation-history.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -13,7 +14,7 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp;
+      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp | typeof GenerationHistoryPanel;
       restricted: boolean;
     },
   ): void;
@@ -40,6 +41,9 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   npcMentionEnabled: "npcMentionEnabled",
   contextProfiles: "contextProfiles",
   activeContextProfileId: "activeContextProfileId",
+  generationHistory: "generationHistory",
+  maxHistoryLength: "maxHistoryLength",
+  historySaveImages: "historySaveImages",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -87,6 +91,42 @@ export function registerLoreBridgeSettings(): void {
     icon: "fas fa-filter",
     type: LoreBridgeContextProfilesApp,
     restricted: true,
+  });
+
+  settings.registerMenu(MODULE_ID, "generationHistory", {
+    name: "Generation History",
+    label: "Generation History",
+    hint: "Browse recent AI-generated content and reopen dismissed results.",
+    icon: "fas fa-history",
+    type: GenerationHistoryPanel,
+    restricted: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.generationHistory, {
+    name: "LoreBridge Generation History",
+    hint: "JSON array of recent AI generation entries.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "[]",
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.maxHistoryLength, {
+    name: "Max Generation History Length",
+    hint: "Maximum number of recent AI generations to keep. Oldest entries are pruned automatically.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 10,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.historySaveImages, {
+    name: "Save Generated Images to History",
+    hint: "Include AI-generated portrait and token images in generation history entries.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
   });
 
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.contextProfiles, {

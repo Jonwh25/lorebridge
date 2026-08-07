@@ -9,8 +9,8 @@ type FoundrySettingConfig = {
   hint?: string;
   scope: "world" | "client";
   config: boolean;
-  type: BooleanConstructor | StringConstructor;
-  default: boolean | string;
+  type: BooleanConstructor | StringConstructor | NumberConstructor;
+  default: boolean | string | number;
   choices?: Record<string, string>;
   requiresReload?: boolean;
 };
@@ -228,6 +228,9 @@ declare class FoundryApplicationV2 {
 }
 
 declare const foundry: {
+  utils: {
+    randomID(length?: number): string;
+  };
   applications: {
     api: {
       ApplicationV2: typeof FoundryApplicationV2;
