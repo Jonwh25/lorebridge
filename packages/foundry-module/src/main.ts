@@ -77,6 +77,7 @@ import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
+import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
 import { openSessionCommandCenter } from "./session-command-center.js";
@@ -116,6 +117,7 @@ Hooks.once("init", () => {
     injectActorsSidebarButton(frame, app);
   });
   registerNpcPreambleSheetHook();
+  registerPortraitMenuHook();
 
   // Add a standalone sidebar button. In v14 the controls arg is a keyed object.
   // onChange is intentionally empty — the click is intercepted in the capture
