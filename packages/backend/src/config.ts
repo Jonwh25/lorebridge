@@ -16,6 +16,7 @@ export interface BackendConfig {
   dataDir: string;
   foundryDataDir?: string;
   github?: GitHubAdapterConfig;
+  elevenLabsApiKey?: string;
 }
 
 function parsePort(value: string | undefined): number {
@@ -58,5 +59,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BackendConfig 
     dataDir: path.resolve(env.LOREBRIDGE_DATA_DIR?.trim() || ".lorebridge"),
     ...(env.LOREBRIDGE_FOUNDRY_DATA_DIR?.trim() ? { foundryDataDir: path.resolve(env.LOREBRIDGE_FOUNDRY_DATA_DIR.trim()) } : {}),
     ...(github ? { github } : {}),
+    ...(env.ELEVENLABS_API_KEY?.trim() ? { elevenLabsApiKey: env.ELEVENLABS_API_KEY.trim() } : {}),
   };
 }
