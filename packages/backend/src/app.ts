@@ -31,6 +31,7 @@ import type { BackendIdentity } from "./identity.js";
 import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
+import { ImageProviderService, ImageProviderError } from "./image-provider.js";
 import { generateBoxedText, generateChatAnswer, generateNpcProfile, generateSessionRecap, generatePartyRecap, generateEncounterSuggestions, generateJournalAnswer, generateRoleplayResponse, generateSessionPrep, generateCityDescription, generateNpcCast, generateNpcStatBlock, auditConsistency, GenerationError } from "./generation.js";
 import {
   AdapterInvocationError,
@@ -91,7 +92,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -121,7 +122,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     }
     if (github) capabilities.push("backup/github");
-    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled });
+    sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled, imageProviderEnabled: imageProvider.enabled });
     return;
   }
 
@@ -129,6 +130,12 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     if (!authenticate(pairing, request, response)) return;
     const healthy = provider.enabled ? await provider.validate() : null;
     sendJson(response, 200, provider.status(healthy));
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/image-provider/status") {
+    if (!authenticate(pairing, request, response)) return;
+    sendJson(response, 200, imageProvider.status());
     return;
   }
 
@@ -889,6 +896,38 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/generate/image") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const subject = typeof body["subject"] === "string" ? body["subject"].trim() : "";
+    const context = typeof body["context"] === "string" ? body["context"].trim() : "";
+    const style = typeof body["style"] === "string" ? body["style"].trim() : "";
+    if (!subject) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty subject string." } });
+      return;
+    }
+    if (!imageProvider.enabled) {
+      sendJson(response, 503, { error: { code: "image_provider_unavailable", message: "No image provider is configured on this backend. Set STABILITY_API_KEY or IMAGE_PROVIDER=openai with OPENAI_API_KEY." } });
+      return;
+    }
+    const promptParts = [`Portrait of ${subject}`];
+    if (context) promptParts.push(context);
+    if (style) promptParts.push(style);
+    else promptParts.push("fantasy RPG character portrait, detailed, dramatic lighting");
+    const prompt = promptParts.join(". ");
+    try {
+      const result = await imageProvider.generateImage(prompt);
+      sendJson(response, 200, { base64: result.base64, mimeType: result.mimeType, prompt });
+    } catch (error) {
+      if (error instanceof ImageProviderError) {
+        sendJson(response, 502, { error: { code: "image_generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/v1/generate/npc-statblock") {
     if (!authenticate(pairing, request, response)) return;
     const body = await readJson(request);
@@ -1385,12 +1424,13 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
+  const imageProvider = new ImageProviderService();
   const writes = new WriteRegistry();
   const audit = new AuditRegistry();
   const github = createGitHubAdapter(config.github);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, mcp, writes, audit, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

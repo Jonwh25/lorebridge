@@ -1,6 +1,7 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
 import { searchCampaign } from "./search-campaign.js";
+import { runImageGeneration } from "./image-generation.js";
 import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
 
 const MODULE_ID = "lorebridge";
@@ -731,6 +732,9 @@ export function registerSheetButtons(): void {
 
     if (settings.uiButtonsEnabled && doc.documentName === "Actor" && doc.type === "npc") {
       injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Profile", "ui-buttons", () => runNpcQuickGen(doc));
+      injectHeaderButton(frame, "npc-portrait", "fas fa-portrait", "Generate Portrait", "ui-buttons", () => {
+        void runImageGeneration(doc as unknown as { id: string; name: string; system: Record<string, unknown>; img?: string });
+      });
     }
 
     if (doc.documentName === "JournalEntry") {

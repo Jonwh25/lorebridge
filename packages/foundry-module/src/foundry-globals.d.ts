@@ -340,7 +340,10 @@ declare const Roll: {
   };
   validate(formula: string): boolean;
 };
-declare const FilePicker: { browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }> };
+declare const FilePicker: {
+  browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }>;
+  upload(source: "data", path: string, file: File, options?: Record<string, unknown>): Promise<{ path?: string } | false>;
+};
 
 declare const game: {
   version: string;
