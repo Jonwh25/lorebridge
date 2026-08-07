@@ -292,11 +292,24 @@ async function generateViaWorkersAI(config: WorkersAIConfig, prompt: string, neg
     throw new ImageProviderError(`Cloudflare Workers AI error: ${msg}`);
   }
 
-  // Workers AI returns raw binary image data
+  const contentType = response.headers.get("content-type") ?? "";
+
+  // Flux-1-schnell returns JSON with result.image (base64 string)
+  // SDXL and older models return raw binary
+  if (contentType.includes("application/json")) {
+    const json = await response.json() as { result?: { image?: string }; errors?: { message?: string }[] };
+    const b64 = json.result?.image;
+    if (!b64) {
+      const msg = json.errors?.[0]?.message ?? "No image in response";
+      throw new ImageProviderError(`Cloudflare Workers AI error: ${msg}`);
+    }
+    return { base64: b64, mimeType: "image/png" };
+  }
+
+  // Raw binary response
   const buffer = await response.arrayBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
-  const mimeType = response.headers.get("content-type") ?? "image/png";
-  return { base64, mimeType };
+  return { base64, mimeType: contentType || "image/png" };
 }
 
 // ---------------------------------------------------------------------------
