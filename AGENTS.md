@@ -120,3 +120,67 @@ Every new window, dialog, sheet, or workspace must remain usable when resized:
 
 When handing off a UI change for live testing, include these resize and overflow
 checks in the manual Foundry acceptance test.
+## Post-merge completion work
+
+Post-merge documentation and tracking are required delivery work, not optional
+cleanup. Treat them as equally important as implementation and release work.
+
+When the repository owner says that a feature PR has been merged and its branch
+has been deleted:
+
+1. Re-read the merged PR, the selected issue, and the final changed-file list.
+2. Ensure the issue documents the complete delivered scope. Update its checklist or
+   body when needed, and add a concise completion comment covering:
+   - the merged PR;
+   - what was implemented;
+   - important design or safety decisions;
+   - validation and live acceptance results actually reported;
+   - documentation changes; and
+   - any explicit follow-up work or known limitations.
+3. Do not claim an unreported live test passed. If live acceptance has not been
+   confirmed, record what remains and keep the issue open.
+4. Once the merged change has passed its required live acceptance test, mark the
+   issue complete in `ROADMAP.md`, close the GitHub issue, and verify the roadmap,
+   issue, PR, and milestone agree.
+5. Repository-file updates still use a short-lived documentation branch and pull
+   request. Do not commit these updates directly to `main`.
+
+After closing an issue, inspect every issue assigned to the same milestone. If any
+remain incomplete, report which ones remain and stop the milestone closeout there.
+
+## Milestone closeout
+
+When all issues in a milestone are implemented, merged, live-tested, documented,
+and closed, complete all of the following before calling the milestone complete or
+release-ready:
+
+1. Update `README.md` for user-visible capabilities, setup changes, configuration,
+   supported workflows, or other current behavior introduced during the milestone.
+2. Update `ROADMAP.md` so every completed milestone issue has a checkmark and the
+   milestone itself is visibly marked complete.
+3. Update `CHANGELOG.md` with a complete, user-focused summary of all changes in the
+   milestone, including relevant fixes, safeguards, configuration changes, and
+   upgrade notes. Derive this from the milestone issues and merged PRs; do not rely
+   on memory.
+4. Review the existing GitHub wiki and update every affected page. Add pages when
+   needed so installation, configuration, operation, testing, troubleshooting, and
+   user-facing behavior are accurate and discoverable.
+5. Verify links, commands, paths, examples, milestone issue state, and documentation
+   agree with the shipped implementation.
+6. Merge the repository documentation PR, then close the GitHub milestone object
+   only after its issues and closeout documentation are complete.
+
+The LoreBridge wiki repository is:
+
+```text
+https://github.com/Jonwh25/lorebridge.wiki.git
+```
+
+The repository owner grants standing permission to clone, edit, commit, and push
+LoreBridge wiki documentation directly without requesting separate approval each
+time. Keep wiki commits narrowly scoped to verified documentation changes. This
+permission applies only to the wiki repository and does not override the pull
+request workflow for the main `lorebridge` repository.
+
+Do not publish a version, tag, or GitHub release unless the repository owner asks
+for the release. Report when the completed milestone is ready for that decision.
