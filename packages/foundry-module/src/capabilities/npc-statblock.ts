@@ -299,46 +299,77 @@ function makeSource(edition: RulesEdition, identifier?: string): Record<string, 
   };
 }
 
-function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition): Record<string, unknown> {
+type AttackKind = { value: "mwak" | "rwak" | "msak" | "rsak"; classification: "weapon" | "spell" };
+
+function inferAttackKind(name: string, description: string, range: string | undefined): AttackKind {
+  const n = name.toLowerCase();
+  const d = description.toLowerCase();
+  if (/ranged spell attack/i.test(d) || /ray|bolt|blast|beam|arcane missile/i.test(n)) {
+    return { value: "rsak", classification: "spell" };
+  }
+  if (/melee spell attack/i.test(d)) {
+    return { value: "msak", classification: "spell" };
+  }
+  if (/ranged weapon attack/i.test(d)) {
+    return { value: "rwak", classification: "weapon" };
+  }
+  // If range is listed and > 5 ft, assume ranged weapon
+  const rangeNum = parseInt(range ?? "5");
+  if (!isNaN(rangeNum) && rangeNum > 5) {
+    return { value: "rwak", classification: "weapon" };
+  }
+  return { value: "mwak", classification: "weapon" };
+}
+
+function makeModernActivity(
+  type: string,
+  activationType: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const id = foundry.utils.randomID(16);
+  return {
+    [id]: { _id: id, type, activation: { type: activationType, value: 1, condition: "" }, sort: 100000, ...extra },
+  };
+}
+
+function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition, activationType = "action"): Record<string, unknown> {
   const damageType = action.damageType ?? "slashing";
-  const source = makeSource(edition, action.name.toLowerCase().replace(/\s+/g, "-"));
+  const slug = action.name.toLowerCase().replace(/\s+/g, "-");
+  const source = makeSource(edition, slug);
+  const kind = inferAttackKind(action.name, action.description, action.range ?? undefined);
+  const isSpell = kind.classification === "spell";
 
   if (edition === "modern") {
     const dice = parseDiceFormula(action.damage ?? undefined);
+    const activities = makeModernActivity("attack", activationType, {
+      attack: {
+        ability: isSpell ? "spellcasting" : "str",
+        type: { value: kind.value, classification: kind.classification },
+        bonus: action.attackBonus != null ? String(action.attackBonus) : "",
+        critical: { threshold: null },
+      },
+      damage: {
+        critical: { allow: true, bonus: "" },
+        includeBase: true,
+        parts: [{
+          custom: { enabled: false },
+          denomination: dice.denomination,
+          number: dice.number,
+          types: [damageType],
+          bonus: dice.bonus,
+          scaling: { mode: "whole", number: null },
+        }],
+      },
+    });
     return {
       name: action.name,
-      type: "weapon",
+      type: isSpell ? "feat" : "weapon",
       system: {
         source,
         description: { value: `<p>${action.description}</p>` },
         quantity: 1,
-        equipped: 1,
-        activities: {
-          "lbact0000001": {
-            _id: "lbact0000001",
-            type: "attack",
-            activation: { type: "action", value: 1, condition: "" },
-            attack: {
-              ability: "str",
-              type: { value: "mwak", classification: "weapon" },
-              bonus: action.attackBonus != null ? String(action.attackBonus) : "",
-              critical: { threshold: null },
-            },
-            damage: {
-              critical: { allow: true, bonus: "" },
-              includeBase: true,
-              parts: [{
-                custom: { enabled: false },
-                denomination: dice.denomination,
-                number: dice.number,
-                types: [damageType],
-                bonus: dice.bonus,
-                scaling: { mode: "whole", number: null },
-              }],
-            },
-            sort: 100000,
-          },
-        },
+        equipped: true,
+        activities,
       },
     };
   }
@@ -355,7 +386,7 @@ function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition):
       attackBonus: action.attackBonus != null ? String(action.attackBonus) : "",
       damage: { parts: action.damage ? [[action.damage, damageType]] : [] },
       range: { value: action.range?.replace(/\s?ft\.?$/i, "") ?? null, units: "ft" },
-      activation: { type: "action", cost: 1 },
+      activation: { type: activationType, cost: 1 },
     },
   };
 }
@@ -366,13 +397,26 @@ function makeSyntheticFeat(
   activationType: string,
   edition: RulesEdition,
 ): Record<string, unknown> {
+  const source = makeSource(edition, name.toLowerCase().replace(/\s+/g, "-"));
+  const descLower = description.toLowerCase();
+
+  // For active abilities (not passive traits) in modern edition, add an activity
+  let activities: Record<string, unknown> | undefined;
+  if (edition === "modern" && activationType !== "passive") {
+    let actType = "utility";
+    if (/saving throw|must succeed/i.test(descLower)) actType = "save";
+    else if (/heal|regain.*hit point/i.test(descLower)) actType = "heal";
+    activities = makeModernActivity(actType, activationType);
+  }
+
   return {
     name,
     type: "feat",
     system: {
-      source: makeSource(edition, name.toLowerCase().replace(/\s+/g, "-")),
+      source,
       description: { value: `<p>${description}</p>` },
       activation: { type: activationType, cost: activationType === "passive" ? null : 1 },
+      ...(activities ? { activities } : {}),
     },
   };
 }
