@@ -4,7 +4,14 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-07
+
 ### Added
+
+- **AI Portrait Generation** (#109): a **Generate Portrait** button (portrait icon) appears in every NPC actor sheet header (GM only). The dialog pre-fills the subject from the actor's name, gender, and race; the context from the biography Appearance section; and offers 21 art-style presets with **Semi-Realistic Fantasy** as the default. Clicking Generate sends the request to the configured image provider, shows a preview with the prompt, and lets the GM Apply (saves to Foundry and sets actor portrait + token), Regenerate (different result each time via random seed), or Discard.
+- **Gender-aware portrait prompting**: the actor's gender field anchors the prompt so female NPCs reliably produce female portraits. Gender-opposite negative prompts are added automatically for Stability AI and Workers AI providers.
+- **Portrait Save Directory** setting (LoreBridge module settings, world-scoped): configurable upload path relative to Foundry's Data folder; defaults to `modules/lorebridge/images`.
+- **Multi-provider image backend**: a dedicated image provider layer, independent of the text AI provider, supports Stability AI (Stable Image Core / Ultra), FLUX (Black Forest Labs), Cloudflare Workers AI, Ideogram, and OpenAI DALL-E. Auto-detection order: stability → flux → workersai → ideogram → openai. Set `IMAGE_PROVIDER=<name>` to override. Provider status is exposed at `GET /v1/image-provider/status`.
 
 - **D&D 5e NPC Stat Block Generator**: click **Generate Full Stat Block with AI** in the Create Actor dialog to describe an NPC and receive a complete mechanical stat block. Supports Modern Rules (2024) and Legacy Rules (2014) editions. The preview dialog shows all stats, traits, and actions; clicking **Create Actor** drops the NPC into a "LoreBridge NPCs" folder with all items embedded.
 - **Compendium-first item population**: actions, features, and natural attacks are sourced from the dnd5e monster and equipment compendiums first (Claw, Bite, Multiattack, Legendary Resistance, etc.), with synthetic fallback only when no compendium match is found. Prefix matching handles names like "Claw (Hybrid Form Only)".
