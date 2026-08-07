@@ -515,11 +515,14 @@ function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | unde
        </button>`
     : `<button class="lb-sec__btn lb-sec__btn--primary" data-lb-action="gen-section" data-lb-section="${meta.id}">
          <i class="fas fa-magic"></i> Generate
+       </button>
+       <button class="lb-sec__btn" data-lb-action="edit-section" data-lb-section="${meta.id}" title="Set manually">
+         <i class="fas fa-edit"></i>
        </button>`;
 
   let contentHtml: string;
   if (!hasData) {
-    contentHtml = `<p class="lb-sec__empty">Not yet generated. Click Generate to create this section.</p>`;
+    contentHtml = `<p class="lb-sec__empty">Not yet generated. Click Generate or the edit icon to set manually.</p>`;
   } else {
     const fieldRows = meta.fields
       .filter(f => (data?.[f.key] ?? "").trim())
@@ -882,6 +885,9 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
             <p class="lb-ws-empty__msg">No content yet for <strong>${meta.label}</strong>.</p>
             <button type="button" class="lb-ws-btn lb-ws-btn--primary" data-action="generateSection" data-section="${section}">
               <i class="fas fa-magic"></i> Generate ${meta.label}
+            </button>
+            <button type="button" class="lb-ws-btn" data-action="editSection">
+              <i class="fas fa-edit"></i> Set Manually
             </button>
           </div>`;
       } else {

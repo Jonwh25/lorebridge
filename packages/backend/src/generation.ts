@@ -414,6 +414,16 @@ export async function generateNpcProfileSection(
 
   const fieldList = info.fields.map(f => `  "${f}": "<value or empty string>"`).join(",\n");
 
+  // Derive explicit pronoun rule from the gender section so the AI never defaults to "they".
+  const genderData = (input.existingProfile?.gender ?? {}) as Record<string, string>;
+  const genderVal = (genderData["gender"] ?? "").toLowerCase().trim();
+  let pronounRule: string;
+  if (genderVal === "male") pronounRule = "- This NPC uses he/him pronouns.";
+  else if (genderVal === "female") pronounRule = "- This NPC uses she/her pronouns.";
+  else if (["nonbinary", "non-binary", "genderfluid", "agender"].includes(genderVal)) pronounRule = "- This NPC uses they/them pronouns.";
+  else if (genderVal && genderVal !== "unspecified / random") pronounRule = `- Use pronouns appropriate for a ${genderVal} NPC.`;
+  else pronounRule = "- Choose pronouns that fit the character concept.";
+
   const prompt = [
     "You are a creative game master assistant creating an NPC profile section for a tabletop RPG.",
     `Tone: ${toneNote}`,
@@ -431,6 +441,7 @@ export async function generateNpcProfileSection(
     "- Be specific and flavor-rich.",
     "- Never contradict the existing NPC information above.",
     "- Keep each field to 1–3 sentences at most.",
+    pronounRule,
     "- Return only the JSON object, nothing else.",
   ].join("\n");
 
