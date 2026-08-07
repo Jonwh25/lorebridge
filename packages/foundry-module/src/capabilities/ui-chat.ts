@@ -12,6 +12,7 @@ import { auditCampaignConsistency } from "./consistency-audit.js";
 import { getContextProfiles, getActiveProfile, setActiveProfileId } from "./context-profile.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
+import { addHistoryEntry } from "../generation-history.js";
 
 const MODULE_ID = "lorebridge";
 const COMMAND_EXACT = "/lb";
@@ -87,6 +88,13 @@ async function handleQuestion(question: string): Promise<void> {
     }
 
     const answer = await askBackend(question, context, worldName);
+
+    void addHistoryEntry({
+      type: "chat",
+      label: `Q&A — ${question.slice(0, 60)}`,
+      prompt: question,
+      content: answer,
+    });
 
     const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
       .filter((u) => u.isGM)
@@ -406,6 +414,14 @@ async function handleCityGeneration(description: string): Promise<void> {
     const content = typeof result["content"] === "string" ? result["content"] : "";
     const html = markdownToHtml(content);
     const pageName = description.slice(0, 60).trim();
+
+    void addHistoryEntry({
+      type: "city-description",
+      label: `City — ${pageName}`,
+      prompt: description,
+      content,
+    });
+
     showGeneratorDialog(`City — ${pageName}`, html, "Generated Locations", pageName);
   } catch (error) {
     ui.notifications.error(`LoreBridge: ${error instanceof Error ? error.message : String(error)}`);
@@ -448,6 +464,14 @@ async function handleNpcGeneration(args: string): Promise<void> {
     const content = typeof result["content"] === "string" ? result["content"] : "";
     const html = markdownToHtml(content);
     const pageName = locationDescription.slice(0, 60).trim();
+
+    void addHistoryEntry({
+      type: "npc-location",
+      label: `Location NPCs — ${pageName}`,
+      prompt: `${count} NPCs for: ${locationDescription}`,
+      content,
+    });
+
     showGeneratorDialog(`NPCs — ${pageName}`, html, "Generated NPCs", pageName);
   } catch (error) {
     ui.notifications.error(`LoreBridge: ${error instanceof Error ? error.message : String(error)}`);
