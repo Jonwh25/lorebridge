@@ -136,7 +136,7 @@ function crToString(cr: number): string {
   return String(cr);
 }
 
-function buildDnd5eActorData(stat: NpcStatBlockResult): Record<string, unknown> {
+function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): Record<string, unknown> {
   // Build saving throw overrides
   const saves: Record<string, { proficient: number }> = {};
   for (const abbr of stat.savingThrows) {
@@ -155,6 +155,7 @@ function buildDnd5eActorData(stat: NpcStatBlockResult): Record<string, unknown> 
     name: stat.name,
     type: "npc",
     system: {
+      source: makeSource(edition, stat.name.toLowerCase().replace(/\s+/g, "-")),
       abilities: {
         str: { value: stat.str },
         dex: { value: stat.dex },
@@ -214,33 +215,52 @@ function buildDnd5eActorData(stat: NpcStatBlockResult): Record<string, unknown> 
 // Compendium item lookup
 // ---------------------------------------------------------------------------
 
-// Search order for actions: natural attacks (Bite, Claws) are in monsterfeatures,
-// standard weapons (Mace, Longsword) are in equipment — check both.
-const ACTION_PACKS = [
-  "dnd5e.monsterfeatures",
-  "dnd5e.equipment",
-  "dnd5e.weapons",
-  "dnd5e.items",
-];
-// Search order for traits/passive features
-const FEATURE_PACKS = [
-  "dnd5e.monsterfeatures",
-  "dnd5e.features",
-  "dnd5e.classfeatures",
-];
+type RulesEdition = "modern" | "legacy";
 
-async function findCompendiumItemData(name: string, packIds: string[]): Promise<Record<string, unknown> | null> {
+/** Return all Item-type packs from the dnd5e system, monster packs first. */
+async function getDnd5eItemPacks(edition: RulesEdition): Promise<FoundryCompendiumPack[]> {
+  const packs: FoundryCompendiumPack[] = [];
+  for (const pack of game.packs) {
+    if (pack.metadata.type !== "Item") continue;
+    // Only dnd5e system packs
+    if (pack.metadata.packageName !== "dnd5e" && pack.metadata.packageType !== "system") continue;
+    const id = pack.metadata.id.toLowerCase();
+    const is2024 = id.includes("2024") || id.includes("modern");
+    if (edition === "modern" && !is2024) continue;
+    if (edition === "legacy" && is2024) continue;
+    // Ensure the pack index is populated before we try to search it
+    if (pack.index.size === 0) {
+      try { await pack.getIndex(); } catch { continue; }
+    }
+    packs.push(pack);
+  }
+  // Prioritise monster-feature packs, then equipment, then everything else
+  packs.sort((a, b) => {
+    const score = (p: FoundryCompendiumPack): number => {
+      const id = p.metadata.id.toLowerCase();
+      if (id.includes("monster")) return 0;
+      if (id.includes("equipment") || id.includes("weapon")) return 1;
+      return 2;
+    };
+    return score(a) - score(b);
+  });
+  return packs;
+}
+
+async function findCompendiumItemData(
+  name: string,
+  edition: RulesEdition,
+): Promise<Record<string, unknown> | null> {
   const nameLower = name.toLowerCase().trim();
-  for (const packId of packIds) {
-    const pack = game.packs.get(packId);
-    if (!pack) continue;
+  const packs = await getDnd5eItemPacks(edition);
+  for (const pack of packs) {
     for (const entry of pack.index) {
       if (entry.name.toLowerCase().trim() === nameLower) {
         try {
           const doc = await pack.getDocument(entry._id);
           if (doc) return doc.toObject();
         } catch {
-          // skip failed compendium loads
+          // skip failed loads
         }
       }
     }
@@ -248,83 +268,142 @@ async function findCompendiumItemData(name: string, packIds: string[]): Promise<
   return null;
 }
 
-// Build embedded item data, pulling from dnd5e compendiums where possible
-async function buildEmbeddedItems(stat: NpcStatBlockResult): Promise<Record<string, unknown>[]> {
+// ---------------------------------------------------------------------------
+// Synthetic item builders (used when compendium lookup misses)
+// ---------------------------------------------------------------------------
+
+function parseDiceFormula(formula: string | undefined): { number: number; denomination: number; bonus: string } {
+  if (!formula) return { number: 1, denomination: 6, bonus: "" };
+  const m = /^(\d+)d(\d+)([+-]\d+)?/.exec(formula.trim());
+  return m
+    ? { number: parseInt(m[1] ?? "1"), denomination: parseInt(m[2] ?? "6"), bonus: m[3] ?? "" }
+    : { number: 1, denomination: 6, bonus: "" };
+}
+
+function makeSource(edition: RulesEdition, identifier?: string): Record<string, unknown> {
+  return {
+    book: "",
+    page: "",
+    custom: "LoreBridge AI",
+    license: "",
+    rules: edition === "modern" ? "2024" : "2014",
+    identifier: identifier ?? "",
+    revision: 1,
+  };
+}
+
+function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition): Record<string, unknown> {
+  const damageType = action.damageType ?? "slashing";
+  const source = makeSource(edition, action.name.toLowerCase().replace(/\s+/g, "-"));
+
+  if (edition === "modern") {
+    const dice = parseDiceFormula(action.damage ?? undefined);
+    return {
+      name: action.name,
+      type: "weapon",
+      system: {
+        source,
+        description: { value: `<p>${action.description}</p>` },
+        quantity: 1,
+        equipped: 1,
+        activities: {
+          "lbact0000001": {
+            _id: "lbact0000001",
+            type: "attack",
+            activation: { type: "action", value: 1, condition: "" },
+            attack: {
+              ability: "str",
+              type: { value: "mwak", classification: "weapon" },
+              bonus: action.attackBonus != null ? String(action.attackBonus) : "",
+              critical: { threshold: null },
+            },
+            damage: {
+              critical: { allow: true, bonus: "" },
+              includeBase: true,
+              parts: [{
+                custom: { enabled: false },
+                denomination: dice.denomination,
+                number: dice.number,
+                types: [damageType],
+                bonus: dice.bonus,
+                scaling: { mode: "whole", number: null },
+              }],
+            },
+            sort: 100000,
+          },
+        },
+      },
+    };
+  }
+
+  // Legacy (2014) format
+  return {
+    name: action.name,
+    type: "weapon",
+    system: {
+      source,
+      description: { value: `<p>${action.description}</p>` },
+      equipped: true,
+      proficient: true,
+      attackBonus: action.attackBonus != null ? String(action.attackBonus) : "",
+      damage: { parts: action.damage ? [[action.damage, damageType]] : [] },
+      range: { value: action.range?.replace(/\s?ft\.?$/i, "") ?? null, units: "ft" },
+      activation: { type: "action", cost: 1 },
+    },
+  };
+}
+
+function makeSyntheticFeat(
+  name: string,
+  description: string,
+  activationType: string,
+  edition: RulesEdition,
+): Record<string, unknown> {
+  return {
+    name,
+    type: "feat",
+    system: {
+      source: makeSource(edition, name.toLowerCase().replace(/\s+/g, "-")),
+      description: { value: `<p>${description}</p>` },
+      activation: { type: activationType, cost: activationType === "passive" ? null : 1 },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Build embedded item list — compendium-first, synthetic fallback
+// ---------------------------------------------------------------------------
+
+async function buildEmbeddedItems(stat: NpcStatBlockResult, edition: RulesEdition): Promise<Record<string, unknown>[]> {
   const items: Record<string, unknown>[] = [];
 
   for (const trait of stat.traits) {
-    const compendium = await findCompendiumItemData(trait.name, FEATURE_PACKS);
-    if (compendium) {
-      items.push(compendium);
-    } else {
-      items.push({
-        name: trait.name,
-        type: "feat",
-        system: {
-          description: { value: `<p>${trait.description}</p>` },
-          activation: { type: "passive" },
-        },
-      });
-    }
+    const comp = await findCompendiumItemData(trait.name, edition);
+    items.push(comp ?? makeSyntheticFeat(trait.name, trait.description, "passive", edition));
   }
 
   for (const action of stat.actions) {
+    const comp = await findCompendiumItemData(action.name, edition);
+    if (comp) { items.push(comp); continue; }
     const isAttack = action.attackBonus !== undefined;
-    // Always try compendium first (covers natural attacks in monsterfeatures
-    // and standard weapons in equipment)
-    const compendiumAction = await findCompendiumItemData(action.name, ACTION_PACKS);
-    if (compendiumAction) {
-      items.push(compendiumAction);
-      continue;
-    }
-    items.push({
-      name: action.name,
-      type: isAttack ? "weapon" : "feat",
-      system: {
-        description: { value: `<p>${action.description}</p>` },
-        activation: { type: "action", cost: 1 },
-        ...(isAttack ? {
-          equipped: true,
-          proficient: true,
-          damage: {
-            parts: action.damage
-              ? [[action.damage, action.damageType ?? "slashing"]]
-              : [],
-          },
-          range: {
-            value: action.range?.replace(/\s?ft\.?$/i, "") ?? null,
-            units: "ft",
-          },
-        } : {}),
-      },
-    });
+    items.push(isAttack
+      ? makeSyntheticWeapon(action, edition)
+      : makeSyntheticFeat(action.name, action.description, "action", edition));
   }
 
   for (const ba of stat.bonusActions) {
-    const compendium = await findCompendiumItemData(ba.name, ACTION_PACKS);
-    items.push(compendium ?? {
-      name: ba.name,
-      type: "feat",
-      system: { description: { value: `<p>${ba.description}</p>` }, activation: { type: "bonus", cost: 1 } },
-    });
+    const comp = await findCompendiumItemData(ba.name, edition);
+    items.push(comp ?? makeSyntheticFeat(ba.name, ba.description, "bonus", edition));
   }
 
   for (const rx of stat.reactions) {
-    const compendium = await findCompendiumItemData(rx.name, ACTION_PACKS);
-    items.push(compendium ?? {
-      name: rx.name,
-      type: "feat",
-      system: { description: { value: `<p>${rx.description}</p>` }, activation: { type: "reaction", cost: 1 } },
-    });
+    const comp = await findCompendiumItemData(rx.name, edition);
+    items.push(comp ?? makeSyntheticFeat(rx.name, rx.description, "reaction", edition));
   }
 
   for (const la of stat.legendaryActions) {
-    const compendium = await findCompendiumItemData(la.name, ACTION_PACKS);
-    items.push(compendium ?? {
-      name: la.name,
-      type: "feat",
-      system: { description: { value: `<p>${la.description}</p>` }, activation: { type: "legendary", cost: 1 } },
-    });
+    const comp = await findCompendiumItemData(la.name, edition);
+    items.push(comp ?? makeSyntheticFeat(la.name, la.description, "legendary", edition));
   }
 
   return items;
@@ -445,6 +524,13 @@ async function showNpcStatBlockDialog(): Promise<void> {
           <option value="gritty">Gritty</option>
         </select>
       </div>
+      <div class="form-group" style="margin-top:0.5rem">
+        <label>Rules Edition</label>
+        <select name="edition">
+          <option value="modern">Modern Rules (2024)</option>
+          <option value="legacy">Legacy Rules (2014)</option>
+        </select>
+      </div>
     </form>
   `;
 
@@ -465,13 +551,14 @@ async function showNpcStatBlockDialog(): Promise<void> {
           const crRaw = data.get("cr") as string;
           const cr = crRaw ? parseFloat(crRaw) : undefined;
           const tone = data.get("tone") as string;
+          const edition = (data.get("edition") as string) === "legacy" ? "legacy" : "modern";
 
           if (!description) {
             ui.notifications.warn("LoreBridge: Please enter an NPC description.");
             return;
           }
 
-          void runNpcStatBlock({ description, cr, tone, worldName });
+          void runNpcStatBlock({ description, cr, tone, worldName, edition });
         },
       },
       {
@@ -484,7 +571,7 @@ async function showNpcStatBlockDialog(): Promise<void> {
   }).render({ force: true });
 }
 
-type StatBlockInput = { description: string; cr: number | undefined; tone: string; worldName: string };
+type StatBlockInput = { description: string; cr: number | undefined; tone: string; worldName: string; edition: RulesEdition };
 
 async function runNpcStatBlock(input: StatBlockInput): Promise<void> {
   ui.notifications.info("LoreBridge: Generating NPC stat block…");
@@ -505,14 +592,14 @@ async function runNpcStatBlock(input: StatBlockInput): Promise<void> {
   void addHistoryEntry({
     type: "npc-statblock",
     label: `NPC Stat Block — ${stat.name}`,
-    prompt: `${input.description}${input.cr != null ? ` | CR ${crToString(input.cr)}` : ""} | ${input.tone}`,
+    prompt: `${input.description}${input.cr != null ? ` | CR ${crToString(input.cr)}` : ""} | ${input.tone} | ${input.edition}`,
     content: JSON.stringify(stat, null, 2),
   });
 
-  showStatBlockPreview(stat);
+  showStatBlockPreview(stat, input.edition);
 }
 
-function showStatBlockPreview(stat: NpcStatBlockResult): void {
+function showStatBlockPreview(stat: NpcStatBlockResult, edition: RulesEdition): void {
   new foundry.applications.api.DialogV2({
     window: { title: `${stat.name} — Stat Block Preview`, resizable: true },
     position: { width: 560, height: "auto" },
@@ -522,7 +609,7 @@ function showStatBlockPreview(stat: NpcStatBlockResult): void {
         action: "create",
         label: "Create Actor",
         icon: "fas fa-user-plus",
-        callback: () => { void createNpcActor(stat); },
+        callback: () => { void createNpcActor(stat, edition); },
       },
       {
         action: "close",
@@ -534,7 +621,7 @@ function showStatBlockPreview(stat: NpcStatBlockResult): void {
   }).render({ force: true });
 }
 
-async function createNpcActor(stat: NpcStatBlockResult): Promise<void> {
+async function createNpcActor(stat: NpcStatBlockResult, edition: RulesEdition): Promise<void> {
   ui.notifications.info(`LoreBridge: Creating actor "${stat.name}"…`);
 
   try {
@@ -551,9 +638,9 @@ async function createNpcActor(stat: NpcStatBlockResult): Promise<void> {
     }
 
     const actorData: Record<string, unknown> = {
-      ...buildDnd5eActorData(stat),
+      ...buildDnd5eActorData(stat, edition),
       folder: folder?.id ?? null,
-      items: await buildEmbeddedItems(stat),
+      items: await buildEmbeddedItems(stat, edition),
     };
 
     const actor = await Actor.create(actorData);
