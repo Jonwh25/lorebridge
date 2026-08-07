@@ -89,3 +89,34 @@ Select additional commands according to the files changed:
   `pm2 logs lorebridge-backend --lines 20 --nostream`.
 - After the command block, state the shortest relevant manual acceptance test in
   Foundry. Do not repeat setup steps unrelated to the completed change.
+## Foundry ApplicationV2 UI standard
+
+For new or substantially rewritten Foundry interfaces, use the documented
+Foundry VTT v14 `ApplicationV2` APIs. Do not introduce a legacy `Application`
+implementation unless the selected issue explicitly requires legacy compatibility
+and explains why. Follow the public v14 API documentation rather than copying an
+older application pattern from the repository.
+
+Every new window, dialog, sheet, or workspace must remain usable when resized:
+
+- Make the application window resizable unless a fixed size is essential to the
+  interaction.
+- Treat configured width and height as initial dimensions, not hard layout limits.
+- Use flexible grid or flex layouts. Avoid fixed child widths and heights that can
+  overflow the application viewport.
+- Ensure controls and content can shrink correctly, including appropriate
+  `min-width: 0` and `min-height: 0` behavior for nested flex/grid children.
+- Keep inputs, selects, buttons, editors, and text areas within the visible window
+  at supported sizes.
+- Make multiline text areas user-resizable, normally with vertical resizing, and
+  give them a useful minimum height.
+- Give long content regions explicit, usable overflow scrolling. A nested region
+  that can exceed the available height must be able to scroll or be resized; its
+  content must not become clipped or unreachable.
+- Keep primary actions reachable without relying on content overflowing outside
+  the window.
+- Test the interface at its initial size, at a smaller practical size, and after
+  enlarging it. Verify text-area resizing, nested scrolling, and action visibility.
+
+When handing off a UI change for live testing, include these resize and overflow
+checks in the manual Foundry acceptance test.
