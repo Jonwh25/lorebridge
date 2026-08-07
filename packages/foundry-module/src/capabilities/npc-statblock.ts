@@ -299,37 +299,116 @@ function makeSource(edition: RulesEdition, identifier?: string): Record<string, 
   };
 }
 
-type AttackKind = { value: "mwak" | "rwak" | "msak" | "rsak"; classification: "weapon" | "spell" };
+type AttackKind = { value: "melee" | "ranged"; classification: "weapon" | "spell" };
 
 function inferAttackKind(name: string, description: string, range: string | undefined): AttackKind {
   const n = name.toLowerCase();
   const d = description.toLowerCase();
   if (/ranged spell attack/i.test(d) || /ray|bolt|blast|beam|arcane missile/i.test(n)) {
-    return { value: "rsak", classification: "spell" };
+    return { value: "ranged", classification: "spell" };
   }
   if (/melee spell attack/i.test(d)) {
-    return { value: "msak", classification: "spell" };
+    return { value: "melee", classification: "spell" };
   }
   if (/ranged weapon attack/i.test(d)) {
-    return { value: "rwak", classification: "weapon" };
+    return { value: "ranged", classification: "weapon" };
   }
-  // If range is listed and > 5 ft, assume ranged weapon
   const rangeNum = parseInt(range ?? "5");
   if (!isNaN(rangeNum) && rangeNum > 5) {
-    return { value: "rwak", classification: "weapon" };
+    return { value: "ranged", classification: "weapon" };
   }
-  return { value: "mwak", classification: "weapon" };
+  return { value: "melee", classification: "weapon" };
 }
 
-function makeModernActivity(
-  type: string,
+/** Base fields shared by all dnd5e 4.x activity types (confirmed from lich pack data). */
+function baseActivity(id: string, type: string, activationType: string): Record<string, unknown> {
+  return {
+    _id: id,
+    type,
+    name: "",
+    img: "",
+    sort: 100000,
+    activation: { type: activationType, value: 1, condition: "", override: false },
+    consumption: { targets: [], scaling: { allowed: false, max: "" }, spellSlot: true },
+    description: { chatFlavor: "", value: "" },
+    duration: { concentration: false, value: "", units: "inst", special: "", override: false },
+    effects: [],
+    range: { value: "5", units: "ft", special: "", override: false },
+    target: {
+      template: { count: "", contiguous: false, type: "", size: "", width: "", height: "", units: "ft", stationary: false },
+      affects: { count: "", type: "", choice: false, special: "" },
+      prompt: true,
+      override: false,
+    },
+    uses: { spent: 0, max: "", recovery: [] },
+    flags: {},
+    visibility: {
+      identifier: "",
+      level: { min: null, max: null },
+      requireAttunement: false,
+      requireIdentification: false,
+      requireMagic: false,
+    },
+  };
+}
+
+function makeAttackActivity(
   activationType: string,
-  extra: Record<string, unknown> = {},
+  kind: AttackKind,
+  attackBonus: number | undefined,
+  dice: { number: number; denomination: number; bonus: string },
+  damageType: string,
 ): Record<string, unknown> {
   const id = foundry.utils.randomID(16);
-  return {
-    [id]: { _id: id, type, activation: { type: activationType, value: 1, condition: "" }, sort: 100000, ...extra },
+  const base = baseActivity(id, "attack", activationType);
+  base["attack"] = {
+    ability: kind.classification === "spell" ? "spellcasting" : "str",
+    bonus: attackBonus != null ? String(attackBonus) : "",
+    critical: { threshold: null },
+    flat: false,
+    type: { value: kind.value, classification: kind.classification },
   };
+  base["damage"] = {
+    critical: { bonus: "" },
+    includeBase: true,
+    parts: [{
+      number: dice.number,
+      denomination: dice.denomination,
+      bonus: dice.bonus,
+      types: [damageType],
+      custom: { enabled: false, formula: "" },
+      scaling: { number: 1 },
+    }],
+  };
+  if (kind.value === "ranged") {
+    base["range"] = { value: "60", units: "ft", special: "", override: false };
+  }
+  return { [id]: base };
+}
+
+function makeUtilityActivity(activationType: string): Record<string, unknown> {
+  const id = foundry.utils.randomID(16);
+  // "Use" in the UI = type "utility" internally (confirmed from dnd5e source)
+  return { [id]: baseActivity(id, "utility", activationType) };
+}
+
+function makeSaveActivity(activationType: string): Record<string, unknown> {
+  const id = foundry.utils.randomID(16);
+  const base = baseActivity(id, "save", activationType);
+  base["save"] = { ability: ["wis"], dc: { calculation: "", formula: "14" }, visible: true, bonus: "" };
+  base["damage"] = { onSave: "half", parts: [] };
+  return { [id]: base };
+}
+
+function makeHealActivity(activationType: string): Record<string, unknown> {
+  const id = foundry.utils.randomID(16);
+  const base = baseActivity(id, "heal", activationType);
+  base["healing"] = {
+    number: 2, denomination: 8, bonus: "", types: [],
+    custom: { enabled: false, formula: "" },
+    scaling: { mode: "whole", number: null, formula: "" },
+  };
+  return { [id]: base };
 }
 
 function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition, activationType = "action"): Record<string, unknown> {
@@ -341,43 +420,22 @@ function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition, 
 
   if (edition === "modern") {
     const dice = parseDiceFormula(action.damage ?? undefined);
-    const activities = makeModernActivity("attack", activationType, {
-      attack: {
-        ability: isSpell ? "spellcasting" : "str",
-        type: { value: kind.value, classification: kind.classification },
-        bonus: action.attackBonus != null ? String(action.attackBonus) : "",
-        critical: { threshold: null },
-      },
-      damage: {
-        critical: { allow: true, bonus: "" },
-        includeBase: true,
-        parts: [{
-          custom: { enabled: false },
-          denomination: dice.denomination,
-          number: dice.number,
-          types: [damageType],
-          bonus: dice.bonus,
-          scaling: { mode: "whole", number: null },
-        }],
-      },
-    });
     return {
       name: action.name,
-      type: isSpell ? "feat" : "weapon",
+      type: "feat",
       system: {
         source,
+        type: { value: "monster", subtype: "" },
         description: { value: `<p>${action.description}</p>` },
-        quantity: 1,
-        equipped: true,
-        activities,
+        activities: makeAttackActivity(activationType, kind, action.attackBonus, dice, damageType),
       },
     };
   }
 
-  // Legacy (2014) format
+  // Legacy (2014) format — no activities system
   return {
     name: action.name,
-    type: "weapon",
+    type: isSpell ? "feat" : "weapon",
     system: {
       source,
       description: { value: `<p>${action.description}</p>` },
@@ -421,11 +479,12 @@ function makeSyntheticFeat(
   const source = makeSource(edition, name.toLowerCase().replace(/\s+/g, "-"));
   const activationType = inferFeatActivationType(description, activationHint);
 
-  // Add an activity for any non-passive ability in modern edition
-  // Also promote items where description signals active use even if hint was "passive"
   let activities: Record<string, unknown> | undefined;
   if (edition === "modern" && activationType !== "passive") {
-    activities = makeModernActivity(inferFeatActivityType(description), activationType);
+    const activityType = inferFeatActivityType(description);
+    if (activityType === "save") activities = makeSaveActivity(activationType);
+    else if (activityType === "heal") activities = makeHealActivity(activationType);
+    else activities = makeUtilityActivity(activationType);
   }
 
   return {
@@ -433,6 +492,7 @@ function makeSyntheticFeat(
     type: "feat",
     system: {
       source,
+      type: { value: "monster", subtype: "" },
       description: { value: `<p>${description}</p>` },
       activation: { type: activationType, cost: activationType === "passive" ? null : 1 },
       ...(activities ? { activities } : {}),
