@@ -261,7 +261,7 @@ export type NpcSection =
 
 export type NpcOverview = {
   race: string; occupation: string; alignment: string; age: string;
-  gender: string; faith: string; socialClass: string; reputation: string;
+  gender: string; genderPresentation: string; faith: string; socialClass: string; reputation: string;
   residence: string; languages: string;
 };
 
@@ -322,8 +322,8 @@ export type NpcSectionGenerateOutput = {
 const NPC_SECTION_FIELDS: Record<NpcSection, { label: string; fields: string[]; description: string }> = {
   overview: {
     label: "Overview",
-    description: "basic identity facts",
-    fields: ["race", "occupation", "alignment", "age", "gender", "faith", "socialClass", "reputation", "residence", "languages"],
+    description: "basic identity facts. 'gender' is gender identity (e.g. Male, Female, Nonbinary, or a descriptive phrase). 'genderPresentation' is how the character presents themselves physically/socially (e.g. Masculine, Feminine, Androgynous, Neutral). If either field is empty or 'Unspecified / Random', choose what best fits the character concept.",
+    fields: ["race", "occupation", "alignment", "age", "gender", "genderPresentation", "faith", "socialClass", "reputation", "residence", "languages"],
   },
   appearance: {
     label: "Appearance",

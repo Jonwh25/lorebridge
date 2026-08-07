@@ -24,7 +24,7 @@ type NpcProfileSections = {
   gameplay?: Record<string, string>;
 };
 
-type FieldMeta = { key: string; label: string };
+type FieldMeta = { key: string; label: string; editType?: "gender" | "presentation" };
 
 type SectionMeta = {
   id: NpcSection;
@@ -45,7 +45,8 @@ const SECTION_META: SectionMeta[] = [
       { key: "occupation", label: "Occupation" },
       { key: "alignment", label: "Alignment" },
       { key: "age", label: "Age" },
-      { key: "gender", label: "Gender" },
+      { key: "gender", label: "Gender", editType: "gender" },
+      { key: "genderPresentation", label: "Presentation", editType: "presentation" },
       { key: "faith", label: "Faith" },
       { key: "socialClass", label: "Social Class" },
       { key: "reputation", label: "Reputation" },
@@ -217,6 +218,48 @@ function escHtml(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Gender / Presentation select helpers
+// ---------------------------------------------------------------------------
+
+const GENDER_IDENTITY_OPTIONS = ["Male", "Female", "Nonbinary", "Genderfluid", "Agender"];
+const GENDER_PRESENTATION_OPTIONS = ["Masculine", "Feminine", "Androgynous", "Neutral"];
+
+function buildGenderSelectHtml(f: FieldMeta, value: string): string {
+  const opts = f.editType === "gender" ? GENDER_IDENTITY_OPTIONS : GENDER_PRESENTATION_OPTIONS;
+  const isPreset = opts.includes(value);
+  const isCustom = value !== "" && !isPreset;
+  const selectVal = isPreset ? value : (isCustom ? "__custom__" : "");
+  const placeholder = f.editType === "gender" ? "Type gender identity…" : "Type presentation style…";
+  return `<select class="lb-gender-select" data-lb-field="${f.key}">
+    <option value=""${selectVal === "" ? " selected" : ""}>Unspecified / Random</option>
+    ${opts.map(o => `<option value="${o}"${selectVal === o ? " selected" : ""}>${o}</option>`).join("")}
+    <option value="__custom__"${isCustom ? " selected" : ""}>Other / Custom…</option>
+  </select><input type="text" class="lb-gender-custom" name="${f.key}" data-lb-field="${f.key}" placeholder="${placeholder}" value="${escHtml(isCustom ? value : "")}" style="${isCustom ? "" : "display:none;"}">`;
+}
+
+function readGenderFieldValue(container: Element, fieldKey: string): string {
+  const select = container.querySelector<HTMLSelectElement>(`select[data-lb-field="${fieldKey}"]`);
+  if (!select) return "";
+  if (select.value === "__custom__") {
+    return container.querySelector<HTMLInputElement>(`input[data-lb-field="${fieldKey}"]`)?.value.trim() ?? "";
+  }
+  return select.value;
+}
+
+function setupGenderSelectListeners(root: Element): void {
+  root.querySelectorAll<HTMLSelectElement>(".lb-gender-select").forEach(select => {
+    select.addEventListener("change", () => {
+      const fieldKey = select.dataset["lbField"] ?? "";
+      const customInput = root.querySelector<HTMLInputElement>(`input[data-lb-field="${fieldKey}"]`);
+      if (!customInput) return;
+      const isCustom = select.value === "__custom__";
+      customInput.style.display = isCustom ? "" : "none";
+      if (!isCustom) customInput.value = "";
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Shared profile I/O via actor flags
 // ---------------------------------------------------------------------------
 
@@ -230,7 +273,8 @@ async function persistSection(actor: FoundryActor, section: NpcSection, data: Re
   await actor.setFlag("lorebridge", "npcProfile", profile);
   if (section === "appearance") {
     const overview = (profile.overview ?? {}) as Record<string, string>;
-    const parts = [overview["race"], data["height"], data["build"], data["hair"], data["eyes"], data["clothing"]]
+    const pres = overview["genderPresentation"] ? `${overview["genderPresentation"]} presentation` : "";
+    const parts = [overview["race"], pres, data["height"], data["build"], data["hair"], data["eyes"], data["clothing"]]
       .filter(Boolean).join(", ");
     if (parts) await actor.setFlag("lorebridge", "portraitDescription", parts);
   }
@@ -399,6 +443,8 @@ const PANEL_STYLES = `
   .lb-sec__edit-actions { display: flex; gap: 4px; margin-top: 4px; }
   .lb-sec__spinner { display: inline-block; animation: lb-spin 1s linear infinite; }
   @keyframes lb-spin { to { transform: rotate(360deg); } }
+  .lb-gender-select { width: 100%; font-size: 0.85em; margin-bottom: 2px; }
+  .lb-gender-custom { width: 100%; box-sizing: border-box; font-size: 0.85em; margin-top: 2px; }
 
   /* === DARK theme — !important beats dnd5e parchment overrides === */
   #lb-npc-profile-panel[data-lb-theme="dark"] {
@@ -686,11 +732,13 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
       const sectionData = (profile[section] ?? {}) as Record<string, string>;
 
       content.classList.add("open");
-      const fieldRows = meta.fields.map(f => `
-        <div class="lb-sec__field-row">
-          <label class="lb-sec__field-label">${f.label}</label>
-          <textarea class="lb-sec__textarea" name="${f.key}" rows="2">${escHtml(sectionData[f.key] ?? "")}</textarea>
-        </div>`).join("");
+      const fieldRows = meta.fields.map(f => {
+        const val = sectionData[f.key] ?? "";
+        const input = (f.editType === "gender" || f.editType === "presentation")
+          ? buildGenderSelectHtml(f, val)
+          : `<textarea class="lb-sec__textarea" name="${f.key}" rows="2">${escHtml(val)}</textarea>`;
+        return `<div class="lb-sec__field-row"><label class="lb-sec__field-label">${f.label}</label>${input}</div>`;
+      }).join("");
 
       content.innerHTML = `
         <form class="lb-sec__edit-form">
@@ -704,6 +752,7 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
             </button>
           </div>
         </form>`;
+      setupGenderSelectListeners(content);
       return;
     }
 
@@ -714,8 +763,12 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
       const meta = SECTION_META.find(s => s.id === section) ?? SECTION_META[0]!;
       const data: Record<string, string> = {};
       for (const f of meta.fields) {
-        const ta = content.querySelector<HTMLTextAreaElement>(`textarea[name="${f.key}"]`);
-        data[f.key] = ta?.value.trim() ?? "";
+        if (f.editType === "gender" || f.editType === "presentation") {
+          data[f.key] = readGenderFieldValue(content, f.key);
+        } else {
+          const ta = content.querySelector<HTMLTextAreaElement>(`textarea[name="${f.key}"]`);
+          data[f.key] = ta?.value.trim() ?? "";
+        }
       }
       void persistSection(actor, section, data).then(() => {
         refreshPanel(frame, actor);
@@ -799,11 +852,10 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       } else if (this._editMode) {
         const fieldRows = meta.fields.map(f => {
           const val = (sectionData as Record<string, string>)[f.key] ?? "";
-          return `
-            <div class="lb-ws-field--edit">
-              <label class="lb-ws-field__label">${f.label}</label>
-              <textarea class="lb-ws-field__textarea" name="${f.key}" rows="2">${escHtml(val)}</textarea>
-            </div>`;
+          const input = (f.editType === "gender" || f.editType === "presentation")
+            ? buildGenderSelectHtml(f, val)
+            : `<textarea class="lb-ws-field__textarea" name="${f.key}" rows="2">${escHtml(val)}</textarea>`;
+          return `<div class="lb-ws-field--edit"><label class="lb-ws-field__label">${f.label}</label>${input}</div>`;
         }).join("");
         sectionContent = `
           <form class="lb-ws-edit-form">
@@ -923,6 +975,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
 
     override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
       content.replaceChildren(...Array.from(result.childNodes));
+      setupGenderSelectListeners(content);
     }
 
     override _onClickAction(event: PointerEvent, target: HTMLElement): void | Promise<void> {
@@ -988,8 +1041,12 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       const meta = SECTION_META.find(s => s.id === this._selectedSection) ?? SECTION_META[0]!;
       const data: Record<string, string> = {};
       for (const f of meta.fields) {
-        const ta = form.querySelector<HTMLTextAreaElement>(`textarea[name="${f.key}"]`);
-        data[f.key] = ta?.value.trim() ?? "";
+        if (f.editType === "gender" || f.editType === "presentation") {
+          data[f.key] = readGenderFieldValue(form, f.key);
+        } else {
+          const ta = form.querySelector<HTMLTextAreaElement>(`textarea[name="${f.key}"]`);
+          data[f.key] = ta?.value.trim() ?? "";
+        }
       }
       await persistSection(actor, this._selectedSection, data);
       this._editMode = false;
