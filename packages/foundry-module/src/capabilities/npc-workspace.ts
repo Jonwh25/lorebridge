@@ -275,34 +275,80 @@ async function generateSection(actor: FoundryActor, section: NpcSection): Promis
 
 const PANEL_ID = "lb-npc-profile-panel";
 
-// Detect Foundry's active color scheme independent of the sheet's CSS vars,
-// which the dnd5e system overrides with parchment values even in dark mode.
+// Detect Foundry's active color scheme.
+// Foundry v14 stores the UI color scheme in game.settings.get("core", "uiConfig")
+// as { colorScheme: { applications: "dark" | "light" | "" } }.
+// (Tip sourced from Tidy 5e Sheets — github.com/kgar/foundry-vtt-tidy-5e-sheets)
 function detectDarkMode(): boolean {
-  // 1. Check what Foundry has actually applied to the document root.
-  //    Foundry v14 sets data-color-scheme on <html> when the setting is active.
-  const htmlEl = document.documentElement;
-  const rootScheme = htmlEl.dataset["colorScheme"] ?? htmlEl.dataset["theme"];
-  if (rootScheme === "dark") return true;
-  if (rootScheme === "light") return false;
+  // 1. Foundry v14 uiConfig — the authoritative source.
+  try {
+    type UiConfig = { colorScheme?: { applications?: string } };
+    const uiConfig = (game.settings as unknown as { get(m: string, k: string): UiConfig })
+      .get("core", "uiConfig");
+    const scheme = uiConfig?.colorScheme?.applications ?? "";
+    if (scheme === "dark") return true;
+    if (scheme === "light") return false;
+    // "" means "browser default" — fall through
+  } catch { /* uiConfig not available (older Foundry or not yet initialised) */ }
 
-  // 2. Read the Foundry game setting directly.
+  // 2. Legacy Foundry setting key used in earlier v14 builds.
   try {
     const scheme = (game.settings as unknown as { get(m: string, k: string): string })
       .get("core", "colorScheme");
     if (scheme === "dark") return true;
     if (scheme === "light") return false;
-    // "browser" or empty — fall through
-  } catch { /* settings not ready */ }
+  } catch { /* key not registered */ }
 
-  // 3. Check computed color-scheme on :root (Foundry sets this in dark mode).
-  try {
-    const cs = getComputedStyle(htmlEl).colorScheme;
-    if (cs === "dark") return true;
-    if (cs === "light") return false;
-  } catch { /* not available */ }
-
-  // 4. System preference fallback.
+  // 3. System preference (used when "Browser Default" is selected).
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+// Apply theme colours as inline styles so they beat dnd5e's parchment CSS
+// unconditionally — inline styles win over every stylesheet rule.
+function applyPanelThemeStyles(panel: HTMLElement, dark: boolean): void {
+  const bg1     = dark ? "#2a2a2a" : "#e8e3d8";
+  const bg2     = dark ? "#252525" : "#f0ebe0";
+  const bg1h    = dark ? "#333333" : "#ddd8c8";
+  const bg2h    = dark ? "#303030" : "#e8e3d8";
+  const border  = dark ? "#555555" : "#aaaaaa";
+  const border2 = dark ? "#3a3a3a" : "#cccccc";
+  const text    = dark ? "#c9c7b8" : "#191813";
+  const muted   = dark ? "#999999" : "#555555";
+
+  panel.style.setProperty("color", text);
+
+  const hdr = panel.querySelector<HTMLElement>(".lb-panel__header");
+  if (hdr) {
+    hdr.style.setProperty("background", bg1);
+    hdr.style.setProperty("border-color", border);
+    hdr.onmouseenter = () => hdr.style.setProperty("background", bg1h);
+    hdr.onmouseleave = () => hdr.style.setProperty("background", bg1);
+  }
+
+  panel.querySelectorAll<HTMLElement>(".lb-sec").forEach(el =>
+    el.style.setProperty("border-bottom-color", border2));
+
+  panel.querySelectorAll<HTMLElement>(".lb-sec__header").forEach(el => {
+    el.style.setProperty("background", bg2);
+    el.onmouseenter = () => el.style.setProperty("background", bg2h);
+    el.onmouseleave = () => el.style.setProperty("background", bg2);
+  });
+
+  panel.querySelectorAll<HTMLElement>(".lb-sec__content").forEach(el =>
+    el.style.setProperty("background", "transparent"));
+
+  panel.querySelectorAll<HTMLElement>(".lb-sec__btn:not(.lb-sec__btn--primary)").forEach(el => {
+    el.style.setProperty("background", bg1);
+    el.style.setProperty("border-color", border);
+    el.style.setProperty("color", text);
+    el.onmouseenter = () => el.style.setProperty("background", bg1h);
+    el.onmouseleave = () => el.style.setProperty("background", bg1);
+  });
+
+  panel.querySelectorAll<HTMLElement>(".lb-sec__value").forEach(el =>
+    el.style.setProperty("color", text));
+  panel.querySelectorAll<HTMLElement>(".lb-sec__label, .lb-sec__empty, .lb-sec__field-label").forEach(el =>
+    el.style.setProperty("color", muted));
 }
 
 const PANEL_STYLES = `
@@ -491,6 +537,9 @@ function injectProfilePanel(frame: HTMLElement, actor: FoundryActor): void {
   // Append at end of the target section
   target.appendChild(wrapper);
 
+  const injected = frame.querySelector<HTMLElement>(`#${PANEL_ID}`);
+  if (injected) applyPanelThemeStyles(injected, detectDarkMode());
+
   attachPanelListeners(frame, actor);
 }
 
@@ -513,13 +562,14 @@ function refreshPanel(frame: HTMLElement, actor: FoundryActor): void {
 
   panel.replaceWith(...Array.from(wrapper.childNodes));
 
-  // Restore open sections
-  const newPanel = frame.querySelector(`#${PANEL_ID}`);
-  if (newPanel && openSections.size > 0) {
+  // Restore open sections and re-apply inline theme styles
+  const newPanel = frame.querySelector<HTMLElement>(`#${PANEL_ID}`);
+  if (newPanel) {
     openSections.forEach(section => {
       const contentEl = newPanel.querySelector<HTMLElement>(`[data-lb-content="${section}"]`);
       contentEl?.classList.add("open");
     });
+    applyPanelThemeStyles(newPanel, detectDarkMode());
   }
 
   attachPanelListeners(frame, actor);
