@@ -113,8 +113,7 @@ Hooks.once("init", () => {
     if (!game.user?.isGM) return;
     const frame = (app as { element?: HTMLElement }).element;
     if (!frame) return;
-    if (frame.id !== "actors" && frame.dataset["appid"] !== "actors") return;
-    injectActorsSidebarButton(frame);
+    injectActorsSidebarButton(frame, app);
   });
   registerNpcPreambleSheetHook();
 

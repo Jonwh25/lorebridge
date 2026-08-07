@@ -529,25 +529,34 @@ async function createNpcActor(stat: NpcStatBlockResult): Promise<void> {
 // Actors sidebar button
 // ---------------------------------------------------------------------------
 
-export function injectActorsSidebarButton(frame: HTMLElement): void {
+export function injectActorsSidebarButton(frame: HTMLElement, app?: unknown): void {
   if (frame.querySelector("[data-lb-btn='generate-npc']")) return;
 
-  const header = frame.querySelector<HTMLElement>(".window-header");
-  if (!header) return;
+  // Detect the Create Actor dialog by the presence of document-type radio options
+  // and a create/submit button. Foundry v14 renders this as an ApplicationV2 dialog.
+  const hasTypeList = Boolean(
+    frame.querySelector(".document-type-select, .type-picker, [data-type], input[name='type']")
+  );
+  const hasCreateButton = Boolean(
+    frame.querySelector("button[data-action='create'], button[data-action='submit'], .create-document")
+      ?? Array.from(frame.querySelectorAll("button")).find(b => /create/i.test(b.textContent ?? ""))
+  );
+  if (!hasTypeList || !hasCreateButton) return;
+
+  // Find the footer / button row to append our button beneath it
+  const footer = frame.querySelector<HTMLElement>(".form-footer, .dialog-buttons")
+    ?? frame.querySelector<HTMLElement>(".window-content");
+  if (!footer) return;
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset["lbBtn"] = "generate-npc";
-  btn.title = "Generate NPC Stat Block";
-  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;";
-  btn.innerHTML = '<i class="fas fa-dragon"></i>';
-  btn.addEventListener("click", () => { void showNpcStatBlockDialog(); });
+  btn.style.cssText = "margin-top:6px;width:100%;";
+  btn.innerHTML = '<i class="fas fa-dragon"></i> Generate Full Stat Block with AI';
+  btn.addEventListener("click", () => {
+    void (app as { close?: () => Promise<unknown> })?.close?.();
+    void showNpcStatBlockDialog();
+  });
 
-  // Insert before the first existing header control button
-  const firstControl = header.querySelector("button");
-  if (firstControl) {
-    header.insertBefore(btn, firstControl);
-  } else {
-    header.appendChild(btn);
-  }
+  footer.appendChild(btn);
 }
