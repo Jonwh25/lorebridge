@@ -57,9 +57,11 @@ function slugify(name: string): string {
 type StylePreset = { label: string; value: string };
 
 const STYLE_OPTIONS: StylePreset[] = [
-  // Default — classic D&D illustrated look
+  // Default — semi-realistic painterly look (closest to PHB/fantasy novel cover art)
+  { label: "Semi-Realistic Fantasy",
+    value: "Semi-realistic high fantasy character portrait. Premium fantasy RPG illustration. Painterly realism. Natural human anatomy and facial proportions. Realistic skin texture. Subtle facial detail. Cinematic soft lighting. Rich natural colors. Detailed hair and clothing. Subtle brushwork. High-end fantasy book cover artwork. Atmospheric background. Avoid cartoon style, anime, caricature, cel shading, oversized facial features, flat shading, heavy outlines, plastic skin." },
+  // Classic illustrated D&D styles
   { label: "D&D 5E",           value: "Official Dungeons and Dragons 5th Edition fantasy artwork. Painted digital illustration. Stylized fantasy concept art. Visible brushwork. Illustrated, not photographic." },
-  // Classic Fantasy — illustrated styles
   { label: "Heroic Fantasy",   value: "Heroic fantasy book illustration. Painted adventure art. Bold vibrant colors. Dynamic composition. Illustrated, not photographic." },
   { label: "Fantasy Portrait",  value: "Classic fantasy character portrait. Painted digital illustration. Warm dramatic lighting. Vibrant colors. Fantasy book art style." },
   { label: "Magic: The Gathering", value: "Magic the Gathering card art style. Fantasy painted illustration. Rich deep jewel-toned colors. Detailed fine brushwork. Painterly, not photorealistic." },
