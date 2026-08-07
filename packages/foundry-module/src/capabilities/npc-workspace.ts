@@ -7,6 +7,7 @@ import { addHistoryEntry } from "../generation-history.js";
 
 type NpcSection =
   | "overview"
+  | "gender"
   | "appearance"
   | "personalityAndMotivation"
   | "relationships"
@@ -16,6 +17,7 @@ type NpcSection =
 
 type NpcProfileSections = {
   overview?: Record<string, string>;
+  gender?: Record<string, string>;
   appearance?: Record<string, string>;
   personalityAndMotivation?: Record<string, string>;
   relationships?: Record<string, string>;
@@ -45,13 +47,21 @@ const SECTION_META: SectionMeta[] = [
       { key: "occupation", label: "Occupation" },
       { key: "alignment", label: "Alignment" },
       { key: "age", label: "Age" },
-      { key: "gender", label: "Gender", editType: "gender" },
-      { key: "genderPresentation", label: "Presentation", editType: "presentation" },
       { key: "faith", label: "Faith" },
       { key: "socialClass", label: "Social Class" },
       { key: "reputation", label: "Reputation" },
       { key: "residence", label: "Residence" },
       { key: "languages", label: "Languages" },
+    ],
+  },
+  {
+    id: "gender",
+    label: "Gender",
+    shortLabel: "Gender",
+    icon: "fas fa-venus-mars",
+    fields: [
+      { key: "gender", label: "Gender", editType: "gender" },
+      { key: "genderPresentation", label: "Presentation", editType: "presentation" },
     ],
   },
   {
@@ -273,7 +283,8 @@ async function persistSection(actor: FoundryActor, section: NpcSection, data: Re
   await actor.setFlag("lorebridge", "npcProfile", profile);
   if (section === "appearance") {
     const overview = (profile.overview ?? {}) as Record<string, string>;
-    const pres = overview["genderPresentation"] ? `${overview["genderPresentation"]} presentation` : "";
+    const genderData = (profile.gender ?? {}) as Record<string, string>;
+    const pres = genderData["genderPresentation"] ? `${genderData["genderPresentation"]} presentation` : "";
     const parts = [overview["race"], pres, data["height"], data["build"], data["hair"], data["eyes"], data["clothing"]]
       .filter(Boolean).join(", ");
     if (parts) await actor.setFlag("lorebridge", "portraitDescription", parts);

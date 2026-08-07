@@ -252,6 +252,7 @@ export async function generateNpcProfile(
 
 export type NpcSection =
   | "overview"
+  | "gender"
   | "appearance"
   | "personalityAndMotivation"
   | "relationships"
@@ -261,8 +262,12 @@ export type NpcSection =
 
 export type NpcOverview = {
   race: string; occupation: string; alignment: string; age: string;
-  gender: string; genderPresentation: string; faith: string; socialClass: string; reputation: string;
+  faith: string; socialClass: string; reputation: string;
   residence: string; languages: string;
+};
+
+export type NpcGender = {
+  gender: string; genderPresentation: string;
 };
 
 export type NpcAppearance = {
@@ -296,6 +301,7 @@ export type NpcGameplay = {
 
 export type NpcProfileSections = {
   overview?: NpcOverview;
+  gender?: NpcGender;
   appearance?: NpcAppearance;
   personalityAndMotivation?: NpcPersonalityAndMotivation;
   relationships?: NpcRelationships;
@@ -322,8 +328,13 @@ export type NpcSectionGenerateOutput = {
 const NPC_SECTION_FIELDS: Record<NpcSection, { label: string; fields: string[]; description: string }> = {
   overview: {
     label: "Overview",
-    description: "basic identity facts. 'gender' is gender identity (e.g. Male, Female, Nonbinary, or a descriptive phrase). 'genderPresentation' is how the character presents themselves physically/socially (e.g. Masculine, Feminine, Androgynous, Neutral). If either field is empty or 'Unspecified / Random', choose what best fits the character concept.",
-    fields: ["race", "occupation", "alignment", "age", "gender", "genderPresentation", "faith", "socialClass", "reputation", "residence", "languages"],
+    description: "basic identity facts",
+    fields: ["race", "occupation", "alignment", "age", "faith", "socialClass", "reputation", "residence", "languages"],
+  },
+  gender: {
+    label: "Gender",
+    description: "gender identity and presentation. 'gender' is the NPC's gender identity (e.g. Male, Female, Nonbinary, Genderfluid, Agender, or a descriptive phrase for a fantasy-specific identity). 'genderPresentation' is how they present physically and socially (Masculine, Feminine, Androgynous, or Neutral). If either is empty or 'Unspecified / Random', choose what best fits the character concept.",
+    fields: ["gender", "genderPresentation"],
   },
   appearance: {
     label: "Appearance",
@@ -358,7 +369,7 @@ const NPC_SECTION_FIELDS: Record<NpcSection, { label: string; fields: string[]; 
 };
 
 export const NPC_VALID_SECTIONS: NpcSection[] = [
-  "overview", "appearance", "personalityAndMotivation",
+  "overview", "gender", "appearance", "personalityAndMotivation",
   "relationships", "secretsAndStory", "history", "gameplay",
 ];
 
