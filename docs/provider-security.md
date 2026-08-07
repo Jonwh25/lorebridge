@@ -101,11 +101,19 @@ env: {
 }
 ```
 
-Then restart the backend:
+Then reload the backend from the ecosystem config so PM2 rereads the changed
+environment:
 
 ```bash
-pm2 restart lorebridge-backend
+pm2 startOrRestart /home/azureuser/lorebridge-backend.config.cjs \
+  --only lorebridge-backend --update-env
+pm2 logs lorebridge-backend --lines 20 --nostream
 ```
+
+Do not use a name-only `pm2 restart lorebridge-backend --update-env` after editing
+the ecosystem config; that can retain the process's previously saved environment.
+See the [live deployment runbook](LIVE_DEPLOYMENT.md) for the repository owner's
+canonical Azure paths and PM2 workflow.
 
 Verify the provider is healthy:
 

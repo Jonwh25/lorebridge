@@ -6,6 +6,9 @@ Before changing this repository, read:
 2. [`CONTRIBUTING.md`](CONTRIBUTING.md)
 3. The GitHub issue selected for the change
 
+Before giving deployment or live-test commands for the repository owner's Azure
+host, also read [`docs/LIVE_DEPLOYMENT.md`](docs/LIVE_DEPLOYMENT.md).
+
 The development workflow is authoritative for Codex, Claude, other coding
 assistants, and human contributors.
 
@@ -83,9 +86,13 @@ Select additional commands according to the files changed:
   cp packages/foundry-module/templates/configuration.hbs /data/foundrydata/Data/modules/lorebridge/templates/configuration.hbs
   ```
 
-- Run `pm2 restart lorebridge-backend` only when backend runtime code or its built
-  shared dependency changed.
-- When the backend is restarted, follow it with
+- For a backend code-only change, run `pm2 restart lorebridge-backend` only when
+  backend runtime code or its built shared dependency changed.
+- When backend environment variables or the server-owned PM2 ecosystem config
+  changed, reload from the canonical config path as documented in
+  [`docs/LIVE_DEPLOYMENT.md`](docs/LIVE_DEPLOYMENT.md). Do not substitute a
+  name-only restart with `--update-env`, and do not delete/recreate the process.
+- When the backend is restarted or reloaded, follow it with
   `pm2 logs lorebridge-backend --lines 20 --nostream`.
 - After the command block, state the shortest relevant manual acceptance test in
   Foundry. Do not repeat setup steps unrelated to the completed change.
