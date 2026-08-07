@@ -49,7 +49,7 @@ environment did not change.
 Edit the server-owned ecosystem config:
 
 ```sh
-nano /home/azureuser/lorebridge-backend.config.cjs
+vi /home/azureuser/lorebridge-backend.config.cjs
 ```
 
 Keep existing settings and secrets intact. Add or change only the variables
