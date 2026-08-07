@@ -74,6 +74,8 @@ type FoundryActor = {
   items: FoundryItemCollection;
   getFlag(scope: string, key: string): unknown;
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
+  update(data: Record<string, unknown>): Promise<FoundryActor>;
+  createEmbeddedDocuments(type: "Item", data: Record<string, unknown>[]): Promise<FoundryItem[]>;
 };
 
 type FoundryCompendiumIndexEntry = {
@@ -277,6 +279,10 @@ type FoundryRollTable = {
 type FoundryRollTableCollection = Iterable<FoundryRollTable> & {
   size: number;
   get(id: string): FoundryRollTable | undefined;
+};
+
+declare const Actor: {
+  create(data: Record<string, unknown>): Promise<FoundryActor | undefined>;
 };
 
 declare const Scene: {
