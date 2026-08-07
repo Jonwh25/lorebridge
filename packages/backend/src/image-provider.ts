@@ -1,4 +1,4 @@
-export type ImageProviderName = "stability" | "openai" | "none";
+export type ImageProviderName = "stability" | "flux" | "openai" | "ideogram" | "none";
 
 export interface ImageProviderStatus {
   provider: ImageProviderName;
@@ -17,6 +17,12 @@ interface StabilityConfig {
   model: string;
 }
 
+interface FluxConfig {
+  provider: "flux";
+  apiKey: string;
+  model: string;
+}
+
 interface OpenAIImageConfig {
   provider: "openai";
   apiKey: string;
@@ -24,23 +30,48 @@ interface OpenAIImageConfig {
   model: string;
 }
 
-type ImageConfig = StabilityConfig | OpenAIImageConfig;
+interface IdeogramConfig {
+  provider: "ideogram";
+  apiKey: string;
+  model: string;
+}
+
+type ImageConfig = StabilityConfig | FluxConfig | OpenAIImageConfig | IdeogramConfig;
+
+export class ImageProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ImageProviderError";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Config reader — explicit IMAGE_PROVIDER wins; otherwise auto-detect from keys
+// ---------------------------------------------------------------------------
 
 function readImageConfig(env: NodeJS.ProcessEnv): ImageConfig | null {
   const explicit = env.IMAGE_PROVIDER?.trim().toLowerCase();
 
-  // Explicit Stability AI configuration
   if (explicit === "stability" || (!explicit && env.STABILITY_API_KEY?.trim())) {
     const key = env.STABILITY_API_KEY?.trim();
     if (!key) return null;
-    return {
-      provider: "stability",
-      apiKey: key,
-      model: env.STABILITY_MODEL?.trim() || "stable-image-core",
-    };
+    return { provider: "stability", apiKey: key, model: env.STABILITY_MODEL?.trim() || "stable-image-core" };
   }
 
-  // Explicit OpenAI image config, or fall back to OpenAI text provider for image generation
+  if (explicit === "flux" || (!explicit && env.FLUX_API_KEY?.trim())) {
+    const key = env.FLUX_API_KEY?.trim();
+    if (!key) return null;
+    return { provider: "flux", apiKey: key, model: env.FLUX_MODEL?.trim() || "flux-pro-1.1" };
+  }
+
+  if (explicit === "ideogram" || (!explicit && env.IDEOGRAM_API_KEY?.trim())) {
+    const key = env.IDEOGRAM_API_KEY?.trim();
+    if (!key) return null;
+    return { provider: "ideogram", apiKey: key, model: env.IDEOGRAM_MODEL?.trim() || "V_3" };
+  }
+
+  // OpenAI last — it also supplies the text provider key, so only activate for
+  // images when explicitly requested or when no other image key is present
   if (explicit === "openai" || (!explicit && env.OPENAI_API_KEY?.trim())) {
     const key = env.OPENAI_API_KEY?.trim();
     if (!key) return null;
@@ -55,8 +86,11 @@ function readImageConfig(env: NodeJS.ProcessEnv): ImageConfig | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Stability AI  (Stable Image Core / Ultra)
+// ---------------------------------------------------------------------------
+
 async function generateViaStability(config: StabilityConfig, prompt: string): Promise<ImageGenerationResult> {
-  // Stability AI Stable Image core/ultra endpoint — returns JSON when Accept: application/json
   const endpoint = config.model === "stable-image-ultra"
     ? "https://api.stability.ai/v2beta/stable-image/generate/ultra"
     : "https://api.stability.ai/v2beta/stable-image/generate/core";
@@ -68,10 +102,7 @@ async function generateViaStability(config: StabilityConfig, prompt: string): Pr
 
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.apiKey}`,
-      "Accept": "application/json",
-    },
+    headers: { "Authorization": `Bearer ${config.apiKey}`, "Accept": "application/json" },
     body: form,
   });
 
@@ -81,27 +112,79 @@ async function generateViaStability(config: StabilityConfig, prompt: string): Pr
   }
 
   const json = await response.json() as { image?: string; errors?: string[] };
-  if (!json.image) {
-    throw new ImageProviderError(`Stability AI returned no image. Errors: ${(json.errors ?? []).join(", ")}`);
-  }
+  if (!json.image) throw new ImageProviderError(`Stability AI returned no image. Errors: ${(json.errors ?? []).join(", ")}`);
   return { base64: json.image, mimeType: "image/png" };
 }
+
+// ---------------------------------------------------------------------------
+// FLUX (Black Forest Labs) — async submit → poll → fetch
+// ---------------------------------------------------------------------------
+
+const FLUX_POLL_INTERVAL_MS = 2000;
+const FLUX_POLL_TIMEOUT_MS = 120_000;
+
+async function generateViaFlux(config: FluxConfig, prompt: string): Promise<ImageGenerationResult> {
+  const base = "https://api.bfl.ml/v1";
+
+  // Submit generation request
+  const submitResponse = await fetch(`${base}/${config.model}`, {
+    method: "POST",
+    headers: { "x-key": config.apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, width: 1024, height: 1024 }),
+  });
+
+  if (!submitResponse.ok) {
+    const err = await submitResponse.json().catch(() => ({})) as { message?: string };
+    throw new ImageProviderError(`FLUX submit error: ${err?.message ?? `status ${submitResponse.status}`}`);
+  }
+
+  const submit = await submitResponse.json() as { id?: string };
+  if (!submit.id) throw new ImageProviderError("FLUX returned no task ID.");
+
+  // Poll until ready or timeout
+  const deadline = Date.now() + FLUX_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, FLUX_POLL_INTERVAL_MS));
+
+    const pollResponse = await fetch(`${base}/get_result?id=${encodeURIComponent(submit.id)}`, {
+      headers: { "x-key": config.apiKey },
+    });
+
+    if (!pollResponse.ok) {
+      throw new ImageProviderError(`FLUX poll error: status ${pollResponse.status}`);
+    }
+
+    const poll = await pollResponse.json() as { status?: string; result?: { sample?: string } };
+
+    if (poll.status === "Ready" && poll.result?.sample) {
+      // Fetch the image URL and convert to base64
+      const imgResponse = await fetch(poll.result.sample);
+      if (!imgResponse.ok) throw new ImageProviderError(`FLUX image fetch error: status ${imgResponse.status}`);
+      const buffer = await imgResponse.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      const mimeType = imgResponse.headers.get("content-type") ?? "image/jpeg";
+      return { base64, mimeType };
+    }
+
+    if (poll.status === "Error" || poll.status === "Failed") {
+      throw new ImageProviderError(`FLUX generation failed with status: ${poll.status}`);
+    }
+    // Still pending — keep polling
+  }
+
+  throw new ImageProviderError("FLUX generation timed out after 120 seconds.");
+}
+
+// ---------------------------------------------------------------------------
+// OpenAI DALL-E
+// ---------------------------------------------------------------------------
 
 async function generateViaOpenAI(config: OpenAIImageConfig, prompt: string): Promise<ImageGenerationResult> {
   const base = (config.baseUrl ?? "https://api.openai.com/v1").replace(/\/$/, "");
   const response = await fetch(`${base}/images/generations`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: config.model,
-      prompt,
-      n: 1,
-      size: "1024x1024",
-      response_format: "b64_json",
-    }),
+    headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: config.model, prompt, n: 1, size: "1024x1024", response_format: "b64_json" }),
   });
 
   if (!response.ok) {
@@ -115,12 +198,44 @@ async function generateViaOpenAI(config: OpenAIImageConfig, prompt: string): Pro
   return { base64: b64, mimeType: "image/png" };
 }
 
-export class ImageProviderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ImageProviderError";
+// ---------------------------------------------------------------------------
+// Ideogram — returns a URL, fetch and convert to base64
+// ---------------------------------------------------------------------------
+
+async function generateViaIdeogram(config: IdeogramConfig, prompt: string): Promise<ImageGenerationResult> {
+  const response = await fetch("https://api.ideogram.ai/generate", {
+    method: "POST",
+    headers: { "Api-Key": config.apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image_request: {
+        prompt,
+        model: config.model,
+        aspect_ratio: "ASPECT_1_1",
+        magic_prompt_option: "AUTO",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({})) as { detail?: string; message?: string };
+    throw new ImageProviderError(`Ideogram error: ${err?.detail ?? err?.message ?? `status ${response.status}`}`);
   }
+
+  const json = await response.json() as { data?: { url?: string }[] };
+  const url = json.data?.[0]?.url;
+  if (!url) throw new ImageProviderError("Ideogram returned no image URL.");
+
+  const imgResponse = await fetch(url);
+  if (!imgResponse.ok) throw new ImageProviderError(`Ideogram image fetch error: status ${imgResponse.status}`);
+  const buffer = await imgResponse.arrayBuffer();
+  const base64 = Buffer.from(buffer).toString("base64");
+  const mimeType = imgResponse.headers.get("content-type") ?? "image/jpeg";
+  return { base64, mimeType };
 }
+
+// ---------------------------------------------------------------------------
+// Public service
+// ---------------------------------------------------------------------------
 
 export class ImageProviderService {
   private readonly config: ImageConfig | null;
@@ -147,7 +262,11 @@ export class ImageProviderService {
 
   async generateImage(prompt: string): Promise<ImageGenerationResult> {
     if (!this.config) throw new ImageProviderError("No image provider is configured.");
-    if (this.config.provider === "stability") return generateViaStability(this.config, prompt);
-    return generateViaOpenAI(this.config, prompt);
+    switch (this.config.provider) {
+      case "stability": return generateViaStability(this.config, prompt);
+      case "flux":      return generateViaFlux(this.config, prompt);
+      case "openai":    return generateViaOpenAI(this.config, prompt);
+      case "ideogram":  return generateViaIdeogram(this.config, prompt);
+    }
   }
 }
