@@ -83,8 +83,8 @@ function showConfigDialog(title: string, onSubmit: (config: GenerationConfig) =>
   `;
 
   new foundry.applications.api.DialogV2({
-    window: { title, resizable: false },
-    position: { width: 360 },
+    window: { title, resizable: true },
+    position: { width: 380, height: 220 },
     content,
     buttons: [
       {
@@ -180,11 +180,11 @@ function showShareDialog(title: string, markdown: string, hiddenCount: number, f
 
 function showPreviewDialog(title: string, preview: string, onPropose: () => void): void {
   const clean = preview.replace(/\|/g, "").replace(/^\s*[-#]+\s*/gm, "").trim();
-  const content = `<div style="padding:0.5rem;max-height:400px;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
+  const content = `<div style="padding:0.5rem;overflow-y:auto;font-size:0.9em"><p>${clean.replace(/\n/g, "<br>")}</p></div>`;
 
   new foundry.applications.api.DialogV2({
     window: { title, resizable: true },
-    position: { width: 540, height: "auto" },
+    position: { width: 560, height: 520 },
     content,
     buttons: [
       {
@@ -245,8 +245,9 @@ function runNpcQuickGen(doc: AppDoc): void {
             `<h3>LoreBridge Profile</h3>`,
             `<p><strong>Personality:</strong> ${result.personality}</p>`,
             `<p><strong>Mannerism:</strong> ${result.mannerism}</p>`,
+            result.appearance ? `<p><strong>Appearance:</strong> ${result.appearance}</p>` : "",
             `<section class="secret"><p><strong>Secret (GM only):</strong> ${result.secret}</p></section>`,
-          ].join("\n");
+          ].filter(Boolean).join("\n");
           void actor.update({ "system.details.biography.value": `${existing}\n${html}` });
           if (result.appearance) {
             void actor.setFlag("lorebridge", "portraitDescription", result.appearance);

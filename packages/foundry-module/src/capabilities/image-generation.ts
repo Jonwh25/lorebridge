@@ -106,7 +106,8 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
 
   const content = `
     <style>
-      .lb-portrait-form { display:flex; flex-direction:column; height:100%; padding:0.75rem; box-sizing:border-box; gap:0.5rem; overflow:hidden; }
+      .lb-portrait-dialog .window-content { display:flex; flex-direction:column; overflow:hidden; padding:0; }
+      .lb-portrait-form { flex:1; min-height:0; display:flex; flex-direction:column; padding:0.75rem; box-sizing:border-box; gap:0.5rem; overflow:hidden; }
       .lb-portrait-form .lb-field-fixed { flex-shrink:0; display:flex; flex-direction:column; gap:2px; }
       .lb-portrait-form .lb-field-grow { flex:1; min-height:0; display:flex; flex-direction:column; gap:2px; }
       .lb-portrait-form .lb-field-grow textarea { flex:1; min-height:60px; width:100%; box-sizing:border-box; resize:none; }
@@ -132,7 +133,7 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
     </form>`;
 
   new foundry.applications.api.DialogV2({
-    window: { title: `LoreBridge — Generate Portrait: ${name}`, resizable: true },
+    window: { title: `LoreBridge — Generate Portrait: ${name}`, resizable: true, classes: ["lb-portrait-dialog"] },
     position: { width: 520, height: 480 },
     content,
     buttons: [
