@@ -8,6 +8,7 @@ const MAX_LENGTH_SETTING = "maxHistoryLength";
 
 export type GenerationEntryType =
   | "npc-profile"
+  | "npc-statblock"
   | "room-description"
   | "session-recap"
   | "party-recap"
@@ -20,6 +21,7 @@ export type GenerationEntryType =
 
 const ENTRY_TYPE_LABELS: Record<GenerationEntryType, string> = {
   "npc-profile": "NPC Profile",
+  "npc-statblock": "NPC Stat Block",
   "room-description": "Room Description",
   "session-recap": "Session Recap",
   "party-recap": "Party Recap",

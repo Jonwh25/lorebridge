@@ -753,6 +753,253 @@ export async function generateRollTable(
 }
 
 // ---------------------------------------------------------------------------
+// NPC stat block generation (#110)
+// ---------------------------------------------------------------------------
+
+export type NpcStatBlockAction = {
+  name: string;
+  attackBonus: number | undefined;
+  damage: string | undefined;
+  damageType: string | undefined;
+  range: string | undefined;
+  description: string;
+};
+
+export type NpcStatBlockFeature = {
+  name: string;
+  description: string;
+};
+
+export type NpcStatBlockResult = {
+  name: string;
+  size: string;
+  creatureType: string;
+  subtype: string;
+  alignment: string;
+  cr: number;
+  ac: number;
+  acSource: string;
+  hpMax: number;
+  hpFormula: string;
+  speedWalk: number;
+  speedFly: number;
+  speedSwim: number;
+  speedClimb: number;
+  speedBurrow: number;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+  savingThrows: string[];
+  skills: string[];
+  senses: string;
+  languages: string;
+  damageImmunities: string;
+  damageResistances: string;
+  damageVulnerabilities: string;
+  conditionImmunities: string;
+  biography: string;
+  traits: NpcStatBlockFeature[];
+  actions: NpcStatBlockAction[];
+  bonusActions: NpcStatBlockFeature[];
+  reactions: NpcStatBlockFeature[];
+  legendaryActions: NpcStatBlockFeature[];
+  provider: string;
+};
+
+export type NpcStatBlockInput = {
+  description: string;
+  cr: number | undefined;
+  tone: string | undefined;
+  worldName: string | undefined;
+};
+
+function clampAbility(v: unknown): number {
+  const n = typeof v === "number" ? Math.round(v) : 10;
+  return Math.max(1, Math.min(30, n));
+}
+
+function safeString(v: unknown, fallback = ""): string {
+  return typeof v === "string" ? v.trim() : fallback;
+}
+
+function safeStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string");
+}
+
+function safeFeatureArray(v: unknown): NpcStatBlockFeature[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x))
+    .map((x) => ({
+      name: safeString(x["name"], "Unknown"),
+      description: safeString(x["description"]),
+    }))
+    .filter((f) => f.name && f.description);
+}
+
+function safeActionArray(v: unknown): NpcStatBlockAction[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x))
+    .map((x) => ({
+      name: safeString(x["name"], "Unknown"),
+      description: safeString(x["description"]),
+      attackBonus: typeof x["attackBonus"] === "number" ? x["attackBonus"] : undefined,
+      damage: typeof x["damage"] === "string" ? x["damage"] : undefined,
+      damageType: typeof x["damageType"] === "string" ? x["damageType"] : undefined,
+      range: typeof x["range"] === "string" ? x["range"] : undefined,
+    }))
+    .filter((a) => a.name && a.description);
+}
+
+function normalizeCr(v: unknown): number {
+  if (typeof v === "number") {
+    // Allow fractional CRs: 0 (CR 0), 0.125 (1/8), 0.25 (1/4), 0.5 (1/2), 1-30
+    if (v <= 0) return 0;
+    if (v < 0.2) return 0.125;
+    if (v < 0.4) return 0.25;
+    if (v < 0.8) return 0.5;
+    return Math.min(30, Math.max(1, Math.round(v)));
+  }
+  if (typeof v === "string") {
+    if (v === "1/8") return 0.125;
+    if (v === "1/4") return 0.25;
+    if (v === "1/2") return 0.5;
+    const n = parseFloat(v);
+    if (!isNaN(n)) return normalizeCr(n);
+  }
+  return 1;
+}
+
+export async function generateNpcStatBlock(
+  provider: ProviderService,
+  input: NpcStatBlockInput,
+): Promise<NpcStatBlockResult> {
+  const crHint = input.cr != null
+    ? `Target CR: ${input.cr}`
+    : "Choose an appropriate CR based on the description";
+
+  const prompt = [
+    "You are a D&D 5e game master creating an NPC stat block for a tabletop campaign.",
+    "Return ONLY a valid JSON object. No markdown, no explanation, no surrounding text.",
+    "",
+    `World: ${input.worldName ?? "a D&D 5e world"}`,
+    `NPC description: ${input.description}`,
+    crHint,
+    `Tone: ${input.tone ?? "neutral"}`,
+    "",
+    "Required JSON structure (fill every field; use empty string or 0 for absent values):",
+    `{`,
+    `  "name": "NPC Name",`,
+    `  "size": "Medium",`,
+    `  "creatureType": "humanoid",`,
+    `  "subtype": "human",`,
+    `  "alignment": "chaotic evil",`,
+    `  "cr": 3,`,
+    `  "ac": 15,`,
+    `  "acSource": "chain mail",`,
+    `  "hpMax": 52,`,
+    `  "hpFormula": "8d8+16",`,
+    `  "speedWalk": 30, "speedFly": 0, "speedSwim": 0, "speedClimb": 0, "speedBurrow": 0,`,
+    `  "str": 16, "dex": 11, "con": 14, "int": 11, "wis": 11, "cha": 15,`,
+    `  "savingThrows": ["str", "con"],`,
+    `  "skills": ["athletics", "intimidation"],`,
+    `  "senses": "passive Perception 10",`,
+    `  "languages": "Common",`,
+    `  "damageImmunities": "", "damageResistances": "", "damageVulnerabilities": "",`,
+    `  "conditionImmunities": "",`,
+    `  "biography": "2-3 GM-facing sentences about personality and background.",`,
+    `  "traits": [`,
+    `    { "name": "Brave", "description": "Has advantage on saving throws against the frightened condition." }`,
+    `  ],`,
+    `  "actions": [`,
+    `    { "name": "Longsword", "attackBonus": 5, "damage": "1d8+3", "damageType": "slashing", "range": "5 ft.", "description": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 7 (1d8+3) slashing damage." }`,
+    `  ],`,
+    `  "bonusActions": [],`,
+    `  "reactions": [],`,
+    `  "legendaryActions": []`,
+    `}`,
+    "",
+    "Rules:",
+    "- cr: use 0.125 for CR 1/8, 0.25 for CR 1/4, 0.5 for CR 1/2, then integers 1-30",
+    "- savingThrows: abbreviations only — str, dex, con, int, wis, cha",
+    "- skills: lowercase full names — athletics, perception, stealth, deception, etc.",
+    "- Generate 1-3 actions and 0-3 traits appropriate for the CR",
+    "- Include attackBonus, damage, damageType, and range only on weapon attacks",
+    "- biography: 2-3 sentences of GM-facing flavor text",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 2000);
+
+  // Strip markdown fences and find the JSON object
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/im, "")
+    .replace(/\s*```\s*$/m, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new GenerationError(`AI did not return a JSON object for the stat block. Response: ${raw.slice(0, 200)}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new GenerationError(`AI returned malformed JSON for the stat block: ${cleaned.slice(0, 200)}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new GenerationError("AI stat block response is not a JSON object.");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  return {
+    name: safeString(obj["name"], "Generated NPC"),
+    size: safeString(obj["size"], "Medium"),
+    creatureType: safeString(obj["creatureType"], "humanoid"),
+    subtype: safeString(obj["subtype"]),
+    alignment: safeString(obj["alignment"], "unaligned"),
+    cr: normalizeCr(obj["cr"]),
+    ac: typeof obj["ac"] === "number" ? Math.max(1, obj["ac"]) : 10,
+    acSource: safeString(obj["acSource"]),
+    hpMax: typeof obj["hpMax"] === "number" ? Math.max(1, obj["hpMax"]) : 10,
+    hpFormula: safeString(obj["hpFormula"], "2d8"),
+    speedWalk: typeof obj["speedWalk"] === "number" ? Math.max(0, obj["speedWalk"]) : 30,
+    speedFly: typeof obj["speedFly"] === "number" ? Math.max(0, obj["speedFly"]) : 0,
+    speedSwim: typeof obj["speedSwim"] === "number" ? Math.max(0, obj["speedSwim"]) : 0,
+    speedClimb: typeof obj["speedClimb"] === "number" ? Math.max(0, obj["speedClimb"]) : 0,
+    speedBurrow: typeof obj["speedBurrow"] === "number" ? Math.max(0, obj["speedBurrow"]) : 0,
+    str: clampAbility(obj["str"]),
+    dex: clampAbility(obj["dex"]),
+    con: clampAbility(obj["con"]),
+    int: clampAbility(obj["int"]),
+    wis: clampAbility(obj["wis"]),
+    cha: clampAbility(obj["cha"]),
+    savingThrows: safeStringArray(obj["savingThrows"]).filter(s => ["str","dex","con","int","wis","cha"].includes(s)),
+    skills: safeStringArray(obj["skills"]),
+    senses: safeString(obj["senses"]),
+    languages: safeString(obj["languages"]),
+    damageImmunities: safeString(obj["damageImmunities"]),
+    damageResistances: safeString(obj["damageResistances"]),
+    damageVulnerabilities: safeString(obj["damageVulnerabilities"]),
+    conditionImmunities: safeString(obj["conditionImmunities"]),
+    biography: safeString(obj["biography"]),
+    traits: safeFeatureArray(obj["traits"]),
+    actions: safeActionArray(obj["actions"]),
+    bonusActions: safeFeatureArray(obj["bonusActions"]),
+    reactions: safeFeatureArray(obj["reactions"]),
+    legendaryActions: safeFeatureArray(obj["legendaryActions"]),
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Campaign Consistency Audit (#167)
 // ---------------------------------------------------------------------------
 

@@ -4,6 +4,14 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **D&D 5e NPC Stat Block Generator**: click **Generate Full Stat Block with AI** in the Create Actor dialog to describe an NPC and receive a complete mechanical stat block. Supports Modern Rules (2024) and Legacy Rules (2014) editions. The preview dialog shows all stats, traits, and actions; clicking **Create Actor** drops the NPC into a "LoreBridge NPCs" folder with all items embedded.
+- **Compendium-first item population**: actions, features, and natural attacks are sourced from the dnd5e monster and equipment compendiums first (Claw, Bite, Multiattack, Legendary Resistance, etc.), with synthetic fallback only when no compendium match is found. Prefix matching handles names like "Claw (Hybrid Form Only)".
+- **Edition-aware activity generation**: synthetic items for Modern edition include full dnd5e 4.x activity objects (attack with melee/ranged + weapon/spell classification, utility, save, heal). Spell-like abilities (rays, bolts, blasts) get ranged spell attack activities; melee attacks get melee weapon attack activities; saving-throw abilities get save activities.
+- **Source section population**: all generated items and actors carry `system.source` with `Custom Label: "LoreBridge AI"`, `Rules Version: 2024 or 2014`, identifier, and revision, matching the Configure Source dialog fields.
+- **Generation History** (#111): every AI generation (stat blocks, journal content, etc.) is saved to a world-scoped history log. The **Generation History** button in the LoreBridge panel lets GMs reopen any previous AI output without regenerating it.
+
 ## [0.15.0] - 2026-08-06
 
 ### Added

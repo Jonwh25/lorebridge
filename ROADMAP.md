@@ -280,8 +280,8 @@ response without exposing hidden information.
 Turn LoreBridge's existing NPC generation into a reviewable, reusable creation
 workflow for complete D&D 5e actors and their artwork.
 
-1. [Generation history](https://github.com/Jonwh25/lorebridge/issues/111)
-2. [Full D&D 5e NPC stat block generation and actor creation](https://github.com/Jonwh25/lorebridge/issues/110)
+1. ✅ [Generation history](https://github.com/Jonwh25/lorebridge/issues/111)
+2. ✅ [Full D&D 5e NPC stat block generation and actor creation](https://github.com/Jonwh25/lorebridge/issues/110)
 3. [AI image generation for portraits, tokens, and item icons](https://github.com/Jonwh25/lorebridge/issues/109)
 
 Generated mechanics and media are drafts. Actor creation and asset application
