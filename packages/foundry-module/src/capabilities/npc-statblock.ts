@@ -391,22 +391,41 @@ function makeSyntheticWeapon(action: NpcStatBlockAction, edition: RulesEdition, 
   };
 }
 
+/** Infer the dnd5e activation type string from a description (for non-attack feats). */
+function inferFeatActivationType(description: string, hint: string): string {
+  const d = description.toLowerCase();
+  // Active trigger words — override "passive" hint
+  if (/\bas an action\b|\baction:/i.test(d)) return "action";
+  if (/\bas a bonus action\b|\bbonus action:/i.test(d)) return "bonus";
+  if (/\bas a reaction\b|\breaction:/i.test(d)) return "reaction";
+  if (/\bonce per turn\b|\beach turn\b|\byou can\b/i.test(d) && hint === "passive") return "action";
+  return hint; // keep whatever was passed in
+}
+
+/** Infer the best dnd5e activity type for a non-attack feat. */
+function inferFeatActivityType(description: string): string {
+  const d = description.toLowerCase();
+  if (/saving throw|must succeed on a.*save/i.test(d)) return "save";
+  if (/heal|regain.*hit point|restore.*hit point/i.test(d)) return "heal";
+  if (/summon|conjure/i.test(d)) return "summon";
+  if (/cast.*spell|spellcasting/i.test(d)) return "cast";
+  return "use"; // generic fallback — always valid in dnd5e 4.x
+}
+
 function makeSyntheticFeat(
   name: string,
   description: string,
-  activationType: string,
+  activationHint: string,
   edition: RulesEdition,
 ): Record<string, unknown> {
   const source = makeSource(edition, name.toLowerCase().replace(/\s+/g, "-"));
-  const descLower = description.toLowerCase();
+  const activationType = inferFeatActivationType(description, activationHint);
 
-  // For active abilities (not passive traits) in modern edition, add an activity
+  // Add an activity for any non-passive ability in modern edition
+  // Also promote items where description signals active use even if hint was "passive"
   let activities: Record<string, unknown> | undefined;
   if (edition === "modern" && activationType !== "passive") {
-    let actType = "utility";
-    if (/saving throw|must succeed/i.test(descLower)) actType = "save";
-    else if (/heal|regain.*hit point/i.test(descLower)) actType = "heal";
-    activities = makeModernActivity(actType, activationType);
+    activities = makeModernActivity(inferFeatActivityType(description), activationType);
   }
 
   return {
