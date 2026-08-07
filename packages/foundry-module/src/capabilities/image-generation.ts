@@ -58,31 +58,51 @@ type StylePreset = { label: string; value: string };
 
 const STYLE_OPTIONS: StylePreset[] = [
   // Default — classic D&D illustrated look
-  { label: "D&D 5E",                 value: "official Dungeons and Dragons 5th edition art style, painterly digital illustration, warm rich colors, heroic fantasy portrait, expressive face, detailed costume and equipment, Wizards of the Coast PHB aesthetic, illustrative not photorealistic" },
-  // Classic Fantasy
-  { label: "Heroic Fantasy",         value: "heroic fantasy illustration, bold vibrant colors, painterly brushwork, dynamic epic composition, triumphant pose, adventure art, not photorealistic" },
-  { label: "Fantasy Portrait",       value: "fantasy character portrait, detailed painterly digital illustration, dramatic lighting, high fantasy, vibrant warm colors, illustrative style" },
-  { label: "Magic: The Gathering",   value: "Magic the Gathering card art style, dramatic painterly fantasy illustration, rich deep jewel-toned colors, detailed fine brushwork, trading card game art, cinematic composition" },
-  { label: "Pathfinder",             value: "Pathfinder RPG official art style, detailed painterly fantasy illustration, dynamic action pose, rich warm colors, Paizo publishing aesthetic, illustrative not photorealistic" },
-  { label: "Monster Manual",         value: "D&D Monster Manual illustration style, official tabletop RPG inked and painted art, detailed creature or character portrait, dramatic pose, clean linework with watercolor-style fill" },
+  { label: "D&D 5E",
+    value: "Official Dungeons and Dragons 5th Edition fantasy artwork. Classic Wizards of the Coast character illustration. Painted digital illustration. Stylized fantasy concept art. Visible brushwork. Fantasy book illustration. Semi-realistic proportions. Bold shapes. Expressive face. Rich painted textures. Heroic RPG portrait. Illustrated, not photographic. Never photorealistic." },
+  // Classic Fantasy — illustrated styles
+  { label: "Heroic Fantasy",
+    value: "Heroic fantasy book illustration. Painted adventure art. Bold vibrant colors. Dynamic composition. Triumphant pose. Visible brushwork. Stylized fantasy art. Illustrated, not photographic." },
+  { label: "Fantasy Portrait",
+    value: "Classic fantasy character portrait. Painted digital illustration. Warm dramatic lighting. High fantasy illustration. Vibrant colors. Detailed brushwork. Fantasy book art style." },
+  { label: "Magic: The Gathering",
+    value: "Magic the Gathering card art style. Fantasy painted illustration. Dramatic lighting. Rich deep jewel-toned colors. Detailed fine brushwork. Trading card game art. Painterly, not photorealistic." },
+  { label: "Pathfinder",
+    value: "Pathfinder RPG official character art. Painted fantasy illustration. Dynamic action pose. Rich warm colors. Paizo tabletop publishing aesthetic. Fantasy book illustration. Illustrated, not photographic." },
+  { label: "Monster Manual",
+    value: "D&D Monster Manual illustration. Official tabletop RPG painted art. Inked linework with painted fill. Detailed character portrait. Dramatic pose. Watercolor-style wash. Illustrated fantasy, not photorealistic." },
   // Painted & Artistic
-  { label: "Oil Painting",           value: "classical oil painting portrait, Renaissance style, rich deep colors, dramatic chiaroscuro lighting, museum quality fine art, old master technique" },
-  { label: "Digital Painting",       value: "digital painting fantasy portrait, painterly expressive brushwork, vibrant colors, detailed illustration, professional concept art quality" },
-  { label: "Watercolor",             value: "watercolor fantasy illustration, soft color washes, delicate linework, storybook quality, gentle atmospheric colors" },
-  { label: "Concept Art",            value: "RPG character concept art, professional game art, clear neutral pose, detailed character design reference sheet, high fidelity painterly illustration" },
+  { label: "Oil Painting",
+    value: "Classical oil painting portrait. Renaissance old master style. Rich deep colors. Dramatic chiaroscuro lighting. Museum quality fine art technique. Visible impasto brushstrokes. Painterly, not photorealistic." },
+  { label: "Digital Painting",
+    value: "Digital painting. Fantasy character portrait. Expressive painterly brushwork. Vibrant colors. Professional concept art quality. Fantasy illustration. Visible brush texture. Illustrated, not photographic." },
+  { label: "Watercolor",
+    value: "Watercolor fantasy illustration. Soft transparent color washes. Delicate ink linework. Traditional media appearance. Storybook illustration quality. Gentle atmospheric colors. Painted, not photorealistic." },
+  { label: "Concept Art",
+    value: "RPG character concept art. Professional game art illustration. Clear neutral pose. Detailed character design. Painterly illustration. Fantasy game art. Illustrated, not photographic." },
   // Storybook & Whimsical
-  { label: "Storybook",              value: "storybook fantasy illustration, charming fairy tale art style, warm inviting colors, enchanting atmosphere, classic children's book quality" },
-  { label: "Character Card",         value: "fantasy RPG character card portrait, framed composition, rich detailed painterly illustration, trading card game art style, heroic pose" },
-  // Realism
-  { label: "Cinematic Realism",      value: "cinematic realistic fantasy portrait, photorealistic quality, movie lighting, detailed face, dramatic composition, film production art" },
-  { label: "Hyper Realistic",        value: "hyperrealistic fantasy portrait, extreme fine detail, photographic quality, studio lighting, realistic skin texture and materials" },
-  { label: "Epic Fantasy",           value: "epic fantasy art, grand scale cinematic composition, high detail, dramatic lighting, photorealistic fantasy illustration" },
+  { label: "Storybook",
+    value: "Storybook fantasy illustration. Fairy tale art style. Charming illustrated character. Warm inviting colors. Enchanting atmosphere. Classic picture book quality. Illustrated, not photographic." },
+  { label: "Character Card",
+    value: "Fantasy RPG character card art. Framed portrait composition. Rich painted illustration. Trading card game art style. Heroic pose. Illustrated, not photographic." },
+  // Realism (photographic styles — intentionally different)
+  { label: "Cinematic Realism",
+    value: "Cinematic fantasy portrait. Photorealistic quality. Movie production lighting. Detailed face. Dramatic film composition. Live action film still." },
+  { label: "Hyper Realistic",
+    value: "Hyperrealistic fantasy portrait. Extreme fine detail. Photographic quality. Studio lighting. Realistic skin texture and materials. Ultra detailed photograph." },
+  { label: "Epic Fantasy",
+    value: "Epic fantasy cinematic art. Grand scale dramatic composition. High detail. Cinematic lighting. Photorealistic fantasy film still." },
   // Dark Fantasy
-  { label: "Dark Fantasy",           value: "dark fantasy portrait, moody brooding atmosphere, dramatic shadows, gritty details, painterly illustration, atmospheric fog and candlelight" },
-  { label: "Gothic Horror",          value: "gothic horror portrait, candlelight, deep dramatic shadows, haunting expression, Victorian gothic aesthetic, horror atmosphere, painterly illustration" },
-  { label: "Grimdark",               value: "grimdark fantasy portrait, brutal realism, weathered scarred face, blood-stained armor, dark oppressive atmosphere, Warhammer 40K inspired" },
-  { label: "Bloodborne",             value: "Bloodborne game art style, dark gothic Victorian horror, eldritch cosmic nightmare aesthetic, Hunter's nightmare atmosphere, grim ultra-detailed portrait" },
-  { label: "Diablo",                 value: "Diablo game art style, dark demonic fantasy portrait, gritty dramatic illustration, infernal lighting, gothic horror action, Blizzard aesthetic" },
+  { label: "Dark Fantasy",
+    value: "Dark fantasy portrait. Painted illustration. Moody brooding atmosphere. Dramatic shadows. Gritty painted details. Atmospheric fog and candlelight. Illustrated, not photographic." },
+  { label: "Gothic Horror",
+    value: "Gothic horror painted portrait. Candlelight illumination. Deep dramatic shadows. Haunting expression. Victorian gothic illustration. Horror atmosphere. Painterly, not photorealistic." },
+  { label: "Grimdark",
+    value: "Grimdark fantasy illustration. Gritty painted art. Weathered scarred face. Dark oppressive atmosphere. Warhammer fantasy battle art style. Illustrated, not photographic." },
+  { label: "Bloodborne",
+    value: "Bloodborne game art style. Dark gothic Victorian horror illustration. Eldritch cosmic nightmare aesthetic. Painted concept art. Grim ultra-detailed fantasy illustration." },
+  { label: "Diablo",
+    value: "Diablo game art style. Dark demonic fantasy illustration. Gritty dramatic painted art. Infernal lighting. Gothic horror action. Blizzard Entertainment painted aesthetic." },
 ];
 
 // ---------------------------------------------------------------------------

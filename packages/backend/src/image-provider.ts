@@ -90,13 +90,14 @@ function readImageConfig(env: NodeJS.ProcessEnv): ImageConfig | null {
 // Stability AI  (Stable Image Core / Ultra)
 // ---------------------------------------------------------------------------
 
-async function generateViaStability(config: StabilityConfig, prompt: string): Promise<ImageGenerationResult> {
+async function generateViaStability(config: StabilityConfig, prompt: string, negativePrompt?: string): Promise<ImageGenerationResult> {
   const endpoint = config.model === "stable-image-ultra"
     ? "https://api.stability.ai/v2beta/stable-image/generate/ultra"
     : "https://api.stability.ai/v2beta/stable-image/generate/core";
 
   const form = new FormData();
   form.append("prompt", prompt);
+  if (negativePrompt) form.append("negative_prompt", negativePrompt);
   form.append("output_format", "png");
   form.append("aspect_ratio", "1:1");
 
@@ -260,10 +261,10 @@ export class ImageProviderService {
     return { provider: this.provider, enabled: this.enabled, model: this.model };
   }
 
-  async generateImage(prompt: string): Promise<ImageGenerationResult> {
+  async generateImage(prompt: string, negativePrompt?: string): Promise<ImageGenerationResult> {
     if (!this.config) throw new ImageProviderError("No image provider is configured.");
     switch (this.config.provider) {
-      case "stability": return generateViaStability(this.config, prompt);
+      case "stability": return generateViaStability(this.config, prompt, negativePrompt);
       case "flux":      return generateViaFlux(this.config, prompt);
       case "openai":    return generateViaOpenAI(this.config, prompt);
       case "ideogram":  return generateViaIdeogram(this.config, prompt);

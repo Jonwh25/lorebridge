@@ -910,13 +910,16 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 503, { error: { code: "image_provider_unavailable", message: "No image provider is configured on this backend. Set STABILITY_API_KEY or IMAGE_PROVIDER=openai with OPENAI_API_KEY." } });
       return;
     }
-    const promptParts = [`Portrait of ${subject}`];
-    if (context) promptParts.push(context);
+    // Style leads — image models weight early tokens more heavily
+    const promptParts: string[] = [];
     if (style) promptParts.push(style);
-    else promptParts.push("fantasy RPG character portrait, detailed, dramatic lighting");
+    else promptParts.push("Fantasy RPG character portrait. Painterly illustration. Not photorealistic.");
+    promptParts.push(`Portrait of ${subject}`);
+    if (context) promptParts.push(context);
     const prompt = promptParts.join(". ");
+    const negativePrompt = "photo, photograph, photorealistic, realism, cinematic, 8k photo, camera, lens, DSLR, film, skin pores, HDR, studio lighting, hyperrealistic, AI headshot, 3d render, CGI, render";
     try {
-      const result = await imageProvider.generateImage(prompt);
+      const result = await imageProvider.generateImage(prompt, negativePrompt);
       sendJson(response, 200, { base64: result.base64, mimeType: result.mimeType, prompt });
     } catch (error) {
       if (error instanceof ImageProviderError) {
