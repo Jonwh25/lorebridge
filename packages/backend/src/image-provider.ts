@@ -186,7 +186,7 @@ async function generateViaOpenAI(config: OpenAIImageConfig, prompt: string): Pro
   const response = await fetch(`${base}/images/generations`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: config.model, prompt, n: 1, size: "1024x1024", response_format: "b64_json" }),
+    body: JSON.stringify({ model: config.model, prompt, n: 1, size: "1024x1024" }),
   });
 
   if (!response.ok) {
@@ -194,10 +194,19 @@ async function generateViaOpenAI(config: OpenAIImageConfig, prompt: string): Pro
     throw new ImageProviderError(`OpenAI image error: ${err?.error?.message ?? `status ${response.status}`}`);
   }
 
-  const json = await response.json() as { data?: { b64_json?: string }[] };
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) throw new ImageProviderError("OpenAI returned no image data.");
-  return { base64: b64, mimeType: "image/png" };
+  const json = await response.json() as { data?: { b64_json?: string; url?: string }[] };
+  const item = json.data?.[0];
+
+  if (item?.b64_json) return { base64: item.b64_json, mimeType: "image/png" };
+
+  if (item?.url) {
+    const imgResponse = await fetch(item.url);
+    if (!imgResponse.ok) throw new ImageProviderError(`OpenAI image fetch error: status ${imgResponse.status}`);
+    const buffer = await imgResponse.arrayBuffer();
+    return { base64: Buffer.from(buffer).toString("base64"), mimeType: imgResponse.headers.get("content-type") ?? "image/png" };
+  }
+
+  throw new ImageProviderError("OpenAI returned no image data.");
 }
 
 // ---------------------------------------------------------------------------
