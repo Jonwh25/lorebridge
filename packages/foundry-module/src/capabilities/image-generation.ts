@@ -1,7 +1,5 @@
 import { getLoreBridgeSettings } from "../settings.js";
 
-const UPLOAD_DIR = "modules/lorebridge/images";
-
 function buildBackendUrl(base: string, path: string): string {
   return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
 }
@@ -29,7 +27,7 @@ async function postBackend<T>(path: string, body: Record<string, unknown>): Prom
 
 type ImageResult = { base64: string; mimeType: string; prompt: string };
 
-async function saveImageToFoundry(base64: string, mimeType: string, filename: string): Promise<string> {
+async function saveImageToFoundry(base64: string, mimeType: string, filename: string, uploadDir: string): Promise<string> {
   const ext = mimeType === "image/webp" ? "webp" : mimeType === "image/jpeg" ? "jpg" : "png";
   const fname = `${filename}.${ext}`;
 
@@ -39,9 +37,10 @@ async function saveImageToFoundry(base64: string, mimeType: string, filename: st
   const blob = new Blob([arr], { type: mimeType });
   const file = new File([blob], fname, { type: mimeType });
 
-  try { await FilePicker.browse("data", UPLOAD_DIR); } catch { /* created on upload */ }
+  const fp = foundry.applications.apps.FilePicker.implementation;
+  try { await fp.createDirectory("data", uploadDir); } catch { /* already exists */ }
 
-  const result = await FilePicker.upload("data", UPLOAD_DIR, file, {});
+  const result = await fp.upload("data", uploadDir, file, {});
   if (!result || !result.path) throw new Error("File upload failed — no path returned.");
   return result.path;
 }
@@ -233,9 +232,11 @@ async function applyPortrait(
 ): Promise<void> {
   ui.notifications.info("LoreBridge: Saving portrait…");
   try {
+    const settings = getLoreBridgeSettings();
+    const uploadDir = settings.portraitSaveDirectory || "modules/lorebridge/images";
     const slug = slugify(actor.name);
     const filename = `${slug}-${Date.now()}`;
-    const path = await saveImageToFoundry(base64, mimeType, filename);
+    const path = await saveImageToFoundry(base64, mimeType, filename, uploadDir);
 
     const foundryActor = game.actors.get(actor.id);
     if (!foundryActor) { ui.notifications.error("LoreBridge: Actor not found."); return; }

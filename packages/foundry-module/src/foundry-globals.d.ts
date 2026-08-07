@@ -254,6 +254,11 @@ declare const foundry: {
         }): { element: HTMLElement; render(options: { force: boolean }): Promise<unknown> };
       };
     };
+    apps: {
+      FilePicker: {
+        implementation: FoundryFilePickerImpl;
+      };
+    };
   };
 };
 
@@ -344,6 +349,12 @@ declare const Roll: {
 declare const FilePicker: {
   browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }>;
   upload(source: "data", path: string, file: File, options?: Record<string, unknown>): Promise<{ path?: string } | false>;
+};
+
+type FoundryFilePickerImpl = {
+  browse(source: "data", target: string, options?: { extensions?: string[]; wildcard?: boolean }): Promise<{ files?: string[]; dirs?: string[] }>;
+  upload(source: "data", path: string, file: File, options?: Record<string, unknown>): Promise<{ path?: string } | false>;
+  createDirectory(source: "data", path: string, options?: Record<string, unknown>): Promise<unknown>;
 };
 
 declare const game: {
