@@ -38,3 +38,54 @@ Whenever creating a GitHub issue:
 - Add the appropriate milestone when known.
 - Verify the issue after creation.
 - Never leave a newly created issue unlabeled or unassigned.
+## Live testing handoff
+
+The repository checkout used for live testing is `/data/lorebridge`. The installed
+Foundry module is `/data/foundrydata/Data/modules/lorebridge`.
+
+After completing an implementation, end the response with a **Live test commands**
+section containing a single copyable shell block. Include only the commands needed
+for that specific change; do not dump the full command menu. Use the actual feature
+branch name in place of `<feature-branch>`.
+
+Start from these synchronization commands:
+
+```sh
+cd /data/lorebridge
+git fetch origin
+git checkout <feature-branch>
+git pull
+```
+
+Select additional commands according to the files changed:
+
+- Run `npm install` only when dependencies or lockfiles changed, or when the user
+  must install dependencies for the first test run.
+- Run `npm run validate` for every code change.
+- Run `npm run build -w packages/shared` when the shared package changed.
+- Run `npm run build -w packages/backend` when the backend changed or must consume
+  a rebuilt shared package.
+- Run `npm run build -w packages/foundry-module` when the Foundry module changed or
+  must consume a rebuilt shared package.
+- After building the Foundry module, copy only the generated artifacts needed for
+  the change:
+
+  ```sh
+  cp packages/foundry-module/dist/main.js /data/foundrydata/Data/modules/lorebridge/dist/main.js
+  cp packages/foundry-module/dist/main.js.map /data/foundrydata/Data/modules/lorebridge/dist/main.js.map
+  ```
+
+- Copy a changed Foundry template individually. The commonly deployed templates
+  are:
+
+  ```sh
+  cp packages/foundry-module/templates/feature-settings.hbs /data/foundrydata/Data/modules/lorebridge/templates/feature-settings.hbs
+  cp packages/foundry-module/templates/configuration.hbs /data/foundrydata/Data/modules/lorebridge/templates/configuration.hbs
+  ```
+
+- Run `pm2 restart lorebridge-backend` only when backend runtime code or its built
+  shared dependency changed.
+- When the backend is restarted, follow it with
+  `pm2 logs lorebridge-backend --lines 20 --nostream`.
+- After the command block, state the shortest relevant manual acceptance test in
+  Foundry. Do not repeat setup steps unrelated to the completed change.
