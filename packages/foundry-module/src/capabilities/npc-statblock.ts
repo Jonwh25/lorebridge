@@ -214,10 +214,20 @@ function buildDnd5eActorData(stat: NpcStatBlockResult): Record<string, unknown> 
 // Compendium item lookup
 // ---------------------------------------------------------------------------
 
-// dnd5e compendium pack IDs to search for weapons/equipment
-const EQUIPMENT_PACKS = ["dnd5e.equipment", "dnd5e.weapons", "dnd5e.items"];
-// dnd5e compendium pack IDs to search for monster traits/features
-const FEATURE_PACKS = ["dnd5e.monsterfeatures", "dnd5e.features", "dnd5e.classfeatures"];
+// Search order for actions: natural attacks (Bite, Claws) are in monsterfeatures,
+// standard weapons (Mace, Longsword) are in equipment — check both.
+const ACTION_PACKS = [
+  "dnd5e.monsterfeatures",
+  "dnd5e.equipment",
+  "dnd5e.weapons",
+  "dnd5e.items",
+];
+// Search order for traits/passive features
+const FEATURE_PACKS = [
+  "dnd5e.monsterfeatures",
+  "dnd5e.features",
+  "dnd5e.classfeatures",
+];
 
 async function findCompendiumItemData(name: string, packIds: string[]): Promise<Record<string, unknown> | null> {
   const nameLower = name.toLowerCase().trim();
@@ -260,12 +270,12 @@ async function buildEmbeddedItems(stat: NpcStatBlockResult): Promise<Record<stri
 
   for (const action of stat.actions) {
     const isAttack = action.attackBonus !== undefined;
-    if (isAttack) {
-      const compendium = await findCompendiumItemData(action.name, EQUIPMENT_PACKS);
-      if (compendium) {
-        items.push(compendium);
-        continue;
-      }
+    // Always try compendium first (covers natural attacks in monsterfeatures
+    // and standard weapons in equipment)
+    const compendiumAction = await findCompendiumItemData(action.name, ACTION_PACKS);
+    if (compendiumAction) {
+      items.push(compendiumAction);
+      continue;
     }
     items.push({
       name: action.name,
@@ -291,35 +301,29 @@ async function buildEmbeddedItems(stat: NpcStatBlockResult): Promise<Record<stri
   }
 
   for (const ba of stat.bonusActions) {
-    items.push({
+    const compendium = await findCompendiumItemData(ba.name, ACTION_PACKS);
+    items.push(compendium ?? {
       name: ba.name,
       type: "feat",
-      system: {
-        description: { value: `<p>${ba.description}</p>` },
-        activation: { type: "bonus", cost: 1 },
-      },
+      system: { description: { value: `<p>${ba.description}</p>` }, activation: { type: "bonus", cost: 1 } },
     });
   }
 
   for (const rx of stat.reactions) {
-    items.push({
+    const compendium = await findCompendiumItemData(rx.name, ACTION_PACKS);
+    items.push(compendium ?? {
       name: rx.name,
       type: "feat",
-      system: {
-        description: { value: `<p>${rx.description}</p>` },
-        activation: { type: "reaction", cost: 1 },
-      },
+      system: { description: { value: `<p>${rx.description}</p>` }, activation: { type: "reaction", cost: 1 } },
     });
   }
 
   for (const la of stat.legendaryActions) {
-    items.push({
+    const compendium = await findCompendiumItemData(la.name, ACTION_PACKS);
+    items.push(compendium ?? {
       name: la.name,
       type: "feat",
-      system: {
-        description: { value: `<p>${la.description}</p>` },
-        activation: { type: "legendary", cost: 1 },
-      },
+      system: { description: { value: `<p>${la.description}</p>` }, activation: { type: "legendary", cost: 1 } },
     });
   }
 
