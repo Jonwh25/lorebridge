@@ -247,6 +247,207 @@ export async function generateNpcProfile(
 }
 
 // ---------------------------------------------------------------------------
+// NPC Profile Section generation (#196)
+// ---------------------------------------------------------------------------
+
+export type NpcSection =
+  | "overview"
+  | "appearance"
+  | "personalityAndMotivation"
+  | "relationships"
+  | "secretsAndStory"
+  | "history"
+  | "gameplay";
+
+export type NpcOverview = {
+  race: string; occupation: string; alignment: string; age: string;
+  gender: string; faith: string; socialClass: string; reputation: string;
+  residence: string; languages: string;
+};
+
+export type NpcAppearance = {
+  height: string; build: string; hair: string; eyes: string; skin: string;
+  distinguishingFeatures: string; clothing: string; equipment: string;
+  voice: string; accent: string;
+};
+
+export type NpcPersonalityAndMotivation = {
+  personality: string; mannerisms: string; goal: string; fear: string;
+  ideal: string; bond: string; flaw: string;
+};
+
+export type NpcRelationships = {
+  family: string; allies: string; enemies: string; rivals: string;
+  organizations: string; employer: string; mentorStudent: string;
+};
+
+export type NpcSecretsAndStory = {
+  secret: string; rumor: string; hiddenAgenda: string;
+  currentProblem: string; adventureHook: string;
+};
+
+export type NpcHistory = {
+  publicHistory: string; privateHistory: string; gmNotes: string;
+};
+
+export type NpcGameplay = {
+  role: string; disposition: string; currentStatus: string;
+};
+
+export type NpcProfileSections = {
+  overview?: NpcOverview;
+  appearance?: NpcAppearance;
+  personalityAndMotivation?: NpcPersonalityAndMotivation;
+  relationships?: NpcRelationships;
+  secretsAndStory?: NpcSecretsAndStory;
+  history?: NpcHistory;
+  gameplay?: NpcGameplay;
+};
+
+export type NpcSectionGenerateInput = {
+  section: NpcSection;
+  actorName: string;
+  actorBiography?: string;
+  existingProfile?: NpcProfileSections;
+  tone?: string;
+  worldName?: string;
+};
+
+export type NpcSectionGenerateOutput = {
+  section: NpcSection;
+  data: NpcProfileSections;
+  provider: string;
+};
+
+const NPC_SECTION_FIELDS: Record<NpcSection, { label: string; fields: string[]; description: string }> = {
+  overview: {
+    label: "Overview",
+    description: "basic identity facts",
+    fields: ["race", "occupation", "alignment", "age", "gender", "faith", "socialClass", "reputation", "residence", "languages"],
+  },
+  appearance: {
+    label: "Appearance",
+    description: "physical description useful for a portrait artist",
+    fields: ["height", "build", "hair", "eyes", "skin", "distinguishingFeatures", "clothing", "equipment", "voice", "accent"],
+  },
+  personalityAndMotivation: {
+    label: "Personality & Motivation",
+    description: "character psychology and drives",
+    fields: ["personality", "mannerisms", "goal", "fear", "ideal", "bond", "flaw"],
+  },
+  relationships: {
+    label: "Relationships",
+    description: "connections to other characters and factions",
+    fields: ["family", "allies", "enemies", "rivals", "organizations", "employer", "mentorStudent"],
+  },
+  secretsAndStory: {
+    label: "Secrets & Story",
+    description: "hidden information and adventure potential",
+    fields: ["secret", "rumor", "hiddenAgenda", "currentProblem", "adventureHook"],
+  },
+  history: {
+    label: "History",
+    description: "background and personal history",
+    fields: ["publicHistory", "privateHistory", "gmNotes"],
+  },
+  gameplay: {
+    label: "Gameplay",
+    description: "functional information for running this NPC during play",
+    fields: ["role", "disposition", "currentStatus"],
+  },
+};
+
+export const NPC_VALID_SECTIONS: NpcSection[] = [
+  "overview", "appearance", "personalityAndMotivation",
+  "relationships", "secretsAndStory", "history", "gameplay",
+];
+
+function buildNpcProfileContext(
+  actorName: string,
+  actorBiography: string,
+  existingProfile: NpcProfileSections,
+  excludeSection: NpcSection,
+): string {
+  const parts: string[] = [`NPC Name: ${actorName}`];
+  if (actorBiography) parts.push(`Biography: ${actorBiography.slice(0, 500)}`);
+
+  for (const sectionId of NPC_VALID_SECTIONS) {
+    if (sectionId === excludeSection) continue;
+    const info = NPC_SECTION_FIELDS[sectionId];
+    const data = existingProfile[sectionId] as Record<string, string> | undefined;
+    if (!data) continue;
+    const entries = Object.entries(data)
+      .filter(([, v]) => v && v.trim())
+      .map(([k, v]) => `  ${k}: ${v}`)
+      .join("\n");
+    if (entries) parts.push(`\n${info.label}:\n${entries}`);
+  }
+
+  return parts.join("\n");
+}
+
+export async function generateNpcProfileSection(
+  provider: ProviderService,
+  input: NpcSectionGenerateInput,
+): Promise<NpcSectionGenerateOutput> {
+  const info = NPC_SECTION_FIELDS[input.section];
+  if (!info) throw new GenerationError(`Unknown NPC section: ${input.section}`);
+
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+  const context = buildNpcProfileContext(
+    input.actorName,
+    input.actorBiography ?? "",
+    input.existingProfile ?? {},
+    input.section,
+  );
+
+  const fieldList = info.fields.map(f => `  "${f}": "<value or empty string>"`).join(",\n");
+
+  const prompt = [
+    "You are a creative game master assistant creating an NPC profile section for a tabletop RPG.",
+    `Tone: ${toneNote}`,
+    "",
+    "Existing NPC information (use as context to stay consistent):",
+    context,
+    "",
+    `Generate the "${info.label}" section (${info.description}).`,
+    "Return ONLY a valid JSON object with these exact fields. Use an empty string for fields that are unknown or not applicable:",
+    "{",
+    fieldList,
+    "}",
+    "",
+    "Rules:",
+    "- Be specific and flavor-rich.",
+    "- Never contradict the existing NPC information above.",
+    "- Keep each field to 1–3 sentences at most.",
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 900);
+
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError(`AI returned unexpected format for ${input.section} section.`);
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError(`AI returned invalid JSON for ${input.section} section.`);
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const field of info.fields) {
+    normalized[field] = (typeof parsed[field] === "string" ? parsed[field] as string : "").trim();
+  }
+
+  return {
+    section: input.section,
+    data: { [input.section]: normalized } as NpcProfileSections,
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Session recap generation
 // ---------------------------------------------------------------------------
 
