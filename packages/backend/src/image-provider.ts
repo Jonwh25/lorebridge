@@ -293,11 +293,15 @@ async function generateViaWorkersAI(config: WorkersAIConfig, prompt: string, neg
   }
 
   const contentType = response.headers.get("content-type") ?? "";
+  const buffer = await response.arrayBuffer();
+
+  console.log(`[WorkersAI] content-type: ${contentType}, bytes: ${buffer.byteLength}`);
 
   // Flux-1-schnell returns JSON with result.image (base64 string)
   // SDXL and older models return raw binary
   if (contentType.includes("application/json")) {
-    const json = await response.json() as { result?: { image?: string }; errors?: { message?: string }[] };
+    const text = Buffer.from(buffer).toString("utf-8");
+    const json = JSON.parse(text) as { result?: { image?: string }; errors?: { message?: string }[] };
     const b64 = json.result?.image;
     if (!b64) {
       const msg = json.errors?.[0]?.message ?? "No image in response";
@@ -307,7 +311,6 @@ async function generateViaWorkersAI(config: WorkersAIConfig, prompt: string, neg
   }
 
   // Raw binary response
-  const buffer = await response.arrayBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
   return { base64, mimeType: contentType || "image/png" };
 }
