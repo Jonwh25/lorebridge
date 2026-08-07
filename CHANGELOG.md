@@ -4,6 +4,24 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-08-06
+
+### Added
+
+- **Session Command Center** (`⚔️` sidebar button, GM only): a live-session dashboard that opens as a floating panel from a dedicated button in the Foundry scene controls sidebar. Sections cover active scene, combat tracker, recent chat, and quick action links — all readable at a glance during play.
+- **@NPC Mention — live in-character NPC dialogue**: type `@ActorName <message>` in the Foundry chat bar to address an AI-enabled NPC directly. The NPC's response appears publicly in chat, attributed to the NPC. Per-actor conversation history (up to 20 turns) is maintained in session. The feature is gated by the **Enable @NPC Mention Responses** toggle in LoreBridge Features settings (off by default).
+- **Configure NPC Preamble** (actor sheet ⋮ menu, GM only): each NPC actor now has a **Configure NPC Preamble** entry in the three-dot header menu. Opens a dialog to toggle AI responses on or off per actor, write a personality preamble (overrides the biography for AI roleplay when set), and enter an ElevenLabs Voice ID for TTS. Settings are saved as actor flags and persist across sessions.
+- **ElevenLabs TTS for NPC dialogue**: when an ElevenLabs Voice ID is configured on an actor and `ELEVENLABS_API_KEY` is set on the backend, AI-generated NPC responses are spoken aloud automatically after appearing in chat. The backend proxies the TTS request so the API key is never exposed to clients. Requires an ElevenLabs **Starter plan or higher** — the free tier does not permit voice API access.
+- **`/lb npc` GM chat commands**: manage AI-enabled NPCs without opening any UI.
+
+  | Command | Effect |
+  |---------|--------|
+  | `/lb npc enable <name>` | Enable AI responses for an actor |
+  | `/lb npc disable <name>` | Disable AI responses for an actor |
+  | `/lb npc preamble <name> \| <text>` | Set personality preamble via chat |
+  | `/lb npc clear <name>` | Clear in-session conversation history |
+  | `/lb npc list` | List all AI-enabled actors |
+
 ## [0.14.0] - 2026-08-05
 
 ### Added

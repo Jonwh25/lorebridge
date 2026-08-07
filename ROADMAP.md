@@ -258,14 +258,14 @@ Success test: a GM audits a world, finds broken references and a seeded
 contradiction, scopes the audit to one campaign region, and reviews exact
 source citations without changing any document.
 
-### Milestone 15 — Live Session Workspace
+### Milestone 15 — Live Session Workspace ✅
 
 Bring the most useful live-session context and roleplay controls into one
 GM-facing Foundry workspace.
 
-1. [Session Command Center](https://github.com/Jonwh25/lorebridge/issues/168)
-2. [@NPC mention in chat for live in-character dialogue](https://github.com/Jonwh25/lorebridge/issues/116)
-3. [Optional text-to-speech for NPC dialogue](https://github.com/Jonwh25/lorebridge/issues/112)
+1. ✅ [Session Command Center](https://github.com/Jonwh25/lorebridge/issues/168)
+2. ✅ [@NPC mention in chat for live in-character dialogue](https://github.com/Jonwh25/lorebridge/issues/116)
+3. ✅ [Optional text-to-speech for NPC dialogue](https://github.com/Jonwh25/lorebridge/issues/112)
 
 The command center composes existing bounded retrieval capabilities. Inline NPC
 dialogue remains opt-in per actor, and speech remains an optional backend
