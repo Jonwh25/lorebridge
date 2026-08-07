@@ -292,7 +292,30 @@ Success test: a GM generates a complete NPC, retains and reopens the output,
 reviews the mechanical data and portrait, and explicitly approves creation in
 Foundry without affecting unrelated actors or assets.
 
-### Milestone 17 — Safe Player Access
+### Milestone 17 — NPC Profiles & AI Workspace
+
+Turn generated and existing NPCs into rich, modular GM references instead of a
+single block of generated text.
+
+1. [Enhance NPC Profiles with Structured GM Reference Sections](https://github.com/Jonwh25/lorebridge/issues/196)
+2. [Redesign NPC Sheet into a Modular AI Workspace](https://github.com/Jonwh25/lorebridge/issues/197)
+
+The profile model should capture identity, appearance, motivations,
+relationships, secrets, history, gameplay context, and other GM-useful details.
+Each major section is independently generated, regenerated, and edited while
+using the rest of the NPC as consistency context. Existing sections must never
+be overwritten unless the GM explicitly requests it.
+
+The Foundry experience should present these sections as a focused workspace
+rather than a wall of text, with section-level generation controls and a full
+profile generation shortcut for new NPCs.
+
+Success test: a GM opens an existing NPC, generates only the missing Appearance
+section, keeps the existing personality and history untouched, then navigates
+between structured profile sections and regenerates one section without
+changing the others.
+
+### Milestone 18 — Safe Player Access
 
 Expose an explicitly published, permission-checked subset of campaign lore to
 players inside Foundry and then through a read-only Discord adapter.
@@ -308,7 +331,7 @@ Success test: a player receives source-cited answers only from GM-published
 lore, with the same visibility boundary enforced through Foundry and Discord;
 revoked access takes effect immediately.
 
-### Milestone 18 — Campaign Memory & Semantic Search
+### Milestone 19 — Campaign Index & Semantic Search
 
 Add an optional private campaign index and meaning-based retrieval for worlds
 where bounded keyword search has proven insufficient.
@@ -326,7 +349,7 @@ answers a meaning-based question using local embeddings or explicitly approved
 external processing, while keyword retrieval remains available when the
 semantic service is disabled or unavailable.
 
-### Milestone 19 — Controlled Live Operations
+### Milestone 20 — Controlled Live Operations
 
 Extend the write-approval model to time-sensitive combat mutations without
 introducing automatic or generic Foundry writes.
@@ -348,11 +371,60 @@ turn advance, one initiative correction, and ending the encounter. Each valid
 action affects only the previewed target, while expired, reused, or stale
 proposals are rejected without changing combat state.
 
+### Milestone 21 — Context Profile Depth
+
+Deepen the reusable context-profile system with broader enforcement and
+high-value quality-of-life controls.
+
+1. [Context Profiles: enforcement in consistency auditor, active-scene toggle, and profile duplication](https://github.com/Jonwh25/lorebridge/issues/183)
+2. [Context Profiles: get_related_documents enforcement and compendium exclusion per profile](https://github.com/Jonwh25/lorebridge/issues/184)
+
+Success test: context profiles consistently bound the consistency auditor and
+related-document retrieval, can optionally include the active scene, can be
+duplicated safely, and can exclude selected compendia without changing default
+behavior when no profile is active.
+
+### Milestone 22 — Context Profile Advanced Scoping
+
+Add finer-grained profile scoping and visibility into exactly what a profile
+will include before it is used.
+
+1. [Context Profiles: folder-level scoping](https://github.com/Jonwh25/lorebridge/issues/185)
+2. [Context Profiles: profile preview](https://github.com/Jonwh25/lorebridge/issues/186)
+3. [Context Profiles: source recheck at request time](https://github.com/Jonwh25/lorebridge/issues/187)
+
+Success test: a GM scopes a profile to selected folders, previews the matched
+sources before activation, and can safely continue using the profile after
+sources are moved, deleted, or restricted.
+
+### Milestone 23 — Campaign Memory Engine for Living NPCs
+
+Add persistent NPC memory after the structured NPC model and AI workspace have
+proven stable. This is intentionally a later milestone rather than part of the
+Milestone 17 delivery scope.
+
+1. [Campaign Memory Engine for Living NPCs](https://github.com/Jonwh25/lorebridge/issues/198)
+
+NPCs should accumulate meaningful campaign events, relationship changes,
+promises, debts, betrayals, status changes, and other persistent history over
+time. Future AI generation and roleplay can use that history as bounded context
+so recurring NPCs remain consistent with what has actually happened in play.
+
+This milestone may later integrate session recap data, relationship graphs,
+world-state changes, and campaign indexing, but it does not require semantic
+search as a prerequisite.
+
+Success test: after multiple recorded sessions, a recurring NPC retains a
+reviewable timeline of important interactions and relationship changes, and a
+new roleplay or profile-generation request incorporates approved memories
+without rewriting unrelated NPC data.
+
 ## Deferred work
 
-No tracked features are currently deferred outside the delivery milestones.
-Additional VTT adapters and multi-world federation were closed as not planned;
-LoreBridge remains focused on Foundry VTT and one connected world per backend.
+No additional tracked features are currently deferred outside the delivery
+milestones. Additional VTT adapters and multi-world federation were closed as
+not planned; LoreBridge remains focused on Foundry VTT and one connected world
+per backend.
 
 ## Planning workflow
 
