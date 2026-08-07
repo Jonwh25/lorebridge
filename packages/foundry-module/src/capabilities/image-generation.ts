@@ -93,18 +93,18 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
   const name = actor.name;
   const system = actor.system;
 
-  // Read portrait description: flag first (set by NPC Profile), then
-  // fall back to extracting the Appearance line from biography HTML.
-  let savedDescription = typeof actor.getFlag?.("lorebridge", "portraitDescription") === "string"
+  // Biography Appearance is the source of truth — the user can edit it directly.
+  // Fall back to the flag only if the biography has no Appearance section.
+  const bio = (system["details"] as Record<string, unknown> | undefined)?.["biography"] as Record<string, unknown> | undefined;
+  const bioHtml = typeof bio?.["value"] === "string" ? bio["value"] : "";
+  const bioMatch = bioHtml.match(/<strong>Appearance:<\/strong>\s*([^<]+)/i);
+  const bioDescription = bioMatch?.[1]?.trim() ?? "";
+
+  const flagDescription = typeof actor.getFlag?.("lorebridge", "portraitDescription") === "string"
     ? (actor.getFlag("lorebridge", "portraitDescription") as string).trim()
     : "";
 
-  if (!savedDescription) {
-    const bio = (system["details"] as Record<string, unknown> | undefined)?.["biography"] as Record<string, unknown> | undefined;
-    const bioHtml = typeof bio?.["value"] === "string" ? bio["value"] : "";
-    const match = bioHtml.match(/<strong>Appearance:<\/strong>\s*([^<]+)/i);
-    if (match?.[1]) savedDescription = match[1].trim();
-  }
+  const savedDescription = bioDescription || flagDescription;
 
   // Extract identity fields to build a richer subject line and pass gender to backend
   const details = (system["details"] as Record<string, unknown> | undefined);
