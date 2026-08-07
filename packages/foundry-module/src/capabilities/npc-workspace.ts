@@ -274,95 +274,106 @@ async function generateSection(actor: FoundryActor, section: NpcSection): Promis
 // ---------------------------------------------------------------------------
 
 const PANEL_ID = "lb-npc-profile-panel";
+
+// Detect Foundry's active color scheme independent of the sheet's CSS vars,
+// which the dnd5e system overrides with parchment values even in dark mode.
+function detectDarkMode(): boolean {
+  try {
+    const scheme = (game.settings as unknown as { get(m: string, k: string): string })
+      .get("core", "colorScheme");
+    if (scheme === "dark") return true;
+    if (scheme === "light") return false;
+    // "browser" — fall through to matchMedia
+  } catch { /* settings not ready or key absent */ }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 const PANEL_STYLES = `
 <style id="lb-npc-profile-styles">
-  /* Base: dark-friendly defaults. Foundry's own CSS vars override these when defined. */
+  /* Layout — theme-neutral */
   #lb-npc-profile-panel {
-    border-top: 2px solid var(--color-border-dark, #555);
     margin-top: 8px;
     font-size: 0.82em;
-    color: var(--color-text-primary, inherit);
   }
   .lb-panel__header {
     display: flex; align-items: center; gap: 6px;
-    padding: 5px 8px; cursor: pointer;
-    background: var(--color-bg-secondary, #2a2a2a);
-    user-select: none;
+    padding: 5px 8px; cursor: pointer; user-select: none;
+    border-top: 2px solid; border-bottom: 1px solid;
   }
-  .lb-panel__header:hover { background: var(--color-bg-option, #333); }
   .lb-panel__title { flex: 1; font-weight: bold; font-size: 0.9em; }
   .lb-panel__toggle { font-size: 0.75em; opacity: 0.6; }
   .lb-panel__gen-all {
-    padding: 2px 8px; border: 1px solid #3a5e9e;
-    border-radius: 3px; background: #4e7ac7;
-    color: #fff; cursor: pointer; font-size: 0.78em; white-space: nowrap;
+    padding: 2px 8px; border: 1px solid #3a5e9e; border-radius: 3px;
+    background: #4e7ac7; color: #fff; cursor: pointer; font-size: 0.78em; white-space: nowrap;
   }
   .lb-panel__gen-all:hover:not(:disabled) { background: #3a5e9e; }
   .lb-panel__gen-all:disabled { opacity: 0.5; cursor: not-allowed; }
   .lb-panel__body { padding: 4px 0; }
   .lb-panel__body.hidden { display: none; }
-
-  .lb-sec {
-    border-bottom: 1px solid var(--color-border-dark, #444);
-  }
-  .lb-sec__header {
-    display: flex; align-items: center; gap: 5px;
-    padding: 4px 8px; cursor: pointer;
-    background: var(--color-bg-option, #252525);
-  }
-  .lb-sec__header:hover { background: var(--color-bg-secondary, #303030); }
+  .lb-sec { border-bottom: 1px solid; }
+  .lb-sec__header { display: flex; align-items: center; gap: 5px; padding: 4px 8px; cursor: pointer; }
   .lb-sec__status { width: 16px; text-align: center; flex-shrink: 0; }
   .lb-sec__icon { opacity: 0.6; flex-shrink: 0; }
   .lb-sec__name { flex: 1; font-weight: bold; }
   .lb-sec__actions { display: flex; gap: 3px; }
   .lb-sec__btn {
-    padding: 1px 6px; border: 1px solid var(--color-border-dark, #555);
-    border-radius: 3px; background: var(--color-bg-secondary, #2a2a2a);
-    color: var(--color-text-primary, inherit);
+    padding: 1px 6px; border: 1px solid; border-radius: 3px;
     cursor: pointer; font-size: 0.76em; white-space: nowrap;
   }
-  .lb-sec__btn:hover:not(:disabled) { background: var(--color-bg-option, #333); }
   .lb-sec__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .lb-sec__btn--primary { background: #4e7ac7; color: #fff; border-color: #3a5e9e; }
-  .lb-sec__btn--primary:hover:not(:disabled) { background: #3a5e9e; }
+  .lb-sec__btn--primary { background: #4e7ac7 !important; color: #fff !important; border-color: #3a5e9e !important; }
+  .lb-sec__btn--primary:hover:not(:disabled) { background: #3a5e9e !important; }
   .lb-sec__content { padding: 4px 8px 6px; display: none; }
   .lb-sec__content.open { display: block; }
-  .lb-sec__empty { color: var(--color-text-light-tertiary, #888); font-style: italic; padding: 2px 0; }
+  .lb-sec__empty { font-style: italic; padding: 2px 0; }
   .lb-sec__fields { display: grid; grid-template-columns: 130px 1fr; gap: 2px 8px; }
-  .lb-sec__label { color: var(--color-text-light-tertiary, #999); font-size: 0.9em; }
+  .lb-sec__label { font-size: 0.9em; }
   .lb-sec__value { font-size: 0.9em; line-height: 1.4; }
   .lb-sec__edit-form { display: flex; flex-direction: column; gap: 3px; }
   .lb-sec__field-row { display: flex; flex-direction: column; gap: 1px; }
-  .lb-sec__field-label { font-size: 0.8em; color: var(--color-text-light-tertiary, #999); }
+  .lb-sec__field-label { font-size: 0.8em; }
   .lb-sec__textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 36px; font-size: 0.85em; }
   .lb-sec__edit-actions { display: flex; gap: 4px; margin-top: 4px; }
   .lb-sec__spinner { display: inline-block; animation: lb-spin 1s linear infinite; }
   @keyframes lb-spin { to { transform: rotate(360deg); } }
 
-  /* Light mode overrides — when Foundry is set to Light or when system is light */
-  @media (prefers-color-scheme: light) {
-    .lb-panel__header { background: var(--color-bg-secondary, #e8e3d8); }
-    .lb-panel__header:hover { background: var(--color-bg-option, #ddd8c8); }
-    .lb-sec { border-bottom-color: var(--color-border-light, #ccc); }
-    .lb-sec__header { background: var(--color-bg-option, #f0ebe0); }
-    .lb-sec__header:hover { background: var(--color-bg-secondary, #e8e3d8); }
-    .lb-sec__btn { background: var(--color-bg-secondary, #f0ebe0); border-color: var(--color-border-dark, #aaa); }
-    .lb-sec__btn:hover:not(:disabled) { background: var(--color-bg-option, #e0dac8); }
+  /* === DARK theme === */
+  #lb-npc-profile-panel[data-lb-theme="dark"] {
+    color: #c9c7b8;
   }
-  /* Foundry "Light" theme class (set on <html> or <body> by Foundry's color scheme setting) */
-  :root[data-color-scheme="light"] .lb-panel__header,
-  body.light-theme .lb-panel__header {
-    background: var(--color-bg-secondary, #e8e3d8);
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-panel__header {
+    background: #2a2a2a; border-color: #555;
   }
-  :root[data-color-scheme="light"] .lb-sec__header,
-  body.light-theme .lb-sec__header {
-    background: var(--color-bg-option, #f0ebe0);
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-panel__header:hover { background: #333; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec { border-bottom-color: #3a3a3a; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header { background: #252525; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header:hover { background: #303030; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__btn {
+    background: #2a2a2a; border-color: #555; color: #c9c7b8;
   }
-  :root[data-color-scheme="light"] .lb-sec__btn,
-  body.light-theme .lb-sec__btn {
-    background: var(--color-bg-secondary, #f0ebe0);
-    border-color: var(--color-border-dark, #aaa);
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__btn:hover:not(:disabled) { background: #333; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__empty,
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__label,
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__field-label { color: #999; }
+
+  /* === LIGHT theme === */
+  #lb-npc-profile-panel[data-lb-theme="light"] {
+    color: #191813;
   }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-panel__header {
+    background: #e8e3d8; border-color: #aaa;
+  }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-panel__header:hover { background: #ddd8c8; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec { border-bottom-color: #ccc; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header { background: #f0ebe0; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header:hover { background: #e8e3d8; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__btn {
+    background: #f0ebe0; border-color: #aaa; color: #191813;
+  }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__btn:hover:not(:disabled) { background: #e0dac8; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__empty,
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__label,
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__field-label { color: #555; }
 </style>`;
 
 function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | undefined): string {
@@ -409,9 +420,10 @@ function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | unde
 function buildPanelHtml(actor: FoundryActor, collapsed: boolean): string {
   const profile = getProfile(actor);
   const sectionsHtml = SECTION_META.map(m => buildSectionHtml(m, profile[m.id])).join("");
+  const theme = detectDarkMode() ? "dark" : "light";
   return `
     ${PANEL_STYLES}
-    <div id="${PANEL_ID}" data-lb-actor="${actor.id}">
+    <div id="${PANEL_ID}" data-lb-actor="${actor.id}" data-lb-theme="${theme}">
       <div class="lb-panel__header" data-lb-action="toggle-panel">
         <span>🤖</span>
         <span class="lb-panel__title">LoreBridge NPC Profile</span>
