@@ -278,13 +278,30 @@ const PANEL_ID = "lb-npc-profile-panel";
 // Detect Foundry's active color scheme independent of the sheet's CSS vars,
 // which the dnd5e system overrides with parchment values even in dark mode.
 function detectDarkMode(): boolean {
+  // 1. Check what Foundry has actually applied to the document root.
+  //    Foundry v14 sets data-color-scheme on <html> when the setting is active.
+  const htmlEl = document.documentElement;
+  const rootScheme = htmlEl.dataset["colorScheme"] ?? htmlEl.dataset["theme"];
+  if (rootScheme === "dark") return true;
+  if (rootScheme === "light") return false;
+
+  // 2. Read the Foundry game setting directly.
   try {
     const scheme = (game.settings as unknown as { get(m: string, k: string): string })
       .get("core", "colorScheme");
     if (scheme === "dark") return true;
     if (scheme === "light") return false;
-    // "browser" — fall through to matchMedia
-  } catch { /* settings not ready or key absent */ }
+    // "browser" or empty — fall through
+  } catch { /* settings not ready */ }
+
+  // 3. Check computed color-scheme on :root (Foundry sets this in dark mode).
+  try {
+    const cs = getComputedStyle(htmlEl).colorScheme;
+    if (cs === "dark") return true;
+    if (cs === "light") return false;
+  } catch { /* not available */ }
+
+  // 4. System preference fallback.
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
@@ -337,43 +354,48 @@ const PANEL_STYLES = `
   .lb-sec__spinner { display: inline-block; animation: lb-spin 1s linear infinite; }
   @keyframes lb-spin { to { transform: rotate(360deg); } }
 
-  /* === DARK theme === */
+  /* === DARK theme — !important beats dnd5e parchment overrides === */
   #lb-npc-profile-panel[data-lb-theme="dark"] {
-    color: #c9c7b8;
+    color: #c9c7b8 !important;
   }
   #lb-npc-profile-panel[data-lb-theme="dark"] .lb-panel__header {
-    background: #2a2a2a; border-color: #555;
+    background: #2a2a2a !important; border-color: #555 !important;
   }
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-panel__header:hover { background: #333; }
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec { border-bottom-color: #3a3a3a; }
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header { background: #252525; }
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header:hover { background: #303030; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-panel__header:hover { background: #333 !important; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec { border-bottom-color: #3a3a3a !important; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header { background: #252525 !important; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__header:hover { background: #303030 !important; }
   #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__btn {
-    background: #2a2a2a; border-color: #555; color: #c9c7b8;
+    background: #2a2a2a !important; border-color: #555 !important; color: #c9c7b8 !important;
   }
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__btn:hover:not(:disabled) { background: #333; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__btn:hover:not(:disabled) { background: #333 !important; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__content { background: transparent !important; }
   #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__empty,
   #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__label,
-  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__field-label { color: #999; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__value,
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__field-label { color: #999 !important; }
+  #lb-npc-profile-panel[data-lb-theme="dark"] .lb-sec__value { color: #c9c7b8 !important; }
 
-  /* === LIGHT theme === */
+  /* === LIGHT theme — !important beats any inherited dark overrides === */
   #lb-npc-profile-panel[data-lb-theme="light"] {
-    color: #191813;
+    color: #191813 !important;
   }
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-panel__header {
-    background: #e8e3d8; border-color: #aaa;
+    background: #e8e3d8 !important; border-color: #aaa !important;
   }
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-panel__header:hover { background: #ddd8c8; }
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec { border-bottom-color: #ccc; }
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header { background: #f0ebe0; }
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header:hover { background: #e8e3d8; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-panel__header:hover { background: #ddd8c8 !important; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec { border-bottom-color: #ccc !important; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header { background: #f0ebe0 !important; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__header:hover { background: #e8e3d8 !important; }
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__btn {
-    background: #f0ebe0; border-color: #aaa; color: #191813;
+    background: #f0ebe0 !important; border-color: #aaa !important; color: #191813 !important;
   }
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__btn:hover:not(:disabled) { background: #e0dac8; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__btn:hover:not(:disabled) { background: #e0dac8 !important; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__content { background: transparent !important; }
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__empty,
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__label,
-  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__field-label { color: #555; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__field-label { color: #555 !important; }
+  #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__value { color: #191813 !important; }
 </style>`;
 
 function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | undefined): string {
@@ -439,14 +461,14 @@ function buildPanelHtml(actor: FoundryActor, collapsed: boolean): string {
 }
 
 function findInsertTarget(frame: HTMLElement): HTMLElement | null {
-  // Try dnd5e Biography tab first, then fall back to window-content
+  // Selectors for the dnd5e NPC biography tab in order of specificity.
+  // dnd5e v4 (Foundry v14) uses ApplicationV2 PARTS: [data-application-part="biography"].
+  // Older layouts used [data-tab="biography"].
+  // No fallback to .window-content — if no biography tab, skip injection entirely.
   const candidates = [
+    '[data-application-part="biography"]',
     '[data-tab="biography"]',
     '.tab.biography',
-    '.biography-content',
-    '.biography',
-    '.tab-content[data-tab="biography"]',
-    '.window-content',
   ];
   for (const sel of candidates) {
     const el = frame.querySelector<HTMLElement>(sel);
@@ -969,6 +991,10 @@ export function registerNpcProfileSheetSection(): void {
     if (actor.type !== "npc") return;
     if (!game.user?.isGM) return;
     if (!getLoreBridgeSettings().uiButtonsEnabled) return;
+    // dnd5e NPCActorSheet sets class "npc" on its element.
+    // Sub-windows (Skill Proficiencies, etc.) do not have this class,
+    // so this gates injection to only the main NPC actor sheet.
+    if (!frame.classList.contains("npc")) return;
     injectProfilePanel(frame, actor);
   });
 }
