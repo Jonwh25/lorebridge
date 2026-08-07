@@ -98,6 +98,7 @@ async function generateViaStability(config: StabilityConfig, prompt: string, neg
   const form = new FormData();
   form.append("prompt", prompt);
   if (negativePrompt) form.append("negative_prompt", negativePrompt);
+  form.append("seed", String(Math.floor(Math.random() * 4294967295)));
   form.append("output_format", "png");
   form.append("aspect_ratio", "1:1");
 
@@ -131,7 +132,7 @@ async function generateViaFlux(config: FluxConfig, prompt: string): Promise<Imag
   const submitResponse = await fetch(`${base}/${config.model}`, {
     method: "POST",
     headers: { "x-key": config.apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, width: 1024, height: 1024 }),
+    body: JSON.stringify({ prompt, width: 1024, height: 1024, seed: Math.floor(Math.random() * 4294967295) }),
   });
 
   if (!submitResponse.ok) {
@@ -213,6 +214,7 @@ async function generateViaIdeogram(config: IdeogramConfig, prompt: string): Prom
         model: config.model,
         aspect_ratio: "ASPECT_1_1",
         magic_prompt_option: "AUTO",
+        seed: Math.floor(Math.random() * 2147483647),
       },
     }),
   });
