@@ -124,6 +124,8 @@ inside Foundry without opening a browser console or MCP client.
 | Session log journals | Wizard-hat icon in header | Lazy DM session prep saved to "Lazy DM Prep" journal (v0.9.0+) |
 | Session log journals | Users icon in header | Player-safe Discord-formatted Party Recap with copy/download (v0.13.0+) |
 | NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
+| NPC actor sheets | Portrait icon in header | AI-generated portrait (see [AI Portrait Generation](#ai-portrait-generation-v0160)) |
+| Create Actor dialog | **Generate Full Stat Block with AI** button | Complete D&D 5e NPC stat block dropped into Foundry as a ready-to-use actor |
 | Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
 | Any journal page | Question-mark input at bottom | Inline Q&A grounded in the active page content |
 
@@ -189,6 +191,36 @@ Type `@ActorName <message>` in the Foundry chat bar to speak directly to an AI-e
 /lb npc clear Morgantha        — reset conversation history
 /lb npc list                   — show all AI-enabled actors
 ```
+
+### AI Portrait Generation (v0.16.0+)
+
+Click the **portrait icon** in any NPC actor sheet header (GM only) to open the Generate Portrait dialog. The dialog pre-fills from the actor's name, gender, race, and biography Appearance section. Choose from 21 art-style presets — **Semi-Realistic Fantasy** is the default — then click **Generate**. A preview shows the image and the prompt used. Click **Apply** to save it to Foundry and set the actor portrait and prototype token, **Regenerate** for a different result, or **Discard** to close without changes.
+
+**Portrait Save Directory** — set the upload path in LoreBridge module settings (world-scoped). Defaults to `modules/lorebridge/images`.
+
+**Image provider setup** — portrait generation uses a dedicated image provider, independent of the text AI provider. Set one of these in your backend environment:
+
+| Provider | Env vars | Notes |
+| --- | --- | --- |
+| Stability AI | `STABILITY_API_KEY`, `STABILITY_MODEL` | default `stable-image-core`; also supports `stable-image-ultra` |
+| FLUX | `FLUX_API_KEY`, `FLUX_MODEL` | Black Forest Labs; default `flux-pro-1.1` |
+| Cloudflare Workers AI | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_IMAGE_MODEL` | free tier; default `@cf/black-forest-labs/flux-1-schnell` |
+| Ideogram | `IDEOGRAM_API_KEY`, `IDEOGRAM_MODEL` | default `V_3` |
+| OpenAI DALL-E | `IMAGE_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL` | explicitly required; only activates when `IMAGE_PROVIDER=openai` is set |
+
+Auto-detection order: stability → flux → workersai → ideogram → openai. Set `IMAGE_PROVIDER=<name>` to override. Check active provider status at `GET /v1/image-provider/status`.
+
+### D&D 5e NPC Stat Block Generator (v0.16.0+)
+
+Click **Generate Full Stat Block with AI** in the **Create Actor** dialog (D&D 5e, GM only). Describe the NPC in plain text — name, role, personality, challenge rating — and choose **Modern Rules (2024)** or **Legacy Rules (2014)**. A preview dialog shows the complete stat block: ability scores, AC, HP, speed, traits, actions, and special abilities. Click **Create Actor** to drop the NPC directly into Foundry in a "LoreBridge NPCs" folder, with all items embedded.
+
+- Actions, features, and natural attacks are sourced from the dnd5e monster and equipment compendiums first. Synthetic items are generated only when no compendium match is found.
+- Modern edition items include full dnd5e 4.x activity objects (attack, utility, save, heal) so all actions are immediately usable.
+- All generated items and actors carry a `system.source` block labeled "LoreBridge AI" for traceability.
+
+### Generation History (v0.16.0+)
+
+Every AI generation — stat blocks, journal content, and portraits — is saved to a world-scoped history log. Click **Generation History** in the LoreBridge panel to browse previous outputs and reopen any of them without regenerating.
 
 ### ElevenLabs TTS for NPC dialogue (v0.15.0+)
 
