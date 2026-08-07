@@ -109,9 +109,12 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
   registerNpcMentionHook();
-  Hooks.on("renderActorDirectory", (_app: unknown, html: unknown) => {
+  Hooks.on("renderApplicationV2", (app: unknown) => {
     if (!game.user?.isGM) return;
-    injectActorsSidebarButton(html as HTMLElement);
+    const frame = (app as { element?: HTMLElement }).element;
+    if (!frame) return;
+    if (frame.id !== "actors" && frame.dataset["appid"] !== "actors") return;
+    injectActorsSidebarButton(frame);
   });
   registerNpcPreambleSheetHook();
 

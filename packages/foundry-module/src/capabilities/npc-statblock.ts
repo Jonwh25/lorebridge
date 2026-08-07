@@ -529,18 +529,25 @@ async function createNpcActor(stat: NpcStatBlockResult): Promise<void> {
 // Actors sidebar button
 // ---------------------------------------------------------------------------
 
-export function injectActorsSidebarButton(html: HTMLElement): void {
-  const header = html.querySelector(".directory-header .action-buttons");
+export function injectActorsSidebarButton(frame: HTMLElement): void {
+  if (frame.querySelector("[data-lb-btn='generate-npc']")) return;
+
+  const header = frame.querySelector<HTMLElement>(".window-header");
   if (!header) return;
-  if (header.querySelector(".lb-generate-npc-statblock")) return;
 
   const btn = document.createElement("button");
-  btn.className = "lb-generate-npc-statblock";
   btn.type = "button";
+  btn.dataset["lbBtn"] = "generate-npc";
   btn.title = "Generate NPC Stat Block";
-  btn.innerHTML = '<i class="fas fa-dragon"></i> Generate NPC';
-  btn.style.cssText = "margin-left:4px;white-space:nowrap";
+  btn.style.cssText = "background:none;border:none;cursor:pointer;padding:0 4px;font-size:var(--font-size-14,14px);color:inherit;";
+  btn.innerHTML = '<i class="fas fa-dragon"></i>';
   btn.addEventListener("click", () => { void showNpcStatBlockDialog(); });
 
-  header.appendChild(btn);
+  // Insert before the first existing header control button
+  const firstControl = header.querySelector("button");
+  if (firstControl) {
+    header.insertBefore(btn, firstControl);
+  } else {
+    header.appendChild(btn);
+  }
 }
