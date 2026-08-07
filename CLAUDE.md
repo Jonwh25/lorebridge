@@ -12,3 +12,6 @@ requirements.
 After implementing code, follow the **Live testing handoff** policy in
 `AGENTS.md`. Always provide the tailored commands and manual acceptance test; do
 not wait for the user to ask for testing instructions.
+For Foundry UI work, follow the **Foundry ApplicationV2 UI standard** in
+`AGENTS.md`. Use the documented v14 `ApplicationV2` APIs and verify that windows,
+text areas, nested content, scrolling, and actions remain usable when resized.
