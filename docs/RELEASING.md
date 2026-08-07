@@ -31,11 +31,17 @@ The manifest download URL must include the same version.
 4. Run `npm run validate`.
 5. Run `npm run package:foundry` and inspect `release/lorebridge.zip`.
 6. Merge the release pull request into `main`.
-7. Create and push the matching tag, such as `v0.1.1`.
-8. Confirm the Release Foundry Module workflow publishes:
+7. After the repository owner confirms the release pull request is merged, create
+   and push the matching annotated tag from the resulting `main` commit, such as
+   `v0.1.1`.
+8. Treat the pushed tag as the publication trigger. Do not manually create a
+   duplicate GitHub release.
+9. Confirm the Release Foundry Module workflow publishes:
    - `module.json`
    - `lorebridge.zip`
-9. Install or update LoreBridge through Foundry using the stable manifest URL.
+10. Verify the release URL, archive layout, manifest URLs, checksums, and published
+    version.
+11. Install or update LoreBridge through Foundry using the stable manifest URL.
 
 ## Archive layout
 
@@ -56,8 +62,11 @@ From an up-to-date local `main` branch:
 ```bash
 git checkout main
 git pull
-git tag v0.1.1
+git tag -a v0.1.1 -m "LoreBridge v0.1.1"
 git push origin v0.1.1
 ```
 
 The release workflow rejects a tag that does not match the version in `module.json`.
+Create the tag only after the release pull request is merged. Never tag an
+unmerged branch, move an existing tag, overwrite a tag, or reuse a published
+version.

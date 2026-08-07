@@ -176,7 +176,9 @@ release-ready:
    agree with the shipped implementation.
 6. Merge the repository documentation PR, then close the GitHub milestone object
    only after its issues and closeout documentation are complete.
-7. Create the new release and tag it with the updated version.
+
+After milestone closeout, report that the milestone is release-ready. Milestone
+completion does not by itself authorize a version change, tag, or release.
 
 The LoreBridge wiki repository is:
 
@@ -190,5 +192,27 @@ time. Keep wiki commits narrowly scoped to verified documentation changes. This
 permission applies only to the wiki repository and does not override the pull
 request workflow for the main `lorebridge` repository.
 
-Do not publish a version, tag, or GitHub release unless the repository owner asks
-for the release. Report when the completed milestone is ready for that decision.
+## Milestone release
+
+Do not change versions, create or push a tag, or publish a GitHub release until the
+repository owner explicitly approves the release.
+
+When the repository owner approves the release:
+
+1. Determine the next version according to the repository's versioning policy.
+2. Update every required version reference, manifest, package file, lockfile,
+   README reference, and changelog heading.
+3. Create a short-lived release branch and pull request for the version and
+   release-documentation changes.
+4. Run the complete release validation described in `docs/RELEASING.md`.
+5. Let the repository owner merge the release pull request.
+6. After confirming the release PR is merged, create the annotated version tag
+   from the resulting `main` commit and push the tag.
+7. Treat the pushed tag as the release trigger. The release workflow creates the
+   GitHub release; do not manually create a duplicate release.
+8. Monitor the tag-triggered release workflow and verify that the GitHub release,
+   module archive, manifest URLs, checksums, and published version are correct.
+9. Report the release URL and any failed or incomplete publication step.
+
+Never tag an unmerged feature, documentation, or release branch. Never move,
+overwrite, or reuse an existing release tag.
