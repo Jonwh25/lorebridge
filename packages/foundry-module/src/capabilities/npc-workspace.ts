@@ -276,23 +276,25 @@ async function generateSection(actor: FoundryActor, section: NpcSection): Promis
 const PANEL_ID = "lb-npc-profile-panel";
 const PANEL_STYLES = `
 <style id="lb-npc-profile-styles">
+  /* Base: dark-friendly defaults. Foundry's own CSS vars override these when defined. */
   #lb-npc-profile-panel {
-    border-top: 2px solid var(--color-border-dark, #666);
+    border-top: 2px solid var(--color-border-dark, #555);
     margin-top: 8px;
     font-size: 0.82em;
+    color: var(--color-text-primary, inherit);
   }
   .lb-panel__header {
     display: flex; align-items: center; gap: 6px;
     padding: 5px 8px; cursor: pointer;
-    background: var(--color-bg-secondary, #e8e3d8);
+    background: var(--color-bg-secondary, #2a2a2a);
     user-select: none;
   }
-  .lb-panel__header:hover { background: var(--color-bg-hover, #ddd8c8); }
+  .lb-panel__header:hover { background: var(--color-bg-option, #333); }
   .lb-panel__title { flex: 1; font-weight: bold; font-size: 0.9em; }
-  .lb-panel__toggle { font-size: 0.75em; color: var(--color-text-light-tertiary, #888); }
+  .lb-panel__toggle { font-size: 0.75em; opacity: 0.6; }
   .lb-panel__gen-all {
-    padding: 2px 8px; border: 1px solid var(--color-border-dark, #aaa);
-    border-radius: 3px; background: var(--color-bg-btn, #4e7ac7);
+    padding: 2px 8px; border: 1px solid #3a5e9e;
+    border-radius: 3px; background: #4e7ac7;
     color: #fff; cursor: pointer; font-size: 0.78em; white-space: nowrap;
   }
   .lb-panel__gen-all:hover:not(:disabled) { background: #3a5e9e; }
@@ -301,40 +303,66 @@ const PANEL_STYLES = `
   .lb-panel__body.hidden { display: none; }
 
   .lb-sec {
-    border-bottom: 1px solid var(--color-border-light, #ddd);
+    border-bottom: 1px solid var(--color-border-dark, #444);
   }
   .lb-sec__header {
     display: flex; align-items: center; gap: 5px;
     padding: 4px 8px; cursor: pointer;
-    background: var(--color-bg-option, #f0ebe0);
+    background: var(--color-bg-option, #252525);
   }
-  .lb-sec__header:hover { background: var(--color-bg-hover, #e4dece); }
+  .lb-sec__header:hover { background: var(--color-bg-secondary, #303030); }
   .lb-sec__status { width: 16px; text-align: center; flex-shrink: 0; }
-  .lb-sec__icon { opacity: 0.7; flex-shrink: 0; }
+  .lb-sec__icon { opacity: 0.6; flex-shrink: 0; }
   .lb-sec__name { flex: 1; font-weight: bold; }
   .lb-sec__actions { display: flex; gap: 3px; }
   .lb-sec__btn {
-    padding: 1px 6px; border: 1px solid var(--color-border-dark, #aaa);
-    border-radius: 3px; background: var(--color-bg-btn, #fff);
+    padding: 1px 6px; border: 1px solid var(--color-border-dark, #555);
+    border-radius: 3px; background: var(--color-bg-secondary, #2a2a2a);
+    color: var(--color-text-primary, inherit);
     cursor: pointer; font-size: 0.76em; white-space: nowrap;
   }
-  .lb-sec__btn:hover:not(:disabled) { background: var(--color-bg-hover, #e0dac8); }
+  .lb-sec__btn:hover:not(:disabled) { background: var(--color-bg-option, #333); }
   .lb-sec__btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .lb-sec__btn--primary { background: var(--color-bg-btn-primary, #4e7ac7); color: #fff; border-color: #3a5e9e; }
+  .lb-sec__btn--primary { background: #4e7ac7; color: #fff; border-color: #3a5e9e; }
   .lb-sec__btn--primary:hover:not(:disabled) { background: #3a5e9e; }
   .lb-sec__content { padding: 4px 8px 6px; display: none; }
   .lb-sec__content.open { display: block; }
   .lb-sec__empty { color: var(--color-text-light-tertiary, #888); font-style: italic; padding: 2px 0; }
   .lb-sec__fields { display: grid; grid-template-columns: 130px 1fr; gap: 2px 8px; }
-  .lb-sec__label { color: var(--color-text-light-tertiary, #888); font-size: 0.9em; }
+  .lb-sec__label { color: var(--color-text-light-tertiary, #999); font-size: 0.9em; }
   .lb-sec__value { font-size: 0.9em; line-height: 1.4; }
   .lb-sec__edit-form { display: flex; flex-direction: column; gap: 3px; }
   .lb-sec__field-row { display: flex; flex-direction: column; gap: 1px; }
-  .lb-sec__field-label { font-size: 0.8em; color: var(--color-text-light-tertiary, #888); }
+  .lb-sec__field-label { font-size: 0.8em; color: var(--color-text-light-tertiary, #999); }
   .lb-sec__textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 36px; font-size: 0.85em; }
   .lb-sec__edit-actions { display: flex; gap: 4px; margin-top: 4px; }
   .lb-sec__spinner { display: inline-block; animation: lb-spin 1s linear infinite; }
   @keyframes lb-spin { to { transform: rotate(360deg); } }
+
+  /* Light mode overrides — when Foundry is set to Light or when system is light */
+  @media (prefers-color-scheme: light) {
+    .lb-panel__header { background: var(--color-bg-secondary, #e8e3d8); }
+    .lb-panel__header:hover { background: var(--color-bg-option, #ddd8c8); }
+    .lb-sec { border-bottom-color: var(--color-border-light, #ccc); }
+    .lb-sec__header { background: var(--color-bg-option, #f0ebe0); }
+    .lb-sec__header:hover { background: var(--color-bg-secondary, #e8e3d8); }
+    .lb-sec__btn { background: var(--color-bg-secondary, #f0ebe0); border-color: var(--color-border-dark, #aaa); }
+    .lb-sec__btn:hover:not(:disabled) { background: var(--color-bg-option, #e0dac8); }
+  }
+  /* Foundry "Light" theme class (set on <html> or <body> by Foundry's color scheme setting) */
+  :root[data-color-scheme="light"] .lb-panel__header,
+  body.light-theme .lb-panel__header {
+    background: var(--color-bg-secondary, #e8e3d8);
+  }
+  :root[data-color-scheme="light"] .lb-sec__header,
+  body.light-theme .lb-sec__header {
+    background: var(--color-bg-option, #f0ebe0);
+  }
+  :root[data-color-scheme="light"] .lb-sec__btn,
+  body.light-theme .lb-sec__btn {
+    background: var(--color-bg-secondary, #f0ebe0);
+    border-color: var(--color-border-dark, #aaa);
+  }
 </style>`;
 
 function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | undefined): string {
@@ -742,8 +770,8 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           .lb-ws { display:flex; flex:1; min-height:0; overflow:hidden; }
           .lb-ws-sidebar {
             width:160px; min-width:120px; flex-shrink:0; display:flex; flex-direction:column;
-            border-right:1px solid var(--color-border-dark,#ccc);
-            background:var(--color-bg-option,#f0ebe0);
+            border-right:1px solid var(--color-border-dark, #444);
+            background:var(--color-bg-option, #252525);
           }
           .lb-ws-portrait { width:100%; max-height:100px; object-fit:cover; display:block; }
           .lb-ws-full-gen {
@@ -755,33 +783,37 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           .lb-ws-nav { list-style:none; margin:0; padding:0; flex:1; overflow-y:auto; }
           .lb-ws-nav__item {
             display:flex; align-items:center; gap:6px; padding:7px 8px;
-            cursor:pointer; border-bottom:1px solid var(--color-border-light,#ddd);
+            cursor:pointer; border-bottom:1px solid var(--color-border-dark, #3a3a3a);
           }
-          .lb-ws-nav__item:hover { background:var(--color-bg-hover,#e0dac8); }
-          .lb-ws-nav__item.active { background:var(--color-bg-secondary,#d8d0c0); font-weight:bold; }
+          .lb-ws-nav__item:hover { background:var(--color-bg-secondary, #333); }
+          .lb-ws-nav__item.active { background:var(--color-bg-secondary, #2e2e2e); font-weight:bold; }
           .lb-ws-nav__status { width:16px; text-align:center; flex-shrink:0; font-size:0.85em; }
           .lb-ws-nav__label { font-size:0.82em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
           .lb-ws-content { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; }
           .lb-ws-section-header {
             display:flex; align-items:center; justify-content:space-between;
-            padding:6px 10px; border-bottom:1px solid var(--color-border-dark,#ccc);
-            flex-shrink:0; background:var(--color-bg-secondary,#f5f0e8);
+            padding:6px 10px; border-bottom:1px solid var(--color-border-dark, #444);
+            flex-shrink:0; background:var(--color-bg-secondary, #2a2a2a);
           }
           .lb-ws-section-header h3 { margin:0; font-size:0.9em; }
           .lb-ws-section-actions { display:flex; gap:4px; }
           .lb-ws-body { flex:1; min-height:0; overflow-y:auto; padding:10px 12px; }
           .lb-ws-fields { display:grid; grid-template-columns:130px 1fr; gap:4px 8px; }
           .lb-ws-field--edit { display:flex; flex-direction:column; gap:2px; margin-bottom:4px; }
-          .lb-ws-field__label { font-size:0.78em; color:var(--color-text-light-tertiary,#888); font-weight:bold; padding-top:2px; }
+          .lb-ws-field__label { font-size:0.78em; color:var(--color-text-light-tertiary, #999); font-weight:bold; padding-top:2px; }
           .lb-ws-field__value { font-size:0.86em; line-height:1.4; }
           .lb-ws-field__textarea { width:100%; box-sizing:border-box; resize:vertical; min-height:40px; font-size:0.85em; }
           .lb-ws-edit-form { display:flex; flex-direction:column; }
           .lb-ws-edit-actions { display:flex; gap:6px; margin-top:8px; }
           .lb-ws-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; padding:20px; text-align:center; }
-          .lb-ws-empty__msg { color:var(--color-text-light-tertiary,#888); font-size:0.9em; margin:0; }
-          .lb-ws-generating { display:flex; align-items:center; justify-content:center; gap:8px; height:100%; font-size:0.9em; color:var(--color-text-light-tertiary,#888); }
-          .lb-ws-btn { padding:3px 8px; border:1px solid var(--color-border-dark,#aaa); border-radius:3px; background:var(--color-bg-btn,#fff); cursor:pointer; font-size:0.8em; white-space:nowrap; }
-          .lb-ws-btn:hover:not(:disabled) { background:var(--color-bg-hover,#e0dac8); }
+          .lb-ws-empty__msg { color:var(--color-text-light-tertiary, #999); font-size:0.9em; margin:0; }
+          .lb-ws-generating { display:flex; align-items:center; justify-content:center; gap:8px; height:100%; font-size:0.9em; color:var(--color-text-light-tertiary, #999); }
+          .lb-ws-btn {
+            padding:3px 8px; border:1px solid var(--color-border-dark, #555); border-radius:3px;
+            background:var(--color-bg-secondary, #2a2a2a); color:var(--color-text-primary, inherit);
+            cursor:pointer; font-size:0.8em; white-space:nowrap;
+          }
+          .lb-ws-btn:hover:not(:disabled) { background:var(--color-bg-option, #333); }
           .lb-ws-btn:disabled { opacity:0.5; cursor:not-allowed; }
           .lb-ws-btn--primary { background:#4e7ac7; color:#fff; border-color:#3a5e9e; }
           .lb-ws-btn--primary:hover:not(:disabled) { background:#3a5e9e; }
