@@ -51,19 +51,38 @@ function slugify(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Art styles — RPG-appropriate options
+// Art style presets — each label maps to a full prompt string.
+// Add, remove, or tune entries here without changing any other code.
 // ---------------------------------------------------------------------------
 
-const STYLE_OPTIONS = [
-  { value: "D&D fantasy character portrait, detailed oil painting style, dramatic lighting, high fantasy", label: "D&D Fantasy Portrait" },
-  { value: "dark gothic fantasy, moody atmosphere, candlelight, shadows, detailed illustration, gothic horror", label: "Dark Gothic" },
-  { value: "heroic fantasy illustration, bold colors, dynamic pose, epic composition, adventure", label: "Heroic Fantasy" },
-  { value: "gritty realistic fantasy, weathered, scarred, worn equipment, low fantasy, detailed face", label: "Gritty Realistic" },
-  { value: "painterly watercolor fantasy illustration, soft colors, storybook art style", label: "Watercolor Storybook" },
-  { value: "classic D&D module art, 1980s pen and ink illustration, black and white crosshatching", label: "Classic D&D Art" },
-  { value: "Dungeons and Dragons 5e official art style, vibrant colors, clean lines, dramatic lighting", label: "5e Official Art Style" },
-  { value: "villain portrait, menacing expression, dark robes, ominous magical energy, evil fantasy", label: "Villain / Dark Lord" },
-  { value: "NPC concept art, character reference sheet style, neutral pose, clear features, RPG game art", label: "Concept / Reference" },
+type StylePreset = { label: string; value: string };
+
+const STYLE_OPTIONS: StylePreset[] = [
+  // Classic Fantasy
+  { label: "Fantasy Portrait",       value: "fantasy character portrait, detailed digital illustration, dramatic lighting, high fantasy, D&D official art style, vibrant colors" },
+  { label: "Heroic Fantasy",         value: "heroic fantasy illustration, bold vibrant colors, dynamic epic composition, triumphant pose, adventure art" },
+  { label: "Epic Fantasy",           value: "epic fantasy art, grand scale cinematic composition, high detail, dramatic lighting, fantasy illustration" },
+  { label: "D&D 5E",                 value: "Dungeons and Dragons 5th edition official art style, vibrant fantasy illustration, clean lines, heroic composition, Wizards of the Coast aesthetic" },
+  { label: "Magic: The Gathering",   value: "Magic the Gathering card art style, fantasy illustration, dramatic lighting, rich deep colors, detailed painterly style, trading card game art" },
+  { label: "Pathfinder",             value: "Pathfinder RPG art style, detailed fantasy illustration, dynamic pose, rich warm colors, Paizo publishing aesthetic" },
+  // Realism
+  { label: "Cinematic Realism",      value: "cinematic realistic fantasy portrait, photorealistic quality, movie lighting, detailed face, dramatic composition, film production art" },
+  { label: "Hyper Realistic",        value: "hyperrealistic fantasy portrait, extreme fine detail, photographic quality, studio lighting, realistic skin texture and materials" },
+  { label: "Oil Painting",           value: "classical oil painting portrait, Renaissance style, rich deep colors, dramatic chiaroscuro lighting, museum quality fine art, old master technique" },
+  // Dark Fantasy
+  { label: "Dark Fantasy",           value: "dark fantasy portrait, moody brooding atmosphere, dramatic shadows, gritty details, atmospheric fog and candlelight" },
+  { label: "Gothic Horror",          value: "gothic horror portrait, candlelight, deep dramatic shadows, haunting expression, Victorian gothic aesthetic, horror atmosphere" },
+  { label: "Grimdark",               value: "grimdark fantasy portrait, brutal realism, weathered scarred face, blood-stained armor, dark oppressive atmosphere, Warhammer 40K inspired" },
+  { label: "Bloodborne",             value: "Bloodborne game art style, dark gothic Victorian horror, eldritch cosmic nightmare aesthetic, Hunter's nightmare atmosphere, grim ultra-detailed portrait" },
+  { label: "Diablo",                 value: "Diablo game art style, dark demonic fantasy portrait, gritty dramatic illustration, infernal lighting, gothic horror action, Blizzard aesthetic" },
+  // Stylized & Illustrated
+  { label: "Digital Painting",       value: "digital painting fantasy portrait, painterly expressive brushwork, vibrant colors, detailed illustration, professional concept art quality" },
+  { label: "Concept Art",           value: "RPG character concept art, professional game art, clear neutral pose, detailed character design reference sheet, high fidelity illustration" },
+  { label: "Watercolor",             value: "watercolor fantasy illustration, soft color washes, delicate linework, storybook quality, gentle atmospheric colors" },
+  { label: "Storybook",              value: "storybook fantasy illustration, charming fairy tale art style, warm inviting colors, enchanting atmosphere, classic children's book quality" },
+  // Tabletop Inspired
+  { label: "Monster Manual",         value: "D&D Monster Manual illustration style, official tabletop RPG art, detailed creature or character portrait, dramatic pose, inked fantasy illustration" },
+  { label: "Character Card",         value: "fantasy RPG character card portrait, framed composition, rich detailed illustration, trading card game art style, heroic pose" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -85,20 +104,29 @@ export async function runImageGeneration(actor: { id: string; name: string; syst
   const styleSelect = STYLE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
 
   const content = `
-    <form class="lorebridge-config-form" style="padding:0.75rem;display:flex;flex-direction:column;gap:0.6rem">
-      <div class="form-group">
-        <label style="font-weight:bold">Subject / Description</label>
-        <input name="subject" type="text" value="${name.replace(/"/g, "&quot;")}" style="width:100%">
-        <p class="hint" style="font-size:0.8em;color:#888;margin:2px 0 0">Edit the name or add physical details (race, hair, build, age…).</p>
+    <style>
+      .lb-portrait-form { display:flex; flex-direction:column; height:100%; padding:0.75rem; box-sizing:border-box; gap:0.5rem; overflow:hidden; }
+      .lb-portrait-form .lb-field-fixed { flex-shrink:0; display:flex; flex-direction:column; gap:2px; }
+      .lb-portrait-form .lb-field-grow { flex:1; min-height:0; display:flex; flex-direction:column; gap:2px; }
+      .lb-portrait-form .lb-field-grow textarea { flex:1; min-height:60px; width:100%; box-sizing:border-box; resize:none; }
+      .lb-portrait-form .lb-hint { font-size:0.8em; color:#888; margin:0; }
+      .lb-portrait-form label { font-weight:bold; }
+      .lb-portrait-form input, .lb-portrait-form select { width:100%; box-sizing:border-box; }
+    </style>
+    <form class="lb-portrait-form">
+      <div class="lb-field-fixed">
+        <label>Subject / Description</label>
+        <input name="subject" type="text" value="${name.replace(/"/g, "&quot;")}">
+        <p class="lb-hint">Edit the name or add physical details (race, hair, build, age…).</p>
       </div>
-      <div class="form-group">
-        <label style="font-weight:bold">Additional Context</label>
-        <textarea name="context" rows="6" style="width:100%;resize:vertical">${bioText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
-        <p class="hint" style="font-size:0.8em;color:#888;margin:2px 0 0">Clothing, expression, background setting, notable features.</p>
+      <div class="lb-field-grow">
+        <label>Additional Context</label>
+        <textarea name="context">${bioText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</textarea>
+        <p class="lb-hint">Clothing, expression, background setting, notable features.</p>
       </div>
-      <div class="form-group">
-        <label style="font-weight:bold">Art Style</label>
-        <select name="style" style="width:100%">${styleSelect}</select>
+      <div class="lb-field-fixed">
+        <label>Art Style</label>
+        <select name="style">${styleSelect}</select>
       </div>
     </form>`;
 
