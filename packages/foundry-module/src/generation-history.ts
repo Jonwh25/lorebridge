@@ -78,7 +78,7 @@ export async function addHistoryEntry(
 ): Promise<void> {
   const existing = readRawEntries();
   const newEntry: GenerationHistoryEntry = {
-    id: (foundry.utils as { randomID(): string }).randomID(),
+    id: foundry.utils.randomID(),
     timestamp: Date.now(),
     ...entry,
   };
