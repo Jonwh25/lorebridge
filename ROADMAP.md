@@ -335,23 +335,32 @@ because player answers are posted to public chat.
 Success test: a player receives source-cited answers only from GM-published
 lore through Foundry, and revoked access takes effect immediately.
 
-### Milestone 19 — Campaign Index & Semantic Search
+### Milestone 19 — Local-First Hybrid Search
 
-Add an optional private campaign index and meaning-based retrieval for worlds
-where bounded keyword search has proven insufficient.
+Improve context quality and reduce unnecessary AI calls by using local search
+to identify likely sources before LoreBridge retrieves bounded content. This is
+the next implementation priority after the completed deployment-version
+housekeeping in [#224](https://github.com/Jonwh25/lorebridge/issues/224).
 
-1. [Autonomous background campaign indexing](https://github.com/Jonwh25/lorebridge/issues/117)
-2. [Vector store indexing for semantic world search](https://github.com/Jonwh25/lorebridge/issues/98)
+1. [Local-first hybrid search adapter using Spotlight and Foundry-native candidates](https://github.com/Jonwh25/lorebridge/issues/225)
 
-The first slice establishes bounded persistence, incremental updates, deletion
-handling, visibility separation, and rebuild controls. Semantic retrieval then
-adds a local-first embedding option, explicit consent for external processing,
-and deterministic keyword fallback.
+The adapter combines Spotlight Omnisearch metadata candidates with Foundry v14
+native collection search, then live-resolves every candidate and applies all
+existing LoreBridge authorization, context-profile, visibility, folder, and
+result-limit rules. Dig Down remains optional and is used only through its
+enhancement of Foundry's native search. Existing journal, actor, scene, item,
+compendium, asset, chat, and session-log scanners remain the authoritative
+content-retrieval layer.
 
-Success test: LoreBridge incrementally maintains a private campaign index and
-answers a meaning-based question using local embeddings or explicitly approved
-external processing, while keyword retrieval remains available when the
-semantic service is disabled or unavailable.
+This direction follows the capability findings from
+[Spike #223](https://github.com/Jonwh25/lorebridge/issues/223): candidate-first
+search is intended to improve context selection and avoid unnecessary AI calls,
+not replace LoreBridge scanners or solve an urgent raw-performance problem.
+
+Success test: LoreBridge uses authorized local candidates to narrow context
+before an AI request, safely falls back to existing scanners while Spotlight is
+empty, rebuilding, stale, or unavailable, and never exposes a result that fails
+live permission or context-profile enforcement.
 
 ### Milestone 20 — Controlled Live Operations
 
@@ -431,10 +440,12 @@ without rewriting unrelated NPC data.
 
 ## Deferred work
 
-The following tracked feature remains outside the current delivery milestones:
+The following tracked features remain outside the current delivery milestones:
 
 | Feature | Issue | Reason |
 |---------|-------|--------|
+| Persistent campaign content indexing | [#117](https://github.com/Jonwh25/lorebridge/issues/117) | Spotlight covers metadata discovery. Only content persistence, provenance, incremental fingerprints, synchronization, and permission partitions remain, and they should advance only after measured demand following #225. |
+| Vector and semantic search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) | Spike #223 found no current need to replace bounded lexical retrieval. Advance only with a representative query corpus demonstrating material failures that local-first hybrid search cannot address. |
 | Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) | Secure identity linking, permission enforcement, bot hosting, and operational hardening require substantial work relative to the expected value. |
 
 Additional VTT adapters and multi-world federation were closed as not planned;
