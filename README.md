@@ -138,6 +138,37 @@ in your campaign. The answer is whispered to GM users only.
 /lb Who is Strahd and where did the party last see him?
 ```
 
+### Player Lore Assistant (v0.18.0+)
+
+The optional Player Lore Assistant lets players ask campaign questions without
+giving them access to the GM assistant or hidden world content. It is disabled
+by default and must be enabled and curated by a GM.
+
+**GM setup:**
+
+1. Open **Game Settings → Configure Settings → Module Settings**.
+2. Open **Configure Features**, enable **Player Lore Assistant**, and save.
+3. Ensure every non-GM user has Observer permission or higher on each journal
+   intended for public Player Lore answers.
+4. Open **Configure Player Lore**, select the journals to publish, and save.
+
+Players can then ask in Foundry chat:
+
+```text
+/lb Tell me about Sir Sonnet
+/lb ask What does the party know about the Amber Temple?
+```
+
+Player answers are posted to public chat with the asker's name and supporting
+source citations. Every request must pass both checks: the source must remain
+on the GM publication allowlist and every non-GM world user must still have
+Foundry permission to observe it. Removing either permission takes effect on
+the next request. Players never receive the backend client token and cannot
+invoke GM-only tools, macros, generation features, or writes.
+
+See the [Player Lore Assistant wiki guide](https://github.com/Jonwh25/lorebridge/wiki/Player-Lore-Assistant)
+for configuration, use, and troubleshooting.
+
 ### `/lb roleplay` — in-character NPC conversations (v0.8.0+)
 
 ```

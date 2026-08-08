@@ -321,7 +321,7 @@ between structured profile sections, regenerates one section without changing
 the others, and confirms that generated languages populate the correct dnd5e
 language checkboxes rather than the free-text field.
 
-### Milestone 18 — Safe Player Access
+### Milestone 18 — Safe Player Access ✅
 
 Expose an explicitly published, permission-checked subset of campaign lore to
 players inside Foundry.
@@ -329,7 +329,8 @@ players inside Foundry.
 1. ✅ [GM-published Player Lore Assistant](https://github.com/Jonwh25/lorebridge/issues/170)
 
 Player access is disabled by default. Every request must satisfy both the GM's
-publication allowlist and the requesting player's current Foundry permissions.
+publication allowlist and every non-GM user's current Foundry permissions
+because player answers are posted to public chat.
 
 Success test: a player receives source-cited answers only from GM-published
 lore through Foundry, and revoked access takes effect immediately.

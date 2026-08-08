@@ -4,6 +4,23 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-08
+
+### Added
+
+- **GM-published Player Lore Assistant** (#170): GMs can enable a player-facing `/lb` question flow and explicitly publish selected player-visible journals through **Game Settings → Configure Player Lore**. Players can use `/lb <question>` or `/lb ask <question>` and receive source-cited answers in public Foundry chat.
+- **Dual authorization on every player request**: results are restricted to the GM publication allowlist and rechecked with Foundry's effective permission API for every non-GM world user before anything is posted publicly. Disabling Player Lore, removing a journal from the allowlist, or changing Foundry ownership takes effect on the next request without rebuilding an index.
+- **Private backend routing for player questions**: player requests travel over the Foundry module socket and are fulfilled by the connected GM browser. Players never receive the LoreBridge backend client token or access GM-only tools, writes, macros, or generation utilities.
+
+### Improved
+
+- `/lb` questions now extract meaningful search terms from conversational prompts, display the asker's name, clear the chat input after submission, and return **“The lore is silent on that particular mystery.”** without an AI-provider call when no published source matches.
+- Journal-page Q&A now ranks all pages in the journal for relevance within a bounded context budget, while avoiding injection into Foundry's Ownership Configuration dialog.
+
+### Fixed
+
+- **Effective Player Lore permissions** (#221): publication and request handling now use Foundry v14 `JournalEntry.testUserPermission` instead of relying on default ownership. A journal denied to any non-GM user is excluded from public Player Lore answers immediately.
+
 ## [0.17.0] - 2026-08-08
 
 ### Added
