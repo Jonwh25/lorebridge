@@ -4,6 +4,18 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-08
+
+### Added
+
+- **NPC Profiles & AI Workspace** (#196, #197): every NPC actor sheet now has an embedded **LoreBridge NPC Profile** panel in the Biography tab and a full **NPC Workspace** window in the ⋮ three-dots header menu. The profile is split into 8 independent sections — Gender, Overview, Appearance, Personality & Motivation, Relationships, Secrets & Story, History, and Gameplay — each with its own generate, regenerate, edit, and copy controls. Sections generate independently using the rest of the profile as consistency context; existing sections are never overwritten unless explicitly requested. Manual editing is always available without generating first.
+- **Gender section with pronoun-aware generation**: a dedicated Gender section (separate from Overview so it is never overwritten by other generation) with structured dropdowns for gender identity (Male / Female / Nonbinary / Genderfluid / Agender / Other) and presentation (Masculine / Feminine / Androgynous / Neutral / Other). The AI derives the correct pronouns from the gender field and applies them consistently across every section it generates.
+- **Full-generate shortcuts**: both the inline panel and Workspace sidebar offer **Generate Full** (all 8 sections) and **Hold Gender** (all sections except Gender, preserving a manually set or previously generated gender). Per-section progress indicators show ⏳ queued → spinner active → ✅ or ❌ as each section completes.
+- **Native dnd5e field sync**: saving any section automatically writes generated values back to the matching native dnd5e actor fields — alignment (Details), languages (Languages dialog), ideal / bond / flaw (Biography traits), disposition (token), and public / private biography. Fields synced to native locations are hidden from the inline panel view to avoid duplication; they remain fully visible and editable in the Workspace window.
+- **Smart language sync** (#206): the languages field is parsed against all standard and rare dnd5e language names (Common, Elvish, Dwarvish, Deep Speech, Thieves' Cant, etc.) and written to the correct language checkboxes on the dnd5e actor. Any non-standard or invented language is placed in the Special field, separated by semicolons. The AI generation prompt is also constrained to produce exact dnd5e language names.
+- **D&D 5e format enforcement for ideal, bond, and flaw**: the AI is prompted to generate ideals as a concept label + colon + one sentence (`"Loyalty: Once I give my word, I keep it no matter the cost."`), bonds that name a specific person, place, or object (vague bonds rejected), and flaws that are concrete enough to cause real trouble during play. Curated few-shot examples from the SRD trait tables are included in the prompt.
+- **Field-level prompt hints**: generation prompts include per-field hints that prevent content overlap between high-similarity pairs — goal vs hiddenAgenda vs secret, currentProblem vs currentStatus, allies vs organizations vs employer, clothing vs equipment vs distinguishingFeatures, publicHistory vs privateHistory vs gmNotes.
+
 ## [0.16.0] - 2026-08-07
 
 ### Added
