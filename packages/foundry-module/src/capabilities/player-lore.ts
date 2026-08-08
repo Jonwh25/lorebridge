@@ -1,8 +1,29 @@
-import { getLoreBridgeSettings, getFoundrySettingsApi } from "../settings.js";
 import { searchJournals } from "./journals.js";
 import { isPlayerVisible } from "./visibility.js";
 
 const MODULE_ID = "lorebridge";
+
+// ---------------------------------------------------------------------------
+// Direct settings access — avoids a circular dependency with settings.ts
+// ---------------------------------------------------------------------------
+
+type RawSettings = {
+  get(moduleId: string, key: string): unknown;
+  set(moduleId: string, key: string, value: unknown): Promise<unknown>;
+};
+
+function rawSettings(): RawSettings {
+  return (game.settings as unknown) as RawSettings;
+}
+
+function getPlayerSettings(): { playerLoreEnabled: boolean; backendUrl: string; clientToken: string } {
+  const s = rawSettings();
+  return {
+    playerLoreEnabled: Boolean(s.get(MODULE_ID, "playerLoreEnabled")),
+    backendUrl: String(s.get(MODULE_ID, "backendUrl") ?? "").trim(),
+    clientToken: String(s.get(MODULE_ID, "clientToken") ?? ""),
+  };
+}
 
 type SocketMessage = {
   type: string;
@@ -31,7 +52,7 @@ function buildBackendUrl(base: string, path: string): string {
 // ---------------------------------------------------------------------------
 
 export function getPlayerLoreAllowlist(): string[] {
-  const raw = String(getFoundrySettingsApi().get(MODULE_ID, "playerLoreAllowlist") ?? "[]");
+  const raw = String(rawSettings().get(MODULE_ID, "playerLoreAllowlist") ?? "[]");
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) {
@@ -44,8 +65,7 @@ export function getPlayerLoreAllowlist(): string[] {
 }
 
 export async function setPlayerLoreAllowlist(ids: string[]): Promise<void> {
-  await (getFoundrySettingsApi() as unknown as { set(m: string, k: string, v: string): Promise<unknown> })
-    .set(MODULE_ID, "playerLoreAllowlist", JSON.stringify(ids));
+  await rawSettings().set(MODULE_ID, "playerLoreAllowlist", JSON.stringify(ids));
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +73,7 @@ export async function setPlayerLoreAllowlist(ids: string[]): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function handlePlayerLoreRequest(userId: string, question: string): Promise<void> {
-  const settings = getLoreBridgeSettings();
+  const settings = getPlayerSettings();
   if (!settings.playerLoreEnabled) return;
 
   const users = game.users as unknown as FoundryUsers;
