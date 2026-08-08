@@ -16,6 +16,7 @@ import { getLoreBridgeSettings } from "../settings.js";
 type HttpErrorBody = { error?: { message?: string } };
 type FoundryCombatWriteApprovalPayload = CombatWriteApprovalPayload & { approvalProof: string };
 const pending = new Map<string, FoundryCombatWriteApprovalPayload>();
+const approvalProofs = new Map<string, string>();
 let panel: CombatWriteApprovalPanel | null = null;
 
 function fingerprint(value: string): string {
@@ -118,7 +119,7 @@ export function executeCombatWrite(input: ExecuteCombatWriteInput): CombatWriteA
 
 export async function approveCombatWrite(token: string): Promise<CombatWriteAuditResult> {
   const normalizedToken = token.trim();
-  const approvalProof = pending.get(normalizedToken)?.approvalProof ?? "";
+  const approvalProof = approvalProofs.get(normalizedToken) ?? "";
   const result = await post<CombatWriteAuditResult>("/v1/combat-write/approve", { token: normalizedToken, approvalProof });
   const validation = validateCombatWriteAuditResult(result);
   if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Backend returned an invalid combat-write audit result.");
@@ -127,11 +128,17 @@ export async function approveCombatWrite(token: string): Promise<CombatWriteAudi
 
 export async function rejectCombatWrite(token: string): Promise<CombatWriteAuditResult> {
   const normalizedToken = token.trim();
-  const approvalProof = pending.get(normalizedToken)?.approvalProof ?? "";
+  const approvalProof = approvalProofs.get(normalizedToken) ?? "";
   const result = await post<CombatWriteAuditResult>("/v1/combat-write/reject", { token: normalizedToken, approvalProof });
   const validation = validateCombatWriteAuditResult(result);
   if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Backend returned an invalid combat-write audit result.");
   return validation.value;
+}
+
+export function notifyCombatWriteResult(result: CombatWriteAuditResult): void {
+  const message = `LoreBridge combat write: ${result.summary}`;
+  if (result.outcome === "stale") ui.notifications.warn(message);
+  else ui.notifications.info(message);
 }
 
 function escapeHtml(value: string): string { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -161,8 +168,7 @@ async function finish(token: string, approve: boolean, app: CombatWriteApprovalP
   const proposal = pending.get(token); if (!proposal) return;
   try {
     const result = approve ? await approveCombatWrite(token) : await rejectCombatWrite(token);
-    const notify = result.outcome === "approved" ? ui.notifications.info : result.outcome === "stale" ? ui.notifications.warn : ui.notifications.info;
-    notify(`LoreBridge combat write: ${result.summary}`);
+    notifyCombatWriteResult(result);
   } catch (error) {
     ui.notifications.error(`LoreBridge combat approval failed: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -175,6 +181,9 @@ export async function showCombatWriteApproval(payload: FoundryCombatWriteApprova
   const validation = validateCombatWriteProposal(payload);
   if (!validation.valid || typeof payload.token !== "string" || typeof payload.approvalProof !== "string" || !payload.approvalProof || Number.isNaN(Date.parse(payload.expiresAt))) return;
   pending.set(payload.token, payload);
+  approvalProofs.set(payload.token, payload.approvalProof);
+  const remainingMs = Math.max(0, Date.parse(payload.expiresAt) - Date.now());
+  setTimeout(() => approvalProofs.delete(payload.token), remainingMs + 5_000);
   if (!panel || !panel.rendered) { panel = new CombatWriteApprovalPanel(); await panel.render({ force: true }); }
   else { await panel.render({ force: true }); panel.bringToFront(); }
 }

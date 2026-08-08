@@ -3,17 +3,20 @@ import test, { afterEach, before } from "node:test";
 
 const originalGame = Object.getOwnPropertyDescriptor(globalThis, "game");
 const originalFoundry = Object.getOwnPropertyDescriptor(globalThis, "foundry");
+const originalUi = Object.getOwnPropertyDescriptor(globalThis, "ui");
 let captureCombatWriteSnapshot: typeof import("../src/capabilities/combat-writes.js").captureCombatWriteSnapshot;
 let executeCombatWrite: typeof import("../src/capabilities/combat-writes.js").executeCombatWrite;
+let notifyCombatWriteResult: typeof import("../src/capabilities/combat-writes.js").notifyCombatWriteResult;
 
 before(async () => {
   class TestApplicationV2 {}
   Object.defineProperty(globalThis, "foundry", { configurable: true, value: { applications: { api: { ApplicationV2: TestApplicationV2 } } } });
-  ({ captureCombatWriteSnapshot, executeCombatWrite } = await import("../src/capabilities/combat-writes.js"));
+  ({ captureCombatWriteSnapshot, executeCombatWrite, notifyCombatWriteResult } = await import("../src/capabilities/combat-writes.js"));
 });
 
 afterEach(() => {
   if (originalGame) Object.defineProperty(globalThis, "game", originalGame); else Reflect.deleteProperty(globalThis, "game");
+  if (originalUi) Object.defineProperty(globalThis, "ui", originalUi); else Reflect.deleteProperty(globalThis, "ui");
 });
 
 function installGame(turn = 0): void {
@@ -51,6 +54,20 @@ test("combat execution requires a GM and the separate feature gate", () => {
   (game.settings as unknown as { get: (_module: string, key: string) => unknown }).get = (_module, key) => key === "combatWritesEnabled" ? false : "configured";
   const snapshot = captureCombatWriteSnapshot();
   assert.throws(() => executeCombatWrite({ proposal: { action: "test", combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: {}, rationale: "Verify.", beforeSummary: "Before.", afterSummary: "After.", snapshot } }), /disabled/i);
+});
+
+test("notifies through the Foundry notification object without losing method context", () => {
+  const calls: string[] = [];
+  const notifications = {
+    prefix: "bound",
+    info(this: { prefix: string }, message: string) { calls.push(`${this.prefix}:info:${message}`); },
+    warn(this: { prefix: string }, message: string) { calls.push(`${this.prefix}:warn:${message}`); },
+    error() {},
+  };
+  Object.defineProperty(globalThis, "ui", { configurable: true, value: { notifications } });
+  notifyCombatWriteResult({ action: "test", target: { combatUuid: "Combat.c1" }, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Approved." });
+  notifyCombatWriteResult({ action: "test", target: { combatUuid: "Combat.c1" }, outcome: "stale", occurredAt: new Date().toISOString(), summary: "Stale." });
+  assert.deepEqual(calls, ["bound:info:LoreBridge combat write: Approved.", "bound:warn:LoreBridge combat write: Stale."]);
 });
 
 afterEach(() => {
