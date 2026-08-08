@@ -277,6 +277,32 @@ function getProfile(actor: FoundryActor): NpcProfileSections {
   return (actor.getFlag("lorebridge", "npcProfile") as NpcProfileSections | undefined) ?? {};
 }
 
+// Map of display names / aliases → dnd5e language key.
+const LANGUAGE_KEY_MAP: Record<string, string> = {
+  common: "common", "common sign language": "commonSign", "common sign": "commonSign",
+  draconic: "draconic", dwarvish: "dwarvish", dwarven: "dwarvish",
+  elvish: "elvish", elven: "elvish", giant: "giant", gnomish: "gnomish",
+  goblin: "goblin", halfling: "halfling", orc: "orc", orcish: "orc",
+  aarakocra: "aarakocra", abyssal: "abyssal", celestial: "celestial",
+  "deep speech": "deep", druidic: "druidic", gith: "gith", gnoll: "gnoll",
+  infernal: "infernal", primordial: "primordial",
+  aquan: "aquan", auran: "auran", ignan: "ignan", terran: "terran",
+  sylvan: "sylvan", "thieves' cant": "cant", "thieves cant": "cant", cant: "cant",
+  undercommon: "undercommon", "all languages": "all", "all": "all",
+};
+
+function parseLanguages(raw: string): { known: string[]; custom: string } {
+  const tokens = raw.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+  const known: string[] = [];
+  const custom: string[] = [];
+  for (const token of tokens) {
+    const key = LANGUAGE_KEY_MAP[token.toLowerCase()];
+    if (key) { if (!known.includes(key)) known.push(key); }
+    else custom.push(token);
+  }
+  return { known, custom: custom.join("; ") };
+}
+
 // Write generated values back to native dnd5e actor fields so the stock
 // sheet stays in sync without the GM needing to copy-paste.
 async function syncToNativeFields(actor: FoundryActor, section: NpcSection, data: Record<string, string>): Promise<void> {
@@ -284,8 +310,11 @@ async function syncToNativeFields(actor: FoundryActor, section: NpcSection, data
 
   if (section === "overview") {
     if (data["alignment"]) updates["system.details.alignment"] = data["alignment"];
-    // Languages go to the custom sub-field to avoid clobbering selected language tags.
-    if (data["languages"]) updates["system.traits.languages.custom"] = data["languages"];
+    if (data["languages"]) {
+      const { known, custom } = parseLanguages(data["languages"]);
+      updates["system.traits.languages.value"] = known;
+      updates["system.traits.languages.custom"] = custom;
+    }
   }
 
   if (section === "personalityAndMotivation") {
