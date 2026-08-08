@@ -12,6 +12,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { isPlayerVisible } from "./visibility.js";
+import { collectWorldCandidateUuids } from "./search-candidates.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -165,7 +166,8 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
   const needle = query.toLocaleLowerCase();
   const types = validated.value.types?.map((t) => t.toLocaleLowerCase());
   const playerMode = validated.value.mode === "player";
-  const matches: Array<{ score: number; value: ItemSearchMatch }> = [];
+  const candidateUuids = collectWorldCandidateUuids(query, "Item", game.items);
+  const matches: Array<{ score: number; candidate: number; value: ItemSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const item of game.items) {
@@ -200,7 +202,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
     }
     if (match) {
       if (item.img) match.value.img = item.img;
-      matches.push(match);
+      matches.push({ ...match, candidate: candidateUuids.has(item.uuid) ? 0 : 1 });
     }
   }
 
@@ -212,6 +214,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
       .sort(
         (a, b) =>
           a.score - b.score
+          || a.candidate - b.candidate
           || a.value.itemName.localeCompare(b.value.itemName)
           || a.value.itemId.localeCompare(b.value.itemId),
       )

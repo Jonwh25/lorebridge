@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isPlayerLoreVisibleToAllPlayers } from "../src/capabilities/player-lore.js";
+import { handlePlayerLoreRequest, isPlayerLoreVisibleToAllPlayers } from "../src/capabilities/player-lore.js";
+import { resetSearchCandidateLifecycleForTests } from "../src/capabilities/search-candidates.js";
 
 type TestUser = { id: string; isGM: boolean; name: string };
 
@@ -53,4 +54,45 @@ test("rechecks changed permissions instead of caching eligibility", () => {
   assert.equal(isPlayerLoreVisibleToAllPlayers(journal, [playerOne]), true);
   permissions.set(playerOne.id, 0);
   assert.equal(isPlayerLoreVisibleToAllPlayers(journal, [playerOne]), false);
+});
+
+test("does not call the AI backend when no authorized Player Lore context remains", async () => {
+  const keys = ["ChatMessage", "CONFIG", "fetch", "game"];
+  const originals = new Map(keys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  let fetchCalls = 0;
+  const messages: Array<{ content: string }> = [];
+  const users = Object.assign([gm, playerOne], { get: (id: string) => id === gm.id ? gm : id === playerOne.id ? playerOne : undefined });
+  const pages: unknown[] = [];
+  const journals = Object.assign([{
+    id: "journal-1",
+    uuid: "JournalEntry.journal-1",
+    name: "Published Lore",
+    pages,
+    ownership: { default: 2 },
+    testUserPermission: () => true,
+  }], { search: () => [] });
+  try {
+    Object.defineProperty(globalThis, "CONFIG", { configurable: true, value: {} });
+    Object.defineProperty(globalThis, "game", { configurable: true, value: {
+      user: { ...gm, isGM: true },
+      users,
+      world: { id: "cos", title: "Curse of Strahd" },
+      journal: journals,
+      settings: { get: (_module: string, key: string) => ({
+        playerLoreEnabled: true,
+        playerLoreAllowlist: JSON.stringify(["journal-1"]),
+        backendUrl: "https://example.invalid",
+        clientToken: "token",
+      } as Record<string, unknown>)[key] },
+    } });
+    Object.defineProperty(globalThis, "ChatMessage", { configurable: true, value: { create: async (message: { content: string }) => { messages.push(message); return { id: "m1" }; } } });
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: async () => { fetchCalls++; throw new Error("must not be called"); } });
+
+    await handlePlayerLoreRequest(playerOne.id, "Who is missing?");
+    assert.equal(fetchCalls, 0);
+    assert.match(messages[0]?.content ?? "", /lore is silent/i);
+  } finally {
+    for (const [key, descriptor] of originals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);
+    resetSearchCandidateLifecycleForTests();
+  }
 });

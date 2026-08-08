@@ -15,6 +15,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { isPlayerVisible } from "./visibility.js";
+import { collectJournalCandidateUuids } from "./search-candidates.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -73,7 +74,8 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
-  const matches: Array<{ score: number; value: JournalSearchMatch }> = [];
+  const candidateUuids = collectJournalCandidateUuids(query, game.journal);
+  const matches: Array<{ score: number; candidate: number; value: JournalSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const journal of game.journal) {
@@ -103,7 +105,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
         };
       }
     }
-    if (best) matches.push(best);
+    if (best) matches.push({ ...best, candidate: candidateUuids.has(journal.uuid) ? 0 : 1 });
   }
 
   const output: SearchJournalsOutput = {
@@ -111,7 +113,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
     sourceName: sourceName(),
     query,
     results: matches
-      .sort((left, right) => left.score - right.score || left.value.journalName.localeCompare(right.value.journalName))
+      .sort((left, right) => left.score - right.score || left.candidate - right.candidate || left.value.journalName.localeCompare(right.value.journalName))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)
       .map(({ value }) => value),
     hiddenCount,

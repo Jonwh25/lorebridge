@@ -15,6 +15,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { collectCompendiumCandidateUuids } from "./search-candidates.js";
 
 const DEFAULT_LIMIT = 20;
 
@@ -109,7 +110,7 @@ export function listCompendiums(input: ListCompendiumsInput): ListCompendiumsOut
   return outputValidation.value;
 }
 
-export function searchCompendium(input: SearchCompendiumInput): SearchCompendiumOutput {
+export async function searchCompendium(input: SearchCompendiumInput): Promise<SearchCompendiumOutput> {
   requireFoundryGm("searchCompendium");
   const validated = validateSearchCompendiumInput(input);
   if (!validated.valid || !validated.value) {
@@ -124,36 +125,60 @@ export function searchCompendium(input: SearchCompendiumInput): SearchCompendium
   const excluded = excludedPackIds();
   const { query, packId: filterPackId, documentType: filterType, limit = DEFAULT_LIMIT } = validated.value;
   const needle = query.trim().toLocaleLowerCase();
-  const results: CompendiumMatch[] = [];
+  const allowedTypes = new Set<string>();
+  for (const pack of packs) {
+    if (excluded.has(pack.metadata.id)) continue;
+    if (filterPackId && pack.metadata.id !== filterPackId) continue;
+    if (filterType && pack.metadata.type.toLowerCase() !== filterType.toLowerCase()) continue;
+    allowedTypes.add(pack.metadata.type);
+  }
+  const spotlightCandidates = await collectCompendiumCandidateUuids(query, allowedTypes);
+  const results: Array<{ candidate: number; value: CompendiumMatch }> = [];
 
   for (const pack of packs) {
     if (excluded.has(pack.metadata.id)) continue;
     if (filterPackId && pack.metadata.id !== filterPackId) continue;
     if (filterType && pack.metadata.type.toLowerCase() !== filterType.toLowerCase()) continue;
 
+    const nativeCandidates = new Set<string>();
+    try {
+      for (const entry of pack.search({ query })) {
+        const value = entry as FoundryCompendiumIndexEntry;
+        if (typeof value._id === "string") nativeCandidates.add(entryUuid(pack.metadata.id, pack.metadata.type, value._id));
+      }
+    } catch {
+      // The bounded pack-index scanner below remains authoritative.
+    }
+
     for (const entry of pack.index) {
       if (entry.name.toLocaleLowerCase().includes(needle)) {
-        results.push({
+        const uuid = entryUuid(pack.metadata.id, pack.metadata.type, entry._id);
+        results.push({ candidate: spotlightCandidates.has(uuid) || nativeCandidates.has(uuid) ? 0 : 1, value: {
           packId: pack.metadata.id,
           packLabel: pack.metadata.label,
           entryId: entry._id,
-          entryUuid: entryUuid(pack.metadata.id, pack.metadata.type, entry._id),
+          entryUuid: uuid,
           entryName: entry.name,
           documentType: entry.type ?? pack.metadata.type,
           ...(entry.img ? { img: entry.img } : {}),
-        });
-        if (results.length >= limit) break;
+        } });
       }
     }
-
-    if (results.length >= limit) break;
   }
+
+  const ranked = results
+    .sort((left, right) => Number(right.value.entryName.toLocaleLowerCase() === needle) - Number(left.value.entryName.toLocaleLowerCase() === needle)
+      || left.candidate - right.candidate
+      || left.value.entryName.localeCompare(right.value.entryName)
+      || left.value.entryUuid.localeCompare(right.value.entryUuid))
+    .slice(0, limit)
+    .map(({ value }) => value);
 
   const output: SearchCompendiumOutput = {
     sourceId: sourceId(),
     sourceName: sourceName(),
     query: query.trim(),
-    results,
+    results: ranked,
   };
 
   const outputValidation = validateSearchCompendiumOutput(output);

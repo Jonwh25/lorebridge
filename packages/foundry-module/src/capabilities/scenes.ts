@@ -17,6 +17,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { isPlayerVisible } from "./visibility.js";
+import { collectWorldCandidateUuids } from "./search-candidates.js";
 
 const DEFAULT_LIMIT = 10;
 const TOKEN_LIMIT = 20;
@@ -57,7 +58,8 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
-  const matches: Array<{ score: number; value: SceneSearchMatch }> = [];
+  const candidateUuids = collectWorldCandidateUuids(query, "Scene", game.scenes);
+  const matches: Array<{ score: number; candidate: number; value: SceneSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const scene of game.scenes) {
@@ -66,6 +68,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
     if (!name.includes(needle)) continue;
     matches.push({
       score: name === needle ? 0 : 1,
+      candidate: candidateUuids.has(scene.uuid) ? 0 : 1,
       value: sceneSearchMatch(scene),
     });
   }
@@ -75,7 +78,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
     sourceName: sourceName(),
     query,
     results: matches
-      .sort((a, b) => a.score - b.score || a.value.sceneName.localeCompare(b.value.sceneName))
+      .sort((a, b) => a.score - b.score || a.candidate - b.candidate || a.value.sceneName.localeCompare(b.value.sceneName))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)
       .map(({ value }) => value),
     hiddenCount,
