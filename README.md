@@ -1,55 +1,51 @@
 # LoreBridge
+
 [![Foundry VTT v14](https://img.shields.io/badge/Foundry_VTT-v14-2ea44f)](https://foundryvtt.com/)
 [![Release](https://img.shields.io/github/v/release/Jonwh25/lorebridge?label=release)](https://github.com/Jonwh25/lorebridge/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Jonwh25/lorebridge/total?label=downloads)](https://github.com/Jonwh25/lorebridge/releases)
 [![License](https://img.shields.io/github/license/Jonwh25/lorebridge)](https://github.com/Jonwh25/lorebridge/blob/main/LICENSE)
 
-LoreBridge is a secure, GM-controlled bridge that lets an AI assistant retrieve
-live campaign information from a loaded Foundry Virtual Tabletop world.
+LoreBridge is a secure, GM-controlled bridge between a live Foundry Virtual
+Tabletop world and AI assistants that support the Model Context Protocol (MCP).
+It lets an assistant retrieve attributable campaign information, help prepare
+and run sessions, and propose carefully controlled changes without exposing raw
+Foundry documents or provider credentials.
 
 > [!IMPORTANT]
-> LoreBridge is an early developer preview. The authentication, configuration,
-> and deployment process may still change between releases.
+> LoreBridge is an early developer preview. Authentication, configuration, and
+> deployment may change between releases.
 
-## What you can ask
+## What you can do
 
-Once LoreBridge is connected, your AI client has live access to everything in
-your Foundry world. Here are a few things you can ask during a session or while
-prepping:
+- Ask questions grounded in journals, actors, scenes, items, compendiums,
+  session logs, combat, chat, and linked campaign sources.
+- Get source citations and stable Foundry identifiers with bounded results.
+- Let players ask questions through the optional GM-curated Player Lore
+  Assistant without exposing hidden campaign material.
+- Generate session preparation, boxed text, roll tables, NPC profiles, D&D 5e
+  stat blocks, portraits, and in-character dialogue inside Foundry.
+- Review AI-proposed journal changes with a diff, explicit GM approval, and
+  rollback support.
+- Check campaign health, audit consistency, scope searches with Context
+  Profiles, and back up supported content to a private GitHub repository.
 
-**Before the session**
-> *"Summarize what happened in the last three sessions and remind me what loose ends the players left open."*
+Example requests:
 
-> *"What do I need to know about Strahd before tonight? Give me his personality, his goals, and where the players last saw him."*
+> “Summarize the last three sessions and list the unresolved threads.”
 
-> *"The party is heading to the Blue Water Inn. What's in my journal about it — layout, key NPCs, anything I've already written?"*
+> “What do my journals say about the Amber Temple? Cite the exact pages.”
 
-**During the session**
-> *"The players just asked about the symbol on the door. Search my journals for anything about that symbol."*
+> “What items is Ireena carrying right now?”
 
-> *"What items does Ireena have in her inventory right now?"*
-
-> *"Roll a d20 and describe what the rogue finds when they search the body."*  *(with dice tool enabled)*
-
-**Writing content**
-> *"Write a gothic, atmospheric room description for the entrance hall of Castle Ravenloft. Use what's in my journal for the details."*
-
-> *"Update my Blue Water Inn journal page to note that the players burned down the kitchen and are now banned from the common room."*
-
-The last example triggers the write approval flow — a dialog pops up in
-Foundry showing a character-level diff of exactly what will change, and nothing
-is written until you click **Approve**. A **Rollback** button is available after
-approval if you change your mind. Multiple pending writes can be reviewed in a
-single batch approval panel.
-
----
+> “Propose an update to the Blue Water Inn journal noting what happened last
+> session.”
 
 ## How it works
 
 ```text
-AI client (Claude, Codex, or any MCP client)
+AI client (Claude, Codex, or another MCP client)
              |
-             | HTTPS + MCP
+             | HTTPS + authenticated MCP
              v
       LoreBridge backend
              |
@@ -61,439 +57,81 @@ AI client (Claude, Codex, or any MCP client)
       Loaded Foundry world
 ```
 
-The AI client connects to the LoreBridge backend over HTTPS using the
-[Model Context Protocol](https://modelcontextprotocol.io). The backend
-authenticates the client with a pairing token and routes requests to a
-Foundry module running in the GM's browser. The module executes a narrow
-allowlist of read-only Foundry operations and returns structured data.
+The backend authenticates each client with its own pairing token and routes
+requests to the module running in the GM's browser. The module exposes a narrow
+set of normalized capabilities rather than arbitrary Foundry access.
 
-Search is local-first. LoreBridge uses the required Spotlight Omnisearch module
-and Foundry's native collection search to identify likely document candidates,
-then live-resolves them and applies LoreBridge's bounded content scanners and
-permission rules. Spotlight actions and other executable terms are never run.
-If Spotlight is unavailable or rebuilding, searches continue through the
-native and existing scanner paths.
+Search is local-first: LoreBridge combines Spotlight Omnisearch metadata
+candidates, Foundry v14 native collection search, and its existing bounded
+content scanners. Every candidate is resolved against current Foundry state and
+passed through LoreBridge permissions, Context Profiles, compendium exclusions,
+result limits, excerpts, ranking, and source attribution. If Spotlight is empty
+or rebuilding, native search and content scanners remain available.
 
-Provider credentials are never stored in Foundry. LoreBridge does not execute
-arbitrary JavaScript or provide write access to the world.
+## Major capabilities
 
-Spotlight Omnisearch 4.0.2 or newer is required. Dig Down remains optional. If
-Dig Down handles file discovery in a large world, keeping Spotlight file search
-disabled avoids maintaining a duplicate file index; LoreBridge never changes
-either module's settings automatically.
-
-## Current tools
-
-All tools accept an optional `mode` parameter (`"gm"` or `"player"`). In player
-mode, results are filtered to documents with world-level Observer or higher
-ownership and `hiddenCount` reports how many documents were excluded. GM mode
-(the default) returns all documents.
-
-| Tool | Description |
+| Area | Highlights |
 | --- | --- |
-| `get_world_summary` | World identity, game system, and document counts |
-| `search_journals` | Full-text search across journal names, page names, and page content |
-| `get_journal_page` | Retrieve one journal page by ID |
-| `search_actors` | Search actors by name or description, with optional type filtering |
-| `get_actor` | Retrieve identity and descriptive information for one actor |
-| `search_scenes` | Search scenes by name |
-| `get_scene` | Retrieve one scene with linked journal, map notes, and placed tokens |
-| `get_active_scene` | Return the scene currently viewed by the GM |
-| `get_combat_state` | Active initiative order, round, current turn, and GM/player-safe combatant details |
-| `roll_dice` | Evaluate a Foundry dice formula; public chat posting is explicit and optional |
-| `get_chat_messages` | Retrieve bounded recent chat history with GM/player visibility filtering |
-| `search_assets` | Find configured Foundry data-directory image and audio assets by filename |
-| `resolve_uuid` | Resolve any Foundry UUID to a normalized actor, journal, journal page, or scene |
-| `search_campaign` | Cross-type search across actors, journals, and scenes when the document type is unknown |
-| `get_related_documents` | Starting from any UUID, return directly related documents one hop away |
-| `search_items` | Search world items by name or description, with optional type filtering |
-| `get_actor_inventory` | List all items carried by a named actor with quantity, weight, price, rarity, and identification status |
-| `search_session_logs` | Search pages in the session log journal by keyword, returning session numbers and excerpts |
-| `get_session_log` | Retrieve the full text of one session log page |
-| `list_compendiums` | List available compendium packs with document type and entry count |
-| `search_compendium` | Search compendium indexes by entry name without importing documents |
-| `get_compendium_entry` | Retrieve a specific compendium entry by pack and entry ID |
-| `propose_journal_update` | Propose a journal page content change; triggers a GM-only Foundry dialog with Approve/Reject buttons — no write occurs until the GM approves |
-| `list_macro_tools` | List GM-authored Foundry macros that have been exposed as MCP tools via a `@lorebridge` block in the macro description |
-| `call_macro_tool` | Execute a GM-exposed macro tool by name, passing optional arguments; requires the **Enable Macro Tools** world setting |
-| `check_campaign_health` | Scan all campaign documents for broken UUID links, missing targets, and empty stubs; returns structured findings with document names and UUIDs |
-| `audit_campaign_consistency` | Ask the AI to identify internal contradictions, timeline gaps, and naming inconsistencies across campaign documents, with source citations for every finding |
-
-The world must be open in a GM browser for live tools to work. The Foundry
-module connects automatically and reconnects after a backend restart.
-
-## AI generation
-
-When a backend AI provider is configured, GMs can generate content directly
-inside Foundry without opening a browser console or MCP client.
-
-### In-Foundry buttons (v0.7.0+)
-
-| Where | Button | What it generates |
-| --- | --- | --- |
-| Any journal page | Feather icon in header | Read-aloud boxed text appended to the active page |
-| Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
-| Session log journals | Wizard-hat icon in header | Lazy DM session prep saved to "Lazy DM Prep" journal (v0.9.0+) |
-| Session log journals | Users icon in header | Player-safe Discord-formatted Party Recap with copy/download (v0.13.0+) |
-| NPC actor sheets | ⋮ menu → **NPC Workspace** | Full 8-section AI profile workspace (see [NPC Profiles & AI Workspace](#npc-profiles--ai-workspace-v0170)) |
-| NPC actor sheets | Portrait icon in header | AI-generated portrait (see [AI Portrait Generation](#ai-portrait-generation-v0160)) |
-| Create Actor dialog | **Generate Full Stat Block with AI** button | Complete D&D 5e NPC stat block dropped into Foundry as a ready-to-use actor |
-| Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
-| Any journal page | Question-mark input at bottom | Inline Q&A grounded in the active page content |
-
-### `/lb` chat command (v0.7.0+)
-
-Type `/lb <question>` in the Foundry chat bar to ask the AI a question grounded
-in your campaign. The answer is whispered to GM users only.
-
-```
-/lb Who is Strahd and where did the party last see him?
-```
-
-### Player Lore Assistant (v0.18.0+)
-
-The optional Player Lore Assistant lets players ask campaign questions without
-giving them access to the GM assistant or hidden world content. It is disabled
-by default and must be enabled and curated by a GM.
-
-**GM setup:**
-
-1. Open **Game Settings → Configure Settings → Module Settings**.
-2. Open **Configure Features**, enable **Player Lore Assistant**, and save.
-3. Ensure every non-GM user has Observer permission or higher on each journal
-   intended for public Player Lore answers.
-4. Open **Configure Player Lore**, select the journals to publish, and save.
-
-Players can then ask in Foundry chat:
-
-```text
-/lb Tell me about Sir Sonnet
-/lb ask What does the party know about the Amber Temple?
-```
-
-Player answers are posted to public chat with the asker's name and supporting
-source citations. Every request must pass both checks: the source must remain
-on the GM publication allowlist and every non-GM world user must still have
-Foundry permission to observe it. Removing either permission takes effect on
-the next request. Players never receive the backend client token and cannot
-invoke GM-only tools, macros, generation features, or writes.
-
-See the [Player Lore Assistant wiki guide](https://github.com/Jonwh25/lorebridge/wiki/Player-Lore-Assistant)
-for configuration, use, and troubleshooting.
-
-### `/lb roleplay` — in-character NPC conversations (v0.8.0+)
-
-```
-/lb roleplay Strahd von Zarovich
-/lb What do you want from us?
-/lb end
-```
-
-Starts an in-character conversation with any actor in your world. Responses are
-whispered to GM users only and the NPC's biography is used as context. Type
-`/lb end` to exit roleplay mode.
-
-### `/lb city` and `/lb npcs` — world-building generators (v0.9.0+)
-
-```
-/lb city a corrupt port city on the edge of a cursed forest
-/lb npcs 5 the village of Barovia
-```
-
-Generates a full city/location profile or a cast of NPCs grounded in existing
-campaign lore. A preview dialog shows the generated content; clicking **Save as
-Journal** creates a new page in "Generated Locations" or "Generated NPCs"
-and opens the journal automatically.
-
-The optional leading number in `/lb npcs` sets the count (default 5, max 10).
-
-### Session Command Center (v0.15.0+)
-
-A dedicated `⚔️` button in the Foundry scene controls sidebar (GM only) opens the **Session Command Center** — a floating panel showing the active scene, combat tracker, recent chat, and quick-action links. Designed to be glanceable during live play without switching windows.
-
-### @NPC Mention — live in-character NPC dialogue (v0.15.0+)
-
-```
-@Morgantha Are you really just a pie merchant?
-@Vistani What do you know about the castle?
-```
-
-Type `@ActorName <message>` in the Foundry chat bar to speak directly to an AI-enabled NPC. The NPC's response is posted publicly in chat, attributed to the NPC by name. Conversation history is maintained per actor for the session (up to 20 turns).
-
-**Setup:**
-1. Enable **@NPC Mention Responses** in LoreBridge Features settings (GM only, off by default)
-2. Open an actor sheet → ⋮ menu → **Configure NPC Preamble**
-3. Check **Enable AI responses for this NPC** and optionally write a personality preamble
-4. Players or GM can now address the NPC in chat with `@ActorName <message>`
-
-**GM commands:**
-```
-/lb npc enable Morgantha       — enable AI responses for an actor
-/lb npc disable Morgantha      — disable AI responses
-/lb npc preamble Morgantha | She speaks in riddles and half-truths
-/lb npc clear Morgantha        — reset conversation history
-/lb npc list                   — show all AI-enabled actors
-```
-
-### NPC Profiles & AI Workspace (v0.17.0+)
-
-Every NPC actor sheet now has an embedded **LoreBridge NPC Profile** panel in the Biography tab and a full **NPC Workspace** window accessible from the ⋮ three-dots menu.
-
-#### Inline panel
-
-A collapsible panel injected directly into the NPC sheet shows the generated profile at a glance. Each section displays its current content with a status icon (✅ populated / ⚠ partial / ❌ empty). Fields that already appear elsewhere on the native dnd5e sheet (alignment, languages, ideal, bond, flaw, disposition, biography) are hidden from the panel to avoid duplication — they are still generated and synced.
-
-#### NPC Workspace window
-
-Open the full workspace from the ⋮ header menu. It provides a sidebar showing all 8 sections with status icons and per-section controls: **Generate**, **Regenerate**, **Edit**, **Copy**.
-
-#### Profile sections
-
-| Section | Key fields |
-|---------|-----------|
-| Gender | gender, genderPresentation |
-| Overview | race, occupation, alignment, age, faith, socialClass, reputation, residence, languages |
-| Appearance | height, build, hair, eyes, skin, distinguishingFeatures, clothing, equipment, voice, accent |
-| Personality & Motivation | personality, mannerisms, goal, fear, ideal, bond, flaw |
-| Relationships | family, allies, enemies, rivals, organizations, employer, mentorStudent |
-| Secrets & Story | secret, rumor, hiddenAgenda, currentProblem, adventureHook |
-| History | publicHistory, privateHistory, gmNotes |
-| Gameplay | role, disposition, currentStatus |
-
-Each section generates independently using the rest of the profile as context — existing sections are never overwritten unless you explicitly request it. You can also edit any section manually without generating first.
-
-#### Gender & pronoun awareness
-
-The Gender section is independent so it is never overwritten when other sections are regenerated. Use the dropdown to set Male / Female / Nonbinary / Genderfluid / Agender or enter a custom value. The AI derives the correct pronouns (he/him, she/her, they/them) from the gender field and applies them consistently across every section it generates.
-
-#### Full-generate shortcuts
-
-Both the inline panel and the Workspace sidebar offer two full-generate buttons:
-- **Generate Full** — generates all 8 sections sequentially
-- **Hold Gender** — generates all sections except Gender, preserving a manually set or previously generated gender
-
-Each section shows ⏳ queued → spinner active → ✅ or ❌ as it completes.
-
-#### Native dnd5e field sync
-
-When a section is saved, generated values are written back to the matching native dnd5e actor fields automatically:
-
-| Profile field | dnd5e location |
-|--------------|---------------|
-| alignment | Details tab |
-| languages | Languages dialog checkboxes (standard/rare); non-standard → Special field |
-| ideal / bond / flaw | Biography tab trait fields |
-| disposition | Token disposition (Friendly / Neutral / Hostile) |
-| publicHistory | Public Biography |
-| privateHistory + gmNotes | Private Biography |
-
-Language sync matches exact dnd5e language names (Common, Elvish, Dwarvish, Deep Speech, Thieves' Cant, etc.) to checkboxes and puts any non-standard languages in the Special field separated by semicolons.
-
-#### D&D 5e format for ideal, bond, and flaw
-
-- **Ideal** — concept label + colon + one sentence (`"Loyalty: Once I give my word, I keep it no matter the cost."`)
-- **Bond** — names a specific person, place, or object — vague bonds are rejected by the prompt
-- **Flaw** — a concrete weakness that will cause real trouble during play, not just a mild quirk
-
-### AI Portrait Generation (v0.16.0+)
-
-Click the **portrait icon** in any NPC actor sheet header (GM only) to open the Generate Portrait dialog. The dialog pre-fills from the actor's name, gender, race, and biography Appearance section. Choose from 21 art-style presets — **Semi-Realistic Fantasy** is the default — then click **Generate**. A preview shows the image and the prompt used. Click **Apply** to save it to Foundry and set the actor portrait and prototype token, **Regenerate** for a different result, or **Discard** to close without changes.
-
-**Portrait Save Directory** — set the upload path in LoreBridge module settings (world-scoped). Defaults to `modules/lorebridge/images`.
-
-**Image provider setup** — portrait generation uses a dedicated image provider, independent of the text AI provider. Set one of these in your backend environment:
-
-| Provider | Env vars | Notes |
-| --- | --- | --- |
-| Stability AI | `STABILITY_API_KEY`, `STABILITY_MODEL` | default `stable-image-core`; also supports `stable-image-ultra` |
-| FLUX | `FLUX_API_KEY`, `FLUX_MODEL` | Black Forest Labs; default `flux-pro-1.1` |
-| Cloudflare Workers AI | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_IMAGE_MODEL` | free tier; default `@cf/black-forest-labs/flux-1-schnell` |
-| Ideogram | `IDEOGRAM_API_KEY`, `IDEOGRAM_MODEL` | default `V_3` |
-| OpenAI DALL-E | `IMAGE_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL` | explicitly required; only activates when `IMAGE_PROVIDER=openai` is set |
-
-Auto-detection order: stability → flux → workersai → ideogram → openai. Set `IMAGE_PROVIDER=<name>` to override. Check active provider status at `GET /v1/image-provider/status`.
-
-### D&D 5e NPC Stat Block Generator (v0.16.0+)
-
-Click **Generate Full Stat Block with AI** in the **Create Actor** dialog (D&D 5e, GM only). Describe the NPC in plain text — name, role, personality, challenge rating — and choose **Modern Rules (2024)** or **Legacy Rules (2014)**. A preview dialog shows the complete stat block: ability scores, AC, HP, speed, traits, actions, and special abilities. Click **Create Actor** to drop the NPC directly into Foundry in a "LoreBridge NPCs" folder, with all items embedded.
-
-- Actions, features, and natural attacks are sourced from the dnd5e monster and equipment compendiums first. Synthetic items are generated only when no compendium match is found.
-- Modern edition items include full dnd5e 4.x activity objects (attack, utility, save, heal) so all actions are immediately usable.
-- All generated items and actors carry a `system.source` block labeled "LoreBridge AI" for traceability.
-
-### Generation History (v0.16.0+)
-
-Every AI generation — stat blocks, journal content, and portraits — is saved to a world-scoped history log. Click **Generation History** in the LoreBridge panel to browse previous outputs and reopen any of them without regenerating.
-
-### ElevenLabs TTS for NPC dialogue (v0.15.0+)
-
-When configured, AI NPC responses are spoken aloud automatically after appearing in chat.
-
-**Requirements:**
-- An ElevenLabs account at **Starter plan or higher** — the free tier does not allow voice API access
-- `ELEVENLABS_API_KEY` set as a backend environment variable (key never leaves the server)
-- A Voice ID set per actor in **Configure NPC Preamble** (actor sheet ⋮ menu)
-
-**Backend setup:**
-```bash
-# Add to your pm2 ecosystem config env block
-ELEVENLABS_API_KEY: "sk_..."
-# Then reload
-pm2 startOrRestart /path/to/ecosystem.config.cjs --update-env
-```
-
-Copy a Voice ID from your [ElevenLabs Voices](https://elevenlabs.io/app/voices) page and paste it into the Configure NPC Preamble dialog for each NPC. Each NPC can have a distinct voice.
-
-### `/lb health` — campaign health check (v0.14.0+)
-
-```
-/lb health
-/lb health full
-```
-
-Scans campaign documents for broken UUID links and empty stubs. A resizable GM
-panel lists every finding with the document name and issue type. Add `full` for
-a deeper scan across all document types.
-
-### `/lb audit` — consistency audit (v0.14.0+)
-
-```
-/lb audit
-/lb audit Strahd
-/lb audit Village of Barovia
-```
-
-Asks the AI to review campaign documents for internal contradictions, timeline
-gaps, and named-entity inconsistencies. Every finding includes source citations
-so claims are traceable to the specific document. Use the optional focus
-argument to scope the audit to a character, location, or topic.
-
-### `/lb profile` — context profiles (v0.14.0+)
-
-```
-/lb profile
-/lb profile Barovia Region
-/lb profile off
-```
-
-Activates a named context profile, shows the current active profile, or clears
-it. Context profiles are created in the **Configure Profiles** settings button
-(GM-only). An active profile scopes all `search_campaign` requests to the
-configured document types and visibility mode.
-
-### `/lb cleanup` — post-session entity review (v0.13.0+)
-
-```
-/lb cleanup
-/lb cleanup Session 7 - The Crypts
-```
-
-After a session, scans the most recent session log (or the named page) for
-proper nouns — NPCs, locations, factions, items — that don't yet exist as world
-documents. Candidates appear in a resizable GM panel with checkboxes. Click
-**Create Stubs** to generate placeholder journal pages in a "Session Cleanup"
-journal for every checked entry.
-
-### `/lb backup` — GitHub campaign backups (v0.12.0+)
-
-LoreBridge can back up and restore Foundry content to a private GitHub
-repository in the [Raven's Eye](https://github.com/Jonwh25/the-ravens-eye)
-portable format. Backups are versioned commits; every restore shows a preview
-dialog before writing anything.
-
-```
-/lb backup scenes Barovia
-/lb restore scenes Barovia
-/lb restore scenes Barovia from a1b2c3d
-/lb backup journals Campaign Notes
-/lb backup actors Player Characters
-/lb backup rolltables Encounter Tables
-/lb backup commits
-/lb backup delete scenes Barovia
-```
-
-- **`backup scenes`** — serializes the named Scene folder and all subfolders to GitHub, including full scene data, tokens, walls, and lights. Non-Scene folders (actors, journals, etc.) are automatically excluded.
-- **`restore scenes`** — fetches the latest backup (or a specific commit SHA) and shows a preview of what will be created, updated, or skipped. Restoring twice does not create duplicate folders.
-- **`backup journals / actors / rolltables`** — back up other document types.
-- **`backup commits`** — list recent backup commits so you can pick a restore point.
-- **`backup delete scenes`** — permanently remove a folder's backup files from GitHub. Scenes in Foundry are not affected.
-
-GitHub credentials (`GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`) are set as backend environment variables and never stored in Foundry. See [Campaign Backups](https://github.com/Jonwh25/lorebridge/wiki/Campaign-Backups) for setup.
-
-### Browser console API
-
-Generation is also available from the Foundry developer console for scripting
-or testing:
-
-```js
-const page = await LoreBridge.getJournalPage({ journalId: "...", pageId: "..." });
-
-const result = await LoreBridge.generateBoxedText({
-  content: page.page.text.plainText.slice(0, 2000),
-  documentName: page.page.name,
-  documentType: "journalPage",
-  sourceId: page.sourceId,
-  sourceName: page.sourceName,
-  tone: "gothic",    // gothic | neutral | heroic | mysterious
-  length: "medium",  // short | medium | long
-  audience: "players",
-});
-
-console.log(result.preview);
-```
-
-Provider credentials are set as environment variables on the backend and are never stored in Foundry or returned by any API. Supported providers:
-
-| Provider | Key env var | Notes |
-| --- | --- | --- |
-| Anthropic (Claude) | `ANTHROPIC_API_KEY` | Preferred when multiple keys are set |
-| OpenAI | `OPENAI_API_KEY` | Set `OPENAI_BASE_URL` to point at any OpenAI-compatible server (LM Studio, etc.); set `OPENAI_MODEL` to override the default model |
-| Ollama (local) | — | Set `OLLAMA_BASE_URL` (e.g. `http://localhost:11434`) and optionally `OLLAMA_MODEL` (default `llama3.2`). No API key required. |
-
-See [Provider setup](docs/provider-security.md).
-
-## Requirements
-
-- Foundry Virtual Tabletop v14
-- A Foundry world open in a GM browser session
-- Node.js 20 or newer and npm 10 or newer
-- A host for the LoreBridge backend (Linux or Windows; running it on the same
-  host as Foundry is the simplest deployment)
-- A public HTTPS hostname and a reverse proxy (Caddy, Nginx, or IIS)
-- An MCP client (Claude Desktop, Codex, or any client that supports MCP over
-  HTTP with Bearer token authentication)
-
-## Getting started
-
-Full installation and configuration guides are on the
-[LoreBridge Wiki](https://github.com/Jonwh25/lorebridge/wiki):
-
-- [Installation overview](https://github.com/Jonwh25/lorebridge/wiki/Installation)
-- [Backend setup — Linux](https://github.com/Jonwh25/lorebridge/wiki/Backend-Linux)
-- [Backend setup — Windows](https://github.com/Jonwh25/lorebridge/wiki/Backend-Windows)
-- [Reverse proxy — Caddy](https://github.com/Jonwh25/lorebridge/wiki/Reverse-Proxy-Caddy)
-- [Reverse proxy — Nginx](https://github.com/Jonwh25/lorebridge/wiki/Reverse-Proxy-Nginx)
-- [Reverse proxy — IIS](https://github.com/Jonwh25/lorebridge/wiki/Reverse-Proxy-IIS)
-- [Pairing the Foundry module](https://github.com/Jonwh25/lorebridge/wiki/Foundry-Pairing)
-- [Connecting an AI client](https://github.com/Jonwh25/lorebridge/wiki/AI-Client-Setup)
-- [Updating LoreBridge](https://github.com/Jonwh25/lorebridge/wiki/Updating)
-- [Troubleshooting](https://github.com/Jonwh25/lorebridge/wiki/Troubleshooting)
-- [Campaign backups](https://github.com/Jonwh25/lorebridge/wiki/Campaign-Backups)
+| Campaign retrieval | World summary; journal, actor, scene, item, compendium, asset, chat, combat, and session-log search and retrieval |
+| Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
+| Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
+| NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, and optional voice responses |
+| Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
+| Controlled writes | Previewed journal updates, single-use GM approval, batch review, diffs, and rollback |
+| Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |
+| Extensibility | GM-authored macro tools exposed through an explicit declaration and feature gate |
+
+See the [user guide](https://github.com/Jonwh25/lorebridge/wiki/Using-LoreBridge)
+for workflows and examples, and the
+[AI client setup guide](https://github.com/Jonwh25/lorebridge/wiki/AI-Client-Setup#available-tools)
+for the complete MCP tool catalog.
 
 ## Security model
 
-- The backend binds to loopback (`127.0.0.1`) and is published through a
-  reverse proxy over HTTPS; port 3210 is never exposed directly to the internet
-- Every client — including the Foundry module — authenticates with a pairing
-  token before any capability is available
-- Each AI client uses its own dedicated token, separate from the Foundry browser
-  token
-- Read tools are read-only; write operations require the **Enable AI-Proposed Writes** world setting to be on, and every proposed change requires explicit single-use GM approval before any document is modified
-- An explicit allowlist controls which Foundry operations the module may execute
-- No arbitrary JavaScript is evaluated; no direct database or filesystem access
-  is provided through MCP
-- Provider API keys are set as backend environment variables and are never stored
-  in Foundry, logged, or returned by any endpoint — only `{ provider, enabled, healthy }` is ever exposed
+- The backend binds to loopback and is published through an HTTPS reverse
+  proxy; its application port should not be exposed directly.
+- Every Foundry and AI client authenticates with a separate pairing token.
+- Remote access is bounded and read-only by default.
+- Writes require explicit feature enablement, a preview, and single-use GM
+  approval for the exact proposed change.
+- Player Lore requires both GM publication and effective Foundry permission for
+  every non-GM user.
+- Spotlight candidates are advisory only. LoreBridge never invokes Spotlight
+  actions, macros, utilities, or other executable terms.
+- Provider credentials stay in backend environment variables and are never
+  stored in Foundry or returned to clients.
+- LoreBridge provides no arbitrary JavaScript, raw database, or unrestricted
+  filesystem access through MCP.
+
+Read the detailed [Player Lore security model](https://github.com/Jonwh25/lorebridge/wiki/Player-Lore-Assistant#security-model)
+and [local-first search boundaries](https://github.com/Jonwh25/lorebridge/wiki/Local-First-Hybrid-Search#safety-and-permissions).
+
+## Requirements
+
+- Foundry Virtual Tabletop v14 with a world open in a GM browser
+- Spotlight Omnisearch 4.0.2 or newer, installed and enabled
+- Node.js 20 or newer and npm 10 or newer for the backend
+- A Linux or Windows backend host
+- A public HTTPS hostname and reverse proxy such as Caddy, Nginx, or IIS
+- Claude, Codex, or another MCP client with HTTP Bearer authentication
+
+Dig Down is optional. When it owns file discovery in a large world, keep
+Spotlight file search disabled to avoid maintaining duplicate file indexes.
+LoreBridge does not modify either module's settings automatically.
+
+## Get started
+
+Start with the [installation overview](https://github.com/Jonwh25/lorebridge/wiki/Installation),
+then follow the guides for your environment:
+
+- [Linux backend](https://github.com/Jonwh25/lorebridge/wiki/Backend-Linux) or [Windows backend](https://github.com/Jonwh25/lorebridge/wiki/Backend-Windows)
+- [Pair the Foundry module](https://github.com/Jonwh25/lorebridge/wiki/Foundry-Pairing)
+- [Connect an AI client](https://github.com/Jonwh25/lorebridge/wiki/AI-Client-Setup)
+- [Configure an AI provider](https://github.com/Jonwh25/lorebridge/wiki/Provider-Setup) or [image provider](https://github.com/Jonwh25/lorebridge/wiki/Image-Provider-Setup)
+
+For ongoing use, see the [wiki home](https://github.com/Jonwh25/lorebridge/wiki),
+[updating guide](https://github.com/Jonwh25/lorebridge/wiki/Updating), and
+[troubleshooting guide](https://github.com/Jonwh25/lorebridge/wiki/Troubleshooting).
 
 ## Developer documentation
 
