@@ -88,6 +88,26 @@ async function handleQuestion(question: string): Promise<void> {
       // context gathering is best-effort; proceed without it
     }
 
+    const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
+      .filter((u) => u.isGM)
+      .map((u) => u.id);
+
+    if (context.length === 0) {
+      await ChatMessage.create({
+        content: [
+          `<div class="lorebridge-chat-answer">`,
+          `<p><strong>LoreBridge — Q:</strong> ${question}</p>`,
+          `<hr>`,
+          `<p><em>The lore is silent on that particular mystery.</em></p>`,
+          `</div>`,
+        ].join("\n"),
+        whisper: gmIds,
+        speaker: { alias: "LoreBridge" },
+        flags: { [MODULE_ID]: { type: "chat-answer", question } },
+      });
+      return;
+    }
+
     const answer = await askBackend(question, context, worldName);
 
     void addHistoryEntry({
@@ -96,10 +116,6 @@ async function handleQuestion(question: string): Promise<void> {
       prompt: question,
       content: answer,
     });
-
-    const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
-      .filter((u) => u.isGM)
-      .map((u) => u.id);
 
     const content = [
       `<div class="lorebridge-chat-answer">`,

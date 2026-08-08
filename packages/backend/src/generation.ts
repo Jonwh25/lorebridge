@@ -700,7 +700,7 @@ export async function generateJournalAnswer(
     "",
     "Answer based only on the page content above. Be concise and direct.",
     "If the page contains relevant information, share it — even if it is brief or partial.",
-    "If the page contains NO information about the topic at all, respond only with: \"I do not currently have that information.\"",
+    "If the page contains NO information about the topic at all, respond only with: \"The lore is silent on that particular mystery.\"",
     "Never ask follow-up questions and never list what information would help.",
     "Plain prose only. No markdown, no special characters.",
   ].join("\n");
