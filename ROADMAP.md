@@ -368,7 +368,7 @@ Extend the write-approval model to time-sensitive combat mutations without
 introducing automatic or generic Foundry writes.
 
 1. [Tracking epic: controlled combat write operations](https://github.com/Jonwh25/lorebridge/issues/106)
-2. [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
+2. [x] [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
 3. [Advance the active combat to the next turn](https://github.com/Jonwh25/lorebridge/issues/173)
 4. [Set one combatant initiative with conflict checks](https://github.com/Jonwh25/lorebridge/issues/174)
 5. [End the active combat with destructive confirmation](https://github.com/Jonwh25/lorebridge/issues/175)
