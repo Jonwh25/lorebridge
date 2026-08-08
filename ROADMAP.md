@@ -321,7 +321,7 @@ between structured profile sections, regenerates one section without changing
 the others, and confirms that generated languages populate the correct dnd5e
 language checkboxes rather than the free-text field.
 
-### Milestone 18 — Safe Player Access
+### Milestone 18 — Safe Player Access ✅
 
 Expose an explicitly published, permission-checked subset of campaign lore to
 players inside Foundry.
