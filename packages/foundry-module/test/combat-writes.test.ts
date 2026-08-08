@@ -7,10 +7,12 @@ const originalUi = Object.getOwnPropertyDescriptor(globalThis, "ui");
 let captureCombatWriteSnapshot: typeof import("../src/capabilities/combat-writes.js").captureCombatWriteSnapshot;
 let executeCombatWrite: typeof import("../src/capabilities/combat-writes.js").executeCombatWrite;
 let notifyCombatWriteResult: typeof import("../src/capabilities/combat-writes.js").notifyCombatWriteResult;
+let replaceApprovalQueueHtml: typeof import("../src/approval-queue-panel.js").replaceApprovalQueueHtml;
 
 before(async () => {
   class TestApplicationV2 {}
   Object.defineProperty(globalThis, "foundry", { configurable: true, value: { applications: { api: { ApplicationV2: TestApplicationV2 } } } });
+  ({ replaceApprovalQueueHtml } = await import("../src/approval-queue-panel.js"));
   ({ captureCombatWriteSnapshot, executeCombatWrite, notifyCombatWriteResult } = await import("../src/capabilities/combat-writes.js"));
 });
 
@@ -68,6 +70,18 @@ test("notifies through the Foundry notification object without losing method con
   notifyCombatWriteResult({ action: "test", target: { combatUuid: "Combat.c1" }, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Approved." });
   notifyCombatWriteResult({ action: "test", target: { combatUuid: "Combat.c1" }, outcome: "stale", occurredAt: new Date().toISOString(), summary: "Stale." });
   assert.deepEqual(calls, ["bound:info:LoreBridge combat write: Approved.", "bound:warn:LoreBridge combat write: Stale."]);
+});
+
+test("preserves the scroll container when replacing approval panel content", () => {
+  const result = { className: "lb-approval-queue" } as HTMLElement;
+  let replacement: unknown;
+  const content = {
+    replaceChildren(...nodes: unknown[]) { replacement = nodes; },
+  } as unknown as HTMLElement;
+
+  replaceApprovalQueueHtml(result, content);
+
+  assert.deepEqual(replacement, [result]);
 });
 
 afterEach(() => {

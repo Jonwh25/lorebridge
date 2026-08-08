@@ -8,14 +8,12 @@
   align-items: center;
   gap: 0.5rem;
 }
-#lorebridge-combat-write-approval,
-.lorebridge-combat-write-approval {
+.lorebridge-approval-queue {
   max-height: calc(100vh - 2rem) !important;
   overflow: hidden;
 }
 
-#lorebridge-combat-write-approval .window-content,
-.lorebridge-combat-write-approval .window-content {
+.lorebridge-approval-queue .window-content {
   display: flex;
   flex: 1 1 auto;
   min-width: 0;
@@ -24,7 +22,7 @@
   overflow: hidden;
 }
 
-.lb-combat-approval-list {
+.lb-approval-queue {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

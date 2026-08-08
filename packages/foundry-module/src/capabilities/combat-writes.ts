@@ -12,6 +12,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { ApprovalQueuePanel } from "../approval-queue-panel.js";
 
 type HttpErrorBody = { error?: { message?: string } };
 type FoundryCombatWriteApprovalPayload = CombatWriteApprovalPayload & { approvalProof: string };
@@ -156,11 +157,9 @@ function renderProposal(value: FoundryCombatWriteApprovalPayload): string {
   </section>`;
 }
 
-const AppBase = foundry.applications.api.ApplicationV2;
-class CombatWriteApprovalPanel extends AppBase {
-  static override DEFAULT_OPTIONS = { id: "lorebridge-combat-write-approval", classes: ["lorebridge-combat-write-approval"], window: { title: "LoreBridge — Combat Approval", resizable: true }, position: { width: 560, height: 460 } };
-  override async _renderHTML(): Promise<HTMLElement> { const root = document.createElement("div"); root.className = "lb-combat-approval-list"; root.innerHTML = [...pending.values()].map(renderProposal).join("") || "<p>No pending combat proposals.</p>"; return root; }
-  override _replaceHTML(result: HTMLElement, content: HTMLElement): void { content.replaceChildren(...Array.from(result.childNodes)); }
+class CombatWriteApprovalPanel extends ApprovalQueuePanel {
+  static override DEFAULT_OPTIONS = { id: "lorebridge-combat-write-approval", classes: ["lorebridge-approval-queue", "lorebridge-combat-write-approval"], window: { title: "LoreBridge — Combat Approval", resizable: true }, position: { width: 560, height: 460 } };
+  protected override renderApprovalQueueHtml(): string { return [...pending.values()].map(renderProposal).join("") || "<p>No pending combat proposals.</p>"; }
   override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve") void finish(token, true, this); if (target.dataset.action === "reject") void finish(token, false, this); }
 }
 
