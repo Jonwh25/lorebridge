@@ -275,7 +275,7 @@ Success test: a GM runs a session from one dashboard, reviews source-backed
 live context, addresses an enabled NPC through chat, and optionally hears the
 response without exposing hidden information.
 
-### Milestone 16 — NPC Creation & Reuse
+### Milestone 16 — NPC Creation & Reuse ✅
 
 Turn LoreBridge's existing NPC generation into a reviewable, reusable creation
 workflow for complete D&D 5e actors and their artwork.
