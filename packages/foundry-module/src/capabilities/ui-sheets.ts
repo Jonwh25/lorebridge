@@ -734,9 +734,7 @@ export function registerSheetButtons(): void {
 
     const settings = getLoreBridgeSettings();
 
-    if (settings.uiButtonsEnabled && doc.documentName === "Actor" && doc.type === "npc") {
-      injectHeaderButton(frame, "npc-gen", "fas fa-robot", "NPC Profile", "ui-buttons", () => runNpcQuickGen(doc));
-    }
+    // NPC Workspace is in the ⋮ header controls menu (registerNpcWorkspaceMenuHook in npc-workspace.ts)
 
     if (doc.documentName === "JournalEntry") {
       if (settings.uiButtonsEnabled) {

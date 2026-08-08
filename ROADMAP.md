@@ -299,6 +299,7 @@ single block of generated text.
 
 1. [Enhance NPC Profiles with Structured GM Reference Sections](https://github.com/Jonwh25/lorebridge/issues/196)
 2. [Redesign NPC Sheet into a Modular AI Workspace](https://github.com/Jonwh25/lorebridge/issues/197)
+3. [NPC Workspace: smart language sync to dnd5e language checkboxes](https://github.com/Jonwh25/lorebridge/issues/206)
 
 The profile model should capture identity, appearance, motivations,
 relationships, secrets, history, gameplay context, and other GM-useful details.
@@ -308,12 +309,17 @@ be overwritten unless the GM explicitly requests it.
 
 The Foundry experience should present these sections as a focused workspace
 rather than a wall of text, with section-level generation controls and a full
-profile generation shortcut for new NPCs.
+profile generation shortcut for new NPCs. Generated fields that duplicate
+native dnd5e sheet fields (alignment, languages, ideal, bond, flaw, disposition,
+biography) are synced back to the actor automatically; language sync matches
+known dnd5e language keys and places non-standard languages in the Special
+field.
 
 Success test: a GM opens an existing NPC, generates only the missing Appearance
-section, keeps the existing personality and history untouched, then navigates
-between structured profile sections and regenerates one section without
-changing the others.
+section, keeps the existing personality and history untouched, navigates
+between structured profile sections, regenerates one section without changing
+the others, and confirms that generated languages populate the correct dnd5e
+language checkboxes rather than the free-text field.
 
 ### Milestone 18 — Safe Player Access
 
@@ -404,11 +410,17 @@ proven stable. This is intentionally a later milestone rather than part of the
 Milestone 17 delivery scope.
 
 1. [Campaign Memory Engine for Living NPCs](https://github.com/Jonwh25/lorebridge/issues/198)
+2. [NPC Workspace: D&D 5e trait table picker and background field](https://github.com/Jonwh25/lorebridge/issues/207)
 
 NPCs should accumulate meaningful campaign events, relationship changes,
 promises, debts, betrayals, status changes, and other persistent history over
 time. Future AI generation and roleplay can use that history as bounded context
 so recurring NPCs remain consistent with what has actually happened in play.
+
+The background field and D&D 5e trait picker (#207) deepen the structured NPC
+identity established in Milestone 17 and lay groundwork for the memory engine:
+a background-aware NPC with enriched personality traits is a more useful
+subject for persistent memory than a bare stat block.
 
 This milestone may later integrate session recap data, relationship graphs,
 world-state changes, and campaign indexing, but it does not require semantic

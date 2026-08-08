@@ -247,6 +247,281 @@ export async function generateNpcProfile(
 }
 
 // ---------------------------------------------------------------------------
+// NPC Profile Section generation (#196)
+// ---------------------------------------------------------------------------
+
+export type NpcSection =
+  | "overview"
+  | "gender"
+  | "appearance"
+  | "personalityAndMotivation"
+  | "relationships"
+  | "secretsAndStory"
+  | "history"
+  | "gameplay";
+
+export type NpcOverview = {
+  race: string; occupation: string; alignment: string; age: string;
+  faith: string; socialClass: string; reputation: string;
+  residence: string; languages: string;
+};
+
+export type NpcGender = {
+  gender: string; genderPresentation: string;
+};
+
+export type NpcAppearance = {
+  height: string; build: string; hair: string; eyes: string; skin: string;
+  distinguishingFeatures: string; clothing: string; equipment: string;
+  voice: string; accent: string;
+};
+
+export type NpcPersonalityAndMotivation = {
+  personality: string; mannerisms: string; goal: string; fear: string;
+  ideal: string; bond: string; flaw: string;
+};
+
+export type NpcRelationships = {
+  family: string; allies: string; enemies: string; rivals: string;
+  organizations: string; employer: string; mentorStudent: string;
+};
+
+export type NpcSecretsAndStory = {
+  secret: string; rumor: string; hiddenAgenda: string;
+  currentProblem: string; adventureHook: string;
+};
+
+export type NpcHistory = {
+  publicHistory: string; privateHistory: string; gmNotes: string;
+};
+
+export type NpcGameplay = {
+  role: string; disposition: string; currentStatus: string;
+};
+
+export type NpcProfileSections = {
+  overview?: NpcOverview;
+  gender?: NpcGender;
+  appearance?: NpcAppearance;
+  personalityAndMotivation?: NpcPersonalityAndMotivation;
+  relationships?: NpcRelationships;
+  secretsAndStory?: NpcSecretsAndStory;
+  history?: NpcHistory;
+  gameplay?: NpcGameplay;
+};
+
+export type NpcSectionGenerateInput = {
+  section: NpcSection;
+  actorName: string;
+  actorBiography?: string;
+  existingProfile?: NpcProfileSections;
+  tone?: string;
+  worldName?: string;
+};
+
+export type NpcSectionGenerateOutput = {
+  section: NpcSection;
+  data: NpcProfileSections;
+  provider: string;
+};
+
+type NpcSectionConfig = {
+  label: string;
+  fields: string[];
+  description: string;
+  fieldHints?: Record<string, string>;
+};
+
+const NPC_SECTION_FIELDS: Record<NpcSection, NpcSectionConfig> = {
+  overview: {
+    label: "Overview",
+    description: "basic identity facts",
+    fields: ["race", "occupation", "alignment", "age", "faith", "socialClass", "reputation", "residence", "languages"],
+    fieldHints: {
+      alignment: "One of the standard D&D alignments (e.g. Lawful Good, Chaotic Neutral).",
+      reputation: "A brief phrase describing how this NPC is publicly known — distinct from their history or biography.",
+      languages: "Comma-separated list of languages spoken.",
+    },
+  },
+  gender: {
+    label: "Gender",
+    description: "gender identity and presentation. 'gender' is the NPC's gender identity (e.g. Male, Female, Nonbinary, Genderfluid, Agender, or a descriptive phrase for a fantasy-specific identity). 'genderPresentation' is how they present physically and socially (Masculine, Feminine, Androgynous, or Neutral). If either is empty or 'Unspecified / Random', choose what best fits the character concept.",
+    fields: ["gender", "genderPresentation"],
+  },
+  appearance: {
+    label: "Appearance",
+    description: "physical description useful for a portrait artist",
+    fields: ["height", "build", "hair", "eyes", "skin", "distinguishingFeatures", "clothing", "equipment", "voice", "accent"],
+    fieldHints: {
+      distinguishingFeatures: "Unusual physical marks, scars, or traits that make the NPC immediately recognisable — do NOT repeat information already in hair, eyes, or skin.",
+      clothing: "What the NPC typically wears — style, condition, and notable garments. Do NOT list weapons or carried items here.",
+      equipment: "Weapons, tools, or notable carried items only — do NOT repeat clothing or worn garments here.",
+    },
+  },
+  personalityAndMotivation: {
+    label: "Personality & Motivation",
+    description: "character psychology and drives",
+    fields: ["personality", "mannerisms", "goal", "fear", "ideal", "bond", "flaw"],
+    fieldHints: {
+      personality: "Observable temperament and behavioural style — how they come across in conversation. Do NOT describe their secret feelings or hidden agenda.",
+      mannerisms: "Specific, concrete verbal or physical habits (e.g. 'taps left fingers when lying', 'ends every sentence with a question'). Must differ from general personality.",
+      goal: "Their openly stated or publicly known ambition. Do NOT reveal hidden plans — that belongs in hiddenAgenda.",
+      fear: "What genuinely frightens or paralyses them — distinct from their flaw, which is a weakness or vice.",
+      ideal: "D&D 5e format — short concept label + colon + one sentence. Must be a genuine moral aspiration or principle, NOT a goal or plan. Examples: 'Tradition: The ancient ways must be preserved and upheld, whatever the cost.' | 'Charity: I always try to help those in need, no matter what the personal cost.' | 'Freedom: Chains are meant to be broken, as are those who would forge them.' | 'Knowledge: The path to power and self-improvement is through knowledge, and I pursue it relentlessly.'",
+      bond: "D&D 5e format — a concrete connection to a NAMED or precisely described person, place, or object. Vague bonds like 'I care deeply about my companions' are not acceptable. Examples: 'I owe my life to the priest who took me in when my parents died, and I will protect the temple she served.' | 'Ruthless bandits murdered my mentor and left me for dead on the road — I will find them one by one.' | 'The workshop where I learned my trade burned down and took three friends with it; I will rebuild it in their memory.' | 'I carry a trinket that belonged to my daughter, who died before I could save her; I will never let another child suffer that fate.'",
+      flaw: "D&D 5e format — a specific weakness or vice that will cause real trouble during play. Must be concrete enough to actually create problems, not just a mild quirk. Examples: 'I'm too greedy for my own good — I can never resist taking a cut of any treasure I handle, even when it puts me at risk.' | 'I made a terrible mistake in battle that cost many lives, and I would do anything to keep that secret buried.' | 'Once someone questions my courage, I will never back down no matter how dangerous the situation.' | 'I harbor dark, violent thoughts that my calm exterior hides; when provoked, I go much further than I intend.'",
+    },
+  },
+  relationships: {
+    label: "Relationships",
+    description: "connections to other characters and factions",
+    fields: ["family", "allies", "enemies", "rivals", "organizations", "employer", "mentorStudent"],
+    fieldHints: {
+      allies: "Individuals who actively support the NPC. Do NOT list organisations here — use the organizations field.",
+      enemies: "Those who actively wish the NPC harm or are in direct conflict. Rivals compete; enemies seek to destroy.",
+      rivals: "Those who compete with the NPC for the same goal, resource, or position but are not outright enemies.",
+      organizations: "Groups, guilds, factions, or institutions the NPC belongs to or is affiliated with. Do NOT list individual allies here.",
+      employer: "Specific person or institution currently paying or commanding the NPC, if different from their organization.",
+      mentorStudent: "A named individual who taught or was taught by this NPC — not a general relationship.",
+    },
+  },
+  secretsAndStory: {
+    label: "Secrets & Story",
+    description: "hidden information and adventure potential",
+    fields: ["secret", "rumor", "hiddenAgenda", "currentProblem", "adventureHook"],
+    fieldHints: {
+      secret: "A specific hidden FACT about the NPC's past or true identity — not a plan, not a motivation, a concealed truth. Must differ from hiddenAgenda.",
+      rumor: "Something others say about the NPC that may be partly true or completely false — not a fact the GM knows to be true.",
+      hiddenAgenda: "Their concealed long-term scheme or goal. Must differ from their stated goal (in personalityAndMotivation) and from the secret fact above.",
+      currentProblem: "A specific crisis or obstacle the NPC is dealing with RIGHT NOW — not their long-term agenda and not their historical secret.",
+      adventureHook: "A concrete, actionable reason for the party to get involved with this NPC. Must arise from their current problem or secrets, not merely restate their goal.",
+    },
+  },
+  history: {
+    label: "History",
+    description: "background and personal history",
+    fields: ["publicHistory", "privateHistory", "gmNotes"],
+    fieldHints: {
+      publicHistory: "What common knowledge says about this NPC's past — what anyone might learn by asking around.",
+      privateHistory: "The true or hidden backstory known only to the NPC (and the GM). Must contain information NOT in publicHistory.",
+      gmNotes: "Mechanical or meta information for the GM only: plot hooks, planned story beats, encounter notes. Do NOT repeat backstory already in privateHistory.",
+    },
+  },
+  gameplay: {
+    label: "Gameplay",
+    description: "functional information for running this NPC during play",
+    fields: ["role", "disposition", "currentStatus"],
+    fieldHints: {
+      role: "Narrative function this NPC serves for the party (e.g. quest-giver, recurring antagonist, information broker). Do NOT repeat their occupation.",
+      disposition: "Exactly one word: Friendly, Neutral, or Hostile.",
+      currentStatus: "Brief present-tense narrative state (e.g. 'travelling to the capital', 'hiding in the undercity', 'recovering from an assassination attempt'). Do NOT describe conditions like poisoned or frightened.",
+    },
+  },
+};
+
+export const NPC_VALID_SECTIONS: NpcSection[] = [
+  "overview", "gender", "appearance", "personalityAndMotivation",
+  "relationships", "secretsAndStory", "history", "gameplay",
+];
+
+function buildNpcProfileContext(
+  actorName: string,
+  actorBiography: string,
+  existingProfile: NpcProfileSections,
+  excludeSection: NpcSection,
+): string {
+  const parts: string[] = [`NPC Name: ${actorName}`];
+  if (actorBiography) parts.push(`Biography: ${actorBiography.slice(0, 500)}`);
+
+  for (const sectionId of NPC_VALID_SECTIONS) {
+    if (sectionId === excludeSection) continue;
+    const info = NPC_SECTION_FIELDS[sectionId];
+    const data = existingProfile[sectionId] as Record<string, string> | undefined;
+    if (!data) continue;
+    const entries = Object.entries(data)
+      .filter(([, v]) => v && v.trim())
+      .map(([k, v]) => `  ${k}: ${v}`)
+      .join("\n");
+    if (entries) parts.push(`\n${info.label}:\n${entries}`);
+  }
+
+  return parts.join("\n");
+}
+
+export async function generateNpcProfileSection(
+  provider: ProviderService,
+  input: NpcSectionGenerateInput,
+): Promise<NpcSectionGenerateOutput> {
+  const info = NPC_SECTION_FIELDS[input.section];
+  if (!info) throw new GenerationError(`Unknown NPC section: ${input.section}`);
+
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+  const context = buildNpcProfileContext(
+    input.actorName,
+    input.actorBiography ?? "",
+    input.existingProfile ?? {},
+    input.section,
+  );
+
+  const hints = info.fieldHints ?? {};
+  const fieldList = info.fields.map(f => `  "${f}": "<${hints[f] ?? "value or empty string"}>"`).join(",\n");
+
+  // Derive explicit pronoun rule from the gender section so the AI never defaults to "they".
+  const genderData = (input.existingProfile?.gender ?? {}) as Record<string, string>;
+  const genderVal = (genderData["gender"] ?? "").toLowerCase().trim();
+  let pronounRule: string;
+  if (genderVal === "male") pronounRule = "- This NPC uses he/him pronouns.";
+  else if (genderVal === "female") pronounRule = "- This NPC uses she/her pronouns.";
+  else if (["nonbinary", "non-binary", "genderfluid", "agender"].includes(genderVal)) pronounRule = "- This NPC uses they/them pronouns.";
+  else if (genderVal && genderVal !== "unspecified / random") pronounRule = `- Use pronouns appropriate for a ${genderVal} NPC.`;
+  else pronounRule = "- Choose pronouns that fit the character concept.";
+
+  const prompt = [
+    "You are a creative game master assistant creating an NPC profile section for a tabletop RPG.",
+    `Tone: ${toneNote}`,
+    "",
+    "Existing NPC information (use as context to stay consistent):",
+    context,
+    "",
+    `Generate the "${info.label}" section (${info.description}).`,
+    "Return ONLY a valid JSON object with these exact fields. Use an empty string for fields that are unknown or not applicable:",
+    "{",
+    fieldList,
+    "}",
+    "",
+    "Rules:",
+    "- Be specific and flavor-rich.",
+    "- Never contradict the existing NPC information above.",
+    "- Keep each field to 1–3 sentences at most.",
+    pronounRule,
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 900);
+
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError(`AI returned unexpected format for ${input.section} section.`);
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError(`AI returned invalid JSON for ${input.section} section.`);
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const field of info.fields) {
+    normalized[field] = (typeof parsed[field] === "string" ? parsed[field] as string : "").trim();
+  }
+
+  return {
+    section: input.section,
+    data: { [input.section]: normalized } as NpcProfileSections,
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Session recap generation
 // ---------------------------------------------------------------------------
 
