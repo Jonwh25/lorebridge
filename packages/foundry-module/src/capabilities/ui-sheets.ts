@@ -737,6 +737,10 @@ export function registerSheetButtons(): void {
     // NPC Workspace is in the ⋮ header controls menu (registerNpcWorkspaceMenuHook in npc-workspace.ts)
 
     if (doc.documentName === "JournalEntry") {
+      // Skip ownership/config dialogs that carry a JournalEntry as their document
+      // but are not the journal sheet itself (e.g. DocumentOwnershipConfig).
+      if ((frame as HTMLElement).classList.contains("document-ownership")) return;
+
       if (settings.uiButtonsEnabled) {
       injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", "ui-buttons", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {

@@ -72,6 +72,32 @@ export async function setPlayerLoreAllowlist(ids: string[]): Promise<void> {
 // GM-side request handler (runs only on the GM's browser via socket guard)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Keyword extraction — strips question preambles and stop words so that
+// "tell me about Sir Sonnet" searches for "sir sonnet" rather than the
+// full natural-language phrase, which would never substring-match.
+// ---------------------------------------------------------------------------
+
+function extractSearchTerms(question: string): string {
+  const stopWords = new Set([
+    "a", "about", "an", "and", "any", "are", "at", "be", "by", "can",
+    "could", "describe", "details", "do", "does", "explain", "find",
+    "for", "from", "get", "give", "had", "has", "have", "he", "her",
+    "him", "his", "how", "i", "if", "in", "info", "information", "is",
+    "it", "its", "know", "like", "list", "me", "more", "my", "of",
+    "on", "or", "our", "please", "she", "show", "some", "summarize",
+    "tell", "the", "their", "them", "there", "they", "this", "to",
+    "us", "was", "we", "were", "what", "when", "where", "which",
+    "who", "will", "with", "would", "you",
+  ]);
+  const words = question
+    .toLowerCase()
+    .replace(/[^a-z0-9\s'-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !stopWords.has(w));
+  return words.length > 0 ? words.join(" ") : question;
+}
+
 export async function handlePlayerLoreRequest(userId: string, question: string): Promise<void> {
   const settings = getPlayerSettings();
   if (!settings.playerLoreEnabled) return;
@@ -95,8 +121,11 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
   const worldName = game.world?.title ?? "Unknown World";
 
   try {
-    // Search player-visible journals, then filter to the allowlist.
-    const searchResult = searchJournals({ query: question, mode: "player", limit: 20 });
+    // Extract keywords from the natural-language question so that
+    // "tell me about Sir Sonnet" searches for "sir sonnet" rather than
+    // the full phrase, which would never substring-match journal text.
+    const searchQuery = extractSearchTerms(question);
+    const searchResult = searchJournals({ query: searchQuery, mode: "player", limit: 20 });
     const filtered = searchResult.results.filter((r) => allowlist.includes(r.journalId));
 
     const context = filtered.slice(0, 5).map((r) => ({
