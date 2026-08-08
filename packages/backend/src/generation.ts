@@ -169,8 +169,7 @@ export async function generateChatAnswer(
   const prompt = [
     `You are a helpful assistant for a tabletop RPG campaign called "${input.worldName}".`,
     "Answer the question using only the campaign documents provided below.",
-    "If the documents contain relevant information, share it — even if it is brief or partial.",
-    "If the documents contain NO information about the topic at all, respond only with: \"I do not currently have that information.\"",
+    "Share whatever relevant information the documents contain, even if it is brief or limited.",
     "Never ask follow-up questions, never list what documents would help, and never explain what you need.",
     "Cite the document name when referencing specific information.",
     "Be concise.",

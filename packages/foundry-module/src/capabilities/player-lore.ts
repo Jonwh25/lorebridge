@@ -131,6 +131,26 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
     const searchResult = searchJournals({ query: searchQuery, mode: "player", limit: 20 });
     const filtered = searchResult.results.filter((r) => allowlist.includes(r.journalId));
 
+    // Short-circuit: if no allowed journals matched, return the no-info message
+    // without calling the backend. This avoids LLM non-determinism on sparse context
+    // and saves tokens.
+    if (filtered.length === 0) {
+      const askerName = user?.name ? escapeHtml(user.name) : "Unknown";
+      await ChatMessage.create({
+        content: [
+          `<div class="lorebridge-chat-answer">`,
+          `<p><strong>LoreBridge — Q (${askerName}):</strong> ${escapeHtml(question)}</p>`,
+          `<hr>`,
+          `<p>I do not currently have that information.</p>`,
+          `</div>`,
+        ].join("\n"),
+        whisper: answerWhisper,
+        speaker: { alias: "LoreBridge" },
+        flags: { [MODULE_ID]: { type: "player-lore-answer", userId, question } },
+      });
+      return;
+    }
+
     const context = filtered.slice(0, 5).map((r) => ({
       type: "journal",
       name: r.journalName,
