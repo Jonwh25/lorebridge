@@ -134,6 +134,39 @@ include:
 Mark the pull request ready only after CI passes. The repository owner decides
 when to merge.
 
+## GitHub Actions completion gate
+
+The coding agent owns GitHub Actions monitoring for every pull request it creates
+or updates. Do not wait for the repository owner to ask for the latest workflow
+result.
+
+After every push to a pull-request branch:
+
+1. Resolve the pull request and its current head commit. Monitor checks for that
+   exact commit so a stale run from an earlier push is never treated as current.
+2. Wait for all required GitHub Actions checks to finish. Prefer
+   `gh pr checks <pr> --watch --interval 10`; use `gh run list`, `gh run view`, and
+   the Actions API when more detail is needed.
+3. If a check fails, inspect the failing job and step logs immediately with
+   `gh run view <run-id> --log-failed` or the equivalent job-log endpoint.
+4. Decide whether the failure was caused by the current change, is flaky, or is
+   an external/infrastructure failure. Report evidence; do not guess from the
+   check name alone.
+5. Fix failures caused by the current change when the fix remains within the
+   selected issue's scope. Run the relevant local validation, commit, push, and
+   watch the replacement workflow for the new head commit.
+6. Repeat the inspect-fix-validate-push-watch loop until all required checks pass
+   or a genuine blocker requires owner action or a scope decision.
+
+Do not mark a pull request ready, describe work as complete, or hand control back
+for merging while required checks are queued, in progress, cancelled, or failing.
+If a failure is external or requires a material scope expansion, provide the run
+URL, failing step, relevant log evidence, and the exact decision or action needed.
+
+After pushing a release tag, apply the same monitoring responsibility to the
+tag-triggered release workflow. Continue until publication is verified or a
+specific failure is reported with its run URL and logs.
+
 ## Deployment and acceptance
 
 After merge:
