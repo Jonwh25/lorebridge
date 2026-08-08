@@ -25,10 +25,17 @@ must also read [`AGENTS.md`](AGENTS.md).
 5. Add or update tests and documentation.
 6. Run `npm run validate`.
 7. Open a pull request explaining behavior, exclusions, security impact, and
-   manual acceptance.
+   manual acceptance unless the complete change qualifies for the Markdown-only
+   exception below.
 8. After merge, complete the live acceptance test before closing the issue.
 
-Direct commits to `main` may be used during initial repository scaffolding. Once the workspace and CI are established, normal development should use pull requests.
+Normal development uses pull requests. A documentation-only change may instead
+be committed and pushed directly to `main` when every changed file ends in
+`.md`. Update `main` first, inspect the complete diff, stage only the intended
+Markdown files, verify affected links and instructions, and use a narrow
+documentation commit. If any code, manifest, package, lock, workflow,
+configuration, generated, or other non-Markdown file changes, keep the complete
+logical change on a short-lived branch and use a pull request.
 
 ## Commit messages
 
