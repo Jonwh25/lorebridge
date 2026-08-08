@@ -268,17 +268,3 @@ export function openPlayerLoreAllowlistDialog(): void {
   void dialog.render({ force: true });
 }
 
-// ---------------------------------------------------------------------------
-// Thin ApplicationV2-compatible wrapper used as the settings menu `type`
-// ---------------------------------------------------------------------------
-
-export class PlayerLoreAllowlistApp {
-  static DEFAULT_OPTIONS: Record<string, unknown> = { id: "lorebridge-player-lore-allowlist" };
-  readonly element: HTMLElement = document.createElement("div");
-
-  render(_options?: unknown): void {
-    openPlayerLoreAllowlistDialog();
-  }
-
-  async close(): Promise<void> { /* no-op — DialogV2 manages its own lifecycle */ }
-}

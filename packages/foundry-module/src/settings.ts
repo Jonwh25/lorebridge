@@ -2,7 +2,7 @@ import { LoreBridgeConfigurationApp } from "./configuration-app.js";
 import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
 import { LoreBridgeContextProfilesApp } from "./context-profiles-app.js";
 import { GenerationHistoryPanel } from "./generation-history.js";
-import { PlayerLoreAllowlistApp } from "./capabilities/player-lore.js";
+import { PlayerLoreAllowlistApp } from "./player-lore-menu-app.js";
 
 const MODULE_ID = "lorebridge";
 
