@@ -141,7 +141,7 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
           `<div class="lorebridge-chat-answer">`,
           `<p><strong>LoreBridge — Q (${askerName}):</strong> ${escapeHtml(question)}</p>`,
           `<hr>`,
-          `<p>I do not currently have that information.</p>`,
+          `<p><em>The lore is silent on that particular mystery.</em></p>`,
           `</div>`,
         ].join("\n"),
         whisper: answerWhisper,
