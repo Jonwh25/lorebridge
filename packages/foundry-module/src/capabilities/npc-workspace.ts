@@ -292,7 +292,9 @@ const LANGUAGE_KEY_MAP: Record<string, string> = {
 };
 
 function parseLanguages(raw: string): { known: string[]; custom: string } {
-  const tokens = raw.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+  const tokens = raw.split(/[,;]+/)
+    .map(t => t.replace(/\band\b/gi, "").trim())
+    .filter(Boolean);
   const known: string[] = [];
   const custom: string[] = [];
   for (const token of tokens) {
