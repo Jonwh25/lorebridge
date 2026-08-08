@@ -994,6 +994,26 @@ export function registerChatCommand(): void {
       return false;
     }
 
+    // Non-GMs: all /lb commands are player lore requests. Players don't need
+    // to know about the "ask" keyword — /lb <anything> works.
+    if (!game.user?.isGM) {
+      (options as { recordPending: boolean }).recordPending = false;
+      clearInput();
+      const playerSettings = getLoreBridgeSettings();
+      if (!playerSettings.playerLoreEnabled) {
+        ui.notifications.warn("LoreBridge: The Player Lore Assistant is not available in this world.");
+        return false;
+      }
+      if (!args) {
+        ui.notifications.warn("LoreBridge: Ask a question, e.g. /lb Who is Strahd?");
+        return false;
+      }
+      const userId = game.user?.id ?? "";
+      emitPlayerLoreRequest(userId, args);
+      ui.notifications.info("LoreBridge: Your question has been sent. Watch chat for the answer.");
+      return false;
+    }
+
     if (!getLoreBridgeSettings().chatCommandEnabled) {
       // Consume disabled commands without sending them to Foundry's slash-command parser.
       (options as { recordPending: boolean }).recordPending = false;
