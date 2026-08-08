@@ -36,6 +36,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   sessionLogFolder: "sessionLogFolder",
   excludedCompendiums: "excludedCompendiums",
   writesEnabled: "writesEnabled",
+  combatWritesEnabled: "combatWritesEnabled",
   uiButtonsEnabled: "uiButtonsEnabled",
   chatCommandEnabled: "chatCommandEnabled",
   journalQaEnabled: "journalQaEnabled",
@@ -61,6 +62,7 @@ export type LoreBridgeSettings = {
   sessionLogFolder: string;
   excludedCompendiums: string;
   writesEnabled: boolean;
+  combatWritesEnabled: boolean;
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
@@ -225,6 +227,16 @@ export function registerLoreBridgeSettings(): void {
     requiresReload: true,
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled, {
+    name: "Enable Controlled Combat Writes",
+    hint: "Allow narrowly typed combat actions to be proposed. Every action requires fresh-state validation and explicit GM approval.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled, {
     name: "Enable Foundry UI Buttons",
     hint: "Show LoreBridge generation and suggestion buttons on supported sheets.",
@@ -324,6 +336,7 @@ export function registerFeatureSettingsPresentation(): void {
 
     for (const setting of [
       LOREBRIDGE_SETTINGS.writesEnabled,
+      LOREBRIDGE_SETTINGS.combatWritesEnabled,
       LOREBRIDGE_SETTINGS.uiButtonsEnabled,
       LOREBRIDGE_SETTINGS.chatCommandEnabled,
       LOREBRIDGE_SETTINGS.journalQaEnabled,
@@ -364,6 +377,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ).trim(),
     writesEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled),
+    ),
+    combatWritesEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled),
     ),
     uiButtonsEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled) ?? true,

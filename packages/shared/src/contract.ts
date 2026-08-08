@@ -21,6 +21,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getScene: "getScene",
   getActiveScene: "getActiveScene",
   getCombatState: "getCombatState",
+  executeCombatWrite: "executeCombatWrite",
   rollDice: "rollDice",
   getChatMessages: "getChatMessages",
   searchAssets: "searchAssets",
@@ -45,6 +46,7 @@ export const LOREBRIDGE_EVENTS = Object.freeze({
   approvalRequired: "approval.required",
   rollTableApprovalRequired: "roll-table.approval.required",
   rollbackAvailable: "rollback.available",
+  combatApprovalRequired: "combat.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 

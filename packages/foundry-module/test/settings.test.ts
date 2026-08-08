@@ -55,7 +55,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.get("generationHistory")?.restricted, true);
   assert.equal(menus.get("playerLoreAllowlist")?.restricted, true);
 
-  assert.equal(registrations.size, 20);
+  assert.equal(registrations.size, 21);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.requiresReload, true);
@@ -71,6 +71,8 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.writesEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatWritesEnabled)?.default, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatWritesEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.uiButtonsEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.chatCommandEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.journalQaEnabled)?.requiresReload, true);
@@ -112,6 +114,7 @@ test("reads and normalizes configured values", () => {
     [LOREBRIDGE_SETTINGS.backendUrl, "  https://lorebridge.example/api/  "],
     [LOREBRIDGE_SETTINGS.clientToken, "signed-client-token"],
     [LOREBRIDGE_SETTINGS.writesEnabled, true],
+    [LOREBRIDGE_SETTINGS.combatWritesEnabled, true],
     [LOREBRIDGE_SETTINGS.uiButtonsEnabled, false],
     [LOREBRIDGE_SETTINGS.chatCommandEnabled, false],
     [LOREBRIDGE_SETTINGS.journalQaEnabled, false],
@@ -139,6 +142,7 @@ test("reads and normalizes configured values", () => {
     sessionLogFolder: "Session Logs",
     excludedCompendiums: "",
     writesEnabled: true,
+    combatWritesEnabled: true,
     uiButtonsEnabled: false,
     chatCommandEnabled: false,
     journalQaEnabled: false,

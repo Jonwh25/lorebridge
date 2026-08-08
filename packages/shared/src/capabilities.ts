@@ -4,6 +4,7 @@ export * from "./capabilities/journals.js";
 export * from "./capabilities/actors.js";
 export * from "./capabilities/scenes.js";
 export * from "./capabilities/combat.js";
+export * from "./capabilities/combat-writes.js";
 export * from "./capabilities/dice.js";
 export * from "./capabilities/chat.js";
 export * from "./capabilities/assets.js";

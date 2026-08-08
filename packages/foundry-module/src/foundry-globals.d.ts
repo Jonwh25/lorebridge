@@ -206,6 +206,10 @@ type FoundryCombatant = {
 };
 
 type FoundryCombat = {
+  id: string;
+  uuid: string;
+  name: string;
+  scene?: { id: string } | null;
   active: boolean;
   started: boolean;
   current: { round?: number; turn?: number };

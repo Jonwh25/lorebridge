@@ -87,6 +87,14 @@ export class AdapterSessionRegistry {
     );
   }
 
+  hasCapabilityForSource(sourceId: string | undefined, capability: LoreBridgeCapability): boolean {
+    return [...this.#sessions.values()].some(({ summary, socket }) =>
+      socket.readyState === WebSocket.OPEN
+      && (!sourceId || summary.registration.sources.some((source) => source.sourceId === sourceId))
+      && summary.registration.capabilities.some((declaration) => declaration.name === capability),
+    );
+  }
+
   sendEvent<TPayload>(
     sourceId: string | undefined,
     event: string,

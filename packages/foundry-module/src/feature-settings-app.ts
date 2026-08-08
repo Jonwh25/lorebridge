@@ -33,6 +33,7 @@ const AppBase: AppV2Static = foundryApi?.HandlebarsApplicationMixin
 
 type FeatureSettingsContext = {
   writesEnabled: boolean;
+  combatWritesEnabled: boolean;
   uiButtonsEnabled: boolean;
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
@@ -71,6 +72,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     const staged = this._stagedFeatureValues();
     return {
       writesEnabled: staged.writesEnabled ?? settings.writesEnabled,
+      combatWritesEnabled: staged.combatWritesEnabled ?? settings.combatWritesEnabled,
       uiButtonsEnabled: staged.uiButtonsEnabled ?? settings.uiButtonsEnabled,
       chatCommandEnabled: staged.chatCommandEnabled ?? settings.chatCommandEnabled,
       journalQaEnabled: staged.journalQaEnabled ?? settings.journalQaEnabled,
@@ -93,6 +95,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       form?.querySelector<HTMLInputElement>(`input[name='${name}']`)?.checked ?? false;
     const values = {
       writesEnabled: checked("writesEnabled"),
+      combatWritesEnabled: checked("combatWritesEnabled"),
       uiButtonsEnabled: checked("uiButtonsEnabled"),
       chatCommandEnabled: checked("chatCommandEnabled"),
       journalQaEnabled: checked("journalQaEnabled"),
@@ -101,6 +104,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     };
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
+      [LOREBRIDGE_SETTINGS.combatWritesEnabled, "combatWritesEnabled"],
       [LOREBRIDGE_SETTINGS.uiButtonsEnabled, "uiButtonsEnabled"],
       [LOREBRIDGE_SETTINGS.chatCommandEnabled, "chatCommandEnabled"],
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
@@ -133,6 +137,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
     if (!form) {
       return {
         writesEnabled: undefined,
+        combatWritesEnabled: undefined,
         uiButtonsEnabled: undefined,
         chatCommandEnabled: undefined,
         journalQaEnabled: undefined,
@@ -144,6 +149,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       form.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`)?.checked;
     return {
       writesEnabled: read(LOREBRIDGE_SETTINGS.writesEnabled),
+      combatWritesEnabled: read(LOREBRIDGE_SETTINGS.combatWritesEnabled),
       uiButtonsEnabled: read(LOREBRIDGE_SETTINGS.uiButtonsEnabled),
       chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
       journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),

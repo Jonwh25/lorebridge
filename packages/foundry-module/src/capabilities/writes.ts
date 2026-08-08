@@ -1,6 +1,7 @@
 import { validateApproveWriteResult, type ApproveWriteOutput, type RollbackAvailablePayload } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { ApprovalQueuePanel } from "../approval-queue-panel.js";
 
 const MODULE_ID = "lorebridge";
 const FLAG_WRITE_TOKEN = "writeToken";
@@ -158,25 +159,16 @@ function _buildPanelHtml(proposals: QueuedProposal[]): string {
   return `<div style="padding:8px 4px;">${header}${rows}</div>`;
 }
 
-const _AppV2Base = (foundry as { applications: { api: { ApplicationV2: typeof FoundryApplicationV2 } } }).applications.api.ApplicationV2;
-
-class WriteBatchPanel extends _AppV2Base {
+class WriteBatchPanel extends ApprovalQueuePanel {
   static override DEFAULT_OPTIONS = {
     id: "lorebridge-batch-approval",
-    classes: ["lorebridge-batch-approval"],
+    classes: ["lorebridge-approval-queue", "lorebridge-batch-approval"],
     window: { title: "LoreBridge — Pending Write Approvals", resizable: true },
-    position: { width: 620 },
+    position: { width: 620, height: 600 },
   };
 
-  override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
-    const proposals = Array.from(_pendingProposals.values());
-    const container = document.createElement("div");
-    container.innerHTML = _buildPanelHtml(proposals);
-    return container;
-  }
-
-  override _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
-    content.replaceChildren(...Array.from(result.childNodes));
+  protected override renderApprovalQueueHtml(): string {
+    return _buildPanelHtml(Array.from(_pendingProposals.values()));
   }
 
   override _onClickAction(_event: PointerEvent, target: HTMLElement): void | Promise<void> {
