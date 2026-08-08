@@ -326,7 +326,7 @@ language checkboxes rather than the free-text field.
 Expose an explicitly published, permission-checked subset of campaign lore to
 players inside Foundry and then through a read-only Discord adapter.
 
-1. [GM-published Player Lore Assistant](https://github.com/Jonwh25/lorebridge/issues/170)
+1. ✅ [GM-published Player Lore Assistant](https://github.com/Jonwh25/lorebridge/issues/170)
 2. [Discord adapter](https://github.com/Jonwh25/lorebridge/issues/120)
 
 Player access is disabled by default. Every request must satisfy both the GM's
