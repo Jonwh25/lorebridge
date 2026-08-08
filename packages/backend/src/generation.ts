@@ -340,7 +340,7 @@ const NPC_SECTION_FIELDS: Record<NpcSection, NpcSectionConfig> = {
     fieldHints: {
       alignment: "One of the standard D&D alignments (e.g. Lawful Good, Chaotic Neutral).",
       reputation: "A brief phrase describing how this NPC is publicly known — distinct from their history or biography.",
-      languages: "Comma-separated list of languages spoken.",
+      languages: "Comma-separated list of languages this NPC speaks. Use exact dnd5e language names only: Common, Common Sign Language, Draconic, Dwarvish, Elvish, Giant, Gnomish, Goblin, Halfling, Orc (standard) — Aarakocra, Abyssal, Celestial, Deep Speech, Druidic, Gith, Gnoll, Infernal, Primordial, Aquan, Auran, Ignan, Terran, Sylvan, Thieves' Cant, Undercommon (rare). For any truly non-standard or invented language, append it after the standard ones. Do NOT write sentences or use 'and'; use commas only.",
     },
   },
   gender: {
