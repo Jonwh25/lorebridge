@@ -2,6 +2,12 @@
 
 This package contains the Foundry VTT side of LoreBridge.
 
+## Local search dependencies
+
+LoreBridge requires Spotlight Omnisearch 4.0.2 or newer for advisory document-name candidates. Every candidate is re-resolved against live Foundry documents, while the existing bounded scanners remain available when Spotlight is unavailable, empty, or rebuilding.
+
+Dig Down remains optional and LoreBridge does not access its globals or file cache. When Dig Down owns file discovery, keep Spotlight file search disabled to avoid duplicate file indexing. LoreBridge never changes another module's settings automatically, and its existing asset search does not use Spotlight's file index.
+
 ## Current behavior
 
 Version `0.1.0` is deliberately read-only. When a Foundry v14 world reaches the `ready` lifecycle hook, the module:

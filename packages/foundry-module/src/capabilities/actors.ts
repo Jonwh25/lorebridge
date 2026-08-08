@@ -11,6 +11,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { isPlayerVisible } from "./visibility.js";
+import { collectWorldCandidateUuids } from "./search-candidates.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -107,7 +108,8 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
   const needle = query.toLocaleLowerCase();
   const types = validated.value.types?.map((type) => type.toLocaleLowerCase());
   const playerMode = validated.value.mode === "player";
-  const matches: Array<{ score: number; value: ActorSearchMatch }> = [];
+  const candidateUuids = collectWorldCandidateUuids(query, "Actor", game.actors);
+  const matches: Array<{ score: number; candidate: number; value: ActorSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const actor of game.actors) {
@@ -143,7 +145,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
     if (match) {
       if (actor.img) match.value.img = actor.img;
       if (actor.folder?.name) match.value.folderName = actor.folder.name;
-      matches.push(match);
+      matches.push({ ...match, candidate: candidateUuids.has(actor.uuid) ? 0 : 1 });
     }
   }
 
@@ -154,6 +156,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
     results: matches
       .sort((left, right) =>
         left.score - right.score
+        || left.candidate - right.candidate
         || left.value.actorName.localeCompare(right.value.actorName)
         || left.value.actorId.localeCompare(right.value.actorId))
       .slice(0, validated.value.limit ?? DEFAULT_LIMIT)

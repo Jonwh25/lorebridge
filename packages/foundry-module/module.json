@@ -12,6 +12,18 @@
     "minimum": "14",
     "verified": "14"
   },
+  "relationships": {
+    "requires": [
+      {
+        "id": "spotlight-omnisearch",
+        "type": "module",
+        "compatibility": {
+          "minimum": "4.0.2",
+          "verified": "4.0.2"
+        }
+      }
+    ]
+  },
   "socket": true,
   "esmodules": [
     "dist/main.js"

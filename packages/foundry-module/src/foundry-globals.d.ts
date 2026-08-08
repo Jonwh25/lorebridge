@@ -4,6 +4,10 @@ declare const Hooks: {
   off(hook: string, id: number | ((...args: unknown[]) => unknown)): void;
 };
 
+declare const CONFIG: Record<string, unknown>;
+declare function fromUuidSync(uuid: string): unknown;
+declare function fromUuid(uuid: string): Promise<unknown>;
+
 type FoundrySettingConfig = {
   name: string;
   hint?: string;
@@ -45,6 +49,7 @@ type FoundryJournalEntry = {
 type FoundryJournalCollection = Iterable<FoundryJournalEntry> & {
   size: number;
   get(id: string): FoundryJournalEntry | undefined;
+  search(search: { query?: string; exclude?: string[] }): FoundryJournalEntry[] | object[];
 };
 
 type FoundryItem = {
@@ -60,6 +65,7 @@ type FoundryItem = {
 type FoundryItemCollection = Iterable<FoundryItem> & {
   size: number;
   get(id: string): FoundryItem | undefined;
+  search(search: { query?: string; exclude?: string[] }): FoundryItem[] | object[];
 };
 
 type FoundryActor = {
@@ -100,6 +106,7 @@ type FoundryCompendiumPack = {
   };
   getDocument(id: string): Promise<{ toObject(): Record<string, unknown> } | null | undefined>;
   getIndex(options?: { fields?: string[] }): Promise<unknown>;
+  search(search: { query?: string; exclude?: string[] }): FoundryCompendiumIndexEntry[] | object[];
 };
 
 type FoundryCompendiumCollection = Iterable<FoundryCompendiumPack> & {
@@ -123,6 +130,7 @@ type FoundryMacroCollection = Iterable<FoundryMacro> & {
 type FoundryActorCollection = Iterable<FoundryActor> & {
   size: number;
   get(id: string): FoundryActor | undefined;
+  search(search: { query?: string; exclude?: string[] }): FoundryActor[] | object[];
 };
 
 type FoundryTokenDocument = {
@@ -184,6 +192,7 @@ type FoundrySceneCollection = Iterable<FoundryScene> & {
   size: number;
   active: FoundryScene | null;
   get(id: string): FoundryScene | undefined;
+  search(search: { query?: string; exclude?: string[] }): FoundryScene[] | object[];
 };
 
 type FoundryCombatant = {
