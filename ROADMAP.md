@@ -297,8 +297,8 @@ Foundry without affecting unrelated actors or assets.
 Turn generated and existing NPCs into rich, modular GM references instead of a
 single block of generated text.
 
-1. [Enhance NPC Profiles with Structured GM Reference Sections](https://github.com/Jonwh25/lorebridge/issues/196)
-2. [Redesign NPC Sheet into a Modular AI Workspace](https://github.com/Jonwh25/lorebridge/issues/197)
+1. ✅ [Enhance NPC Profiles with Structured GM Reference Sections](https://github.com/Jonwh25/lorebridge/issues/196)
+2. ✅ [Redesign NPC Sheet into a Modular AI Workspace](https://github.com/Jonwh25/lorebridge/issues/197)
 3. [NPC Workspace: smart language sync to dnd5e language checkboxes](https://github.com/Jonwh25/lorebridge/issues/206)
 
 The profile model should capture identity, appearance, motivations,
