@@ -123,7 +123,7 @@ inside Foundry without opening a browser console or MCP client.
 | Session log journals | Scroll icon in header | Second-person narrative recap appended to the active page |
 | Session log journals | Wizard-hat icon in header | Lazy DM session prep saved to "Lazy DM Prep" journal (v0.9.0+) |
 | Session log journals | Users icon in header | Player-safe Discord-formatted Party Recap with copy/download (v0.13.0+) |
-| NPC actor sheets | Robot icon in header | Personality, mannerism, and GM-only secret appended to biography |
+| NPC actor sheets | ⋮ menu → **NPC Workspace** | Full 8-section AI profile workspace (see [NPC Profiles & AI Workspace](#npc-profiles--ai-workspace-v0170)) |
 | NPC actor sheets | Portrait icon in header | AI-generated portrait (see [AI Portrait Generation](#ai-portrait-generation-v0160)) |
 | Create Actor dialog | **Generate Full Stat Block with AI** button | Complete D&D 5e NPC stat block dropped into Foundry as a ready-to-use actor |
 | Scene sheets | Dice icon in header | 2–3 encounter hooks grounded in scene name, linked journal, and tokens |
@@ -191,6 +191,66 @@ Type `@ActorName <message>` in the Foundry chat bar to speak directly to an AI-e
 /lb npc clear Morgantha        — reset conversation history
 /lb npc list                   — show all AI-enabled actors
 ```
+
+### NPC Profiles & AI Workspace (v0.17.0+)
+
+Every NPC actor sheet now has an embedded **LoreBridge NPC Profile** panel in the Biography tab and a full **NPC Workspace** window accessible from the ⋮ three-dots menu.
+
+#### Inline panel
+
+A collapsible panel injected directly into the NPC sheet shows the generated profile at a glance. Each section displays its current content with a status icon (✅ populated / ⚠ partial / ❌ empty). Fields that already appear elsewhere on the native dnd5e sheet (alignment, languages, ideal, bond, flaw, disposition, biography) are hidden from the panel to avoid duplication — they are still generated and synced.
+
+#### NPC Workspace window
+
+Open the full workspace from the ⋮ header menu. It provides a sidebar showing all 8 sections with status icons and per-section controls: **Generate**, **Regenerate**, **Edit**, **Copy**.
+
+#### Profile sections
+
+| Section | Key fields |
+|---------|-----------|
+| Gender | gender, genderPresentation |
+| Overview | race, occupation, alignment, age, faith, socialClass, reputation, residence, languages |
+| Appearance | height, build, hair, eyes, skin, distinguishingFeatures, clothing, equipment, voice, accent |
+| Personality & Motivation | personality, mannerisms, goal, fear, ideal, bond, flaw |
+| Relationships | family, allies, enemies, rivals, organizations, employer, mentorStudent |
+| Secrets & Story | secret, rumor, hiddenAgenda, currentProblem, adventureHook |
+| History | publicHistory, privateHistory, gmNotes |
+| Gameplay | role, disposition, currentStatus |
+
+Each section generates independently using the rest of the profile as context — existing sections are never overwritten unless you explicitly request it. You can also edit any section manually without generating first.
+
+#### Gender & pronoun awareness
+
+The Gender section is independent so it is never overwritten when other sections are regenerated. Use the dropdown to set Male / Female / Nonbinary / Genderfluid / Agender or enter a custom value. The AI derives the correct pronouns (he/him, she/her, they/them) from the gender field and applies them consistently across every section it generates.
+
+#### Full-generate shortcuts
+
+Both the inline panel and the Workspace sidebar offer two full-generate buttons:
+- **Generate Full** — generates all 8 sections sequentially
+- **Hold Gender** — generates all sections except Gender, preserving a manually set or previously generated gender
+
+Each section shows ⏳ queued → spinner active → ✅ or ❌ as it completes.
+
+#### Native dnd5e field sync
+
+When a section is saved, generated values are written back to the matching native dnd5e actor fields automatically:
+
+| Profile field | dnd5e location |
+|--------------|---------------|
+| alignment | Details tab |
+| languages | Languages dialog checkboxes (standard/rare); non-standard → Special field |
+| ideal / bond / flaw | Biography tab trait fields |
+| disposition | Token disposition (Friendly / Neutral / Hostile) |
+| publicHistory | Public Biography |
+| privateHistory + gmNotes | Private Biography |
+
+Language sync matches exact dnd5e language names (Common, Elvish, Dwarvish, Deep Speech, Thieves' Cant, etc.) to checkboxes and puts any non-standard languages in the Special field separated by semicolons.
+
+#### D&D 5e format for ideal, bond, and flaw
+
+- **Ideal** — concept label + colon + one sentence (`"Loyalty: Once I give my word, I keep it no matter the cost."`)
+- **Bond** — names a specific person, place, or object — vague bonds are rejected by the prompt
+- **Flaw** — a concrete weakness that will cause real trouble during play, not just a mild quirk
 
 ### AI Portrait Generation (v0.16.0+)
 
