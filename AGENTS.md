@@ -16,15 +16,17 @@ Important rules:
 
 - Work from a GitHub issue and keep its project status current.
 - Use a short-lived branch from `main`; do not commit feature work directly to
-  `main`.
+  `main`. Markdown-only documentation updates may use the direct-main exception
+  below.
 - Preserve the existing architecture and implement complete vertical slices.
 - Use documented public Foundry VTT v14 APIs - https://foundryvtt.com/api/v14/
 - Keep remote access read-only, GM-authorized, bounded, and source-attributed
   unless an issue explicitly introduces an approved write design.
 - Never store AI-provider secrets in Foundry or expose arbitrary JavaScript
   execution.
-- Add tests and run `npm run validate`.
-- Open a pull request and let the repository owner merge it.
+- Add tests and run `npm run validate` for code changes.
+- Open a pull request and let the repository owner merge it unless the complete
+  change qualifies for the Markdown-only direct-main exception below.
 - After every PR push, follow the **GitHub Actions completion gate** in
   `docs/DEVELOPMENT_WORKFLOW.md`: watch checks for the current head commit,
   inspect failures, fix in-scope problems, push, and watch again until all
@@ -35,6 +37,29 @@ Important rules:
   test.
 - Do not increment the product version for every merged feature. Group verified
   incremental work into intentional releases.
+
+## Markdown-only direct-main exception
+
+Repository documentation updates may be committed and pushed directly to
+`main` when the complete commit changes only files whose names end in `.md`.
+This includes routine updates to `README.md`, `CHANGELOG.md`, `ROADMAP.md`, and
+Markdown files under `docs/`.
+
+Before using this exception:
+
+- update local `main` with `git pull --ff-only`;
+- inspect `git status` and the complete diff;
+- stage only the intended Markdown files;
+- verify changed links, commands, paths, examples, issue references, and version
+  statements as appropriate; and
+- create a narrow documentation commit and push `main` without force.
+
+Use a short-lived branch and pull request when any non-Markdown file changes in
+the same delivery, including code, manifests, package or lock files, workflows,
+configuration, generated artifacts, or synchronized release-version files. Do
+not split one logical mixed change into separate commits merely to route its
+Markdown portion through this exception. Existing issue, tracking, security,
+release-validation, and live-acceptance requirements still apply.
 ## GitHub issue creation
 
 Whenever creating a GitHub issue:
@@ -155,8 +180,9 @@ has been deleted:
 4. Once the merged change has passed its required live acceptance test, mark the
    issue complete in `ROADMAP.md`, close the GitHub issue, and verify the roadmap,
    issue, PR, and milestone agree.
-5. Repository-file updates still use a short-lived documentation branch and pull
-   request. Do not commit these updates directly to `main`.
+5. When post-merge repository updates change only `.md` files, use the
+   Markdown-only direct-main exception. Use a short-lived branch and pull request
+   if any non-Markdown file is part of the update.
 
 After closing an issue, inspect every issue assigned to the same milestone. If any
 remain incomplete, report which ones remain and stop the milestone closeout there.

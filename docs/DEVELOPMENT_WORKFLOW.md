@@ -41,6 +41,21 @@ where practical.
 Keep the change narrow. If new work is useful but outside scope, create or update
 a backlog issue rather than expanding the active pull request.
 
+### Markdown-only documentation updates
+
+A documentation-only change may be committed and pushed directly to `main` when
+its complete changed-file set contains only files ending in `.md`. Update local
+`main` with `git pull --ff-only`, inspect status and the complete diff, stage only
+the intended Markdown files, verify affected links and instructions, make a
+narrow documentation commit, and push `main` without force.
+
+The exception does not apply when any non-Markdown file changes, including code,
+manifests, package or lock files, workflows, configuration, generated artifacts,
+or synchronized release-version files. Keep one logical mixed change together on
+a short-lived branch and use a pull request. Do not separate its Markdown files
+solely to bypass review. Issue tracking, security review, release validation, and
+live acceptance still apply when relevant.
+
 ## Architecture rules
 
 LoreBridge uses vertical slices. A new remote capability normally includes:
@@ -119,6 +134,9 @@ for the maintainer's current server. Windows-only sandbox failures should be
 documented accurately and must not be mislabeled as code failures.
 
 ## Pull requests
+
+Pull requests are required for code, mixed-file, and other changes that do not
+qualify for the Markdown-only documentation exception above.
 
 Open a draft pull request after the branch is pushed. Its description must
 include:
@@ -299,7 +317,7 @@ A feature is Done only when:
 - contracts and boundaries are documented
 - relevant automated tests pass
 - GitHub Actions passes
-- the pull request is merged
+- the pull request is merged when one is required
 - deployment validation passes
 - the live acceptance test succeeds
 - the acceptance evidence is recorded on the issue
