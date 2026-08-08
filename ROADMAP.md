@@ -335,14 +335,14 @@ because player answers are posted to public chat.
 Success test: a player receives source-cited answers only from GM-published
 lore through Foundry, and revoked access takes effect immediately.
 
-### Milestone 19 — Local-First Hybrid Search
+### Milestone 19 — Local-First Hybrid Search ✅ Complete
 
 Improve context quality and reduce unnecessary AI calls by using local search
 to identify likely sources before LoreBridge retrieves bounded content. This is
 the next implementation priority after the completed deployment-version
 housekeeping in [#224](https://github.com/Jonwh25/lorebridge/issues/224).
 
-1. [Local-first hybrid search adapter using Spotlight and Foundry-native candidates](https://github.com/Jonwh25/lorebridge/issues/225)
+1. [x] [Local-first hybrid search adapter using Spotlight and Foundry-native candidates](https://github.com/Jonwh25/lorebridge/issues/225)
 
 The adapter combines Spotlight Omnisearch metadata candidates with Foundry v14
 native collection search, then live-resolves every candidate and applies all
