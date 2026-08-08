@@ -19,7 +19,7 @@ type FoundryUser = { id: string; isGM: boolean; name: string };
 type FoundryUsers = Iterable<FoundryUser> & { get(id: string): FoundryUser | undefined };
 
 function getSocket(): FoundrySocket {
-  return (game.socket as unknown) as FoundrySocket;
+  return ((game as unknown) as { socket: FoundrySocket }).socket;
 }
 
 function buildBackendUrl(base: string, path: string): string {
