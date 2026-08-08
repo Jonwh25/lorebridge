@@ -1187,6 +1187,7 @@ export function registerChatCommand(): void {
       clearInput();
       void handleRoleplayMessage(args);
     } else {
+      clearInput();
       void handleQuestion(args);
     }
     return false;
