@@ -2,6 +2,7 @@ import { LoreBridgeConfigurationApp } from "./configuration-app.js";
 import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
 import { LoreBridgeContextProfilesApp } from "./context-profiles-app.js";
 import { GenerationHistoryPanel } from "./generation-history.js";
+import { PlayerLoreAllowlistApp } from "./capabilities/player-lore.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -14,7 +15,7 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp | typeof GenerationHistoryPanel;
+      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp | typeof GenerationHistoryPanel | typeof PlayerLoreAllowlistApp;
       restricted: boolean;
     },
   ): void;
@@ -45,6 +46,8 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   maxHistoryLength: "maxHistoryLength",
   historySaveImages: "historySaveImages",
   portraitSaveDirectory: "portraitSaveDirectory",
+  playerLoreEnabled: "playerLoreEnabled",
+  playerLoreAllowlist: "playerLoreAllowlist",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -63,6 +66,7 @@ export type LoreBridgeSettings = {
   journalQaEnabled: boolean;
   npcMentionEnabled: boolean;
   portraitSaveDirectory: string;
+  playerLoreEnabled: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -101,6 +105,15 @@ export function registerLoreBridgeSettings(): void {
     hint: "Browse recent AI-generated content and reopen dismissed results.",
     icon: "fas fa-history",
     type: GenerationHistoryPanel,
+    restricted: true,
+  });
+
+  settings.registerMenu(MODULE_ID, "playerLoreAllowlist", {
+    name: "Configure Player Lore",
+    label: "Configure Player Lore",
+    hint: "Choose which player-visible journals players can query with /lb ask. Requires Player Lore to be enabled in Feature Settings.",
+    icon: "fas fa-book-open",
+    type: PlayerLoreAllowlistApp,
     restricted: true,
   });
 
@@ -261,6 +274,25 @@ export function registerLoreBridgeSettings(): void {
     default: "modules/lorebridge/images",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled, {
+    name: "Enable Player Lore Assistant",
+    hint: "Allow players to ask questions answered only from GM-published, player-visible journals using /lb ask. Disabled by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    requiresReload: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreAllowlist, {
+    name: "Player Lore Allowlist",
+    hint: "JSON array of journal IDs published for player queries.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "[]",
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -296,6 +328,7 @@ export function registerFeatureSettingsPresentation(): void {
       LOREBRIDGE_SETTINGS.chatCommandEnabled,
       LOREBRIDGE_SETTINGS.journalQaEnabled,
       LOREBRIDGE_SETTINGS.npcMentionEnabled,
+      LOREBRIDGE_SETTINGS.playerLoreEnabled,
     ]) {
       const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
       const row = input?.closest<HTMLElement>(".form-group");
@@ -347,6 +380,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     portraitSaveDirectory: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.portraitSaveDirectory) ?? "modules/lorebridge/images",
     ).trim(),
+    playerLoreEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled),
+    ),
   };
 }
 

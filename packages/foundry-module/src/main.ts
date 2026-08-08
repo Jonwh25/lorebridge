@@ -76,6 +76,7 @@ import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
+import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
 import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
@@ -111,6 +112,7 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
   registerNpcMentionHook();
+  registerPlayerLoreSocketListener();
   Hooks.on("renderApplicationV2", (app: unknown) => {
     if (!game.user?.isGM) return;
     const frame = (app as { element?: HTMLElement }).element;

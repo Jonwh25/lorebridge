@@ -1,4 +1,5 @@
 import { openSessionCommandCenter } from "../session-command-center.js";
+import { handlePlayerLoreRequest, emitPlayerLoreRequest } from "./player-lore.js";
 import { setNpcAiEnabled, setNpcPreamble, clearNpcHistory, listEnabledNpcs } from "./npc-mention.js";
 import { searchCampaign } from "./search-campaign.js";
 import { exportJournalFolder } from "./backup-journals.js";
@@ -961,6 +962,35 @@ export function registerChatCommand(): void {
       (options as { recordPending: boolean }).recordPending = false;
       clearInput();
       openSessionCommandCenter();
+      return false;
+    }
+
+    // /lb ask <question> — available to all users; gated by playerLoreEnabled
+    if (args.startsWith("ask ") || args === "ask") {
+      (options as { recordPending: boolean }).recordPending = false;
+      const question = args.slice("ask".length).trim();
+      if (!question) {
+        clearInput();
+        ui.notifications.warn("LoreBridge: Usage: /lb ask <question>");
+        return false;
+      }
+      clearInput();
+      const settings = getLoreBridgeSettings();
+      if (!settings.playerLoreEnabled) {
+        if (game.user?.isGM) {
+          ui.notifications.warn("LoreBridge: Player Lore is not enabled. Enable it in Configure Features.");
+        } else {
+          ui.notifications.warn("LoreBridge: The Player Lore Assistant is not available in this world.");
+        }
+        return false;
+      }
+      if (game.user?.isGM) {
+        void handlePlayerLoreRequest(game.user.id, question);
+      } else {
+        const userId = game.user?.id ?? "";
+        emitPlayerLoreRequest(userId, question);
+        ui.notifications.info("LoreBridge: Your question has been sent. Watch chat for the answer.");
+      }
       return false;
     }
 

@@ -37,6 +37,7 @@ type FeatureSettingsContext = {
   chatCommandEnabled: boolean;
   journalQaEnabled: boolean;
   npcMentionEnabled: boolean;
+  playerLoreEnabled: boolean;
 };
 
 type StagedFeatureSettings = {
@@ -74,6 +75,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       chatCommandEnabled: staged.chatCommandEnabled ?? settings.chatCommandEnabled,
       journalQaEnabled: staged.journalQaEnabled ?? settings.journalQaEnabled,
       npcMentionEnabled: staged.npcMentionEnabled ?? settings.npcMentionEnabled,
+      playerLoreEnabled: staged.playerLoreEnabled ?? settings.playerLoreEnabled,
     };
   }
 
@@ -95,6 +97,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       chatCommandEnabled: checked("chatCommandEnabled"),
       journalQaEnabled: checked("journalQaEnabled"),
       npcMentionEnabled: checked("npcMentionEnabled"),
+      playerLoreEnabled: checked("playerLoreEnabled"),
     };
     const features = [
       [LOREBRIDGE_SETTINGS.writesEnabled, "writesEnabled"],
@@ -102,6 +105,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       [LOREBRIDGE_SETTINGS.chatCommandEnabled, "chatCommandEnabled"],
       [LOREBRIDGE_SETTINGS.journalQaEnabled, "journalQaEnabled"],
       [LOREBRIDGE_SETTINGS.npcMentionEnabled, "npcMentionEnabled"],
+      [LOREBRIDGE_SETTINGS.playerLoreEnabled, "playerLoreEnabled"],
     ] as const;
 
     const parentForm = this._parentSettingsForm();
@@ -133,6 +137,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
         chatCommandEnabled: undefined,
         journalQaEnabled: undefined,
         npcMentionEnabled: undefined,
+        playerLoreEnabled: undefined,
       };
     }
     const read = (setting: string): boolean | undefined =>
@@ -143,6 +148,7 @@ export class LoreBridgeFeatureSettingsApp extends AppBase {
       chatCommandEnabled: read(LOREBRIDGE_SETTINGS.chatCommandEnabled),
       journalQaEnabled: read(LOREBRIDGE_SETTINGS.journalQaEnabled),
       npcMentionEnabled: read(LOREBRIDGE_SETTINGS.npcMentionEnabled),
+      playerLoreEnabled: read(LOREBRIDGE_SETTINGS.playerLoreEnabled),
     };
   }
 
