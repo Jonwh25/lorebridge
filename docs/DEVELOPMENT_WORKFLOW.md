@@ -264,14 +264,22 @@ Instead:
 1. Merge small, tested capabilities into `main`.
 2. Verify them through development deployment.
 3. Group a meaningful set of verified changes.
-4. Prepare a dedicated release pull request that updates every required version,
-   manifest URL, lockfile entry, and changelog section.
-5. Merge the release preparation before creating its tag.
-6. Tag the correctly versioned `main` commit and let the release workflow build
-   the official artifact.
-7. Update through Foundry and run a post-release smoke test.
+4. As part of milestone closeout, prepare one closeout and release-preparation pull
+   request that updates README, roadmap, changelog, every required version,
+   manifest URL, package file, and lockfile entry. Update the wiki directly as
+   documented in `AGENTS.md`.
+5. Run the full release validation, package the module, inspect the archive, and
+   monitor the pull request's GitHub Actions checks.
+6. Let the repository owner merge the closeout and release-preparation pull request.
+7. After confirming the merge, give the owner exact version-specific commands to
+   create and push the annotated tag from an up-to-date `/data/lorebridge` checkout.
+   Do not push the tag for the owner.
+8. After the owner confirms the tag was pushed, monitor the tag-triggered release
+   workflow and verify the official artifacts.
+9. Update through Foundry and run a post-release smoke test.
 
-Never create the release tag before the version-preparation commit is merged.
+Never create or recommend creating the release tag before the closeout and
+release-preparation commit is merged.
 
 ## Git safety
 
