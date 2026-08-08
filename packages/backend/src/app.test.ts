@@ -379,6 +379,52 @@ test("GET /v1/world-summary reports an unavailable adapter", async () => {
   });
 });
 
+test("combat-write approval is authenticated, single-use, and routed to the exact Foundry action handler", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const webSocket = new WebSocket(baseUrl.replace(/^http/, "ws") + "/v1/adapter");
+    const messages: unknown[] = [];
+    webSocket.on("message", (data) => {
+      const message = JSON.parse(data.toString()) as AdapterWelcomeMessage | RequestEnvelope | { kind: string; event?: string; payload?: unknown };
+      messages.push(message);
+      if (message.kind !== "request" || !("correlationId" in message)) return;
+      webSocket.send(JSON.stringify(createResponseEnvelope({ messageId: "combat_response", correlationId: message.correlationId as string }, {
+        action: "test", target: { combatUuid: "Combat.c1" }, outcome: "approved",
+        occurredAt: new Date().toISOString(), summary: "Synthetic handler reached without mutation.", stateFingerprint: "fnv1a-12345678",
+      })));
+    });
+    await new Promise<void>((resolve, reject) => {
+      webSocket.once("error", reject);
+      webSocket.once("open", () => webSocket.send(JSON.stringify({
+        kind: "adapter.hello", protocolVersion: LOREBRIDGE_PROTOCOL_VERSION, token,
+        registration: { adapterId: "foundry-vtt", adapterType: "foundry", adapterVersion: "0.19.0", protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION], sources: [{ sourceId: "foundry:cos", adapterId: "foundry-vtt", sourceType: "foundry-world", name: "Curse of Strahd" }], capabilities: [{ name: "executeCombatWrite", mode: "write", version: "0.1", requiresApproval: true }] },
+      })));
+      const check = (data: Buffer) => { const value = JSON.parse(data.toString()) as { kind: string }; if (value.kind === "adapter.welcome") { webSocket.off("message", check); resolve(); } };
+      webSocket.on("message", check);
+    });
+
+    const proposal = { action: "test", combatUuid: "Combat.c1", expectedRound: 1, expectedTurn: 0, target: { combatUuid: "Combat.c1" }, parameters: {}, rationale: "Verify safeguards.", beforeSummary: "Round 1.", afterSummary: "No mutation.", snapshot: { combatUuid: "Combat.c1", combatName: "Battle", round: 1, turn: 0, combatants: [], fingerprint: "fnv1a-12345678" } };
+    const proposed = await fetch(`${baseUrl}/v1/combat-write/propose-test`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ proposal, sourceId: "foundry:cos", approvalProof: "foundry-only-proof" }) });
+    const preview = await proposed.json() as { token: string };
+    assert.equal(proposed.status, 201);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(messages.some((message) => (message as { event?: string }).event === "combat.approval.required"), true);
+
+    const unproven = await fetch(`${baseUrl}/v1/combat-write/approve`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ token: preview.token }) });
+    assert.equal(unproven.status, 403);
+
+    const approved = await fetch(`${baseUrl}/v1/combat-write/approve`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ token: preview.token, approvalProof: "foundry-only-proof" }) });
+    const audit = await approved.json() as { outcome: string };
+    assert.equal(approved.status, 200);
+    assert.equal(audit.outcome, "approved");
+    const reused = await fetch(`${baseUrl}/v1/combat-write/approve`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ token: preview.token, approvalProof: "foundry-only-proof" }) });
+    assert.equal(reused.status, 410);
+
+    webSocket.close();
+    await new Promise<void>((resolve) => webSocket.once("close", () => resolve()));
+  });
+});
+
 test("actor search and retrieval routes through the authenticated Foundry adapter", async () => {
   await withServer(async (baseUrl) => {
     const token = await pair(baseUrl);

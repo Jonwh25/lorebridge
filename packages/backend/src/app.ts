@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import {
+  EXECUTE_COMBAT_WRITE_CAPABILITY,
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_SCENE_CAPABILITY,
@@ -24,6 +25,9 @@ import {
   validateSearchScenesInput,
   validateSearchScenesOutput,
   validateBackupExportInput,
+  validateCombatWriteAuditResult,
+  validateCombatWriteProposal,
+  type CombatWriteAuditResult,
   type BackupExportOutput,
 } from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
@@ -44,6 +48,7 @@ import {
 } from "./mcp.js";
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AuditRegistry, AuditTokenError } from "./audit-registry.js";
+import { CombatWriteRegistry, CombatWriteTokenError } from "./combat-write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
@@ -92,7 +97,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -464,6 +469,76 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
         sendJson(response, status, { error: { code: `write_token_${error.reason}`, message: error.message } });
         return;
       }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/combat-write/propose-test") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const validation = validateCombatWriteProposal(body["proposal"]);
+    if (!validation.valid || !validation.value) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Combat-write proposal is invalid.", details: validation.errors } });
+      return;
+    }
+    const sourceId = typeof body["sourceId"] === "string" && body["sourceId"].trim() ? body["sourceId"].trim() : undefined;
+    const approvalProof = typeof body["approvalProof"] === "string" ? body["approvalProof"].trim() : "";
+    if (!approvalProof) { sendJson(response, 400, { error: { code: "invalid_request", message: "The Foundry proposal must include an ephemeral approval proof." } }); return; }
+    if (!adapterSessions.hasCapabilityForSource(sourceId, EXECUTE_COMBAT_WRITE_CAPABILITY)) {
+      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No connected Foundry GM provides controlled combat approval for this source." } });
+      return;
+    }
+    const ttlMs = typeof body["ttlMs"] === "number" && Number.isInteger(body["ttlMs"]) ? body["ttlMs"] : undefined;
+    const entry = combatWrites.register(validation.value, approvalProof, sourceId, ttlMs);
+    const payload = { ...entry.proposal, token: entry.token, expiresAt: entry.expiresAt.toISOString() };
+    adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.combatApprovalRequired, { ...payload, approvalProof });
+    sendJson(response, 201, {
+      ...payload,
+      instruction: `A combat-write approval request was sent to the connected Foundry GM. Approve it in the LoreBridge combat approval window.`,
+    });
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/combat-write/reject") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    const approvalProof = typeof body["approvalProof"] === "string" ? body["approvalProof"].trim() : "";
+    if (!token) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } }); return; }
+    try {
+      const entry = combatWrites.reject(token, approvalProof);
+      const result: CombatWriteAuditResult = {
+        action: entry.proposal.action, target: entry.proposal.target, outcome: "rejected",
+        occurredAt: new Date().toISOString(), summary: "The GM rejected the combat-write proposal. No mutation was attempted.",
+      };
+      sendJson(response, 200, result);
+    } catch (error) {
+      if (error instanceof CombatWriteTokenError) {
+        sendJson(response, error.reason === "not_found" ? 404 : error.reason === "not_authorized" ? 403 : 410, { error: { code: `combat_write_token_${error.reason}`, message: error.message } }); return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/combat-write/approve") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    const approvalProof = typeof body["approvalProof"] === "string" ? body["approvalProof"].trim() : "";
+    if (!token) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } }); return; }
+    try {
+      const entry = combatWrites.consume(token, approvalProof);
+      const result = await adapterSessions.invoke<CombatWriteAuditResult>(entry.sourceId, EXECUTE_COMBAT_WRITE_CAPABILITY, { proposal: entry.proposal });
+      const validation = validateCombatWriteAuditResult(result);
+      if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "Foundry returned an invalid combat-write audit result.", false, { validationErrors: validation.errors });
+      sendJson(response, 200, validation.value);
+    } catch (error) {
+      if (error instanceof CombatWriteTokenError) {
+        sendJson(response, error.reason === "not_found" ? 404 : error.reason === "not_authorized" ? 403 : 410, { error: { code: `combat_write_token_${error.reason}`, message: error.message } }); return;
+      }
+      if (error instanceof AdapterInvocationError) { sendAdapterInvocationError(response, error); return; }
       throw error;
     }
     return;
@@ -1512,10 +1587,11 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const imageProvider = new ImageProviderService();
   const writes = new WriteRegistry();
   const audit = new AuditRegistry();
+  const combatWrites = new CombatWriteRegistry();
   const github = createGitHubAdapter(config.github);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, combatWrites, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

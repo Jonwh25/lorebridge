@@ -230,6 +230,43 @@ Roll table proposals from `generate_roll_table` use a separate approval dialog
 with a **Create Roll Table** button — no token-based approval is needed, the
 RollTable document is created directly on approval.
 
+## Controlled combat-write foundation
+
+Controlled combat writes use a separate **Enable Controlled Combat Writes**
+world setting, which is disabled by default. Issue #172 exposes a synthetic
+test action so a GM can verify the approval boundary before any real combat
+mutation is implemented.
+
+### `proposeCombatWriteTest(options?)`
+
+Captures the active combat UUID, round, turn, current combatant, roster, and
+initiative values, then opens the compact GM approval window. The proposal is
+single-use and expires after 60 seconds. An optional shorter TTL supports the
+expiration acceptance test.
+
+```js
+const proposal = await LoreBridge.proposeCombatWriteTest();
+const expiring = await LoreBridge.proposeCombatWriteTest({ ttlMs: 3000 });
+```
+
+The synthetic action never mutates combat. Approval returns `approved` only if
+the live snapshot still matches; otherwise it returns `stale`.
+
+### `approveCombatWrite(token)` and `rejectCombatWrite(token)`
+
+These are normally called by the approval window. They remain available for
+replay and expiration testing:
+
+```js
+await LoreBridge.approveCombatWrite(proposal.token);
+await LoreBridge.rejectCombatWrite(proposal.token);
+```
+
+Tokens are authenticated, short-lived, and consumed by the first approval or
+rejection attempt. The backend also requires an ephemeral proof delivered only
+to the authenticated Foundry GM window; the proposing AI client cannot approve
+its own request. Reuse cannot reach the Foundry action handler.
+
 ## AI generation
 
 Requires a backend AI provider configured with `ANTHROPIC_API_KEY` or

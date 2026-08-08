@@ -11,6 +11,8 @@ import {
   GET_ACTIVE_SCENE_DECLARATION,
   GET_COMBAT_STATE_CAPABILITY,
   GET_COMBAT_STATE_DECLARATION,
+  EXECUTE_COMBAT_WRITE_CAPABILITY,
+  EXECUTE_COMBAT_WRITE_DECLARATION,
   ROLL_DICE_CAPABILITY,
   ROLL_DICE_DECLARATION,
   GET_CHAT_MESSAGES_CAPABILITY,
@@ -60,6 +62,8 @@ import { getJournal, getJournalPage, searchJournals } from "./capabilities/journ
 import { getActor, searchActors } from "./capabilities/actors.js";
 import { getActiveScene, getScene, searchScenes } from "./capabilities/scenes.js";
 import { getCombatState } from "./capabilities/combat.js";
+import { approveCombatWrite, executeCombatWrite, proposeCombatWriteTest, rejectCombatWrite, showCombatWriteApproval } from "./capabilities/combat-writes.js";
+import type { CombatWriteApprovalPayload, ExecuteCombatWriteInput } from "@lorebridge/shared/capabilities";
 import { rollDice } from "./capabilities/dice.js";
 import { getChatMessages } from "./capabilities/chat.js";
 import { searchAssets } from "./capabilities/assets.js";
@@ -204,6 +208,7 @@ Hooks.once("ready", () => {
           GET_SCENE_DECLARATION,
           GET_ACTIVE_SCENE_DECLARATION,
           GET_COMBAT_STATE_DECLARATION,
+          ...(settings.combatWritesEnabled ? [EXECUTE_COMBAT_WRITE_DECLARATION] : []),
           ROLL_DICE_DECLARATION,
           GET_CHAT_MESSAGES_DECLARATION,
           SEARCH_ASSETS_DECLARATION,
@@ -271,6 +276,9 @@ Hooks.once("ready", () => {
           }
           if (request.capability === GET_COMBAT_STATE_CAPABILITY) {
             return getCombatState(request.input as Parameters<typeof getCombatState>[0]);
+          }
+          if (request.capability === EXECUTE_COMBAT_WRITE_CAPABILITY) {
+            return executeCombatWrite(request.input as ExecuteCombatWriteInput);
           }
           if (request.capability === ROLL_DICE_CAPABILITY) {
             return rollDice(request.input as Parameters<typeof rollDice>[0]);
@@ -347,6 +355,9 @@ Hooks.once("ready", () => {
           if (event.event === LOREBRIDGE_EVENTS.rollbackAvailable) {
             void showRollbackAvailableChat(event.payload as RollbackAvailablePayload);
           }
+          if (event.event === LOREBRIDGE_EVENTS.combatApprovalRequired) {
+            void showCombatWriteApproval(event.payload as CombatWriteApprovalPayload & { approvalProof: string });
+          }
         },
       );
 
@@ -375,11 +386,12 @@ Hooks.once("ready", () => {
       capabilityApiEnabled: settings.capabilityApiEnabled,
       remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
       provider: settings.provider,
+      combatWritesEnabled: settings.combatWritesEnabled,
       backendConfigured: Boolean(settings.backendUrl),
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...(settings.combatWritesEnabled ? [EXECUTE_COMBAT_WRITE_DECLARATION] : []), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]
   });
   console.info(`${MODULE_LABEL} | Ready for ${summary.world.title}.`);
 
@@ -390,13 +402,14 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...(settings.combatWritesEnabled ? [EXECUTE_COMBAT_WRITE_DECLARATION] : []), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
         provider: settings.provider,
         backendUrl: settings.backendUrl ? "configured" : "",
-        paired: Boolean(settings.clientToken)
+        paired: Boolean(settings.clientToken),
+        combatWritesEnabled: settings.combatWritesEnabled
       }),
       getConnectionStatus: () => adapterTransport?.state ?? { state: "disconnected" },
       [GET_WORLD_SUMMARY_CAPABILITY]: getWorldSummary,
@@ -425,6 +438,9 @@ Hooks.once("ready", () => {
       approveWrite,
       rejectWrite,
       rollbackWrite,
+      proposeCombatWriteTest,
+      approveCombatWrite,
+      rejectCombatWrite,
       generateBoxedText,
       [CHECK_CAMPAIGN_HEALTH_CAPABILITY]: checkCampaignHealth,
       [AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY]: auditCampaignConsistency,

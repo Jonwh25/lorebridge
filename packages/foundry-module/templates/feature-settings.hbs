@@ -19,6 +19,10 @@
       <p class="hint">Allow AI assistants to propose journal page updates. Every change still requires explicit GM approval.</p>
     </div>
     <div class="form-group stacked">
+      <label class="checkbox"><input type="checkbox" name="combatWritesEnabled" {{checked combatWritesEnabled}}> Enable Controlled Combat Writes</label>
+      <p class="hint">Allow narrowly typed combat proposals. Each remains short-lived, single-use, conflict-checked, and explicitly GM-approved.</p>
+    </div>
+    <div class="form-group stacked">
       <label class="checkbox"><input type="checkbox" name="npcMentionEnabled" {{checked npcMentionEnabled}}> Enable @NPC Mention Responses</label>
       <p class="hint">Allow players and the GM to address AI-enabled NPCs in chat using @ActorName. Enable individual NPCs with /lb npc enable &lt;name&gt;.</p>
     </div>
