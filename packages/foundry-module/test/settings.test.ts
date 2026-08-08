@@ -48,13 +48,20 @@ test("registers safe world and client scoped defaults", () => {
 
   registerLoreBridgeSettings();
 
-  assert.equal(menus.size, 4);
+  assert.equal(menus.size, 5);
   assert.equal(menus.get("configuration")?.restricted, true);
   assert.equal(menus.get("features")?.restricted, true);
   assert.equal(menus.get("contextProfiles")?.restricted, true);
   assert.equal(menus.get("generationHistory")?.restricted, true);
+  assert.equal(menus.get("playerLoreAllowlist")?.restricted, true);
 
-  assert.equal(registrations.size, 18);
+  assert.equal(registrations.size, 20);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.default, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.requiresReload, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreAllowlist)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreAllowlist)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreAllowlist)?.default, "[]");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.default, "none");
@@ -137,6 +144,7 @@ test("reads and normalizes configured values", () => {
     journalQaEnabled: false,
     npcMentionEnabled: false,
     portraitSaveDirectory: "modules/lorebridge/images",
+    playerLoreEnabled: false,
   });
 });
 
