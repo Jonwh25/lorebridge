@@ -324,18 +324,15 @@ language checkboxes rather than the free-text field.
 ### Milestone 18 — Safe Player Access
 
 Expose an explicitly published, permission-checked subset of campaign lore to
-players inside Foundry and then through a read-only Discord adapter.
+players inside Foundry.
 
 1. ✅ [GM-published Player Lore Assistant](https://github.com/Jonwh25/lorebridge/issues/170)
-2. [Discord adapter](https://github.com/Jonwh25/lorebridge/issues/120)
 
 Player access is disabled by default. Every request must satisfy both the GM's
 publication allowlist and the requesting player's current Foundry permissions.
-Discord follows the proven Foundry authorization model and remains read-only.
 
 Success test: a player receives source-cited answers only from GM-published
-lore, with the same visibility boundary enforced through Foundry and Discord;
-revoked access takes effect immediately.
+lore through Foundry, and revoked access takes effect immediately.
 
 ### Milestone 19 — Campaign Index & Semantic Search
 
@@ -433,10 +430,14 @@ without rewriting unrelated NPC data.
 
 ## Deferred work
 
-No additional tracked features are currently deferred outside the delivery
-milestones. Additional VTT adapters and multi-world federation were closed as
-not planned; LoreBridge remains focused on Foundry VTT and one connected world
-per backend.
+The following tracked feature remains outside the current delivery milestones:
+
+| Feature | Issue | Reason |
+|---------|-------|--------|
+| Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) | Secure identity linking, permission enforcement, bot hosting, and operational hardening require substantial work relative to the expected value. |
+
+Additional VTT adapters and multi-world federation were closed as not planned;
+LoreBridge remains focused on Foundry VTT and one connected world per backend.
 
 ## Planning workflow
 
