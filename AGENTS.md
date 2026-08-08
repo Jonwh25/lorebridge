@@ -25,6 +25,12 @@ Important rules:
   execution.
 - Add tests and run `npm run validate`.
 - Open a pull request and let the repository owner merge it.
+- After every PR push, follow the **GitHub Actions completion gate** in
+  `docs/DEVELOPMENT_WORKFLOW.md`: watch checks for the current head commit,
+  inspect failures, fix in-scope problems, push, and watch again until all
+  required checks pass or a genuine blocker is documented.
+- Never call a PR ready or complete while required Actions checks are pending,
+  cancelled, or failing. Do not wait for the owner to remind you to inspect CI.
 - Do not close the issue until the merged change passes its live acceptance
   test.
 - Do not increment the product version for every merged feature. Group verified

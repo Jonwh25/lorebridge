@@ -6,6 +6,11 @@ changes.
 
 Those files are the canonical LoreBridge workflow. Do not invent a separate
 Claude-specific process.
+After every push to a pull request, follow the **GitHub Actions completion gate**
+in `docs/DEVELOPMENT_WORKFLOW.md`. Proactively watch the checks for the current
+head commit, inspect failed logs, fix and repush in-scope failures, and watch the
+replacement run. Do not report the work ready while checks are pending or failing,
+and do not wait for the owner to ask you to inspect Actions.
 When creating GitHub issues, follow the **GitHub issue creation** policy in
 `AGENTS.md`, including its labeling, assignment, milestone, and verification
 requirements.
