@@ -367,9 +367,9 @@ const NPC_SECTION_FIELDS: Record<NpcSection, NpcSectionConfig> = {
       mannerisms: "Specific, concrete verbal or physical habits (e.g. 'taps left fingers when lying', 'ends every sentence with a question'). Must differ from general personality.",
       goal: "Their openly stated or publicly known ambition. Do NOT reveal hidden plans — that belongs in hiddenAgenda.",
       fear: "What genuinely frightens or paralyses them — distinct from their flaw, which is a weakness or vice.",
-      ideal: "A core principle or belief they consciously hold and would defend openly.",
-      bond: "A specific named person, place, object, or group they feel loyalty or attachment to.",
-      flaw: "A personal weakness, vice, or blind spot that causes them real problems — distinct from their fear.",
+      ideal: "D&D 5e format — short concept label + colon + one sentence (e.g. 'Peace: I will do whatever it takes to end conflict wherever I find it.' or 'Ambition: Someday I will own the largest trading company in the realm.'). Must be a genuine moral aspiration or principle, NOT a goal or plan.",
+      bond: "D&D 5e format — a concrete connection to a NAMED or precisely described person, place, or object (e.g. 'My sister Mira was wrongfully imprisoned by the city watch and I will not rest until she is free.' or 'The ruined temple where I took my first life haunts me; I must one day make it right.'). Vague bonds like 'I care deeply about my companions' are not acceptable.",
+      flaw: "D&D 5e format — a specific weakness or vice that will cause real trouble during play (e.g. 'Greed: I can never resist taking a cut of any treasure I handle, even when it puts me at risk.' or 'I have a weakness for flattery and will believe almost anything said with a smile.'). Must be concrete enough to actually create problems, not just a mild quirk.",
     },
   },
   relationships: {
