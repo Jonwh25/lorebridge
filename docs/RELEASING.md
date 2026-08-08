@@ -30,10 +30,10 @@ The manifest download URL must include the same version.
 3. Run `npm install`.
 4. Run `npm run validate`.
 5. Run `npm run package:foundry` and inspect `release/lorebridge.zip`.
-6. Merge the release pull request into `main`.
-7. After the repository owner confirms the release pull request is merged, create
-   and push the matching annotated tag from the resulting `main` commit, such as
-   `v0.1.1`.
+6. Merge the milestone closeout and release-preparation pull request into `main`.
+7. After confirming the merge, the coding agent provides exact version-specific
+   commands for the repository owner to create and push the matching annotated tag
+   from the resulting `main` commit. The coding agent does not push the tag.
 8. Treat the pushed tag as the publication trigger. Do not manually create a
    duplicate GitHub release.
 9. Confirm the Release Foundry Module workflow publishes:
@@ -57,16 +57,21 @@ The archive must not wrap these files in an additional `lorebridge/` directory.
 
 ## Creating the tag
 
-From an up-to-date local `main` branch:
+The coding agent gives the repository owner this block with the real release
+version substituted for every `<version>` placeholder. The owner runs it from the
+live checkout:
 
 ```bash
+cd /data/lorebridge
+git fetch origin
 git checkout main
-git pull
-git tag -a v0.1.1 -m "LoreBridge v0.1.1"
-git push origin v0.1.1
+git pull --ff-only
+git tag -a v<version> -m "LoreBridge v<version>"
+git push origin v<version>
 ```
 
 The release workflow rejects a tag that does not match the version in `module.json`.
-Create the tag only after the release pull request is merged. Never tag an
-unmerged branch, move an existing tag, overwrite a tag, or reuse a published
-version.
+The coding agent must not run these tag commands or manually create the GitHub
+release. Create the tag only after the release-preparation pull request is merged.
+Never tag an unmerged branch, move an existing tag, overwrite a tag, or reuse a
+published version.

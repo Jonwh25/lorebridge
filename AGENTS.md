@@ -178,13 +178,18 @@ release-ready:
 4. Review the existing GitHub wiki and update every affected page. Add pages when
    needed so installation, configuration, operation, testing, troubleshooting, and
    user-facing behavior are accurate and discoverable.
-5. Verify links, commands, paths, examples, milestone issue state, and documentation
-   agree with the shipped implementation.
-6. Merge the repository documentation PR, then close the GitHub milestone object
-   only after its issues and closeout documentation are complete.
-
-After milestone closeout, report that the milestone is release-ready. Milestone
-completion does not by itself authorize a version change, tag, or release.
+5. Determine the next version according to the repository's versioning policy.
+6. Update every synchronized version reference, manifest URL, package file,
+   lockfile entry, README reference, and changelog release heading.
+7. Verify links, commands, paths, examples, milestone issue state, versions, and
+   documentation agree with the shipped implementation.
+8. Run the complete release validation in `docs/RELEASING.md`, package the Foundry
+   module, and inspect the release archive.
+9. Create one short-lived milestone closeout and release-preparation pull request
+   containing the repository documentation and version changes. Monitor its
+   GitHub Actions checks through completion.
+10. Let the repository owner merge that pull request, then close the GitHub
+    milestone object only after its issues and closeout documentation are complete.
 
 The LoreBridge wiki repository is:
 
@@ -200,25 +205,31 @@ request workflow for the main `lorebridge` repository.
 
 ## Milestone release
 
-Do not change versions, create or push a tag, or publish a GitHub release until the
-repository owner explicitly approves the release.
+Preparing the version and release pull request is part of milestone closeout. The
+repository owner retains control of the final tag push that starts publication.
 
-When the repository owner approves the release:
+After confirming the milestone closeout and release-preparation PR is merged:
 
-1. Determine the next version according to the repository's versioning policy.
-2. Update every required version reference, manifest, package file, lockfile,
-   README reference, and changelog heading.
-3. Create a short-lived release branch and pull request for the version and
-   release-documentation changes.
-4. Run the complete release validation described in `docs/RELEASING.md`.
-5. Let the repository owner merge the release pull request.
-6. After confirming the release PR is merged, create the annotated version tag
-   from the resulting `main` commit and push the tag.
-7. Treat the pushed tag as the release trigger. The release workflow creates the
-   GitHub release; do not manually create a duplicate release.
-8. Monitor the tag-triggered release workflow and verify that the GitHub release,
-   module archive, manifest URLs, checksums, and published version are correct.
-9. Report the release URL and any failed or incomplete publication step.
+1. Resolve the exact released version from the synchronized files on `main`.
+2. Tell the repository owner that the release is ready to tag and provide this
+   copyable command block with `<version>` replaced everywhere by the exact version;
+   never leave placeholders in the handoff:
+
+   ```sh
+   cd /data/lorebridge
+   git fetch origin
+   git checkout main
+   git pull --ff-only
+   git tag -a v<version> -m "LoreBridge v<version>"
+   git push origin v<version>
+   ```
+
+3. Do not run the tag commands for the owner and do not create the GitHub release
+   manually. Wait for the owner to confirm the tag was pushed.
+4. After confirmation, treat the pushed tag as the release trigger. Monitor the
+   tag-triggered release workflow through completion.
+5. Verify the GitHub release, module archive, manifest URLs, checksums, and
+   published version, then report the release URL and any incomplete step.
 
 Never tag an unmerged feature, documentation, or release branch. Never move,
 overwrite, or reuse an existing release tag.
