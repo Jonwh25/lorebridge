@@ -1,5 +1,4 @@
 import { searchJournals } from "./journals.js";
-import { isPlayerVisible } from "./visibility.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -38,6 +37,22 @@ type FoundrySocket = {
 
 type FoundryUser = { id: string; isGM: boolean; name: string };
 type FoundryUsers = Iterable<FoundryUser> & { get(id: string): FoundryUser | undefined };
+type PlayerLoreJournal = {
+  id: string;
+  name: string;
+  testUserPermission(user: FoundryUser, permission: number): boolean;
+};
+
+const OBSERVER_PERMISSION = 2;
+
+export function isPlayerLoreVisibleToAllPlayers(
+  journal: PlayerLoreJournal,
+  users: Iterable<FoundryUser>,
+): boolean {
+  return Array.from(users)
+    .filter((candidate) => !candidate.isGM)
+    .every((player) => journal.testUserPermission(player, OBSERVER_PERMISSION));
+}
 
 function getSocket(): FoundrySocket {
   return ((game as unknown) as { socket: FoundrySocket }).socket;
@@ -128,8 +143,17 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
     // "tell me about Sir Sonnet" searches for "sir sonnet" rather than
     // the full phrase, which would never substring-match journal text.
     const searchQuery = extractSearchTerms(question);
-    const searchResult = searchJournals({ query: searchQuery, mode: "player", limit: 20 });
-    const filtered = searchResult.results.filter((r) => allowlist.includes(r.journalId));
+    // The answer is posted to public chat, so every source must be observable by
+    // every non-GM world user. Use Foundry's effective permission API rather than
+    // trusting ownership.default, which does not account for per-user overrides.
+    const journals = Array.from(game.journal as unknown as Iterable<PlayerLoreJournal>);
+    const journalById = new Map(journals.map((journal) => [journal.id, journal]));
+    const searchResult = searchJournals({ query: searchQuery, mode: "gm", limit: 20 });
+    const filtered = searchResult.results.filter((result) => {
+      if (!allowlist.includes(result.journalId)) return false;
+      const journal = journalById.get(result.journalId);
+      return journal ? isPlayerLoreVisibleToAllPlayers(journal, users) : false;
+    });
 
     // Short-circuit: if no allowed journals matched, return the no-info message
     // without calling the backend. This avoids LLM non-determinism on sparse context
@@ -253,14 +277,14 @@ export function openPlayerLoreAllowlistDialog(): void {
 
   const allowlist = getPlayerLoreAllowlist();
 
-  type JournalEntry = { id: string; name: string; ownership: Record<string, number> };
-  const journals = Array.from(game.journal as Iterable<JournalEntry>)
-    .filter((j) => isPlayerVisible(j.ownership))
+  const users = game.users as unknown as FoundryUsers;
+  const journals = Array.from(game.journal as unknown as Iterable<PlayerLoreJournal>)
+    .filter((journal) => isPlayerLoreVisibleToAllPlayers(journal, users))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (journals.length === 0) {
     ui.notifications.info(
-      "LoreBridge: No player-visible journals found. Set a journal's default ownership to Observer or higher so it can be published to players.",
+      "LoreBridge: No journals are visible to every player. Grant Observer access or higher to all players before publishing lore.",
     );
     return;
   }
@@ -278,7 +302,7 @@ export function openPlayerLoreAllowlistDialog(): void {
     <div>
       <p style="font-size:12px;color:#888;margin:0 0 8px">
         Select which player-visible journals players can query with <code>/lb ask</code>.
-        Only journals with Observer or higher default ownership are listed here.
+        Only journals that every non-GM player can observe are listed here.
       </p>
       <div style="max-height:300px;overflow-y:auto;border:1px solid rgba(0,0,0,0.2);border-radius:4px;padding:4px 8px">
         ${rows}
