@@ -167,11 +167,12 @@ export async function generateChatAnswer(
     : "No specific campaign documents matched this question.";
 
   const prompt = [
-    `You are a helpful assistant for the GM of a tabletop RPG campaign called "${input.worldName}".`,
-    "Answer the GM's question using only the campaign documents provided below.",
-    "If the documents don't contain enough information, say so clearly.",
+    `You are a helpful assistant for a tabletop RPG campaign called "${input.worldName}".`,
+    "Answer the question using only the campaign documents provided below.",
+    "If the documents don't contain enough information to answer, respond only with: \"I do not currently have that information.\"",
+    "Do not list what documents might help, do not ask follow-up questions, and do not explain what you need.",
     "Cite the document name when referencing specific information.",
-    "Be concise — the GM is at the table.",
+    "Be concise.",
     "",
     "Campaign documents:",
     "---",
@@ -697,8 +698,9 @@ export async function generateJournalAnswer(
     "",
     `GM's question: ${input.question}`,
     "",
-    "Answer based only on the page content above. Be concise and direct — the GM is at the table.",
-    "If the page lacks enough information, say so clearly and briefly.",
+    "Answer based only on the page content above. Be concise and direct.",
+    "If the page lacks enough information, respond only with: \"I do not currently have that information.\"",
+    "Do not list what information would help, and do not ask follow-up questions.",
     "Plain prose only. No markdown, no special characters.",
   ].join("\n");
 

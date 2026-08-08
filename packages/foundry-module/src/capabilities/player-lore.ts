@@ -104,14 +104,17 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
 
   const users = game.users as unknown as FoundryUsers;
   const user = users.get(userId);
-  const whisper = user ? [user.id] : [];
+  // Status/error messages always whisper to the requesting user.
+  const privateWhisper = user ? [user.id] : [];
+  // GM answers are whispered; player answers go to general chat so the whole table benefits.
+  const answerWhisper = (user?.isGM ?? false) ? privateWhisper : [];
 
   const allowlist = getPlayerLoreAllowlist();
 
   if (allowlist.length === 0) {
     await ChatMessage.create({
       content: `<p><em>LoreBridge: No lore has been published for players yet. Ask your GM to set up the Player Lore feature.</em></p>`,
-      whisper,
+      whisper: privateWhisper,
       speaker: { alias: "LoreBridge" },
       flags: { [MODULE_ID]: { type: "player-lore-answer", userId, question } },
     });
@@ -160,26 +163,18 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
       ? `<p style="font-size:11px;color:#888;margin-top:6px"><em>Sources: ${sourceNames.map((n) => `<strong>${escapeHtml(n)}</strong>`).join(", ")}</em></p>`
       : "";
 
-    // Count sources hidden from the player: not player-visible + player-visible but not allowlisted.
-    const notAllowlisted = searchResult.results.length - filtered.length;
-    const totalHidden = searchResult.hiddenCount + notAllowlisted;
-    const hiddenLine = totalHidden > 0
-      ? `<p style="font-size:11px;color:#888;margin-top:2px"><em>${totalHidden} source${totalHidden === 1 ? "" : "s"} not shared with players.</em></p>`
-      : "";
-
     const content = [
       `<div class="lorebridge-chat-answer">`,
       `<p><strong>LoreBridge — Q:</strong> ${escapeHtml(question)}</p>`,
       `<hr>`,
       `<p>${data.answer.replace(/\n/g, "<br>")}</p>`,
       sourceLine,
-      hiddenLine,
       `</div>`,
     ].join("\n");
 
     await ChatMessage.create({
       content,
-      whisper,
+      whisper: answerWhisper,
       speaker: { alias: "LoreBridge" },
       flags: { [MODULE_ID]: { type: "player-lore-answer", userId, question } },
     });
@@ -192,7 +187,7 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
     try {
       await ChatMessage.create({
         content: `<p><em>LoreBridge: Sorry, your question could not be answered right now. Please try again later.</em></p>`,
-        whisper,
+        whisper: privateWhisper,
         speaker: { alias: "LoreBridge" },
         flags: { [MODULE_ID]: { type: "player-lore-error", userId } },
       });
