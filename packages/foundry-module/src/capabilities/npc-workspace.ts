@@ -277,10 +277,52 @@ function getProfile(actor: FoundryActor): NpcProfileSections {
   return (actor.getFlag("lorebridge", "npcProfile") as NpcProfileSections | undefined) ?? {};
 }
 
+// Write generated values back to native dnd5e actor fields so the stock
+// sheet stays in sync without the GM needing to copy-paste.
+async function syncToNativeFields(actor: FoundryActor, section: NpcSection, data: Record<string, string>): Promise<void> {
+  const updates: Record<string, unknown> = {};
+
+  if (section === "overview") {
+    if (data["alignment"]) updates["system.details.alignment"] = data["alignment"];
+    // Languages go to the custom sub-field to avoid clobbering selected language tags.
+    if (data["languages"]) updates["system.traits.languages.custom"] = data["languages"];
+  }
+
+  if (section === "personalityAndMotivation") {
+    if (data["ideal"]) updates["system.details.ideal"] = data["ideal"];
+    if (data["bond"])  updates["system.details.bond"]  = data["bond"];
+    if (data["flaw"])  updates["system.details.flaw"]  = data["flaw"];
+  }
+
+  if (section === "gameplay") {
+    // Map text disposition to the Foundry token disposition constant.
+    if (data["disposition"]) {
+      const d = data["disposition"].toLowerCase();
+      // CONST.TOKEN_DISPOSITIONS: HOSTILE=-1, NEUTRAL=0, FRIENDLY=1, SECRET=-2
+      const num = d.includes("friendly") ? 1 : d.includes("hostile") ? -1 : d.includes("secret") ? -2 : 0;
+      updates["prototypeToken.disposition"] = num;
+    }
+  }
+
+  if (section === "history") {
+    if (data["publicHistory"]) {
+      updates["system.details.biography.public"] = `<p>${data["publicHistory"]}</p>`;
+    }
+    const privParts: string[] = [];
+    if (data["privateHistory"]) privParts.push(`<h3>History</h3><p>${data["privateHistory"]}</p>`);
+    if (data["gmNotes"])        privParts.push(`<h3>GM Notes</h3><p>${data["gmNotes"]}</p>`);
+    if (privParts.length > 0)  updates["system.details.biography.value"] = privParts.join("\n");
+  }
+
+  if (Object.keys(updates).length === 0) return;
+  await (actor as unknown as { update(d: Record<string, unknown>): Promise<void> }).update(updates);
+}
+
 async function persistSection(actor: FoundryActor, section: NpcSection, data: Record<string, string>): Promise<void> {
   const profile = getProfile(actor);
   profile[section] = data;
   await actor.setFlag("lorebridge", "npcProfile", profile);
+  await syncToNativeFields(actor, section, data);
   if (section === "appearance") {
     const overview = (profile.overview ?? {}) as Record<string, string>;
     const genderData = (profile.gender ?? {}) as Record<string, string>;
