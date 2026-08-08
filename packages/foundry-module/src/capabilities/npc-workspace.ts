@@ -26,7 +26,7 @@ type NpcProfileSections = {
   gameplay?: Record<string, string>;
 };
 
-type FieldMeta = { key: string; label: string; editType?: "gender" | "presentation" };
+type FieldMeta = { key: string; label: string; editType?: "gender" | "presentation"; panelHidden?: boolean };
 
 type SectionMeta = {
   id: NpcSection;
@@ -45,13 +45,13 @@ const SECTION_META: SectionMeta[] = [
     fields: [
       { key: "race", label: "Race" },
       { key: "occupation", label: "Occupation" },
-      { key: "alignment", label: "Alignment" },
+      { key: "alignment", label: "Alignment", panelHidden: true },
       { key: "age", label: "Age" },
       { key: "faith", label: "Faith" },
       { key: "socialClass", label: "Social Class" },
       { key: "reputation", label: "Reputation" },
       { key: "residence", label: "Residence" },
-      { key: "languages", label: "Languages" },
+      { key: "languages", label: "Languages", panelHidden: true },
     ],
   },
   {
@@ -92,9 +92,9 @@ const SECTION_META: SectionMeta[] = [
       { key: "mannerisms", label: "Mannerisms" },
       { key: "goal", label: "Goal" },
       { key: "fear", label: "Fear" },
-      { key: "ideal", label: "Ideal" },
-      { key: "bond", label: "Bond" },
-      { key: "flaw", label: "Flaw" },
+      { key: "ideal", label: "Ideal", panelHidden: true },
+      { key: "bond", label: "Bond", panelHidden: true },
+      { key: "flaw", label: "Flaw", panelHidden: true },
     ],
   },
   {
@@ -131,9 +131,9 @@ const SECTION_META: SectionMeta[] = [
     shortLabel: "History",
     icon: "fas fa-book-open",
     fields: [
-      { key: "publicHistory", label: "Public History" },
-      { key: "privateHistory", label: "Private History" },
-      { key: "gmNotes", label: "GM Notes" },
+      { key: "publicHistory", label: "Public History", panelHidden: true },
+      { key: "privateHistory", label: "Private History", panelHidden: true },
+      { key: "gmNotes", label: "GM Notes", panelHidden: true },
     ],
   },
   {
@@ -143,7 +143,7 @@ const SECTION_META: SectionMeta[] = [
     icon: "fas fa-dice-d20",
     fields: [
       { key: "role", label: "NPC Role" },
-      { key: "disposition", label: "Disposition" },
+      { key: "disposition", label: "Disposition", panelHidden: true },
       { key: "currentStatus", label: "Current Status" },
     ],
   },
@@ -564,11 +564,17 @@ function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | unde
          <i class="fas fa-edit"></i>
        </button>`;
 
+  // Fields synced to native sheet locations are hidden in the panel view to avoid
+  // showing the same content twice. They remain visible in the Workspace window.
+  const panelVisible = meta.fields.filter(f => !f.panelHidden);
+
   let contentHtml: string;
   if (!hasData) {
     contentHtml = `<p class="lb-sec__empty">Not yet generated. Click Generate or the edit icon to set manually.</p>`;
+  } else if (panelVisible.length === 0) {
+    contentHtml = `<p class="lb-sec__empty">Content synced to native sheet fields.</p>`;
   } else {
-    const fieldRows = meta.fields
+    const fieldRows = panelVisible
       .filter(f => (data?.[f.key] ?? "").trim())
       .map(f => `<span class="lb-sec__label">${f.label}</span><span class="lb-sec__value">${escHtml(data?.[f.key] ?? "")}</span>`)
       .join("");
