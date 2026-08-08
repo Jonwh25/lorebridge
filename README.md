@@ -67,8 +67,20 @@ authenticates the client with a pairing token and routes requests to a
 Foundry module running in the GM's browser. The module executes a narrow
 allowlist of read-only Foundry operations and returns structured data.
 
+Search is local-first. LoreBridge uses the required Spotlight Omnisearch module
+and Foundry's native collection search to identify likely document candidates,
+then live-resolves them and applies LoreBridge's bounded content scanners and
+permission rules. Spotlight actions and other executable terms are never run.
+If Spotlight is unavailable or rebuilding, searches continue through the
+native and existing scanner paths.
+
 Provider credentials are never stored in Foundry. LoreBridge does not execute
 arbitrary JavaScript or provide write access to the world.
+
+Spotlight Omnisearch 4.0.2 or newer is required. Dig Down remains optional. If
+Dig Down handles file discovery in a large world, keeping Spotlight file search
+disabled avoids maintaining a duplicate file index; LoreBridge never changes
+either module's settings automatically.
 
 ## Current tools
 

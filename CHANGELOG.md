@@ -4,6 +4,23 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-08
+
+### Added
+
+- **Local-first hybrid search** (#225): LoreBridge now uses Spotlight Omnisearch 4.0.2 metadata candidates and Foundry v14 native collection search before its existing bounded content scanners. Exact and partial names, journal pages and headings, and compendium entries can be identified earlier while journal bodies, actor biographies, item descriptions, and other content continue to use LoreBridge's authoritative scanners.
+- **Safe live candidate resolution**: every Spotlight candidate is reduced to a supported document type and UUID, resolved again against current Foundry state, and passed through the existing authorization, Player Lore, Context Profile, compendium exclusion, result-limit, excerpt, and source-attribution boundaries. Executable and non-document Spotlight terms are rejected and callbacks are never invoked.
+
+### Improved
+
+- Empty, unavailable, or rebuilding Spotlight indexes now fall back to native search and existing scanners without blocking queries. LoreBridge requests at most one non-blocking Spotlight rebuild per lifecycle.
+- No-context `/lb` and Player Lore questions still return locally without an AI-provider request when no authorized source remains.
+
+### Compatibility
+
+- Spotlight Omnisearch 4.0.2 or newer is now a required Foundry module dependency. Dig Down remains optional and LoreBridge does not call its internals.
+- When Dig Down owns file discovery, keep Spotlight file search disabled to avoid maintaining two large file indexes. LoreBridge does not change either module's settings and its existing `search_assets` capability is unchanged.
+
 ## [0.18.0] - 2026-08-08
 
 ### Added
