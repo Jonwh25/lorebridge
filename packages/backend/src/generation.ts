@@ -169,8 +169,9 @@ export async function generateChatAnswer(
   const prompt = [
     `You are a helpful assistant for a tabletop RPG campaign called "${input.worldName}".`,
     "Answer the question using only the campaign documents provided below.",
-    "If the documents don't contain enough information to answer, respond only with: \"I do not currently have that information.\"",
-    "Do not list what documents might help, do not ask follow-up questions, and do not explain what you need.",
+    "If the documents contain relevant information, share it — even if it is brief or partial.",
+    "If the documents contain NO information about the topic at all, respond only with: \"I do not currently have that information.\"",
+    "Never ask follow-up questions, never list what documents would help, and never explain what you need.",
     "Cite the document name when referencing specific information.",
     "Be concise.",
     "",
@@ -699,8 +700,9 @@ export async function generateJournalAnswer(
     `GM's question: ${input.question}`,
     "",
     "Answer based only on the page content above. Be concise and direct.",
-    "If the page lacks enough information, respond only with: \"I do not currently have that information.\"",
-    "Do not list what information would help, and do not ask follow-up questions.",
+    "If the page contains relevant information, share it — even if it is brief or partial.",
+    "If the page contains NO information about the topic at all, respond only with: \"I do not currently have that information.\"",
+    "Never ask follow-up questions and never list what information would help.",
     "Plain prose only. No markdown, no special characters.",
   ].join("\n");
 

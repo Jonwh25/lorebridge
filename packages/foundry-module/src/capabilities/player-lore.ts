@@ -163,9 +163,10 @@ export async function handlePlayerLoreRequest(userId: string, question: string):
       ? `<p style="font-size:11px;color:#888;margin-top:6px"><em>Sources: ${sourceNames.map((n) => `<strong>${escapeHtml(n)}</strong>`).join(", ")}</em></p>`
       : "";
 
+    const askerName = user?.name ? escapeHtml(user.name) : "Unknown";
     const content = [
       `<div class="lorebridge-chat-answer">`,
-      `<p><strong>LoreBridge — Q:</strong> ${escapeHtml(question)}</p>`,
+      `<p><strong>LoreBridge — Q (${askerName}):</strong> ${escapeHtml(question)}</p>`,
       `<hr>`,
       `<p>${data.answer.replace(/\n/g, "<br>")}</p>`,
       sourceLine,
