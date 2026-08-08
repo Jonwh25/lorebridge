@@ -9,7 +9,7 @@ import {
 
 const snapshot = {
   combatUuid: "Combat.c1", combatName: "Castle Battle", sceneId: "s1", round: 2, turn: 1,
-  currentCombatantId: "cb2", combatants: [{ id: "cb1", initiative: 20 }, { id: "cb2", initiative: null }], fingerprint: "fnv1a-deadbeef",
+  currentCombatantId: "cb2", combatants: [{ id: "cb1", name: "Strahd", initiative: 20 }, { id: "cb2", name: "Ireena", initiative: null }], fingerprint: "fnv1a-deadbeef",
 };
 const proposal = {
   action: "test", combatUuid: "Combat.c1", expectedRound: 2, expectedTurn: 1,
@@ -25,7 +25,9 @@ test("validates the bounded combat-write foundation contract", () => {
 });
 
 test("rejects mismatched, unbounded, and arbitrary combat writes", () => {
-  assert.equal(validateCombatWriteProposal({ ...proposal, action: "nextTurn" }).valid, false);
+  assert.equal(validateCombatWriteProposal({ ...proposal, action: "deleteCombat" }).valid, false);
+  assert.equal(validateCombatWriteProposal({ ...proposal, action: "nextTurn", parameters: { expectedNextCombatantId: "cb1" } }).valid, true);
+  assert.equal(validateCombatWriteProposal({ ...proposal, action: "nextTurn", parameters: { expectedNextCombatantId: "cb2" } }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, combatUuid: "Combat.other" }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, parameters: { method: "delete" } }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, snapshot: { ...snapshot, combatants: Array.from({ length: 201 }, (_, index) => ({ id: `c${index}`, initiative: null })) } }).valid, false);
