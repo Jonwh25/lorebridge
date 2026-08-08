@@ -715,21 +715,43 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
       e.stopPropagation();
       const holdGender = action === "gen-all-hold-gender";
       void (async () => {
-        const genAllBtn = panel.querySelector<HTMLButtonElement>(".lb-panel__gen-all");
-        const genGenderedBtn = panel.querySelector<HTMLButtonElement>(".lb-panel__gen-gendered");
-        if (genAllBtn) genAllBtn.disabled = true;
-        if (genGenderedBtn) genGenderedBtn.disabled = true;
+        // Disable both generate buttons for the duration
+        panel.querySelectorAll<HTMLButtonElement>(".lb-panel__gen-all, .lb-panel__gen-gendered")
+          .forEach(b => { b.disabled = true; });
+
+        // Mark every target section as queued (⏳) upfront so the user sees
+        // what's coming before the first section even starts.
+        for (const meta of SECTION_META) {
+          if (holdGender && meta.id === "gender") continue;
+          const secEl = panel.querySelector<HTMLElement>(`[data-lb-section="${meta.id}"].lb-sec`);
+          const statusEl = secEl?.querySelector<HTMLElement>(".lb-sec__status");
+          if (statusEl) statusEl.textContent = "⏳";
+          secEl?.querySelectorAll<HTMLButtonElement>("button").forEach(b => { b.disabled = true; });
+        }
+
         let errCount = 0;
         for (const meta of SECTION_META) {
           if (holdGender && meta.id === "gender") continue;
-          setGeneratingState(panel, meta.id, true);
+
+          // Re-query panel each iteration — setGeneratingState needs a live reference.
+          const livePanel = frame.querySelector<HTMLElement>(`#${PANEL_ID}`);
+          if (!livePanel) break;
+          setGeneratingState(livePanel, meta.id, true);
+
           try {
             await generateSection(actor, meta.id);
-            refreshPanel(frame, actor);
+            // Mark done without a full refresh — just update the status icon.
+            const p = frame.querySelector<HTMLElement>(`#${PANEL_ID}`);
+            const statusEl = p?.querySelector<HTMLElement>(`[data-lb-section="${meta.id}"] .lb-sec__status`);
+            if (statusEl) statusEl.innerHTML = "✅";
           } catch {
             errCount++;
+            const p = frame.querySelector<HTMLElement>(`#${PANEL_ID}`);
+            const statusEl = p?.querySelector<HTMLElement>(`[data-lb-section="${meta.id}"] .lb-sec__status`);
+            if (statusEl) statusEl.innerHTML = "❌";
           }
         }
+
         const label = holdGender ? "Profile (gender preserved)" : "Full profile";
         if (errCount > 0) {
           ui.notifications.warn(`LoreBridge: ${label} generated with ${errCount} error(s).`);
@@ -742,6 +764,7 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
           prompt: holdGender ? "Full profile generation (gender held)" : "Full profile generation",
           content: JSON.stringify(getProfile(actor), null, 2),
         });
+        // Single full rebuild at the end to show all generated content.
         refreshPanel(frame, actor);
       })();
       return;
@@ -1055,15 +1078,16 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
     }
 
     private async _doGenerateFull(actor: FoundryActor, holdGender: boolean): Promise<void> {
-      this._generatingFull = true;
       this._editMode = false;
-      await this.render({ force: true });
       let errCount = 0;
       for (const meta of SECTION_META) {
         if (holdGender && meta.id === "gender") continue;
+        // Show which section is actively spinning in the nav before each call.
+        this._generatingSection = meta.id;
+        await this.render({ force: true });
         try { await generateSection(actor, meta.id); } catch { errCount++; }
       }
-      this._generatingFull = false;
+      this._generatingSection = null;
       const label = holdGender ? "Profile (gender preserved)" : "Full NPC profile";
       if (errCount > 0) ui.notifications.warn(`LoreBridge: ${label} generated with ${errCount} error(s).`);
       else ui.notifications.info(`LoreBridge: ${label} generated.`);
