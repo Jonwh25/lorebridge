@@ -182,8 +182,9 @@ export async function showCombatWriteApproval(payload: FoundryCombatWriteApprova
   if (!validation.valid || typeof payload.token !== "string" || typeof payload.approvalProof !== "string" || !payload.approvalProof || Number.isNaN(Date.parse(payload.expiresAt))) return;
   pending.set(payload.token, payload);
   approvalProofs.set(payload.token, payload.approvalProof);
-  const remainingMs = Math.max(0, Date.parse(payload.expiresAt) - Date.now());
-  setTimeout(() => approvalProofs.delete(payload.token), remainingMs + 5_000);
+  // Keep the GM-only proof briefly after token expiry so a late click can
+  // receive the accurate expired-token result instead of an authorization error.
+  setTimeout(() => approvalProofs.delete(payload.token), 5 * 60_000);
   if (!panel || !panel.rendered) { panel = new CombatWriteApprovalPanel(); await panel.render({ force: true }); }
   else { await panel.render({ force: true }); panel.bringToFront(); }
 }
