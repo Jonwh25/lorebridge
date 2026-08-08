@@ -621,11 +621,32 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
     const question = input.value.trim();
     if (!question) return;
 
-    const pageId = getActivePageId(frame);
-    const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
-    const rawHtml = page?.text?.content ?? "";
-    const pageContent = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
-    const pageName = page?.name ?? doc.name;
+    // Collect all text pages, putting the active page first so it is
+    // always included when the journal is larger than the char budget.
+    type JournalPage = { id: string; name: string; text?: { content?: string } };
+    const allPages = Array.from(journalEntry?.pages ?? [] as Iterable<JournalPage>);
+    const activePageId = getActivePageId(frame);
+    const sorted = activePageId
+      ? [
+          ...allPages.filter((p) => p.id === activePageId),
+          ...allPages.filter((p) => p.id !== activePageId),
+        ]
+      : allPages;
+
+    const MAX_CHARS = 12_000;
+    let budget = MAX_CHARS;
+    const sections: string[] = [];
+    for (const p of sorted) {
+      if (budget <= 0) break;
+      if (!p.text?.content) continue;
+      const text = p.text.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      const header = `## ${p.name}\n\n`;
+      const chunk = text.slice(0, budget - header.length);
+      sections.push(header + chunk);
+      budget -= header.length + chunk.length;
+    }
+    const pageContent = sections.join("\n\n");
 
     btn.disabled = true;
     input.disabled = true;
@@ -633,13 +654,13 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
       const result = await postBackend<{ answer: string }>("v1/generate/journal-qa", {
         question,
         pageContent,
-        pageName,
+        pageName: doc.name,
         journalName: doc.name,
       });
 
       void addHistoryEntry({
         type: "journal-qa",
-        label: `Journal Q&A — ${pageName}`,
+        label: `Journal Q&A — ${doc.name}`,
         prompt: question,
         content: result.answer,
       });
@@ -652,7 +673,7 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
         </div>`;
 
       new foundry.applications.api.DialogV2({
-        window: { title: `LoreBridge — ${pageName}`, resizable: true },
+        window: { title: `LoreBridge — ${doc.name}`, resizable: true },
         position: { width: 480, height: "auto" },
         content,
         buttons: [
