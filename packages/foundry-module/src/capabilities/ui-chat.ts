@@ -1,4 +1,5 @@
 import { openSessionCommandCenter } from "../session-command-center.js";
+import { handlePlayerLoreRequest, emitPlayerLoreRequest } from "./player-lore.js";
 import { setNpcAiEnabled, setNpcPreamble, clearNpcHistory, listEnabledNpcs } from "./npc-mention.js";
 import { searchCampaign } from "./search-campaign.js";
 import { exportJournalFolder } from "./backup-journals.js";
@@ -87,6 +88,26 @@ async function handleQuestion(question: string): Promise<void> {
       // context gathering is best-effort; proceed without it
     }
 
+    const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
+      .filter((u) => u.isGM)
+      .map((u) => u.id);
+
+    if (context.length === 0) {
+      await ChatMessage.create({
+        content: [
+          `<div class="lorebridge-chat-answer">`,
+          `<p><strong>LoreBridge — Q:</strong> ${question}</p>`,
+          `<hr>`,
+          `<p><em>The lore is silent on that particular mystery.</em></p>`,
+          `</div>`,
+        ].join("\n"),
+        whisper: gmIds,
+        speaker: { alias: "LoreBridge" },
+        flags: { [MODULE_ID]: { type: "chat-answer", question } },
+      });
+      return;
+    }
+
     const answer = await askBackend(question, context, worldName);
 
     void addHistoryEntry({
@@ -95,10 +116,6 @@ async function handleQuestion(question: string): Promise<void> {
       prompt: question,
       content: answer,
     });
-
-    const gmIds = (game.users as { filter(fn: (u: { isGM: boolean }) => boolean): Array<{ id: string }> })
-      .filter((u) => u.isGM)
-      .map((u) => u.id);
 
     const content = [
       `<div class="lorebridge-chat-answer">`,
@@ -964,6 +981,55 @@ export function registerChatCommand(): void {
       return false;
     }
 
+    // /lb ask <question> — available to all users; gated by playerLoreEnabled
+    if (args.startsWith("ask ") || args === "ask") {
+      (options as { recordPending: boolean }).recordPending = false;
+      const question = args.slice("ask".length).trim();
+      if (!question) {
+        clearInput();
+        ui.notifications.warn("LoreBridge: Usage: /lb ask <question>");
+        return false;
+      }
+      clearInput();
+      const settings = getLoreBridgeSettings();
+      if (!settings.playerLoreEnabled) {
+        if (game.user?.isGM) {
+          ui.notifications.warn("LoreBridge: Player Lore is not enabled. Enable it in Configure Features.");
+        } else {
+          ui.notifications.warn("LoreBridge: The Player Lore Assistant is not available in this world.");
+        }
+        return false;
+      }
+      if (game.user?.isGM) {
+        void handlePlayerLoreRequest(game.user.id, question);
+      } else {
+        const userId = game.user?.id ?? "";
+        emitPlayerLoreRequest(userId, question);
+        ui.notifications.info("LoreBridge: Your question has been sent. Watch chat for the answer.");
+      }
+      return false;
+    }
+
+    // Non-GMs: all /lb commands are player lore requests. Players don't need
+    // to know about the "ask" keyword — /lb <anything> works.
+    if (!game.user?.isGM) {
+      (options as { recordPending: boolean }).recordPending = false;
+      clearInput();
+      const playerSettings = getLoreBridgeSettings();
+      if (!playerSettings.playerLoreEnabled) {
+        ui.notifications.warn("LoreBridge: The Player Lore Assistant is not available in this world.");
+        return false;
+      }
+      if (!args) {
+        ui.notifications.warn("LoreBridge: Ask a question, e.g. /lb Who is Strahd?");
+        return false;
+      }
+      const userId = game.user?.id ?? "";
+      emitPlayerLoreRequest(userId, args);
+      ui.notifications.info("LoreBridge: Your question has been sent. Watch chat for the answer.");
+      return false;
+    }
+
     if (!getLoreBridgeSettings().chatCommandEnabled) {
       // Consume disabled commands without sending them to Foundry's slash-command parser.
       (options as { recordPending: boolean }).recordPending = false;
@@ -1121,6 +1187,7 @@ export function registerChatCommand(): void {
       clearInput();
       void handleRoleplayMessage(args);
     } else {
+      clearInput();
       void handleQuestion(args);
     }
     return false;

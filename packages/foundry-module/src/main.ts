@@ -76,6 +76,7 @@ import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
+import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
 import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
@@ -159,6 +160,10 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", () => {
+  // Register the player lore socket listener for all users so players can route
+  // questions to the GM's browser via the module socket channel.
+  registerPlayerLoreSocketListener();
+
   const settings = getLoreBridgeSettings();
   const isGM = Boolean(game.user?.isGM);
 

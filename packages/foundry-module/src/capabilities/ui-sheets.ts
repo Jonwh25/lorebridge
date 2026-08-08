@@ -621,11 +621,59 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
     const question = input.value.trim();
     if (!question) return;
 
-    const pageId = getActivePageId(frame);
-    const page = pageId ? journalEntry?.pages.get(pageId) : undefined;
-    const rawHtml = page?.text?.content ?? "";
-    const pageContent = rawHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 4000);
-    const pageName = page?.name ?? doc.name;
+    // Score every page by keyword relevance so the most useful content
+    // fills the budget first. The currently-viewed page always scores
+    // highest so it is never bumped by an equally relevant page.
+    type JournalPage = { id: string; name: string; text?: { content?: string } };
+    const allPages = Array.from(journalEntry?.pages ?? [] as Iterable<JournalPage>);
+    const activePageId = getActivePageId(frame);
+
+    const qaStopWords = new Set([
+      "a","about","an","and","any","are","at","be","by","can","could",
+      "describe","details","do","does","explain","find","for","from",
+      "get","give","had","has","have","he","her","him","his","how","i",
+      "if","in","info","information","is","it","its","know","like",
+      "list","me","more","my","of","on","or","our","please","she",
+      "show","some","summarize","tell","the","their","them","there",
+      "they","this","to","us","was","we","were","what","when","where",
+      "which","who","will","with","would","you",
+    ]);
+    const terms = question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s'-]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !qaStopWords.has(w));
+
+    const scored = allPages.map((p) => {
+      let score = p.id === activePageId ? 100_000 : 0;
+      if (terms.length > 0) {
+        const nameLc = p.name.toLowerCase();
+        const bodyLc = (p.text?.content ?? "").replace(/<[^>]+>/g, " ").toLowerCase();
+        for (const term of terms) {
+          if (nameLc.includes(term)) score += 50;
+          let pos = -1;
+          while ((pos = bodyLc.indexOf(term, pos + 1)) !== -1) score++;
+        }
+      }
+      return { page: p, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+
+    const MAX_CHARS = 100_000;
+    let budget = MAX_CHARS;
+    const sections: string[] = [];
+    for (const { page: p } of scored) {
+      if (budget <= 0) break;
+      if (!p.text?.content) continue;
+      const text = p.text.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      const header = `## ${p.name}\n\n`;
+      if (budget <= header.length) break;
+      const chunk = text.slice(0, budget - header.length);
+      sections.push(header + chunk);
+      budget -= header.length + chunk.length;
+    }
+    const pageContent = sections.join("\n\n");
 
     btn.disabled = true;
     input.disabled = true;
@@ -633,13 +681,13 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
       const result = await postBackend<{ answer: string }>("v1/generate/journal-qa", {
         question,
         pageContent,
-        pageName,
+        pageName: doc.name,
         journalName: doc.name,
       });
 
       void addHistoryEntry({
         type: "journal-qa",
-        label: `Journal Q&A — ${pageName}`,
+        label: `Journal Q&A — ${doc.name}`,
         prompt: question,
         content: result.answer,
       });
@@ -652,7 +700,7 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
         </div>`;
 
       new foundry.applications.api.DialogV2({
-        window: { title: `LoreBridge — ${pageName}`, resizable: true },
+        window: { title: `LoreBridge — ${doc.name}`, resizable: true },
         position: { width: 480, height: "auto" },
         content,
         buttons: [
@@ -737,6 +785,10 @@ export function registerSheetButtons(): void {
     // NPC Workspace is in the ⋮ header controls menu (registerNpcWorkspaceMenuHook in npc-workspace.ts)
 
     if (doc.documentName === "JournalEntry") {
+      // Skip ownership/config dialogs that carry a JournalEntry as their document
+      // but are not the journal sheet itself (e.g. DocumentOwnershipConfig).
+      if ((frame as HTMLElement).classList.contains("document-ownership")) return;
+
       if (settings.uiButtonsEnabled) {
       injectHeaderButton(frame, "gen-desc", "fas fa-feather-alt", "Generate Description", "ui-buttons", () => runGenerateDescription(doc, frame));
       if (doc.name.toLowerCase().includes("session")) {
