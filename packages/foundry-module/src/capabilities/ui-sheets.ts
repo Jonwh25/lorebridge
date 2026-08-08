@@ -621,27 +621,54 @@ function injectQAPanel(doc: AppDoc, frame: HTMLElement): void {
     const question = input.value.trim();
     if (!question) return;
 
-    // Collect all text pages, putting the active page first so it is
-    // always included when the journal is larger than the char budget.
+    // Score every page by keyword relevance so the most useful content
+    // fills the budget first. The currently-viewed page always scores
+    // highest so it is never bumped by an equally relevant page.
     type JournalPage = { id: string; name: string; text?: { content?: string } };
     const allPages = Array.from(journalEntry?.pages ?? [] as Iterable<JournalPage>);
     const activePageId = getActivePageId(frame);
-    const sorted = activePageId
-      ? [
-          ...allPages.filter((p) => p.id === activePageId),
-          ...allPages.filter((p) => p.id !== activePageId),
-        ]
-      : allPages;
 
-    const MAX_CHARS = 12_000;
+    const qaStopWords = new Set([
+      "a","about","an","and","any","are","at","be","by","can","could",
+      "describe","details","do","does","explain","find","for","from",
+      "get","give","had","has","have","he","her","him","his","how","i",
+      "if","in","info","information","is","it","its","know","like",
+      "list","me","more","my","of","on","or","our","please","she",
+      "show","some","summarize","tell","the","their","them","there",
+      "they","this","to","us","was","we","were","what","when","where",
+      "which","who","will","with","would","you",
+    ]);
+    const terms = question
+      .toLowerCase()
+      .replace(/[^a-z0-9\s'-]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !qaStopWords.has(w));
+
+    const scored = allPages.map((p) => {
+      let score = p.id === activePageId ? 100_000 : 0;
+      if (terms.length > 0) {
+        const nameLc = p.name.toLowerCase();
+        const bodyLc = (p.text?.content ?? "").replace(/<[^>]+>/g, " ").toLowerCase();
+        for (const term of terms) {
+          if (nameLc.includes(term)) score += 50;
+          let pos = -1;
+          while ((pos = bodyLc.indexOf(term, pos + 1)) !== -1) score++;
+        }
+      }
+      return { page: p, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+
+    const MAX_CHARS = 100_000;
     let budget = MAX_CHARS;
     const sections: string[] = [];
-    for (const p of sorted) {
+    for (const { page: p } of scored) {
       if (budget <= 0) break;
       if (!p.text?.content) continue;
       const text = p.text.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
       if (!text) continue;
       const header = `## ${p.name}\n\n`;
+      if (budget <= header.length) break;
       const chunk = text.slice(0, budget - header.length);
       sections.push(header + chunk);
       budget -= header.length + chunk.length;
