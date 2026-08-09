@@ -233,9 +233,10 @@ RollTable document is created directly on approval.
 ## Controlled combat-write foundation
 
 Controlled combat writes use a separate **Enable Controlled Combat Writes**
-world setting, which is disabled by default. Issue #172 exposes a synthetic
-test action so a GM can verify the approval boundary before any real combat
-mutation is implemented.
+world setting, which is disabled by default. The synthetic test action lets a
+GM verify the approval boundary without mutating combat. External AI clients
+can separately propose `next_turn`, `set_initiative`, and `end_combat` through
+MCP; all use the same short-lived approval and fresh-snapshot safeguards.
 
 ### `proposeCombatWriteTest(options?)`
 
