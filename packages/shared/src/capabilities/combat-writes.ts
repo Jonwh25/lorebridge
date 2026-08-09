@@ -4,8 +4,11 @@ export const EXECUTE_COMBAT_WRITE_CAPABILITY = "executeCombatWrite" as const;
 export const COMBAT_WRITE_TTL_MS = 60_000;
 export const COMBAT_WRITE_TEST_ACTION = "test" as const;
 export const COMBAT_WRITE_NEXT_TURN_ACTION = "nextTurn" as const;
+export const COMBAT_WRITE_SET_INITIATIVE_ACTION = "setInitiative" as const;
+export const COMBAT_WRITE_INITIATIVE_MIN = -1000;
+export const COMBAT_WRITE_INITIATIVE_MAX = 1000;
 export const PROPOSE_COMBAT_WRITE_CAPABILITY = "proposeCombatWrite" as const;
-export type CombatWriteAction = typeof COMBAT_WRITE_TEST_ACTION | typeof COMBAT_WRITE_NEXT_TURN_ACTION;
+export type CombatWriteAction = typeof COMBAT_WRITE_TEST_ACTION | typeof COMBAT_WRITE_NEXT_TURN_ACTION | typeof COMBAT_WRITE_SET_INITIATIVE_ACTION;
 
 export interface CombatWriteCombatantSnapshot { id: string; name: string; initiative: number | null }
 export interface CombatWriteSnapshot {
@@ -17,7 +20,9 @@ export interface CombatWriteProposal {
   target: { combatUuid: string }; parameters: Record<string, unknown>; rationale: string;
   beforeSummary: string; afterSummary: string; snapshot: CombatWriteSnapshot;
 }
-export interface ProposeCombatWriteInput { action: typeof COMBAT_WRITE_NEXT_TURN_ACTION; rationale: string }
+export type ProposeCombatWriteInput =
+  | { action: typeof COMBAT_WRITE_NEXT_TURN_ACTION; rationale: string }
+  | { action: typeof COMBAT_WRITE_SET_INITIATIVE_ACTION; combatantId: string; initiative: number; rationale: string };
 export interface CombatWriteApprovalPayload extends CombatWriteProposal { token: string; expiresAt: string }
 export interface ExecuteCombatWriteInput { proposal: CombatWriteProposal }
 export type CombatWriteAuditOutcome = "approved" | "rejected" | "stale";
@@ -25,6 +30,7 @@ export interface CombatWriteAuditResult {
   action: CombatWriteAction; target: { combatUuid: string }; outcome: CombatWriteAuditOutcome;
   occurredAt: string; summary: string; stateFingerprint?: string;
   resultingRound?: number; resultingTurn?: number; resultingCombatantId?: string;
+  resultingCombatants?: Array<CombatWriteCombatantSnapshot & { position: number }>;
 }
 export interface CombatWriteProposalResult extends CombatWriteApprovalPayload { instruction: string }
 
@@ -60,7 +66,7 @@ function validateSnapshot(value: unknown, errors: string[]): value is CombatWrit
 export function validateCombatWriteProposal(value: unknown): ValidationResult<CombatWriteProposal> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["proposal must be an object"] };
-  if (value.action !== COMBAT_WRITE_TEST_ACTION && value.action !== COMBAT_WRITE_NEXT_TURN_ACTION) errors.push("action must be test or nextTurn");
+  if (value.action !== COMBAT_WRITE_TEST_ACTION && value.action !== COMBAT_WRITE_NEXT_TURN_ACTION && value.action !== COMBAT_WRITE_SET_INITIATIVE_ACTION) errors.push("action must be test, nextTurn, or setInitiative");
   if (!isString(value.combatUuid)) errors.push("combatUuid is required");
   if (!isInteger(value.expectedRound)) errors.push("expectedRound must be a non-negative integer");
   if (!isInteger(value.expectedTurn)) errors.push("expectedTurn must be a non-negative integer");
@@ -68,6 +74,11 @@ export function validateCombatWriteProposal(value: unknown): ValidationResult<Co
   if (!isRecord(value.parameters)) errors.push("parameters must be an object");
   else if (value.action === COMBAT_WRITE_TEST_ACTION && Object.keys(value.parameters).length !== 0) errors.push("parameters must be an empty object for the test action");
   else if (value.action === COMBAT_WRITE_NEXT_TURN_ACTION && (Object.keys(value.parameters).length !== 1 || !isString(value.parameters.expectedNextCombatantId))) errors.push("parameters.expectedNextCombatantId is required for nextTurn and must be the only parameter");
+  else if (value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
+    if (Object.keys(value.parameters).length !== 3 || !isString(value.parameters.combatantId)) errors.push("setInitiative parameters must contain only combatantId, expectedInitiative, and initiative");
+    if (value.parameters.expectedInitiative !== null && (typeof value.parameters.expectedInitiative !== "number" || !Number.isFinite(value.parameters.expectedInitiative))) errors.push("parameters.expectedInitiative must be finite or null");
+    if (typeof value.parameters.initiative !== "number" || !Number.isFinite(value.parameters.initiative) || value.parameters.initiative < COMBAT_WRITE_INITIATIVE_MIN || value.parameters.initiative > COMBAT_WRITE_INITIATIVE_MAX) errors.push(`parameters.initiative must be finite and between ${COMBAT_WRITE_INITIATIVE_MIN} and ${COMBAT_WRITE_INITIATIVE_MAX}`);
+  }
   for (const field of ["rationale", "beforeSummary", "afterSummary"] as const) if (!isString(value[field]) || (value[field] as string).length > 500) errors.push(`${field} must be a non-empty string of at most 500 characters`);
   validateSnapshot(value.snapshot, errors);
   if (isRecord(value.snapshot)) {
@@ -78,6 +89,12 @@ export function validateCombatWriteProposal(value: unknown): ValidationResult<Co
       const expected = value.snapshot.combatants[((value.snapshot.turn as number) + 1) % value.snapshot.combatants.length];
       if (!isRecord(expected) || value.parameters.expectedNextCombatantId !== expected.id) errors.push("parameters.expectedNextCombatantId must identify the next combatant in snapshot order");
     }
+    if (value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION && Array.isArray(value.snapshot.combatants) && isRecord(value.parameters)) {
+      const parameters = value.parameters;
+      const target = value.snapshot.combatants.find((combatant) => isRecord(combatant) && combatant.id === parameters.combatantId);
+      if (!isRecord(target)) errors.push("parameters.combatantId must identify a combatant in the snapshot");
+      else if (parameters.expectedInitiative !== target.initiative) errors.push("parameters.expectedInitiative must match the snapshot combatant initiative");
+    }
   }
   if (isRecord(value.target) && value.target.combatUuid !== value.combatUuid) errors.push("target.combatUuid must match combatUuid");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as CombatWriteProposal, errors: [] };
@@ -86,7 +103,11 @@ export function validateCombatWriteProposal(value: unknown): ValidationResult<Co
 export function validateProposeCombatWriteInput(value: unknown): ValidationResult<ProposeCombatWriteInput> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
-  if (value.action !== COMBAT_WRITE_NEXT_TURN_ACTION) errors.push("action must be nextTurn");
+  if (value.action !== COMBAT_WRITE_NEXT_TURN_ACTION && value.action !== COMBAT_WRITE_SET_INITIATIVE_ACTION) errors.push("action must be nextTurn or setInitiative");
+  if (value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
+    if (!isString(value.combatantId)) errors.push("combatantId is required");
+    if (typeof value.initiative !== "number" || !Number.isFinite(value.initiative) || value.initiative < COMBAT_WRITE_INITIATIVE_MIN || value.initiative > COMBAT_WRITE_INITIATIVE_MAX) errors.push(`initiative must be finite and between ${COMBAT_WRITE_INITIATIVE_MIN} and ${COMBAT_WRITE_INITIATIVE_MAX}`);
+  }
   if (!isString(value.rationale) || (value.rationale as string).length > 500) errors.push("rationale must be a non-empty string of at most 500 characters");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as ProposeCombatWriteInput, errors: [] };
 }
@@ -110,7 +131,7 @@ export function validateExecuteCombatWriteInput(value: unknown): ValidationResul
 export function validateCombatWriteAuditResult(value: unknown): ValidationResult<CombatWriteAuditResult> {
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["audit result must be an object"] };
-  if (value.action !== COMBAT_WRITE_TEST_ACTION && value.action !== COMBAT_WRITE_NEXT_TURN_ACTION) errors.push("action must be test or nextTurn");
+  if (value.action !== COMBAT_WRITE_TEST_ACTION && value.action !== COMBAT_WRITE_NEXT_TURN_ACTION && value.action !== COMBAT_WRITE_SET_INITIATIVE_ACTION) errors.push("action must be test, nextTurn, or setInitiative");
   if (!isRecord(value.target) || !isString(value.target.combatUuid)) errors.push("target.combatUuid is required");
   if (value.outcome !== "approved" && value.outcome !== "rejected" && value.outcome !== "stale") errors.push("outcome is invalid");
   if (!isString(value.occurredAt) || Number.isNaN(Date.parse(value.occurredAt as string))) errors.push("occurredAt must be an ISO date-time");
@@ -118,6 +139,15 @@ export function validateCombatWriteAuditResult(value: unknown): ValidationResult
   if (value.stateFingerprint !== undefined && !isString(value.stateFingerprint)) errors.push("stateFingerprint must be a non-empty string");
   for (const field of ["resultingRound", "resultingTurn"] as const) if (value[field] !== undefined && !isInteger(value[field])) errors.push(`${field} must be a non-negative integer`);
   if (value.resultingCombatantId !== undefined && !isString(value.resultingCombatantId)) errors.push("resultingCombatantId must be a non-empty string");
+  if (value.resultingCombatants !== undefined) {
+    if (!Array.isArray(value.resultingCombatants) || value.resultingCombatants.length > 200) errors.push("resultingCombatants must contain at most 200 entries");
+    else value.resultingCombatants.forEach((combatant, index) => {
+      if (!isRecord(combatant) || !isString(combatant.id) || !isString(combatant.name)) errors.push(`resultingCombatants[${index}] must include id and name`);
+      if (isRecord(combatant) && (combatant.initiative !== null && (typeof combatant.initiative !== "number" || !Number.isFinite(combatant.initiative)))) errors.push(`resultingCombatants[${index}].initiative must be finite or null`);
+      if (!isRecord(combatant) || !isInteger(combatant.position) || combatant.position !== index + 1) errors.push(`resultingCombatants[${index}].position must be ${index + 1}`);
+    });
+  }
   if (value.action === COMBAT_WRITE_NEXT_TURN_ACTION && value.outcome === "approved" && (!isInteger(value.resultingRound) || !isInteger(value.resultingTurn) || !isString(value.resultingCombatantId))) errors.push("approved nextTurn results must include the resulting round, turn, and combatant ID");
+  if (value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION && value.outcome === "approved" && (!Array.isArray(value.resultingCombatants) || value.resultingCombatants.length < 1)) errors.push("approved setInitiative results must include the resulting combat order");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as CombatWriteAuditResult, errors: [] };
 }
