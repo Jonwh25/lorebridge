@@ -8,6 +8,8 @@ import {
   GET_SCENE_CAPABILITY,
   GET_ACTIVE_SCENE_CAPABILITY,
   GET_COMBAT_STATE_CAPABILITY,
+  PROPOSE_COMBAT_WRITE_CAPABILITY,
+  COMBAT_WRITE_NEXT_TURN_ACTION,
   ROLL_DICE_CAPABILITY,
   GET_CHAT_MESSAGES_CAPABILITY,
   SEARCH_ASSETS_CAPABILITY,
@@ -42,6 +44,7 @@ import {
   validateGetSceneOutput,
   validateGetActiveSceneOutput,
   validateGetCombatStateOutput,
+  validateCombatWriteProposalResult,
   validateRollDiceOutput,
   validateGetChatMessagesOutput,
   validateSearchAssetsOutput,
@@ -87,6 +90,7 @@ const sceneSearchToolName = "search_scenes";
 const sceneToolName = "get_scene";
 const activeSceneToolName = "get_active_scene";
 const combatStateToolName = "get_combat_state";
+const nextTurnToolName = "next_turn";
 const rollDiceToolName = "roll_dice";
 const chatMessagesToolName = "get_chat_messages";
 const searchAssetsToolName = "search_assets";
@@ -106,6 +110,29 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     name: "lorebridge",
     version: "0.2.0",
   });
+
+  server.registerTool(
+    nextTurnToolName,
+    {
+      title: "Advance the active combat to the next turn",
+      description: "Propose advancing the connected Foundry world's active, started combat by exactly one turn. The active GM receives a current/next combatant and round-transition preview and must explicitly approve it before any combat state changes.",
+      inputSchema: z.object({
+        rationale: z.string().trim().min(1).max(500).describe("Why the active combat should advance. This is shown to the GM in the approval preview."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ rationale, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, PROPOSE_COMBAT_WRITE_CAPABILITY, { action: COMBAT_WRITE_NEXT_TURN_ACTION, rationale });
+        const validation = validateCombatWriteProposalResult(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid next-turn proposal.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose advancing the active combat.");
+      }
+    },
+  );
 
   server.registerTool(
     worldSummaryToolName,

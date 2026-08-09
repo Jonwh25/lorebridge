@@ -474,7 +474,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
-  if (method === "POST" && url.pathname === "/v1/combat-write/propose-test") {
+  if (method === "POST" && (url.pathname === "/v1/combat-write/propose" || url.pathname === "/v1/combat-write/propose-test")) {
     if (!authenticate(pairing, request, response)) return;
     const body = await readJson(request);
     const validation = validateCombatWriteProposal(body["proposal"]);

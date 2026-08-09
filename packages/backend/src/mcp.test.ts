@@ -143,6 +143,12 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
                 version: "0.1",
               },
               {
+                name: "proposeCombatWrite",
+                mode: "write",
+                version: "0.1",
+                requiresApproval: true,
+              },
+              {
                 name: "rollDice",
                 mode: "write",
                 version: "0.1",
@@ -190,6 +196,8 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
         assert.deepEqual(message.input, { actorId: "actor_strahd" });
       } else if (message.capability === "rollDice") {
         assert.deepEqual(message.input, { formula: "4d6kh3", postToChat: false });
+      } else if (message.capability === "proposeCombatWrite") {
+        assert.deepEqual(message.input, { action: "nextTurn", rationale: "Continue the encounter." });
       }
       const output = message.capability === "searchJournals"
         ? {
@@ -264,6 +272,14 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
               breakdown: "6 + 5 + 5 + 1",
               rolls: [{ faces: 6, results: [{ value: 6, active: true }, { value: 5, active: true }, { value: 5, active: true }, { value: 1, active: false }] }],
               postedToChat: false,
+            }
+        : message.capability === "proposeCombatWrite"
+          ? {
+              action: "nextTurn", combatUuid: "Combat.c1", expectedRound: 2, expectedTurn: 0,
+              target: { combatUuid: "Combat.c1" }, parameters: { expectedNextCombatantId: "cb2" },
+              rationale: "Continue the encounter.", beforeSummary: "Strahd is active.", afterSummary: "Ireena will be active.",
+              snapshot: { combatUuid: "Combat.c1", combatName: "Castle Battle", round: 2, turn: 0, currentCombatantId: "cb1", combatants: [{ id: "cb1", name: "Strahd", initiative: 20 }, { id: "cb2", name: "Ireena", initiative: 15 }], fingerprint: "fnv1a-deadbeef" },
+              token: "combat-token", expiresAt: "2026-08-08T12:01:00.000Z", instruction: "Approve in Foundry.",
             }
         : message.capability === "searchCampaign"
           ? {
@@ -371,12 +387,19 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "list_macro_tools", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
+      ["next_turn", "get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "list_macro_tools", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
     );
-    const readOnlyTools = tools.tools.filter((t) => t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice" && t.name !== "call_macro_tool");
+    const readOnlyTools = tools.tools.filter((t) => t.name !== "next_turn" && t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice" && t.name !== "call_macro_tool");
     assert.ok(readOnlyTools.every((tool) => tool.annotations?.readOnlyHint));
     const proposeToolAnnotations = tools.tools.find((t) => t.name === "propose_journal_update")?.annotations;
     assert.equal(proposeToolAnnotations?.readOnlyHint, false);
+    const nextTurnAnnotations = tools.tools.find((t) => t.name === "next_turn")?.annotations;
+    assert.equal(nextTurnAnnotations?.readOnlyHint, false);
+    assert.equal(nextTurnAnnotations?.idempotentHint, false);
+
+    const nextTurnResult = await client.callTool({ name: "next_turn", arguments: { rationale: "Continue the encounter.", sourceId: "foundry:cos" } });
+    assert.equal(nextTurnResult.isError, undefined);
+    assert.equal((nextTurnResult.structuredContent as { action: string }).action, "nextTurn");
 
     const result = await client.callTool({
       name: "get_world_summary",

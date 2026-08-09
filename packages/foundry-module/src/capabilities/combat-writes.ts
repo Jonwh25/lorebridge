@@ -1,14 +1,17 @@
 import {
   COMBAT_WRITE_TEST_ACTION,
+  COMBAT_WRITE_NEXT_TURN_ACTION,
   validateCombatWriteAuditResult,
   validateCombatWriteProposal,
   validateExecuteCombatWriteInput,
+  validateProposeCombatWriteInput,
   type CombatWriteApprovalPayload,
   type CombatWriteAuditResult,
   type CombatWriteProposal,
   type CombatWriteProposalResult,
   type CombatWriteSnapshot,
   type ExecuteCombatWriteInput,
+  type ProposeCombatWriteInput,
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
@@ -38,7 +41,7 @@ export function captureCombatWriteSnapshot(): CombatWriteSnapshot {
   if (!Number.isInteger(round) || (round as number) < 0 || !Number.isInteger(turn) || (turn as number) < 0) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "The active combat does not have a valid round and turn.");
   const combatUuid = combat.uuid;
   if (!combatUuid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "The active combat does not have a stable UUID.");
-  const combatants = combat.turns.slice(0, 200).map((entry) => ({ id: entry.id, initiative: typeof entry.initiative === "number" ? entry.initiative : null }));
+  const combatants = combat.turns.slice(0, 200).map((entry) => ({ id: entry.id, name: entry.name || "Unnamed Combatant", initiative: typeof entry.initiative === "number" ? entry.initiative : null }));
   const base = {
     combatUuid, combatName: combat.name || "Active Combat",
     ...(combat.scene?.id ? { sceneId: combat.scene.id } : {}),
@@ -95,10 +98,38 @@ export async function proposeCombatWriteTest(options: { ttlMs?: number } = {}): 
   if (!validation.valid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Synthetic combat proposal is invalid.", { details: { validationErrors: validation.errors } });
   const ttlMs = options.ttlMs === undefined ? undefined : Math.max(1, Math.min(Math.trunc(options.ttlMs), 60_000));
   const approvalProof = crypto.randomUUID();
-  return post<CombatWriteProposalResult>("/v1/combat-write/propose-test", { proposal, sourceId: `foundry:${game.world.id}`, approvalProof, ...(ttlMs === undefined ? {} : { ttlMs }) });
+  return post<CombatWriteProposalResult>("/v1/combat-write/propose", { proposal, sourceId: `foundry:${game.world.id}`, approvalProof, ...(ttlMs === undefined ? {} : { ttlMs }) });
 }
 
-export function executeCombatWrite(input: ExecuteCombatWriteInput): CombatWriteAuditResult {
+export async function proposeCombatWrite(input: ProposeCombatWriteInput): Promise<CombatWriteProposalResult> {
+  if (!game.world) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry world is not fully initialized.", { retryable: true });
+  const validation = validateProposeCombatWriteInput(input);
+  if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Combat-write proposal input is invalid.", { details: { validationErrors: validation.errors } });
+  const snapshot = captureCombatWriteSnapshot();
+  if (snapshot.combatants.length < 1 || snapshot.turn >= snapshot.combatants.length) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "The active combat does not have a valid next combatant.");
+  const current = snapshot.combatants[snapshot.turn]!;
+  const nextTurn = (snapshot.turn + 1) % snapshot.combatants.length;
+  const next = snapshot.combatants[nextTurn]!;
+  const nextRound = nextTurn === 0 ? snapshot.round + 1 : snapshot.round;
+  const proposal: CombatWriteProposal = {
+    action: COMBAT_WRITE_NEXT_TURN_ACTION,
+    combatUuid: snapshot.combatUuid,
+    expectedRound: snapshot.round,
+    expectedTurn: snapshot.turn,
+    target: { combatUuid: snapshot.combatUuid },
+    parameters: { expectedNextCombatantId: next.id },
+    rationale: validation.value.rationale,
+    beforeSummary: `${snapshot.combatName}: round ${snapshot.round}, turn ${snapshot.turn} — ${current.name}.`,
+    afterSummary: `${snapshot.combatName}: round ${nextRound}, turn ${nextTurn} — ${next.name}.`,
+    snapshot,
+  };
+  const proposalValidation = validateCombatWriteProposal(proposal);
+  if (!proposalValidation.valid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Next-turn combat proposal is invalid.", { details: { validationErrors: proposalValidation.errors } });
+  const approvalProof = crypto.randomUUID();
+  return post<CombatWriteProposalResult>("/v1/combat-write/propose", { proposal, sourceId: `foundry:${game.world.id}`, approvalProof });
+}
+
+export async function executeCombatWrite(input: ExecuteCombatWriteInput): Promise<CombatWriteAuditResult> {
   assertConfigured();
   const validation = validateExecuteCombatWriteInput(input);
   if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Combat-write execution input is invalid.", { details: { validationErrors: validation.errors } });
@@ -115,7 +146,28 @@ export function executeCombatWrite(input: ExecuteCombatWriteInput): CombatWriteA
   if (current.fingerprint !== proposal.snapshot.fingerprint || current.combatUuid !== proposal.combatUuid) {
     return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The active combat changed after preview. No mutation was attempted.", stateFingerprint: current.fingerprint };
   }
-  return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Synthetic combat-write approval reached the action handler with an unchanged snapshot. No mutation was performed.", stateFingerprint: current.fingerprint };
+  if (proposal.action === COMBAT_WRITE_TEST_ACTION) return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Synthetic combat-write approval reached the action handler with an unchanged snapshot. No mutation was performed.", stateFingerprint: current.fingerprint };
+
+  const expectedNextCombatantId = proposal.parameters.expectedNextCombatantId;
+  const expectedNextTurn = (current.turn + 1) % current.combatants.length;
+  if (typeof expectedNextCombatantId !== "string" || current.combatants[expectedNextTurn]?.id !== expectedNextCombatantId) {
+    return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The expected next combatant is no longer next in the active roster. No mutation was attempted.", stateFingerprint: current.fingerprint };
+  }
+  const combat = game.combats.active;
+  if (!combat || combat.uuid !== proposal.combatUuid || !combat.active || !combat.started) {
+    return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The previewed combat is no longer the active started combat. No mutation was attempted." };
+  }
+  const updated = await combat.nextTurn();
+  const resultingRound = updated.current.round;
+  const resultingTurn = updated.current.turn;
+  if (!Number.isInteger(resultingRound) || !Number.isInteger(resultingTurn) || !updated.combatant?.id) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry advanced combat but did not return a valid resulting turn state.");
+  const validResultingRound = resultingRound as number;
+  const validResultingTurn = resultingTurn as number;
+  return {
+    action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(),
+    summary: `Advanced the active combat to round ${validResultingRound}, turn ${validResultingTurn} (${updated.combatant.name}).`,
+    stateFingerprint: current.fingerprint, resultingRound: validResultingRound, resultingTurn: validResultingTurn, resultingCombatantId: updated.combatant.id,
+  };
 }
 
 export async function approveCombatWrite(token: string): Promise<CombatWriteAuditResult> {
@@ -146,7 +198,7 @@ function escapeHtml(value: string): string { return value.replace(/&/g, "&amp;")
 function renderProposal(value: FoundryCombatWriteApprovalPayload): string {
   const expiry = new Date(value.expiresAt).toLocaleTimeString();
   return `<section class="lb-combat-approval" data-token="${escapeHtml(value.token)}">
-    <header><strong>Safety Test — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
+    <header><strong>${value.action === COMBAT_WRITE_NEXT_TURN_ACTION ? "Advance Next Turn" : "Safety Test"} — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
     <div class="lb-combat-approval__body">
       <p><strong>Target:</strong> ${escapeHtml(value.combatUuid)}</p>
       <p><strong>Expected state:</strong> Round ${value.expectedRound}, turn ${value.expectedTurn}, ${value.snapshot.combatants.length} combatants</p>

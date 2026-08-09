@@ -4,6 +4,10 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **GM-approved next-turn combat advance** (#173): AI clients can use `next_turn` to preview the current and expected next combatant, including round rollover, and request one explicit GM approval. LoreBridge revalidates the active combat UUID, round, turn, and complete ordered roster immediately before calling Foundry v14's `Combat.nextTurn()`, then returns the resulting round, turn, and combatant in a bounded audit result.
+
 ## [0.19.0] - 2026-08-08
 
 ### Added
