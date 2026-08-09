@@ -197,6 +197,9 @@ export async function executeCombatWrite(input: ExecuteCombatWriteInput): Promis
     }
     const endedCombat = { combatUuid: current.combatUuid, combatName: current.combatName, ...(current.sceneId ? { sceneId: current.sceneId } : {}), ...(current.sceneName ? { sceneName: current.sceneName } : {}), round: current.round, turn: current.turn, combatantCount: current.combatants.length };
     await combat.endCombat();
+    if (combat.active && combat.started && game.combats.active?.uuid === combat.uuid) {
+      return { action: proposal.action, target: proposal.target, outcome: "rejected", occurredAt: new Date().toISOString(), summary: "The GM cancelled Foundry's end-combat confirmation. No mutation was performed.", stateFingerprint: current.fingerprint };
+    }
     return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: `Ended ${current.combatName} at round ${current.round}, turn ${current.turn}.`, stateFingerprint: current.fingerprint, endedCombat };
   }
 
@@ -294,22 +297,7 @@ function renderProposal(value: FoundryCombatWriteApprovalPayload): string {
 class CombatWriteApprovalPanel extends ApprovalQueuePanel {
   static override DEFAULT_OPTIONS = { id: "lorebridge-combat-write-approval", classes: ["lorebridge-approval-queue", "lorebridge-combat-write-approval"], window: { title: "LoreBridge — Combat Approval", resizable: true }, position: { width: 560, height: 460 } };
   protected override renderApprovalQueueHtml(): string { return [...pending.values()].map(renderProposal).join("") || "<p>No pending combat proposals.</p>"; }
-  override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve") void finish(token, true, this); if (target.dataset.action === "confirm-end") void confirmEndCombat(token, this); if (target.dataset.action === "reject") void finish(token, false, this); }
-}
-
-async function confirmEndCombat(token: string, app: CombatWriteApprovalPanel): Promise<void> {
-  const proposal = pending.get(token); if (!proposal || proposal.action !== COMBAT_WRITE_END_COMBAT_ACTION) return;
-  const confirmed = await confirmEndCombatDestruction(proposal);
-  if (confirmed) await finish(token, true, app);
-}
-
-export async function confirmEndCombatDestruction(proposal: CombatWriteProposal): Promise<boolean> {
-  if (proposal.action !== COMBAT_WRITE_END_COMBAT_ACTION) return false;
-  return foundry.applications.api.DialogV2.confirm({
-    window: { title: "End Active Combat?" },
-    content: `<p><strong>This will end ${escapeHtml(proposal.snapshot.combatName)}.</strong></p><p>Round ${proposal.expectedRound}, turn ${proposal.expectedTurn}, ${proposal.snapshot.combatants.length} combatants. This cannot be undone by LoreBridge.</p>`,
-    yes: { label: "End Encounter" }, no: { label: "Cancel", default: true }, rejectClose: false,
-  });
+  override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve" || target.dataset.action === "confirm-end") void finish(token, true, this); if (target.dataset.action === "reject") void finish(token, false, this); }
 }
 
 async function finish(token: string, approve: boolean, app: CombatWriteApprovalPanel): Promise<void> {

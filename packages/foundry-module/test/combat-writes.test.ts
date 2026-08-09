@@ -7,14 +7,13 @@ const originalUi = Object.getOwnPropertyDescriptor(globalThis, "ui");
 let captureCombatWriteSnapshot: typeof import("../src/capabilities/combat-writes.js").captureCombatWriteSnapshot;
 let executeCombatWrite: typeof import("../src/capabilities/combat-writes.js").executeCombatWrite;
 let notifyCombatWriteResult: typeof import("../src/capabilities/combat-writes.js").notifyCombatWriteResult;
-let confirmEndCombatDestruction: typeof import("../src/capabilities/combat-writes.js").confirmEndCombatDestruction;
 let replaceApprovalQueueHtml: typeof import("../src/approval-queue-panel.js").replaceApprovalQueueHtml;
 
 before(async () => {
   class TestApplicationV2 {}
   Object.defineProperty(globalThis, "foundry", { configurable: true, value: { applications: { api: { ApplicationV2: TestApplicationV2, DialogV2: { async confirm() { return false; } } } } } });
   ({ replaceApprovalQueueHtml } = await import("../src/approval-queue-panel.js"));
-  ({ captureCombatWriteSnapshot, executeCombatWrite, notifyCombatWriteResult, confirmEndCombatDestruction } = await import("../src/capabilities/combat-writes.js"));
+  ({ captureCombatWriteSnapshot, executeCombatWrite, notifyCombatWriteResult } = await import("../src/capabilities/combat-writes.js"));
 });
 
 afterEach(() => {
@@ -120,14 +119,13 @@ test("end-combat execution rejects a stale roster without calling Foundry", asyn
   assert.equal((game.combats.active as unknown as { endCombatCalls: number }).endCombatCalls, 0);
 });
 
-test("end-combat uses a distinct destructive confirmation with cancel as the default", async () => {
+test("end-combat reports rejection when Foundry's native confirmation is cancelled", async () => {
   installGame();
   const snapshot = captureCombatWriteSnapshot();
-  let config: unknown;
-  (foundry.applications.api.DialogV2 as unknown as { confirm(value: unknown): Promise<boolean> }).confirm = async (value) => { config = value; return false; };
-  const confirmed = await confirmEndCombatDestruction({ action: "endCombat", combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" }, rationale: "Done.", beforeSummary: "Before.", afterSummary: "After.", snapshot });
-  assert.equal(confirmed, false);
-  assert.deepEqual(config, { window: { title: "End Active Combat?" }, content: "<p><strong>This will end Castle Battle.</strong></p><p>Round 2, turn 0, 2 combatants. This cannot be undone by LoreBridge.</p>", yes: { label: "End Encounter" }, no: { label: "Cancel", default: true }, rejectClose: false });
+  (game.combats.active as unknown as { endCombat(): Promise<unknown> }).endCombat = async () => game.combats.active;
+  const result = await executeCombatWrite({ proposal: { action: "endCombat", combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" }, rationale: "Done.", beforeSummary: "Before.", afterSummary: "After.", snapshot } });
+  assert.equal(result.outcome, "rejected");
+  assert.match(result.summary, /cancelled/i);
 });
 
 test("combat execution requires a GM and the separate feature gate", async () => {
