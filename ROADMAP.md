@@ -342,7 +342,7 @@ to identify likely sources before LoreBridge retrieves bounded content. This is
 the next implementation priority after the completed deployment-version
 housekeeping in [#224](https://github.com/Jonwh25/lorebridge/issues/224).
 
-1. [x] [Local-first hybrid search adapter using Spotlight and Foundry-native candidates](https://github.com/Jonwh25/lorebridge/issues/225)
+1. ✅ [Local-first hybrid search adapter using Spotlight and Foundry-native candidates](https://github.com/Jonwh25/lorebridge/issues/225)
 
 The adapter combines Spotlight Omnisearch metadata candidates with Foundry v14
 native collection search, then live-resolves every candidate and applies all
@@ -368,8 +368,8 @@ Extend the write-approval model to time-sensitive combat mutations without
 introducing automatic or generic Foundry writes.
 
 1. [Tracking epic: controlled combat write operations](https://github.com/Jonwh25/lorebridge/issues/106)
-2. [x] [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
-3. [Advance the active combat to the next turn](https://github.com/Jonwh25/lorebridge/issues/173)
+2. ✅ [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
+3. ✅ [Advance the active combat to the next turn](https://github.com/Jonwh25/lorebridge/issues/173)
 4. [Set one combatant initiative with conflict checks](https://github.com/Jonwh25/lorebridge/issues/174)
 5. [End the active combat with destructive confirmation](https://github.com/Jonwh25/lorebridge/issues/175)
 
