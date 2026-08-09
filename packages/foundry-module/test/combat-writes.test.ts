@@ -11,7 +11,7 @@ let replaceApprovalQueueHtml: typeof import("../src/approval-queue-panel.js").re
 
 before(async () => {
   class TestApplicationV2 {}
-  Object.defineProperty(globalThis, "foundry", { configurable: true, value: { applications: { api: { ApplicationV2: TestApplicationV2 } } } });
+  Object.defineProperty(globalThis, "foundry", { configurable: true, value: { applications: { api: { ApplicationV2: TestApplicationV2, DialogV2: { async confirm() { return false; } } } } } });
   ({ replaceApprovalQueueHtml } = await import("../src/approval-queue-panel.js"));
   ({ captureCombatWriteSnapshot, executeCombatWrite, notifyCombatWriteResult } = await import("../src/capabilities/combat-writes.js"));
 });
@@ -25,11 +25,13 @@ function installGame(turn = 0, round = 2): void {
   const combatants = [{ id: "cb1", name: "Strahd", initiative: 20, hidden: false, isDefeated: false }, { id: "cb2", name: "Ireena", initiative: 15, hidden: false, isDefeated: false }];
   const combat = { id: "c1", uuid: "Combat.c1", name: "Castle Battle", scene: { id: "s1" }, active: true, started: true, current: { round, turn }, combatant: combatants[turn]!, turns: combatants,
     async nextTurn() { this.current.turn = (this.current.turn + 1) % this.turns.length; if (this.current.turn === 0) this.current.round += 1; this.combatant = this.turns[this.current.turn]!; return this; },
+    endCombatCalls: 0,
+    async endCombat() { this.endCombatCalls += 1; this.active = false; this.started = false; return this; },
     async setInitiative(id: string, value: number) { const currentId = this.combatant.id; const target = this.turns.find((entry) => entry.id === id); if (target) target.initiative = value; this.turns.sort((left, right) => right.initiative - left.initiative || left.name.localeCompare(right.name)); this.current.turn = this.turns.findIndex((entry) => entry.id === currentId); this.combatant = this.turns[this.current.turn]!; } };
   Object.defineProperty(globalThis, "game", { configurable: true, value: {
     user: { id: "gm1", name: "GM", isGM: true }, world: { id: "cos", title: "Curse of Strahd" },
     settings: { get(_module: string, key: string) { if (key === "combatWritesEnabled") return true; if (key === "backendUrl") return "https://example.invalid"; if (key === "clientToken") return "token"; return false; } },
-    combats: { active: combat },
+    combats: { active: combat }, scenes: { get(id: string) { return id === "s1" ? { name: "Castle Ravenloft" } : undefined; } },
   } });
 }
 
@@ -96,6 +98,34 @@ test("set-initiative execution rejects an already-modified target without anothe
   const result = await executeCombatWrite({ proposal });
   assert.equal(result.outcome, "stale");
   assert.equal(game.combats.active!.turns[1]!.initiative, 18);
+});
+
+test("end-combat execution calls Foundry once and returns the bounded ended encounter", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  const proposal = { action: "endCombat" as const, combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" }, rationale: "Encounter is complete.", beforeSummary: "Active encounter.", afterSummary: "Encounter ends.", snapshot };
+  const result = await executeCombatWrite({ proposal });
+  assert.equal(result.outcome, "approved");
+  assert.equal((game.combats.active as unknown as { endCombatCalls: number }).endCombatCalls, 1);
+  assert.deepEqual(result.endedCombat, { combatUuid: "Combat.c1", combatName: "Castle Battle", sceneId: "s1", sceneName: "Castle Ravenloft", round: 2, turn: 0, combatantCount: 2 });
+});
+
+test("end-combat execution rejects a stale roster without calling Foundry", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  const proposal = { action: "endCombat" as const, combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" }, rationale: "Encounter is complete.", beforeSummary: "Active encounter.", afterSummary: "Encounter ends.", snapshot };
+  game.combats.active!.turns.reverse();
+  assert.equal((await executeCombatWrite({ proposal })).outcome, "stale");
+  assert.equal((game.combats.active as unknown as { endCombatCalls: number }).endCombatCalls, 0);
+});
+
+test("end-combat reports rejection when Foundry's native confirmation is cancelled", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  (game.combats.active as unknown as { endCombat(): Promise<unknown> }).endCombat = async () => game.combats.active;
+  const result = await executeCombatWrite({ proposal: { action: "endCombat", combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" }, rationale: "Done.", beforeSummary: "Before.", afterSummary: "After.", snapshot } });
+  assert.equal(result.outcome, "rejected");
+  assert.match(result.summary, /cancelled/i);
 });
 
 test("combat execution requires a GM and the separate feature gate", async () => {

@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import {
   EXECUTE_COMBAT_WRITE_CAPABILITY,
+  COMBAT_WRITE_END_COMBAT_ACTION,
   GET_ACTOR_CAPABILITY,
   GET_JOURNAL_PAGE_CAPABILITY,
   GET_SCENE_CAPABILITY,
@@ -530,7 +531,11 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     if (!token) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } }); return; }
     try {
       const entry = combatWrites.consume(token, approvalProof);
-      const result = await adapterSessions.invoke<CombatWriteAuditResult>(entry.sourceId, EXECUTE_COMBAT_WRITE_CAPABILITY, { proposal: entry.proposal });
+      // Combat.endCombat() intentionally presents Foundry's native destructive
+      // confirmation. Give the GM time to respond without weakening timeouts for
+      // any other adapter operation.
+      const timeoutMs = entry.proposal.action === COMBAT_WRITE_END_COMBAT_ACTION ? 60_000 : 5_000;
+      const result = await adapterSessions.invoke<CombatWriteAuditResult>(entry.sourceId, EXECUTE_COMBAT_WRITE_CAPABILITY, { proposal: entry.proposal }, timeoutMs);
       const validation = validateCombatWriteAuditResult(result);
       if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "Foundry returned an invalid combat-write audit result.", false, { validationErrors: validation.errors });
       sendJson(response, 200, validation.value);

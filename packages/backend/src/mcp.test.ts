@@ -199,6 +199,7 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
       } else if (message.capability === "proposeCombatWrite") {
         const action = (message.input as { action: string }).action;
         if (action === "nextTurn") assert.deepEqual(message.input, { action: "nextTurn", rationale: "Continue the encounter." });
+        else if (action === "endCombat") assert.deepEqual(message.input, { action: "endCombat", rationale: "The encounter is complete." });
         else assert.deepEqual(message.input, { action: "setInitiative", combatantId: "cb2", initiative: 18, rationale: "Correct the roll." });
       }
       const output = message.capability === "searchJournals"
@@ -282,6 +283,14 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
               rationale: "Continue the encounter.", beforeSummary: "Strahd is active.", afterSummary: "Ireena will be active.",
               snapshot: { combatUuid: "Combat.c1", combatName: "Castle Battle", round: 2, turn: 0, currentCombatantId: "cb1", combatants: [{ id: "cb1", name: "Strahd", initiative: 20 }, { id: "cb2", name: "Ireena", initiative: 15 }], fingerprint: "fnv1a-deadbeef" },
               token: "combat-token", expiresAt: "2026-08-08T12:01:00.000Z", instruction: "Approve in Foundry.",
+            }
+        : message.capability === "proposeCombatWrite" && (message.input as { action: string }).action === "endCombat"
+          ? {
+              action: "endCombat", combatUuid: "Combat.c1", expectedRound: 2, expectedTurn: 0,
+              target: { combatUuid: "Combat.c1" }, parameters: { confirmation: "end-active-combat" },
+              rationale: "The encounter is complete.", beforeSummary: "Castle Battle is active.", afterSummary: "Castle Battle will end.",
+              snapshot: { combatUuid: "Combat.c1", combatName: "Castle Battle", sceneId: "s1", round: 2, turn: 0, currentCombatantId: "cb1", combatants: [{ id: "cb1", name: "Strahd", initiative: 20 }, { id: "cb2", name: "Ireena", initiative: 15 }], fingerprint: "fnv1a-deadbeef" },
+              token: "end-token", expiresAt: "2026-08-08T12:01:00.000Z", instruction: "Confirm in Foundry.",
             }
         : message.capability === "proposeCombatWrite"
           ? {
@@ -397,9 +406,9 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["next_turn", "set_initiative", "get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "list_macro_tools", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
+      ["end_combat", "next_turn", "set_initiative", "get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "list_macro_tools", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
     );
-    const readOnlyTools = tools.tools.filter((t) => t.name !== "next_turn" && t.name !== "set_initiative" && t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice" && t.name !== "call_macro_tool");
+    const readOnlyTools = tools.tools.filter((t) => t.name !== "end_combat" && t.name !== "next_turn" && t.name !== "set_initiative" && t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice" && t.name !== "call_macro_tool");
     assert.ok(readOnlyTools.every((tool) => tool.annotations?.readOnlyHint));
     const proposeToolAnnotations = tools.tools.find((t) => t.name === "propose_journal_update")?.annotations;
     assert.equal(proposeToolAnnotations?.readOnlyHint, false);
@@ -407,6 +416,7 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     assert.equal(nextTurnAnnotations?.readOnlyHint, false);
     assert.equal(nextTurnAnnotations?.idempotentHint, false);
     assert.equal(tools.tools.find((t) => t.name === "set_initiative")?.annotations?.readOnlyHint, false);
+    assert.equal(tools.tools.find((t) => t.name === "end_combat")?.annotations?.destructiveHint, true);
 
     const nextTurnResult = await client.callTool({ name: "next_turn", arguments: { rationale: "Continue the encounter.", sourceId: "foundry:cos" } });
     assert.equal(nextTurnResult.isError, undefined);
@@ -414,6 +424,9 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     const initiativeResult = await client.callTool({ name: "set_initiative", arguments: { combatantId: "cb2", initiative: 18, rationale: "Correct the roll.", sourceId: "foundry:cos" } });
     assert.equal(initiativeResult.isError, undefined);
     assert.equal((initiativeResult.structuredContent as { action: string }).action, "setInitiative");
+    const endResult = await client.callTool({ name: "end_combat", arguments: { rationale: "The encounter is complete.", sourceId: "foundry:cos" } });
+    assert.equal(endResult.isError, undefined);
+    assert.equal((endResult.structuredContent as { action: string }).action, "endCombat");
 
     const result = await client.callTool({
       name: "get_world_summary",

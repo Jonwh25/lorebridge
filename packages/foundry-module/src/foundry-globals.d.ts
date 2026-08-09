@@ -217,6 +217,7 @@ type FoundryCombat = {
   turns: FoundryCombatant[];
   nextTurn(): Promise<FoundryCombat>;
   setInitiative(id: string, value: number): Promise<void>;
+  endCombat(): Promise<FoundryCombat>;
 };
 
 type FoundryCombatCollection = Iterable<FoundryCombat> & {
