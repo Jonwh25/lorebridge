@@ -371,7 +371,7 @@ introducing automatic or generic Foundry writes.
 2. ✅ [Combat-write approval contract, state snapshots, and GM UI](https://github.com/Jonwh25/lorebridge/issues/172)
 3. ✅ [Advance the active combat to the next turn](https://github.com/Jonwh25/lorebridge/issues/173)
 4. ✅ [Set one combatant initiative with conflict checks](https://github.com/Jonwh25/lorebridge/issues/174)
-5. [End the active combat with destructive confirmation](https://github.com/Jonwh25/lorebridge/issues/175)
+5. ✅ [End the active combat with destructive confirmation](https://github.com/Jonwh25/lorebridge/issues/175)
 
 Combat writes are disabled by default. Every operation is narrowly typed,
 GM-only, previewed, short-lived, single-use, validated against a captured
