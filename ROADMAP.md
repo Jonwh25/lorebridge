@@ -438,6 +438,42 @@ reviewable timeline of important interactions and relationship changes, and a
 new roleplay or profile-generation request incorporates approved memories
 without rewriting unrelated NPC data.
 
+### Milestone 24 — Session and Character Portability
+
+Replace the remaining Character Vault workflows with bounded, GM-controlled
+session provisioning, hotbar distribution, reset operations, and
+permission-safe player character portability.
+
+1. [Bulk user and actor creation with random passwords](https://github.com/Jonwh25/lorebridge/issues/230)
+2. [Copy GM hotbar to all connected players](https://github.com/Jonwh25/lorebridge/issues/231)
+3. [Remove all non-GM users for session reset](https://github.com/Jonwh25/lorebridge/issues/232)
+4. [Player-driven actor import from GitHub backup](https://github.com/Jonwh25/lorebridge/issues/228)
+
+The first three operations form a repeatable GM-controlled table setup and
+reset workflow. User deletion and hotbar replacement must remain previewed,
+explicitly confirmed, and narrowly targeted. Player-driven actor import is the
+higher-risk final slice because it introduces LoreBridge's first player-visible
+write surface; it must enforce actor ownership and prevent access to other
+players' or GM-only backup data.
+
+Success test: a GM can provision a new group, distribute approved hotbar pages,
+and reset non-GM accounts with clear previews and confirmations. An authorized
+player can restore only a character they own from the permitted backup surface,
+with no access to other actors, GM data, or repository secrets.
+
+### Post-Milestone 24 — Roadmap and 1.0 Readiness Review
+
+After Milestone 24, reassess deferred issues, newly discovered work, operational
+evidence, and release maturity through [#244](https://github.com/Jonwh25/lorebridge/issues/244).
+This is a decision gate, not an automatic commitment to release 1.0.
+
+The review will choose among four explicit outcomes: pull justified deferred or
+new work into the pre-1.0 roadmap, continue beta validation, begin a dedicated
+1.0 hardening and stable-release milestone, or place remaining enhancements
+after 1.0. Security, permission, data-integrity, installation, upgrade, and core
+contract risks may block a stable release; optional additive features do not
+block 1.0 without evidence that they are essential to the dependable core.
+
 ## Deferred work
 
 The following tracked features remain outside the current delivery milestones:
