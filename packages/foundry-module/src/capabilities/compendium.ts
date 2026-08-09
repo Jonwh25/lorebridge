@@ -16,6 +16,7 @@ import {
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 import { collectCompendiumCandidateUuids } from "./search-candidates.js";
+import { getActiveProfile, mergeProfileCompendiumExclusions } from "./context-profile.js";
 
 const DEFAULT_LIMIT = 20;
 
@@ -55,8 +56,10 @@ function requirePacks(): FoundryCompendiumCollection {
 function excludedPackIds(): Set<string> {
   try {
     const raw = getLoreBridgeSettings().excludedCompendiums;
-    if (!raw) return new Set();
-    return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+    const globalExcluded: Set<string> = raw
+      ? new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))
+      : new Set();
+    return mergeProfileCompendiumExclusions(getActiveProfile(), globalExcluded);
   } catch {
     return new Set();
   }
