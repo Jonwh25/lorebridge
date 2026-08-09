@@ -4,11 +4,22 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-08-08
+
 ### Added
 
+- **Controlled combat-write foundation** (#172): a separate, disabled-by-default world setting enables narrowly typed combat proposals with compact GM previews, complete bounded state snapshots, short-lived single-use approval tokens, stable combat UUID targeting, fresh-state fingerprints, and bounded audit results. Changed combats, rounds, turns, rosters, and relevant initiatives are rejected before mutation.
 - **GM-approved next-turn combat advance** (#173): AI clients can use `next_turn` to preview the current and expected next combatant, including round rollover, and request one explicit GM approval. LoreBridge revalidates the active combat UUID, round, turn, and complete ordered roster immediately before calling Foundry v14's `Combat.nextTurn()`, then returns the resulting round, turn, and combatant in a bounded audit result.
 - **GM-approved initiative correction** (#174): AI clients can use `set_initiative` to target one combatant by stable ID, preview its old and proposed initiative plus expected position, and request one explicit GM approval. LoreBridge rejects non-finite or out-of-range values before proposal creation, revalidates the combatant and complete roster before calling Foundry v14's `Combat.setInitiative()`, and returns the resulting bounded combat order.
 - **Distinctly confirmed combat ending** (#175): AI clients can use `end_combat` to preview the active encounter, scene, round, turn, and combatant count. Foundry requires a separate destructive confirmation, revalidates the complete active-combat snapshot, and calls the public `Combat.endCombat()` API without deleting combat history or chat.
+
+### Security
+
+- Combat writes remain GM-only, disabled by default, and unavailable to Player Lore. LoreBridge exposes no arbitrary Foundry method or JavaScript execution, and rejected, expired, reused, mismatched, or stale proposals cannot reach a mutation.
+
+### Compatibility
+
+- Controlled combat operations use the documented Foundry VTT v14 `Combat` APIs. The end-combat approval path allows up to 60 seconds for the GM to answer Foundry's native destructive confirmation; cancellation is recorded without ending combat.
 
 ## [0.19.0] - 2026-08-08
 

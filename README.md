@@ -26,6 +26,8 @@ Foundry documents or provider credentials.
   stat blocks, portraits, and in-character dialogue inside Foundry.
 - Review AI-proposed journal changes with a diff, explicit GM approval, and
   rollback support.
+- With a separate opt-in, ask the GM to approve advancing one combat turn,
+  correcting one combatant's initiative, or ending the active encounter.
 - Check campaign health, audit consistency, scope searches with Context
   Profiles, and back up supported content to a private GitHub repository.
 
@@ -77,7 +79,7 @@ or rebuilding, native search and content scanners remain available.
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, and optional voice responses |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
-| Controlled writes | Previewed journal updates, single-use GM approval, batch review, diffs, and rollback |
+| Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |
 | Extensibility | GM-authored macro tools exposed through an explicit declaration and feature gate |
 
