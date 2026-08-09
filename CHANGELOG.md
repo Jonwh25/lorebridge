@@ -8,6 +8,7 @@ All notable changes to LoreBridge are documented here.
 
 - **GM-approved next-turn combat advance** (#173): AI clients can use `next_turn` to preview the current and expected next combatant, including round rollover, and request one explicit GM approval. LoreBridge revalidates the active combat UUID, round, turn, and complete ordered roster immediately before calling Foundry v14's `Combat.nextTurn()`, then returns the resulting round, turn, and combatant in a bounded audit result.
 - **GM-approved initiative correction** (#174): AI clients can use `set_initiative` to target one combatant by stable ID, preview its old and proposed initiative plus expected position, and request one explicit GM approval. LoreBridge rejects non-finite or out-of-range values before proposal creation, revalidates the combatant and complete roster before calling Foundry v14's `Combat.setInitiative()`, and returns the resulting bounded combat order.
+- **Distinctly confirmed combat ending** (#175): AI clients can use `end_combat` to preview the active encounter, scene, round, turn, and combatant count. Foundry requires a separate destructive confirmation, revalidates the complete active-combat snapshot, and calls the public `Combat.endCombat()` API without deleting combat history or chat.
 
 ## [0.19.0] - 2026-08-08
 

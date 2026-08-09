@@ -11,6 +11,7 @@ import {
   PROPOSE_COMBAT_WRITE_CAPABILITY,
   COMBAT_WRITE_NEXT_TURN_ACTION,
   COMBAT_WRITE_SET_INITIATIVE_ACTION,
+  COMBAT_WRITE_END_COMBAT_ACTION,
   COMBAT_WRITE_INITIATIVE_MIN,
   COMBAT_WRITE_INITIATIVE_MAX,
   ROLL_DICE_CAPABILITY,
@@ -95,6 +96,7 @@ const activeSceneToolName = "get_active_scene";
 const combatStateToolName = "get_combat_state";
 const nextTurnToolName = "next_turn";
 const setInitiativeToolName = "set_initiative";
+const endCombatToolName = "end_combat";
 const rollDiceToolName = "roll_dice";
 const chatMessagesToolName = "get_chat_messages";
 const searchAssetsToolName = "search_assets";
@@ -114,6 +116,27 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     name: "lorebridge",
     version: "0.2.0",
   });
+
+  server.registerTool(
+    endCombatToolName,
+    {
+      title: "End the active combat",
+      description: "Propose ending only the connected Foundry world's active, started combat. The GM receives the encounter, scene, round, turn, and roster-size preview, then must complete a distinct destructive confirmation before LoreBridge calls Foundry's public Combat.endCombat() API.",
+      inputSchema: z.object({
+        rationale: z.string().trim().min(1).max(500).describe("Why the active combat should end. This is shown to the GM."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ rationale, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, PROPOSE_COMBAT_WRITE_CAPABILITY, { action: COMBAT_WRITE_END_COMBAT_ACTION, rationale });
+        const validation = validateCombatWriteProposalResult(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid end-combat proposal.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) { return toolError(error, "LoreBridge could not propose ending the active combat."); }
+    },
+  );
 
   server.registerTool(
     nextTurnToolName,

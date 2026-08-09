@@ -2,6 +2,7 @@ import {
   COMBAT_WRITE_TEST_ACTION,
   COMBAT_WRITE_NEXT_TURN_ACTION,
   COMBAT_WRITE_SET_INITIATIVE_ACTION,
+  COMBAT_WRITE_END_COMBAT_ACTION,
   validateCombatWriteAuditResult,
   validateCombatWriteProposal,
   validateExecuteCombatWriteInput,
@@ -44,9 +45,11 @@ export function captureCombatWriteSnapshot(): CombatWriteSnapshot {
   if (!combatUuid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "The active combat does not have a stable UUID.");
   if (combat.turns.length > 200) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Controlled combat writes support at most 200 combatants so the complete roster can be revalidated.");
   const combatants = combat.turns.map((entry) => ({ id: entry.id, name: entry.name || "Unnamed Combatant", initiative: typeof entry.initiative === "number" ? entry.initiative : null }));
+  const sceneName = combat.scene?.id ? game.scenes.get(combat.scene.id)?.name : undefined;
   const base = {
     combatUuid, combatName: combat.name || "Active Combat",
     ...(combat.scene?.id ? { sceneId: combat.scene.id } : {}),
+    ...(sceneName ? { sceneName } : {}),
     round: round as number, turn: turn as number,
     ...(combat.combatant?.id ? { currentCombatantId: combat.combatant.id } : {}),
     combatants,
@@ -109,6 +112,20 @@ export async function proposeCombatWrite(input: ProposeCombatWriteInput): Promis
   if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Combat-write proposal input is invalid.", { details: { validationErrors: validation.errors } });
   const proposed = validation.value;
   const snapshot = captureCombatWriteSnapshot();
+  if (proposed.action === COMBAT_WRITE_END_COMBAT_ACTION) {
+    const proposal: CombatWriteProposal = {
+      action: COMBAT_WRITE_END_COMBAT_ACTION, combatUuid: snapshot.combatUuid,
+      expectedRound: snapshot.round, expectedTurn: snapshot.turn,
+      target: { combatUuid: snapshot.combatUuid }, parameters: { confirmation: "end-active-combat" },
+      rationale: proposed.rationale,
+      beforeSummary: `${snapshot.combatName}: scene ${snapshot.sceneName ?? snapshot.sceneId ?? "none"}, round ${snapshot.round}, turn ${snapshot.turn}, ${snapshot.combatants.length} combatants.`,
+      afterSummary: "The active encounter ends and leaves the combat tracker. Combat history and chat messages are not deleted.", snapshot,
+    };
+    const proposalValidation = validateCombatWriteProposal(proposal);
+    if (!proposalValidation.valid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "End-combat proposal is invalid.", { details: { validationErrors: proposalValidation.errors } });
+    const approvalProof = crypto.randomUUID();
+    return post<CombatWriteProposalResult>("/v1/combat-write/propose", { proposal, sourceId: `foundry:${game.world.id}`, approvalProof });
+  }
   if (proposed.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
     const target = snapshot.combatants.find((combatant) => combatant.id === proposed.combatantId);
     if (!target) throw new LoreBridgeCapabilityError("NOT_FOUND", "The selected combatant is not in the active combat.");
@@ -172,6 +189,16 @@ export async function executeCombatWrite(input: ExecuteCombatWriteInput): Promis
     return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The active combat changed after preview. No mutation was attempted.", stateFingerprint: current.fingerprint };
   }
   if (proposal.action === COMBAT_WRITE_TEST_ACTION) return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Synthetic combat-write approval reached the action handler with an unchanged snapshot. No mutation was performed.", stateFingerprint: current.fingerprint };
+
+  if (proposal.action === COMBAT_WRITE_END_COMBAT_ACTION) {
+    const combat = game.combats.active;
+    if (!combat || combat.uuid !== proposal.combatUuid || !combat.active || !combat.started) {
+      return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The previewed combat is no longer the active started combat. No mutation was attempted." };
+    }
+    const endedCombat = { combatUuid: current.combatUuid, combatName: current.combatName, ...(current.sceneId ? { sceneId: current.sceneId } : {}), ...(current.sceneName ? { sceneName: current.sceneName } : {}), round: current.round, turn: current.turn, combatantCount: current.combatants.length };
+    await combat.endCombat();
+    return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: `Ended ${current.combatName} at round ${current.round}, turn ${current.turn}.`, stateFingerprint: current.fingerprint, endedCombat };
+  }
 
   if (proposal.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
     const combatantId = proposal.parameters.combatantId;
@@ -252,21 +279,37 @@ function compareInitiative(left: CombatWriteSnapshot["combatants"][number], righ
 function renderProposal(value: FoundryCombatWriteApprovalPayload): string {
   const expiry = new Date(value.expiresAt).toLocaleTimeString();
   return `<section class="lb-combat-approval" data-token="${escapeHtml(value.token)}">
-    <header><strong>${value.action === COMBAT_WRITE_NEXT_TURN_ACTION ? "Advance Next Turn" : value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION ? "Set Initiative" : "Safety Test"} — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
+    <header><strong>${value.action === COMBAT_WRITE_NEXT_TURN_ACTION ? "Advance Next Turn" : value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION ? "Set Initiative" : value.action === COMBAT_WRITE_END_COMBAT_ACTION ? "End Active Combat" : "Safety Test"} — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
     <div class="lb-combat-approval__body">
       <p><strong>Target:</strong> ${escapeHtml(value.combatUuid)}</p>
       <p><strong>Expected state:</strong> Round ${value.expectedRound}, turn ${value.expectedTurn}, ${value.snapshot.combatants.length} combatants</p>
       <div class="lb-combat-approval__change"><div><strong>Before</strong><p>${escapeHtml(value.beforeSummary)}</p></div><div><strong>After</strong><p>${escapeHtml(value.afterSummary)}</p></div></div>
       <p class="hint">${escapeHtml(value.rationale)}</p>
+      ${value.action === COMBAT_WRITE_END_COMBAT_ACTION ? '<p class="warning"><strong>Destructive action:</strong> ending this encounter requires a separate confirmation.</p>' : ""}
     </div>
-    <footer><button type="button" data-action="reject" data-token="${escapeHtml(value.token)}"><i class="fas fa-times"></i> Reject</button><button type="button" data-action="approve" data-token="${escapeHtml(value.token)}"><i class="fas fa-check"></i> Approve Once</button></footer>
+    <footer><button type="button" data-action="reject" data-token="${escapeHtml(value.token)}"><i class="fas fa-times"></i> Reject</button><button type="button" data-action="${value.action === COMBAT_WRITE_END_COMBAT_ACTION ? "confirm-end" : "approve"}" data-token="${escapeHtml(value.token)}"><i class="fas ${value.action === COMBAT_WRITE_END_COMBAT_ACTION ? "fa-skull-crossbones" : "fa-check"}"></i> ${value.action === COMBAT_WRITE_END_COMBAT_ACTION ? "End Encounter…" : "Approve Once"}</button></footer>
   </section>`;
 }
 
 class CombatWriteApprovalPanel extends ApprovalQueuePanel {
   static override DEFAULT_OPTIONS = { id: "lorebridge-combat-write-approval", classes: ["lorebridge-approval-queue", "lorebridge-combat-write-approval"], window: { title: "LoreBridge — Combat Approval", resizable: true }, position: { width: 560, height: 460 } };
   protected override renderApprovalQueueHtml(): string { return [...pending.values()].map(renderProposal).join("") || "<p>No pending combat proposals.</p>"; }
-  override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve") void finish(token, true, this); if (target.dataset.action === "reject") void finish(token, false, this); }
+  override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve") void finish(token, true, this); if (target.dataset.action === "confirm-end") void confirmEndCombat(token, this); if (target.dataset.action === "reject") void finish(token, false, this); }
+}
+
+async function confirmEndCombat(token: string, app: CombatWriteApprovalPanel): Promise<void> {
+  const proposal = pending.get(token); if (!proposal || proposal.action !== COMBAT_WRITE_END_COMBAT_ACTION) return;
+  const confirmed = await confirmEndCombatDestruction(proposal);
+  if (confirmed) await finish(token, true, app);
+}
+
+export async function confirmEndCombatDestruction(proposal: CombatWriteProposal): Promise<boolean> {
+  if (proposal.action !== COMBAT_WRITE_END_COMBAT_ACTION) return false;
+  return foundry.applications.api.DialogV2.confirm({
+    window: { title: "End Active Combat?" },
+    content: `<p><strong>This will end ${escapeHtml(proposal.snapshot.combatName)}.</strong></p><p>Round ${proposal.expectedRound}, turn ${proposal.expectedTurn}, ${proposal.snapshot.combatants.length} combatants. This cannot be undone by LoreBridge.</p>`,
+    yes: { label: "End Encounter" }, no: { label: "Cancel", default: true }, rejectClose: false,
+  });
 }
 
 async function finish(token: string, approve: boolean, app: CombatWriteApprovalPanel): Promise<void> {

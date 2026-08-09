@@ -32,9 +32,17 @@ test("rejects mismatched, unbounded, and arbitrary combat writes", () => {
   assert.equal(validateCombatWriteProposal({ ...proposal, action: "setInitiative", parameters: { combatantId: "cb1", expectedInitiative: 20, initiative: 25 } }).valid, true);
   assert.equal(validateCombatWriteProposal({ ...proposal, action: "setInitiative", parameters: { combatantId: "cb1", expectedInitiative: 20, initiative: Number.POSITIVE_INFINITY } }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, action: "setInitiative", parameters: { combatantId: "missing", expectedInitiative: 20, initiative: 25 } }).valid, false);
+  assert.equal(validateCombatWriteProposal({ ...proposal, action: "endCombat", parameters: { confirmation: "end-active-combat" } }).valid, true);
+  assert.equal(validateCombatWriteProposal({ ...proposal, action: "endCombat", parameters: { confirmation: "yes" } }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, combatUuid: "Combat.other" }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, parameters: { method: "delete" } }).valid, false);
   assert.equal(validateCombatWriteProposal({ ...proposal, snapshot: { ...snapshot, combatants: Array.from({ length: 201 }, (_, index) => ({ id: `c${index}`, initiative: null })) } }).valid, false);
+});
+
+test("requires a bounded encounter summary for an approved combat ending", () => {
+  const base = { action: "endCombat", target: { combatUuid: "Combat.c1" }, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Ended combat." };
+  assert.equal(validateCombatWriteAuditResult(base).valid, false);
+  assert.equal(validateCombatWriteAuditResult({ ...base, endedCombat: { combatUuid: "Combat.c1", combatName: "Castle Battle", sceneId: "s1", round: 2, turn: 1, combatantCount: 2 } }).valid, true);
 });
 
 test("requires bounded resulting order for approved initiative writes", () => {

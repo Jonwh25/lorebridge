@@ -217,6 +217,7 @@ type FoundryCombat = {
   turns: FoundryCombatant[];
   nextTurn(): Promise<FoundryCombat>;
   setInitiative(id: string, value: number): Promise<void>;
+  endCombat(): Promise<FoundryCombat>;
 };
 
 type FoundryCombatCollection = Iterable<FoundryCombat> & {
@@ -254,6 +255,7 @@ declare const foundry: {
     api: {
       ApplicationV2: typeof FoundryApplicationV2;
       DialogV2: {
+        confirm(config: { window?: { title?: string }; content: string; yes?: { label?: string; default?: boolean }; no?: { label?: string; default?: boolean }; rejectClose?: boolean }): Promise<boolean>;
         new(config: {
           classes?: string[];
           window?: { title?: string; resizable?: boolean };
