@@ -41,7 +41,7 @@ All current capabilities are read-only.
 
 ## Delivery order
 
-### Milestone 1 — Campaign Retrieval ✅
+### Milestone 1 — Campaign Retrieval ✅ Complete
 
 Complete the focused read-only Foundry document surface needed for everyday
 campaign questions.
@@ -54,7 +54,7 @@ campaign questions.
 Success test: Codex can answer a location or NPC question from live Foundry
 actors, journals, and scenes while identifying every supporting source.
 
-### Milestone 2 — Connected Knowledge ✅
+### Milestone 2 — Connected Knowledge ✅ Complete
 
 Connect campaign documents without introducing embeddings or an external
 search database.
@@ -67,7 +67,7 @@ search database.
 Success test: a query about a location returns ranked, connected journal,
 actor, and scene context while respecting the requested visibility mode.
 
-### Milestone 3 — Foundry AI Generation ✅
+### Milestone 3 — Foundry AI Generation ✅ Complete
 
 Add optional AI generation inside Foundry without coupling MCP retrieval to one
 provider or placing provider credentials in the browser.
@@ -78,7 +78,7 @@ provider or placing provider credentials in the browser.
 Success test: a GM selects a scene or journal page, requests a room
 description, and receives a source-aware preview without changing the world.
 
-### Milestone 4 — Campaign Intelligence ✅
+### Milestone 4 — Campaign Intelligence ✅ Complete
 
 Expand retrieval into the campaign's equipment, history, and reference
 material.
@@ -90,7 +90,7 @@ material.
 Success test: Codex can answer questions about party equipment, past events,
 and approved compendium material with supporting sources.
 
-### Milestone 5 — Controlled Writes ✅
+### Milestone 5 — Controlled Writes ✅ Complete
 
 Introduce narrowly scoped Foundry mutations only after the read-only model is
 stable.
@@ -112,7 +112,7 @@ Required safeguards:
 Success test: no write occurs until the GM approves the exact proposed change,
 and stale or reused approval tokens are rejected.
 
-### Milestone 6 — Write Approval UI ✅
+### Milestone 6 — Write Approval UI ✅ Complete
 
 Replace the console-based approval command with a native Foundry GM experience.
 
@@ -125,7 +125,7 @@ Approve and Reject buttons. No browser console access required.
 Success test: GM can approve or reject a proposed journal update entirely within
 the Foundry UI; expired and reused tokens are still rejected.
 
-### Milestone 7 — Foundry UI: Chat & Core Buttons ✅
+### Milestone 7 — Foundry UI: Chat & Core Buttons ✅ Complete
 
 First GM-facing AI controls living inside Foundry — no MCP client or browser
 console required.
@@ -139,7 +139,7 @@ Success test: a GM can type a question or click a button inside Foundry and
 receive an AI-generated result without leaving the application or using the
 browser console.
 
-### Milestone 8 — Foundry UI: Scene, Journal & Roleplay ✅
+### Milestone 8 — Foundry UI: Scene, Journal & Roleplay ✅ Complete
 
 Complete the Foundry UI surface with scene-level tools and live NPC
 interaction.
@@ -152,7 +152,7 @@ Success test: a GM can ask the AI a question scoped to a specific journal or
 scene, and hold a short in-character conversation with an NPC, all from within
 Foundry.
 
-### Milestone 9 — World-Building Generation ✅
+### Milestone 9 — World-Building Generation ✅ Complete
 
 AI generates new campaign content and writes it back to Foundry through the
 existing approval flow.
@@ -166,7 +166,7 @@ Success test: a GM can ask the AI to generate a town, a session plan, or a
 roll table; review the proposed content; and approve it into the world in one
 flow without leaving Foundry.
 
-### Milestone 10 — MCP Tool Expansion ✅
+### Milestone 10 — MCP Tool Expansion ✅ Complete
 
 New read-only and utility MCP tools that give AI clients richer live-world
 context.
@@ -180,7 +180,7 @@ Success test: an AI client can query active combat state, roll dice, retrieve
 recent chat history, and locate existing image or audio assets in the Foundry
 data directory.
 
-### Milestone 11 — Extensibility & Configuration ✅
+### Milestone 11 — Extensibility & Configuration ✅ Complete
 
 Power-user controls that let GMs tailor LoreBridge to their world and workflow
 without requiring code changes.
@@ -192,8 +192,8 @@ without requiring code changes.
 Success test: a GM can disable individual capability categories, switch to a
 local Ollama model, and expose a custom macro as an MCP tool without touching
 the backend configuration.
-
-### Milestone 12 — Portable Campaign Backups ✅
+ 
+### Milestone 12 — Portable Campaign Backups ✅ Complete
 
 Export selected campaign content to a version-controlled repository and restore
 it through explicit, conflict-aware GM approval. The portable representation is
@@ -225,7 +225,7 @@ restore from a selected commit, explicitly approves it, and verifies that
 supported documents and references are restored without exposing secrets or
 overwriting unrelated content.
 
-### Milestone 13 — Write Quality & Post-Session Workflow ✅
+### Milestone 13 — Write Quality & Post-Session Workflow ✅ Complete
 
 Improve the write-approval experience and close the loop between session play
 and world documentation.
@@ -240,7 +240,7 @@ new world entries, approve a batch of proposed stubs in one review flow, see a
 character-level diff before each write lands, roll back a mistake without
 leaving Foundry, and hand players a clean shareable recap.
 
-### Milestone 14 — Campaign Curation & Integrity ✅
+### Milestone 14 — Campaign Curation & Integrity ✅ Complete
 
 Add source-backed tools that help a GM keep a long-running campaign coherent,
 healthy, and intentionally scoped without applying automatic corrections.
@@ -258,7 +258,7 @@ Success test: a GM audits a world, finds broken references and a seeded
 contradiction, scopes the audit to one campaign region, and reviews exact
 source citations without changing any document.
 
-### Milestone 15 — Live Session Workspace ✅
+### Milestone 15 — Live Session Workspace ✅ Complete
 
 Bring the most useful live-session context and roleplay controls into one
 GM-facing Foundry workspace.
@@ -275,7 +275,7 @@ Success test: a GM runs a session from one dashboard, reviews source-backed
 live context, addresses an enabled NPC through chat, and optionally hears the
 response without exposing hidden information.
 
-### Milestone 16 — NPC Creation & Reuse ✅
+### Milestone 16 — NPC Creation & Reuse ✅ Complete
 
 Turn LoreBridge's existing NPC generation into a reviewable, reusable creation
 workflow for complete D&D 5e actors and their artwork.
@@ -292,7 +292,7 @@ Success test: a GM generates a complete NPC, retains and reopens the output,
 reviews the mechanical data and portrait, and explicitly approves creation in
 Foundry without affecting unrelated actors or assets.
 
-### Milestone 17 — NPC Profiles & AI Workspace ✅
+### Milestone 17 — NPC Profiles & AI Workspace ✅ Complete
 
 Turn generated and existing NPCs into rich, modular GM references instead of a
 single block of generated text.
@@ -321,7 +321,7 @@ between structured profile sections, regenerates one section without changing
 the others, and confirms that generated languages populate the correct dnd5e
 language checkboxes rather than the free-text field.
 
-### Milestone 18 — Safe Player Access ✅
+### Milestone 18 — Safe Player Access ✅ Complete
 
 Expose an explicitly published, permission-checked subset of campaign lore to
 players inside Foundry.
