@@ -1,6 +1,7 @@
 import {
   COMBAT_WRITE_TEST_ACTION,
   COMBAT_WRITE_NEXT_TURN_ACTION,
+  COMBAT_WRITE_SET_INITIATIVE_ACTION,
   validateCombatWriteAuditResult,
   validateCombatWriteProposal,
   validateExecuteCombatWriteInput,
@@ -41,7 +42,8 @@ export function captureCombatWriteSnapshot(): CombatWriteSnapshot {
   if (!Number.isInteger(round) || (round as number) < 0 || !Number.isInteger(turn) || (turn as number) < 0) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "The active combat does not have a valid round and turn.");
   const combatUuid = combat.uuid;
   if (!combatUuid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "The active combat does not have a stable UUID.");
-  const combatants = combat.turns.slice(0, 200).map((entry) => ({ id: entry.id, name: entry.name || "Unnamed Combatant", initiative: typeof entry.initiative === "number" ? entry.initiative : null }));
+  if (combat.turns.length > 200) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Controlled combat writes support at most 200 combatants so the complete roster can be revalidated.");
+  const combatants = combat.turns.map((entry) => ({ id: entry.id, name: entry.name || "Unnamed Combatant", initiative: typeof entry.initiative === "number" ? entry.initiative : null }));
   const base = {
     combatUuid, combatName: combat.name || "Active Combat",
     ...(combat.scene?.id ? { sceneId: combat.scene.id } : {}),
@@ -105,7 +107,30 @@ export async function proposeCombatWrite(input: ProposeCombatWriteInput): Promis
   if (!game.world) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry world is not fully initialized.", { retryable: true });
   const validation = validateProposeCombatWriteInput(input);
   if (!validation.valid || !validation.value) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Combat-write proposal input is invalid.", { details: { validationErrors: validation.errors } });
+  const proposed = validation.value;
   const snapshot = captureCombatWriteSnapshot();
+  if (proposed.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
+    const target = snapshot.combatants.find((combatant) => combatant.id === proposed.combatantId);
+    if (!target) throw new LoreBridgeCapabilityError("NOT_FOUND", "The selected combatant is not in the active combat.");
+    const projected = snapshot.combatants.map((combatant) => combatant.id === target.id ? { ...combatant, initiative: proposed.initiative } : combatant).sort(compareInitiative);
+    const position = projected.findIndex((combatant) => combatant.id === target.id) + 1;
+    const proposal: CombatWriteProposal = {
+      action: COMBAT_WRITE_SET_INITIATIVE_ACTION,
+      combatUuid: snapshot.combatUuid,
+      expectedRound: snapshot.round,
+      expectedTurn: snapshot.turn,
+      target: { combatUuid: snapshot.combatUuid },
+      parameters: { combatantId: target.id, expectedInitiative: target.initiative, initiative: proposed.initiative },
+      rationale: proposed.rationale,
+      beforeSummary: `${target.name}: initiative ${target.initiative ?? "unassigned"}, position ${snapshot.combatants.findIndex((combatant) => combatant.id === target.id) + 1}.`,
+      afterSummary: `${target.name}: initiative ${proposed.initiative}, expected position ${position} of ${projected.length}. Foundry resolves ties using its normal ordering.`,
+      snapshot,
+    };
+    const proposalValidation = validateCombatWriteProposal(proposal);
+    if (!proposalValidation.valid) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Initiative proposal is invalid.", { details: { validationErrors: proposalValidation.errors } });
+    const approvalProof = crypto.randomUUID();
+    return post<CombatWriteProposalResult>("/v1/combat-write/propose", { proposal, sourceId: `foundry:${game.world.id}`, approvalProof });
+  }
   if (snapshot.combatants.length < 1 || snapshot.turn >= snapshot.combatants.length) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "The active combat does not have a valid next combatant.");
   const current = snapshot.combatants[snapshot.turn]!;
   const nextTurn = (snapshot.turn + 1) % snapshot.combatants.length;
@@ -118,7 +143,7 @@ export async function proposeCombatWrite(input: ProposeCombatWriteInput): Promis
     expectedTurn: snapshot.turn,
     target: { combatUuid: snapshot.combatUuid },
     parameters: { expectedNextCombatantId: next.id },
-    rationale: validation.value.rationale,
+    rationale: proposed.rationale,
     beforeSummary: `${snapshot.combatName}: round ${snapshot.round}, turn ${snapshot.turn} — ${current.name}.`,
     afterSummary: `${snapshot.combatName}: round ${nextRound}, turn ${nextTurn} — ${next.name}.`,
     snapshot,
@@ -147,6 +172,29 @@ export async function executeCombatWrite(input: ExecuteCombatWriteInput): Promis
     return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The active combat changed after preview. No mutation was attempted.", stateFingerprint: current.fingerprint };
   }
   if (proposal.action === COMBAT_WRITE_TEST_ACTION) return { action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(), summary: "Synthetic combat-write approval reached the action handler with an unchanged snapshot. No mutation was performed.", stateFingerprint: current.fingerprint };
+
+  if (proposal.action === COMBAT_WRITE_SET_INITIATIVE_ACTION) {
+    const combatantId = proposal.parameters.combatantId;
+    const expectedInitiative = proposal.parameters.expectedInitiative;
+    const initiative = proposal.parameters.initiative;
+    const target = current.combatants.find((combatant) => combatant.id === combatantId);
+    if (!target || target.initiative !== expectedInitiative || typeof initiative !== "number") {
+      return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The targeted combatant or its initiative changed after preview. No mutation was attempted.", stateFingerprint: current.fingerprint };
+    }
+    const combat = game.combats.active;
+    if (!combat || combat.uuid !== proposal.combatUuid || !combat.active || !combat.started) {
+      return { action: proposal.action, target: proposal.target, outcome: "stale", occurredAt: new Date().toISOString(), summary: "The previewed combat is no longer the active started combat. No mutation was attempted." };
+    }
+    await combat.setInitiative(target.id, initiative);
+    const resultingCombatants = combat.turns.slice(0, 200).map((combatant, index) => ({ id: combatant.id, name: combatant.name || "Unnamed Combatant", initiative: typeof combatant.initiative === "number" ? combatant.initiative : null, position: index + 1 }));
+    const resultingPosition = resultingCombatants.find((combatant) => combatant.id === target.id)?.position;
+    if (!resultingPosition) throw new LoreBridgeCapabilityError("INTERNAL_ERROR", "Foundry updated initiative but did not return the targeted combatant in the resulting order.");
+    return {
+      action: proposal.action, target: proposal.target, outcome: "approved", occurredAt: new Date().toISOString(),
+      summary: `Set ${target.name}'s initiative to ${initiative}; resulting position ${resultingPosition} of ${resultingCombatants.length}.`,
+      stateFingerprint: current.fingerprint, resultingCombatants,
+    };
+  }
 
   const expectedNextCombatantId = proposal.parameters.expectedNextCombatantId;
   const expectedNextTurn = (current.turn + 1) % current.combatants.length;
@@ -195,10 +243,16 @@ export function notifyCombatWriteResult(result: CombatWriteAuditResult): void {
 }
 
 function escapeHtml(value: string): string { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function compareInitiative(left: CombatWriteSnapshot["combatants"][number], right: CombatWriteSnapshot["combatants"][number]): number {
+  if (left.initiative === null && right.initiative !== null) return 1;
+  if (left.initiative !== null && right.initiative === null) return -1;
+  if (left.initiative !== right.initiative) return (right.initiative ?? 0) - (left.initiative ?? 0);
+  return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+}
 function renderProposal(value: FoundryCombatWriteApprovalPayload): string {
   const expiry = new Date(value.expiresAt).toLocaleTimeString();
   return `<section class="lb-combat-approval" data-token="${escapeHtml(value.token)}">
-    <header><strong>${value.action === COMBAT_WRITE_NEXT_TURN_ACTION ? "Advance Next Turn" : "Safety Test"} — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
+    <header><strong>${value.action === COMBAT_WRITE_NEXT_TURN_ACTION ? "Advance Next Turn" : value.action === COMBAT_WRITE_SET_INITIATIVE_ACTION ? "Set Initiative" : "Safety Test"} — ${escapeHtml(value.snapshot.combatName)}</strong><span>Expires ${escapeHtml(expiry)}</span></header>
     <div class="lb-combat-approval__body">
       <p><strong>Target:</strong> ${escapeHtml(value.combatUuid)}</p>
       <p><strong>Expected state:</strong> Round ${value.expectedRound}, turn ${value.expectedTurn}, ${value.snapshot.combatants.length} combatants</p>

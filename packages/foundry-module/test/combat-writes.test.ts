@@ -24,7 +24,8 @@ afterEach(() => {
 function installGame(turn = 0, round = 2): void {
   const combatants = [{ id: "cb1", name: "Strahd", initiative: 20, hidden: false, isDefeated: false }, { id: "cb2", name: "Ireena", initiative: 15, hidden: false, isDefeated: false }];
   const combat = { id: "c1", uuid: "Combat.c1", name: "Castle Battle", scene: { id: "s1" }, active: true, started: true, current: { round, turn }, combatant: combatants[turn]!, turns: combatants,
-    async nextTurn() { this.current.turn = (this.current.turn + 1) % this.turns.length; if (this.current.turn === 0) this.current.round += 1; this.combatant = this.turns[this.current.turn]!; return this; } };
+    async nextTurn() { this.current.turn = (this.current.turn + 1) % this.turns.length; if (this.current.turn === 0) this.current.round += 1; this.combatant = this.turns[this.current.turn]!; return this; },
+    async setInitiative(id: string, value: number) { const currentId = this.combatant.id; const target = this.turns.find((entry) => entry.id === id); if (target) target.initiative = value; this.turns.sort((left, right) => right.initiative - left.initiative || left.name.localeCompare(right.name)); this.current.turn = this.turns.findIndex((entry) => entry.id === currentId); this.combatant = this.turns[this.current.turn]!; } };
   Object.defineProperty(globalThis, "game", { configurable: true, value: {
     user: { id: "gm1", name: "GM", isGM: true }, world: { id: "cos", title: "Curse of Strahd" },
     settings: { get(_module: string, key: string) { if (key === "combatWritesEnabled") return true; if (key === "backendUrl") return "https://example.invalid"; if (key === "clientToken") return "token"; return false; } },
@@ -67,6 +68,34 @@ test("next-turn execution rejects a changed roster without calling Foundry nextT
   game.combats.active!.turns.reverse();
   assert.equal((await executeCombatWrite({ proposal })).outcome, "stale");
   assert.equal(game.combats.active!.current.turn, 0);
+});
+
+test("set-initiative execution changes only the target and returns Foundry's resulting order", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  const proposal = { action: "setInitiative" as const, combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { combatantId: "cb2", expectedInitiative: 15, initiative: 25 }, rationale: "Correct initiative.", beforeSummary: "Ireena is at 15.", afterSummary: "Ireena will be at 25.", snapshot };
+  const result = await executeCombatWrite({ proposal });
+  assert.equal(result.outcome, "approved");
+  assert.deepEqual(result.resultingCombatants?.map(({ id, initiative, position }) => [id, initiative, position]), [["cb2", 25, 1], ["cb1", 20, 2]]);
+  assert.equal(game.combats.active?.combatant?.id, "cb1");
+});
+
+test("set-initiative execution preserves Foundry's normal alphabetical tie ordering", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  const proposal = { action: "setInitiative" as const, combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { combatantId: "cb2", expectedInitiative: 15, initiative: 20 }, rationale: "Correct initiative.", beforeSummary: "Ireena is at 15.", afterSummary: "Ireena will tie at 20.", snapshot };
+  const result = await executeCombatWrite({ proposal });
+  assert.deepEqual(result.resultingCombatants?.map(({ id, position }) => [id, position]), [["cb2", 1], ["cb1", 2]]);
+});
+
+test("set-initiative execution rejects an already-modified target without another mutation", async () => {
+  installGame();
+  const snapshot = captureCombatWriteSnapshot();
+  const proposal = { action: "setInitiative" as const, combatUuid: snapshot.combatUuid, expectedRound: snapshot.round, expectedTurn: snapshot.turn, target: { combatUuid: snapshot.combatUuid }, parameters: { combatantId: "cb2", expectedInitiative: 15, initiative: 25 }, rationale: "Correct initiative.", beforeSummary: "Ireena is at 15.", afterSummary: "Ireena will be at 25.", snapshot };
+  game.combats.active!.turns[1]!.initiative = 18;
+  const result = await executeCombatWrite({ proposal });
+  assert.equal(result.outcome, "stale");
+  assert.equal(game.combats.active!.turns[1]!.initiative, 18);
 });
 
 test("combat execution requires a GM and the separate feature gate", async () => {

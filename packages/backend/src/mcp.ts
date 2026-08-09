@@ -10,6 +10,9 @@ import {
   GET_COMBAT_STATE_CAPABILITY,
   PROPOSE_COMBAT_WRITE_CAPABILITY,
   COMBAT_WRITE_NEXT_TURN_ACTION,
+  COMBAT_WRITE_SET_INITIATIVE_ACTION,
+  COMBAT_WRITE_INITIATIVE_MIN,
+  COMBAT_WRITE_INITIATIVE_MAX,
   ROLL_DICE_CAPABILITY,
   GET_CHAT_MESSAGES_CAPABILITY,
   SEARCH_ASSETS_CAPABILITY,
@@ -91,6 +94,7 @@ const sceneToolName = "get_scene";
 const activeSceneToolName = "get_active_scene";
 const combatStateToolName = "get_combat_state";
 const nextTurnToolName = "next_turn";
+const setInitiativeToolName = "set_initiative";
 const rollDiceToolName = "roll_dice";
 const chatMessagesToolName = "get_chat_messages";
 const searchAssetsToolName = "search_assets";
@@ -130,6 +134,31 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
       } catch (error) {
         return toolError(error, "LoreBridge could not propose advancing the active combat.");
+      }
+    },
+  );
+
+  server.registerTool(
+    setInitiativeToolName,
+    {
+      title: "Set one combatant's initiative",
+      description: "Propose assigning one bounded initiative value to one combatant in the active, started Foundry combat. The GM receives an old/new value and expected-position preview and must explicitly approve it before any combat state changes.",
+      inputSchema: z.object({
+        combatantId: z.string().trim().min(1).describe("Stable combatant ID from get_combat_state."),
+        initiative: z.number().finite().min(COMBAT_WRITE_INITIATIVE_MIN).max(COMBAT_WRITE_INITIATIVE_MAX).describe(`New initiative value between ${COMBAT_WRITE_INITIATIVE_MIN} and ${COMBAT_WRITE_INITIATIVE_MAX}.`),
+        rationale: z.string().trim().min(1).max(500).describe("Why this combatant's initiative should change. This is shown to the GM."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ combatantId, initiative, rationale, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, PROPOSE_COMBAT_WRITE_CAPABILITY, { action: COMBAT_WRITE_SET_INITIATIVE_ACTION, combatantId, initiative, rationale });
+        const validation = validateCombatWriteProposalResult(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid initiative proposal.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose setting combatant initiative.");
       }
     },
   );
