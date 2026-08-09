@@ -33,17 +33,36 @@ function actorHtml(actorId: string): string {
 const DEFAULT_LIMIT = 20;
 const UUID_LINK_CAP = 20;
 
-// Matches @UUID[Actor.abc123], @UUID[JournalEntry.abc123.JournalEntryPage.def456], etc.
+// Matches @UUID[Actor.abc123]{...} — used in Markdown-format journal pages.
 const UUID_LINK_RE = /@UUID\[([^\]]+)\]/g;
+// Matches data-uuid="Actor.abc123" — used in HTML-format (ProseMirror) journal pages.
+const DATA_UUID_RE = /data-uuid="([^"]+)"/g;
 
 function extractUuidLinks(html: string): string[] {
+  const seen = new Set<string>();
   const uuids: string[] = [];
+
+  function add(raw: string): void {
+    const uuid = raw.split("{")[0]?.trim() ?? raw;
+    if (uuid && !seen.has(uuid) && uuids.length < UUID_LINK_CAP) {
+      seen.add(uuid);
+      uuids.push(uuid);
+    }
+  }
+
+  // HTML-format pages (ProseMirror): links stored as data-uuid attributes.
+  DATA_UUID_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
+  while ((match = DATA_UUID_RE.exec(html)) !== null && uuids.length < UUID_LINK_CAP) {
+    if (match[1]) add(match[1]);
+  }
+
+  // Markdown-format pages: links stored as @UUID[...] text.
   UUID_LINK_RE.lastIndex = 0;
   while ((match = UUID_LINK_RE.exec(html)) !== null && uuids.length < UUID_LINK_CAP) {
-    const raw = match[1];
-    if (raw) uuids.push(raw.split("{")[0]?.trim() ?? raw);
+    if (match[1]) add(match[1]);
   }
+
   return uuids;
 }
 

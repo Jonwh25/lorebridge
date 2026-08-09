@@ -131,6 +131,61 @@ test("get_related_documents: no profile returns full results", () => {
 });
 
 // ---------------------------------------------------------------------------
+// HTML data-uuid extraction (ProseMirror format)
+// ---------------------------------------------------------------------------
+
+test("get_related_documents: resolves UUID links stored as data-uuid attributes (ProseMirror HTML)", () => {
+  // Foundry's ProseMirror editor converts @UUID[...] to <a data-uuid="..."> in HTML-format pages.
+  const html = [
+    `<p>Morgan awaits in the tower.</p>`,
+    `<p><a class="content-link" data-type="Actor" data-id="abc1" data-uuid="Actor.abc1" draggable="true">Morgan Freerealms</a></p>`,
+    `<p>See also <a class="content-link" data-type="Scene" data-id="sc1" data-uuid="Scene.sc1">The Chamber</a>.</p>`,
+  ].join("\n");
+
+  const journals = collection([makeJournal("j1", [makePage("p1", html)])]);
+
+  setGlobal("game", {
+    user: { id: "gm", name: "GM", isGM: true },
+    world: { id: "w1", title: "World" },
+    actors: collection([{ id: "abc1", name: "Morgan Freerealms", ownership: { default: 2 } }]),
+    journal: journals,
+    scenes: collection([{ id: "sc1", name: "The Chamber", ownership: { default: 2 } }]),
+    settings: { get: () => undefined },
+  });
+
+  const result = getRelatedDocuments({ uuid: "JournalEntry.j1.JournalEntryPage.p1" });
+  const actorLink = result.related.find((r) => r.documentType === "actor");
+  const sceneLink = result.related.find((r) => r.documentType === "scene");
+  assert.ok(actorLink, "actor linked via data-uuid is found");
+  assert.equal(actorLink?.name, "Morgan Freerealms");
+  assert.ok(sceneLink, "scene linked via data-uuid is found");
+  assert.equal(sceneLink?.name, "The Chamber");
+});
+
+test("get_related_documents: deduplicates UUID links present in both data-uuid and @UUID forms", () => {
+  // Some pages may have both forms if content is mixed or copy-pasted.
+  const html = [
+    `<a data-uuid="Actor.abc1">Morgan</a>`,
+    `@UUID[Actor.abc1]{Morgan Freerealms}`,
+  ].join(" ");
+
+  const journals = collection([makeJournal("j1", [makePage("p1", html)])]);
+
+  setGlobal("game", {
+    user: { id: "gm", name: "GM", isGM: true },
+    world: { id: "w1", title: "World" },
+    actors: collection([{ id: "abc1", name: "Morgan Freerealms", ownership: { default: 2 } }]),
+    journal: journals,
+    scenes: collection([]),
+    settings: { get: () => undefined },
+  });
+
+  const result = getRelatedDocuments({ uuid: "JournalEntry.j1.JournalEntryPage.p1" });
+  const actorLinks = result.related.filter((r) => r.uuid === "Actor.abc1");
+  assert.equal(actorLinks.length, 1, "actor appears only once despite duplicate UUID references");
+});
+
+// ---------------------------------------------------------------------------
 // Compendium exclusion per profile
 // ---------------------------------------------------------------------------
 
