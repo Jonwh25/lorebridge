@@ -304,6 +304,10 @@ export function openPlayerLoreAllowlistDialog(): void {
         Select which player-visible journals players can query with <code>/lb ask</code>.
         Only journals that every non-GM player can observe are listed here.
       </p>
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;background:rgba(0,0,0,0.05);border-radius:4px;cursor:pointer;font-weight:bold;font-size:12px">
+        <input type="checkbox" id="lb-player-lore-all" style="flex:0 0 auto">
+        All
+      </label>
       <div style="max-height:300px;overflow-y:auto;border:1px solid rgba(0,0,0,0.2);border-radius:4px;padding:4px 8px">
         ${rows}
       </div>
@@ -334,6 +338,25 @@ export function openPlayerLoreAllowlistDialog(): void {
       { action: "cancel", label: "Cancel" },
     ],
   });
-  void dialog.render({ force: true });
+  void dialog.render({ force: true }).then(() => {
+    const el = dialog.element as HTMLElement;
+    const allCb = el.querySelector<HTMLInputElement>("#lb-player-lore-all");
+    if (!allCb) return;
+    const getJournalCbs = () => Array.from(el.querySelectorAll<HTMLInputElement>("input[name^='journal-']"));
+    const syncAllState = () => {
+      const cbs = getJournalCbs();
+      const n = cbs.filter((c) => c.checked).length;
+      allCb.indeterminate = n > 0 && n < cbs.length;
+      allCb.checked = n === cbs.length;
+    };
+    syncAllState();
+    allCb.addEventListener("click", () => {
+      const shouldCheck = !getJournalCbs().every((c) => c.checked);
+      getJournalCbs().forEach((c) => { c.checked = shouldCheck; });
+      allCb.indeterminate = false;
+      allCb.checked = shouldCheck;
+    });
+    getJournalCbs().forEach((cb) => { cb.addEventListener("change", syncAllState); });
+  });
 }
 
