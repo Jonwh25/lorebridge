@@ -1,5 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
+import { type NpcMemoryEntry, getMemories, deleteMemory, clearMemories } from "./npc-mention.js";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the backend NpcProfileSections model
@@ -1124,7 +1125,57 @@ const PANEL_STYLES = `
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__label,
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__field-label { color: #555 !important; }
   #lb-npc-profile-panel[data-lb-theme="light"] .lb-sec__value { color: #191813 !important; }
+
+  /* Memories section */
+  .lb-memory { display:flex; flex-direction:column; gap:2px; padding:5px 0; border-bottom:1px solid; }
+  .lb-memory:last-child { border-bottom:none; }
+  .lb-memory__meta { font-size:0.75em; opacity:0.6; display:flex; justify-content:space-between; align-items:center; }
+  .lb-memory__text { font-size:0.82em; line-height:1.4; }
+  .lb-memory__delete {
+    padding:0 4px; border:1px solid; border-radius:2px; cursor:pointer;
+    font-size:0.75em; background:transparent; opacity:0.5; flex-shrink:0;
+  }
+  .lb-memory__delete:hover { opacity:1; }
+  .lb-memories-empty { font-style:italic; font-size:0.85em; padding:4px 0; opacity:0.7; }
+  .lb-memories-list { max-height:200px; overflow-y:auto; }
 </style>`;
+
+function buildMemoriesPanelHtml(memories: NpcMemoryEntry[]): string {
+  const count = memories.length;
+  const clearBtn = count > 0
+    ? `<button class="lb-sec__btn" data-lb-action="clear-memories" title="Clear all memories" style="color:#c44;border-color:#c44">Clear All</button>`
+    : "";
+  let listHtml: string;
+  if (count === 0) {
+    listHtml = `<p class="lb-memories-empty">No memories yet. Memories accumulate automatically from @NPC chat interactions.</p>`;
+  } else {
+    const entries = [...memories].reverse().map(m => {
+      const date = new Date(m.timestamp).toLocaleDateString();
+      return `
+        <div class="lb-memory" data-memory-id="${escHtml(m.id)}">
+          <div class="lb-memory__meta">
+            <span>${escHtml(date)} · ${escHtml(m.playerName)}</span>
+            <button class="lb-memory__delete lb-sec__btn" data-lb-action="delete-memory" data-memory-id="${escHtml(m.id)}" title="Delete this memory">✕</button>
+          </div>
+          <div class="lb-memory__text"><strong>Player:</strong> ${escHtml(m.playerMessage)}</div>
+          <div class="lb-memory__text"><strong>NPC:</strong> ${escHtml(m.npcResponse)}</div>
+        </div>`;
+    }).join("");
+    listHtml = `<div class="lb-memories-list">${entries}</div>`;
+  }
+  return `
+    <div class="lb-sec" data-lb-section="memories">
+      <div class="lb-sec__header" data-lb-action="toggle-section" data-lb-section="memories">
+        <span class="lb-sec__status"><i class="fas fa-brain"></i></span>
+        <i class="fas fa-brain lb-sec__icon"></i>
+        <span class="lb-sec__name">Memories${count > 0 ? ` (${count})` : ""}</span>
+        <span class="lb-sec__actions">${clearBtn}</span>
+      </div>
+      <div class="lb-sec__content" data-lb-content="memories">
+        ${listHtml}
+      </div>
+    </div>`;
+}
 
 function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | undefined): string {
   const status = sectionStatus(data, meta.fields);
@@ -1184,7 +1235,8 @@ function buildSectionHtml(meta: SectionMeta, data: Record<string, string> | unde
 
 function buildPanelHtml(actor: FoundryActor, collapsed: boolean): string {
   const profile = getProfile(actor);
-  const sectionsHtml = SECTION_META.map(m => buildSectionHtml(m, profile[m.id])).join("");
+  const memories = getMemories(actor);
+  const sectionsHtml = SECTION_META.map(m => buildSectionHtml(m, profile[m.id])).join("") + buildMemoriesPanelHtml(memories);
   const theme = detectDarkMode() ? "dark" : "light";
   return `
     ${PANEL_STYLES}
@@ -1502,6 +1554,33 @@ function attachPanelListeners(frame: HTMLElement, actor: FoundryActor): void {
       }
       return;
     }
+
+    if (action === "delete-memory") {
+      e.stopPropagation();
+      const memoryId = target.dataset["memoryId"] ?? "";
+      if (!memoryId) return;
+      void deleteMemory(actor, memoryId).then(() => {
+        const wasOpen = panel.querySelector(`[data-lb-content="memories"]`)?.classList.contains("open") ?? false;
+        refreshPanel(frame, actor);
+        if (wasOpen) {
+          frame.querySelector<HTMLElement>(`#${PANEL_ID} [data-lb-content="memories"]`)?.classList.add("open");
+        }
+      });
+      return;
+    }
+
+    if (action === "clear-memories") {
+      e.stopPropagation();
+      void clearMemories(actor).then(() => {
+        const wasOpen = panel.querySelector(`[data-lb-content="memories"]`)?.classList.contains("open") ?? false;
+        refreshPanel(frame, actor);
+        if (wasOpen) {
+          frame.querySelector<HTMLElement>(`#${PANEL_ID} [data-lb-content="memories"]`)?.classList.add("open");
+        }
+        ui.notifications.info(`LoreBridge: Memories cleared for ${actor.name}.`);
+      });
+      return;
+    }
   });
 }
 
@@ -1521,7 +1600,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
     };
 
     actorId: string = "";
-    private _selectedSection: NpcSection = "overview";
+    private _selectedSection: NpcSection | "memories" = "overview";
     private _editMode = false;
     private _generatingSection: NpcSection | null = null;
     private _generatingFull = false;
@@ -1540,27 +1619,36 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         return el;
       }
       const profile = getProfile(actor);
-      const section = this._selectedSection;
+      const memories = getMemories(actor);
+      const selectedView = this._selectedSection;
+      const isMemoriesView = selectedView === "memories";
+      const section = isMemoriesView ? "overview" as NpcSection : selectedView as NpcSection;
       const meta = SECTION_META.find(s => s.id === section) ?? SECTION_META[0]!;
-      const sectionData = profile[section] ?? {};
-      const isGenerating = this._generatingSection === section || this._generatingFull;
-      const hasContent = sectionHasContent(sectionData);
+      const sectionData = isMemoriesView ? {} : (profile[section] ?? {});
+      const isGenerating = !isMemoriesView && (this._generatingSection === section || this._generatingFull);
+      const hasContent = !isMemoriesView && sectionHasContent(sectionData);
       const isGeneratingAny = this._generatingSection !== null || this._generatingFull;
 
       const navItems = SECTION_META.map(s => {
         const d = profile[s.id];
         const st = sectionStatus(d, s.fields);
-        const isActive = s.id === section;
+        const isActive = !isMemoriesView && s.id === section;
         const isGen = this._generatingSection === s.id || this._generatingFull;
         return `
           <li class="lb-ws-nav__item${isActive ? " active" : ""}" data-action="selectSection" data-section="${s.id}">
             <span class="lb-ws-nav__status">${isGen ? '<i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i>' : statusIcon(st)}</span>
             <span class="lb-ws-nav__label"><i class="${s.icon}"></i> ${s.shortLabel}</span>
           </li>`;
-      }).join("");
+      }).join("") + `
+        <li class="lb-ws-nav__item${isMemoriesView ? " active" : ""}" data-action="selectSection" data-section="memories">
+          <span class="lb-ws-nav__status"><i class="fas fa-brain" style="font-size:0.85em"></i></span>
+          <span class="lb-ws-nav__label"><i class="fas fa-brain"></i> Memories${memories.length > 0 ? ` (${memories.length})` : ""}</span>
+        </li>`;
 
       let sectionContent: string;
-      if (isGenerating) {
+      if (isMemoriesView) {
+        sectionContent = this._buildMemoriesContent(actor, memories);
+      } else if (isGenerating) {
         sectionContent = `<div class="lb-ws-generating"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Generating ${meta.label}…</div>`;
       } else if (this._editMode) {
         const baseData = sectionData as Record<string, string>;
@@ -1608,11 +1696,11 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         sectionContent = `<div class="lb-ws-fields">${fieldRows || "<p style='color:var(--color-text-light-tertiary)'>—</p>"}</div>`;
       }
 
-      const rollTraitsBtnWs = section === "personalityAndMotivation" && !isGeneratingAny
+      const rollTraitsBtnWs = !isMemoriesView && section === "personalityAndMotivation" && !isGeneratingAny
         ? `<button type="button" class="lb-ws-btn" data-action="rollTraits" title="Roll random 5e traits"><i class="fas fa-dice-d6"></i> Roll Traits</button>`
         : "";
 
-      const sectionBar = (!isGenerating && !this._editMode) ? `
+      const sectionBar = (!isMemoriesView && !isGenerating && !this._editMode) ? `
         <div class="lb-ws-section-actions">
           ${rollTraitsBtnWs}
           ${hasContent
@@ -1701,7 +1789,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           </aside>
           <div class="lb-ws-content">
             <div class="lb-ws-section-header">
-              <h3><i class="${meta.icon}"></i> ${meta.label}</h3>
+              <h3>${isMemoriesView ? '<i class="fas fa-brain"></i> Memories' : `<i class="${meta.icon}"></i> ${meta.label}`}</h3>
               ${sectionBar}
             </div>
             <div class="lb-ws-body">${sectionContent}</div>
@@ -1722,7 +1810,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       if (!actor) return;
 
       if (action === "selectSection") {
-        const section = target.dataset["section"] as NpcSection;
+        const section = target.dataset["section"] as NpcSection | "memories";
         if (section && section !== this._selectedSection) {
           this._selectedSection = section;
           this._editMode = false;
@@ -1749,6 +1837,51 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         void this.render({ force: true });
         return;
       }
+      if (action === "wsMemoryDelete") {
+        const memoryId = target.dataset["memoryId"] ?? "";
+        if (!memoryId) return;
+        void deleteMemory(actor, memoryId).then(() => this.render({ force: true }));
+        return;
+      }
+      if (action === "wsMemoryClearAll") {
+        void clearMemories(actor).then(() => {
+          ui.notifications.info(`LoreBridge: Memories cleared for ${actor.name}.`);
+          void this.render({ force: true });
+        });
+        return;
+      }
+    }
+
+    private _buildMemoriesContent(actor: FoundryActor, memories: NpcMemoryEntry[]): string {
+      if (memories.length === 0) {
+        return `<div class="lb-ws-empty">
+          <p class="lb-ws-empty__msg">No memories yet.</p>
+          <p class="lb-ws-empty__msg" style="font-size:0.85em">Memories accumulate automatically when players interact with this NPC via <code>@${escHtml(actor.name)}</code> in chat.</p>
+        </div>`;
+      }
+      const clearBtn = `<button type="button" class="lb-ws-btn" data-action="wsMemoryClearAll" style="color:#c44;border-color:#c44"><i class="fas fa-trash"></i> Clear All Memories</button>`;
+      const entries = [...memories].reverse().map(m => {
+        const date = new Date(m.timestamp).toLocaleDateString();
+        return `
+          <div style="padding:8px 0;border-bottom:1px solid var(--color-border-dark,#3a3a3a)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:0.75em;opacity:0.6">${escHtml(date)} · ${escHtml(m.playerName)}</span>
+              <button type="button" class="lb-ws-btn" data-action="wsMemoryDelete" data-memory-id="${escHtml(m.id)}" title="Delete" style="padding:1px 5px;font-size:0.75em">✕</button>
+            </div>
+            <div style="font-size:0.84em;margin-bottom:2px"><strong>Player:</strong> ${escHtml(m.playerMessage)}</div>
+            <div style="font-size:0.84em;color:var(--color-text-light-secondary,#bbb)"><strong>NPC:</strong> ${escHtml(m.npcResponse)}</div>
+          </div>`;
+      }).join("");
+      return `
+        <div style="display:flex;flex-direction:column;height:100%">
+          <div style="padding:6px 12px 4px;flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:0.82em;opacity:0.7">${memories.length} memor${memories.length === 1 ? "y" : "ies"} stored</span>
+            ${clearBtn}
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:0 12px 12px">
+            ${entries}
+          </div>
+        </div>`;
     }
 
     private async _doGenerate(section: NpcSection, actor: FoundryActor): Promise<void> {
@@ -1800,7 +1933,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           data[f.key] = ta?.value.trim() ?? "";
         }
       }
-      await persistSection(actor, this._selectedSection, data);
+      await persistSection(actor, this._selectedSection as NpcSection, data);
       this._editMode = false;
       await this.render({ force: true });
       ui.notifications.info(`LoreBridge: ${meta.label} saved.`);
@@ -1808,8 +1941,9 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
 
     private async _doCopy(actor: FoundryActor): Promise<void> {
       const profile = getProfile(actor);
-      const meta = SECTION_META.find(s => s.id === this._selectedSection) ?? SECTION_META[0]!;
-      const data = (profile[this._selectedSection] ?? {}) as Record<string, string>;
+      const profileSection = this._selectedSection as NpcSection;
+      const meta = SECTION_META.find(s => s.id === profileSection) ?? SECTION_META[0]!;
+      const data = (profile[profileSection] ?? {}) as Record<string, string>;
       const text = meta.fields.filter(f => data[f.key]).map(f => `${f.label}: ${data[f.key]}`).join("\n");
       if (!text) return;
       await navigator.clipboard.writeText(text);
