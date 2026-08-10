@@ -283,8 +283,8 @@ function buildAccessSafetyHtml(): string {
     ? `<p style="text-align:center;color:#888;margin:12px 0;font-size:0.85em">No profiles yet. Create one to scope LoreBridge queries.</p>`
     : profiles.map((p) => {
         const isActive = p.id === activeId;
-        const typesLabel = (p.allowedTypes?.length ?? 0) > 0
-          ? p.allowedTypes!.join(", ")
+        const typesLabel = (p.allowedDocTypes?.length ?? 0) > 0
+          ? p.allowedDocTypes!.join(", ")
           : "All";
         return `
           <tr style="border-bottom:1px solid rgba(0,0,0,.1)${isActive ? ";background:rgba(52,152,219,.08)" : ""}">
@@ -738,7 +738,13 @@ export class LoreBridgeSettingsApp extends AppBase {
       .replace(/>/g, "&gt;")
       .replace(/\n/g, "<br>");
 
-    new (foundry as AnyRecord).applications.api.DialogV2({
+    type DialogV2Ctor = new (opts: AnyRecord) => { render(opts: AnyRecord): unknown };
+    const DialogV2Cls = (
+      (globalThis as unknown as { foundry?: { applications?: { api?: { DialogV2?: unknown } } } })
+        .foundry?.applications?.api?.DialogV2
+    ) as DialogV2Ctor | undefined;
+    if (!DialogV2Cls) return;
+    new DialogV2Cls({
       window: { title: entry.label, resizable: true },
       position: { width: 540, height: "auto" },
       content: `<div style="padding:0.5rem;max-height:420px;overflow-y:auto;font-size:0.9em">

@@ -11,7 +11,8 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: { new (...args: unknown[]): unknown };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      type: new (...args: any[]) => unknown;
       restricted: boolean;
     },
   ): void;
