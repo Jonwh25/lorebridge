@@ -4,6 +4,19 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-08-10
+
+### Added
+
+- **Context Profile: folder-level scoping** (#185): profiles now accept a `scopedFolders` map that restricts each document type to selected Foundry folders. Only documents inside a scoped folder (or any of its descendants) pass the profile filter; documents outside the scope are excluded regardless of other profile settings. Folder selection uses a checkbox tree in the create/edit dialog.
+- **Context Profile: profile preview** (#186): a Preview button in the context profiles list opens a read-only summary of exactly which documents the active profile would include — document type, folder scope, visibility mode, compendium exclusions, and a live count of matched sources — so a GM can verify the boundary before activating it.
+- **Context Profile: source recheck at request time** (#187): at the moment a scoped profile is applied to a request, LoreBridge rechecks every previously resolved source against current Foundry state. Documents that have been moved, deleted, or permission-restricted since the profile was created are silently excluded rather than carried forward stale.
+- **Unified LoreBridge Settings workspace** (#251): the five separate Game Settings menus (Connection, Features, AI & Content, Access & Safety, Generation History) are replaced by a single resizable `LoreBridgeSettingsApp` ApplicationV2 workspace. A left navigation rail with seven sections (Home, Connection, Features, AI & Content, Access & Safety, History, Advanced) provides a coherent overview of all configuration options. Feature and Advanced toggles use sliding CSS toggle switches. All settings remain `config: false` so they appear only in the LoreBridge workspace.
+
+### Improved
+
+- **Context Profile folder scoping is enforced across all retrieval tools** (#185): `search_journals`, `search_actors`, `search_scenes`, `search_items`, `get_related_documents`, `audit_campaign_consistency`, and the active-scene toggle all respect folder scoping when a profile with `scopedFolders` is active.
+
 ## [0.21.1] - 2026-08-10
 
 ### Fixed
