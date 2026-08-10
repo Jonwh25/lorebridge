@@ -264,7 +264,7 @@ export type NpcSection =
 export type NpcOverview = {
   race: string; occupation: string; alignment: string; age: string;
   faith: string; socialClass: string; reputation: string;
-  residence: string; languages: string;
+  residence: string; languages: string; background: string;
 };
 
 export type NpcGender = {
@@ -337,11 +337,12 @@ const NPC_SECTION_FIELDS: Record<NpcSection, NpcSectionConfig> = {
   overview: {
     label: "Overview",
     description: "basic identity facts",
-    fields: ["race", "occupation", "alignment", "age", "faith", "socialClass", "reputation", "residence", "languages"],
+    fields: ["race", "occupation", "alignment", "age", "faith", "socialClass", "reputation", "residence", "languages", "background"],
     fieldHints: {
       alignment: "One of the standard D&D alignments (e.g. Lawful Good, Chaotic Neutral).",
       reputation: "A brief phrase describing how this NPC is publicly known — distinct from their history or biography.",
       languages: "Comma-separated list of languages this NPC speaks. Use exact dnd5e language names only: Common, Common Sign Language, Draconic, Dwarvish, Elvish, Giant, Gnomish, Goblin, Halfling, Orc (standard) — Aarakocra, Abyssal, Celestial, Deep Speech, Druidic, Gith, Gnoll, Infernal, Primordial, Aquan, Auran, Ignan, Terran, Sylvan, Thieves' Cant, Undercommon (rare). For any truly non-standard or invented language, append it after the standard ones. Do NOT write sentences or use 'and'; use commas only.",
+      background: "D&D 5e background name (e.g. Acolyte, Criminal, Folk Hero, Sage) or a short free-text description for a custom background. Use this to inform the NPC's personality traits, ideals, and bonds.",
     },
   },
   gender: {
