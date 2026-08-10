@@ -714,12 +714,19 @@ export async function generateJournalAnswer(
 // NPC roleplay (#99)
 // ---------------------------------------------------------------------------
 
+export type RoleplayMemory = {
+  playerName: string;
+  playerMessage: string;
+  npcResponse: string;
+};
+
 export type RoleplayInput = {
   actorName: string;
   biography: string;
   personality: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
   message: string;
+  memories?: RoleplayMemory[];
 };
 
 export type RoleplayOutput = {
@@ -735,6 +742,12 @@ export async function generateRoleplayResponse(
     .map(m => `${m.role === "user" ? "GM" : input.actorName}: ${m.content}`)
     .join("\n");
 
+  const memoriesText = (input.memories ?? []).length > 0
+    ? (input.memories ?? [])
+        .map(m => `${m.playerName}: "${m.playerMessage}"\n${input.actorName}: "${m.npcResponse}"`)
+        .join("\n\n")
+    : "";
+
   const prompt = [
     `You are roleplaying as ${input.actorName}, an NPC in a tabletop RPG campaign.`,
     "Stay completely in character. Respond as this character would speak and think.",
@@ -745,6 +758,7 @@ export async function generateRoleplayResponse(
     "Character background:",
     input.biography || "(no biography provided)",
     input.personality ? `\nPersonality: ${input.personality}` : "",
+    memoriesText ? `\nPast interactions with players (oldest first, use these to stay consistent with prior conversations):\n${memoriesText}` : "",
     historyText ? `\nConversation so far:\n${historyText}` : "",
     "",
     `GM: ${input.message}`,

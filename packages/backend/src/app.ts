@@ -815,6 +815,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const personality = typeof body["personality"] === "string" ? body["personality"] : "";
     const message = typeof body["message"] === "string" ? body["message"].trim() : "";
     const history = Array.isArray(body["history"]) ? body["history"] as Array<{ role: "user" | "assistant"; content: string }> : [];
+    const memories = Array.isArray(body["memories"]) ? body["memories"] as Array<{ playerName: string; playerMessage: string; npcResponse: string }> : [];
     if (!actorName || !message) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include actorName and message strings." } });
       return;
@@ -824,7 +825,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       return;
     }
     try {
-      const result = await generateRoleplayResponse(provider, { actorName, biography, personality, history, message });
+      const result = await generateRoleplayResponse(provider, { actorName, biography, personality, history, message, memories });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {

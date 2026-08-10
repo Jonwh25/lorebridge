@@ -3,8 +3,50 @@ import { getLoreBridgeSettings } from "../settings.js";
 const MODULE_ID = "lorebridge";
 const HISTORY_MAX = 20;
 const HISTORY_WARN = 16;
+const MEMORY_CAP = 50;
+const MEMORY_PROMPT_MAX = 20;
 
 type Turn = { role: "user" | "assistant"; content: string };
+
+// ---------------------------------------------------------------------------
+// NPC Memory — persistent interaction history stored in actor flags (#198)
+// ---------------------------------------------------------------------------
+
+export type NpcMemoryEntry = {
+  id: string;
+  timestamp: number;
+  playerName: string;
+  playerMessage: string;
+  npcResponse: string;
+};
+
+export function getMemories(actor: FoundryActor): NpcMemoryEntry[] {
+  return (actor.getFlag(MODULE_ID, "memories") as NpcMemoryEntry[] | undefined) ?? [];
+}
+
+async function appendMemory(
+  actor: FoundryActor,
+  playerName: string,
+  playerMessage: string,
+  npcResponse: string,
+): Promise<void> {
+  const memories = getMemories(actor);
+  const id = typeof crypto !== "undefined" && typeof (crypto as { randomUUID?: () => string }).randomUUID === "function"
+    ? (crypto as { randomUUID: () => string }).randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  memories.push({ id, timestamp: Date.now(), playerName, playerMessage, npcResponse });
+  if (memories.length > MEMORY_CAP) memories.splice(0, memories.length - MEMORY_CAP);
+  await actor.setFlag(MODULE_ID, "memories", memories);
+}
+
+export async function deleteMemory(actor: FoundryActor, memoryId: string): Promise<void> {
+  const memories = getMemories(actor).filter(m => m.id !== memoryId);
+  await actor.setFlag(MODULE_ID, "memories", memories);
+}
+
+export async function clearMemories(actor: FoundryActor): Promise<void> {
+  await actor.setFlag(MODULE_ID, "memories", []);
+}
 
 // In-memory conversation history keyed by actor ID; resets on page reload
 const _history = new Map<string, Turn[]>();
@@ -63,7 +105,12 @@ async function playTts(actor: FoundryActor, text: string): Promise<void> {
   await audio.play();
 }
 
-async function callRoleplay(actor: FoundryActor, history: Turn[], message: string): Promise<string> {
+async function callRoleplay(
+  actor: FoundryActor,
+  history: Turn[],
+  message: string,
+  memories: NpcMemoryEntry[],
+): Promise<string> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) {
     throw new Error("LoreBridge backend is not configured or paired.");
@@ -79,6 +126,12 @@ async function callRoleplay(actor: FoundryActor, history: Turn[], message: strin
     preamble ||
     ((actor.system as { details?: { trait?: string } })?.details?.trait ?? "");
 
+  const memoryPayload = memories.map(m => ({
+    playerName: m.playerName,
+    playerMessage: m.playerMessage,
+    npcResponse: m.npcResponse,
+  }));
+
   const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
   const response = await fetch(`${base}v1/generate/roleplay`, {
     method: "POST",
@@ -86,7 +139,7 @@ async function callRoleplay(actor: FoundryActor, history: Turn[], message: strin
       authorization: `Bearer ${settings.clientToken}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ actorName: actor.name, biography, personality, history, message }),
+    body: JSON.stringify({ actorName: actor.name, biography, personality, history, message, memories: memoryPayload }),
   });
 
   if (!response.ok) {
@@ -122,12 +175,18 @@ async function handleNpcMention(msg: unknown): Promise<void> {
   }
 
   try {
-    const response = await callRoleplay(actor, history, message);
+    const recentMemories = getMemories(actor).slice(-MEMORY_PROMPT_MAX);
+    const response = await callRoleplay(actor, history, message, recentMemories);
 
     history.push({ role: "user", content: message });
     history.push({ role: "assistant", content: response });
     if (history.length > HISTORY_MAX) history.splice(0, history.length - HISTORY_MAX);
     _history.set(actorId, history);
+
+    const playerName = chatMsg.author?.name ?? "Unknown";
+    void appendMemory(actor, playerName, message, response).catch((err: unknown) => {
+      console.warn("LoreBridge | Failed to save NPC memory:", err);
+    });
 
     await ChatMessage.create({
       content: `<p>${response.replace(/\n/g, "<br>")}</p>`,
