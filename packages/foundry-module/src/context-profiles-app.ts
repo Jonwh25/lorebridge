@@ -64,6 +64,10 @@ function buildFolderSectionHtml(profile: ContextProfile | null): string {
   if (typeKeys.length === 0) return "";
   let html = `<fieldset style="margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:4px">
     <legend>Folder Restrictions <span style="color:#888;font-size:11px">(leave all unchecked for no restriction)</span></legend>
+    <div style="margin-bottom:4px">
+      <button type="button" style="padding:1px 8px;font-size:11px" onclick="this.closest('fieldset').querySelectorAll('input[data-folder-id]').forEach(c=>c.checked=true)">Select All</button>
+      <button type="button" style="padding:1px 8px;font-size:11px;margin-left:4px" onclick="this.closest('fieldset').querySelectorAll('input[data-folder-id]').forEach(c=>c.checked=false)">Unselect All</button>
+    </div>
     <div style="max-height:130px;overflow-y:auto;padding-right:4px">`;
   for (const type of typeKeys) {
     const folders = grouped[type]!;
