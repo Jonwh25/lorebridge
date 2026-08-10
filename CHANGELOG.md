@@ -4,6 +4,23 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-08-09
+
+### Added
+
+- **Context Profile: active-scene toggle** (#183): profiles now accept an `includeActiveScene` flag. When enabled, the currently viewed scene is always included in consistency audits and related-document lookups even if `scene` is not in the profile's allowed document types. The checkbox appears in the create/edit dialog.
+- **Context Profile: per-profile compendium exclusion** (#184): profiles accept an `excludedCompendiums` field — a comma-separated list of pack IDs entered in the create/edit dialog. These exclusions are merged with the global Excluded Compendiums setting for all compendium operations (`list_compendiums`, `search_compendium`, `get_compendium_entry`).
+- **Context Profile: Duplicate button** (#183): a "Duplicate" button on each profile row creates an unlocked copy with all settings preserved and a ` (copy)` name suffix.
+
+### Improved
+
+- **Consistency auditor respects the active context profile** (#183): `audit_campaign_consistency` and `/lb audit` now apply the active profile's allowed document types, visibility mode, and document cap when gathering documents. Without an active profile, behavior is unchanged.
+- **`get_related_documents` respects the active context profile** (#184): the tool intersects its result types with the profile's allowed types (profile `journal` covers both `journal` and `journalPage`), applies player-visibility mode from the profile, and caps results at the profile's `maxDocs` limit. Without an active profile, behavior is unchanged.
+
+### Fixed
+
+- **`get_related_documents` now resolves UUID links in HTML-format journal pages** (#246): Foundry's ProseMirror editor (the default) converts `@UUID[...]` inline links to `<a data-uuid="...">` anchor tags at save time. The previous implementation only scanned for the raw `@UUID[...]` text form and missed all links in HTML-format pages. Both forms are now extracted and deduplicated.
+
 ## [0.20.0] - 2026-08-08
 
 ### Added
