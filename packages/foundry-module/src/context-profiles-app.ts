@@ -51,7 +51,7 @@ function escapeHtml(s: string): string {
 
 function buildFolderSectionHtml(profile: ContextProfile | null): string {
   const checkedIds = new Set(profile?.allowedFolderIds ?? []);
-  const relevantTypes: Record<string, string> = { JournalEntry: "Journal Folders", Actor: "Actor Folders", Scene: "Scene Folders" };
+  const relevantTypes: Record<string, string> = { JournalEntry: "Journals", Actor: "Actors", Scene: "Scenes" };
   const grouped: Record<string, Array<{ id: string; name: string }>> = {};
   const allFolders = (game as unknown as { folders?: Iterable<{ id: string; name: string; type: string }> }).folders;
   if (!allFolders) return "";
@@ -64,18 +64,22 @@ function buildFolderSectionHtml(profile: ContextProfile | null): string {
   if (typeKeys.length === 0) return "";
   let html = `<fieldset style="margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:4px">
     <legend>Folder Restrictions <span style="color:#888;font-size:11px">(leave all unchecked for no restriction)</span></legend>
-    <div style="margin-bottom:4px">
-      <button type="button" class="lb-folder-select-all" style="padding:1px 8px;font-size:11px">Select All</button>
-      <button type="button" class="lb-folder-unselect-all" style="padding:1px 8px;font-size:11px;margin-left:4px">Unselect All</button>
-    </div>
-    <div style="max-height:130px;overflow-y:auto;padding-right:4px">`;
+    <div style="display:flex;gap:12px;flex-wrap:wrap">`;
   for (const type of typeKeys) {
     const folders = grouped[type]!;
-    html += `<div style="color:#555;font-size:11px;font-weight:bold;margin-top:4px">${escapeHtml(relevantTypes[type] ?? type)}</div>`;
+    const label = escapeHtml(relevantTypes[type] ?? type);
+    html += `<div class="lb-folder-group" data-group-type="${escapeHtml(type)}" style="flex:1;min-width:120px">
+      <label style="display:flex;align-items:center;gap:5px;font-weight:bold;font-size:12px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;cursor:pointer">
+        <input type="checkbox" class="lb-folder-all" data-group="${escapeHtml(type)}"> ${label}
+      </label>
+      <div style="max-height:120px;overflow-y:auto">`;
     for (const f of folders) {
       const checked = checkedIds.has(f.id) ? " checked" : "";
-      html += `<label style="display:block;padding-left:12px"><input type="checkbox" data-folder-id="${escapeHtml(f.id)}"${checked}> ${escapeHtml(f.name)}</label>`;
+      html += `<label style="display:flex;align-items:center;gap:5px;padding:1px 0;font-size:12px;cursor:pointer">
+        <input type="checkbox" data-folder-id="${escapeHtml(f.id)}" data-folder-group="${escapeHtml(type)}"${checked}> ${escapeHtml(f.name)}
+      </label>`;
     }
+    html += `</div></div>`;
   }
   html += `</div></fieldset>`;
   return html;
@@ -163,11 +167,23 @@ async function openProfileDialog(profile: ContextProfile | null): Promise<Contex
     },
     rejectClose: false,
     render: (_event: Event, html: HTMLElement) => {
-      html.querySelector(".lb-folder-select-all")?.addEventListener("click", () => {
-        html.querySelectorAll<HTMLInputElement>("input[data-folder-id]").forEach((cb) => { cb.checked = true; });
-      });
-      html.querySelector(".lb-folder-unselect-all")?.addEventListener("click", () => {
-        html.querySelectorAll<HTMLInputElement>("input[data-folder-id]").forEach((cb) => { cb.checked = false; });
+      html.querySelectorAll<HTMLInputElement>(".lb-folder-all").forEach((allCb) => {
+        const group = allCb.dataset["group"] ?? "";
+        const getGroupCbs = () => Array.from(html.querySelectorAll<HTMLInputElement>(`input[data-folder-group="${group}"]`));
+        const syncAllState = () => {
+          const cbs = getGroupCbs();
+          const n = cbs.filter((c) => c.checked).length;
+          allCb.indeterminate = n > 0 && n < cbs.length;
+          allCb.checked = n === cbs.length;
+        };
+        syncAllState();
+        allCb.addEventListener("click", () => {
+          const shouldCheck = !getGroupCbs().every((c) => c.checked);
+          getGroupCbs().forEach((c) => { c.checked = shouldCheck; });
+          allCb.indeterminate = false;
+          allCb.checked = shouldCheck;
+        });
+        getGroupCbs().forEach((cb) => { cb.addEventListener("change", syncAllState); });
       });
     },
   } as AnyRecord);
