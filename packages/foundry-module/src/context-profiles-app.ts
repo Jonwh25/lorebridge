@@ -163,7 +163,7 @@ function readProfileFromDialog(button: HTMLButtonElement, existingId?: string): 
   return makeProfile(name, allowedDocTypes, vis, maxDocs, existingId, includeActiveScene, excludedCompendiums, allowedFolderIds);
 }
 
-function openProfileDialog(
+export function openProfileDialog(
   profile: ContextProfile | null,
   onSave: (result: ContextProfile) => Promise<void>,
 ): void {
