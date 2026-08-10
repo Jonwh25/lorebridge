@@ -8,7 +8,7 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
-import { getActiveProfile, getProfileFilter, type ProfileDocTypeFilter } from "./context-profile.js";
+import { getActiveProfile, getProfileFilter, hasStaleFolderRefs, type ProfileDocTypeFilter } from "./context-profile.js";
 import { isPlayerVisible } from "./visibility.js";
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ function truncate(text: string, maxChars: number): string {
 // Content document type
 // ---------------------------------------------------------------------------
 
-type ContentDocument = {
+export type ContentDocument = {
   uuid: string;
   name: string;
   type: "journal-page" | "actor" | "scene";
@@ -64,15 +64,17 @@ function scoreRelevance(name: string, content: string, focus: string): number {
   return 0;
 }
 
-function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, includeActiveScene?: boolean): ContentDocument[] {
+export function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, includeActiveScene?: boolean): ContentDocument[] {
   const playerMode = filter?.mode === "player";
   const maxDocs = filter?.maxDocs ?? MAX_DOCUMENTS;
+  const folderIds = filter?.folderIds;
   const docs: ContentDocument[] = [];
 
   // Journal pages
   if (!filter || filter.journals) {
     for (const journal of game.journal ?? []) {
       if (playerMode && !isPlayerVisible(journal.ownership)) continue;
+      if (folderIds && folderIds.size > 0 && !folderIds.has(journal.folder?.id ?? "")) continue;
       for (const page of journal.pages) {
         const html = page.text?.content ?? "";
         if (!html) continue;
@@ -92,6 +94,7 @@ function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, includeA
   if (!filter || filter.actors) {
     for (const actor of game.actors ?? []) {
       if (playerMode && !isPlayerVisible(actor.ownership)) continue;
+      if (folderIds && folderIds.size > 0 && !folderIds.has(actor.folder?.id ?? "")) continue;
       const system = actor.system as Record<string, unknown>;
       const paths: string[][] = [
         ["details", "biography", "value"],
@@ -123,9 +126,12 @@ function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, includeA
   const sceneAllowed = !filter || filter.scenes;
   for (const scene of game.scenes ?? []) {
     const isActive = scene.id === activeSceneId;
+    const includedByActiveFlag = !!(includeActiveScene && isActive);
     // Include scene if: scenes allowed by filter, OR includeActiveScene flag is set and this is the active scene
-    if (!sceneAllowed && !(includeActiveScene && isActive)) continue;
+    if (!sceneAllowed && !includedByActiveFlag) continue;
     if (playerMode && !isPlayerVisible((scene as unknown as { ownership?: Record<string, number> }).ownership)) continue;
+    // Folder filter: the active-scene override bypasses the folder restriction so the GM always gets current context
+    if (folderIds && folderIds.size > 0 && !includedByActiveFlag && !folderIds.has(scene.folder?.id ?? "")) continue;
     const desc = (scene as unknown as { description?: string }).description ?? "";
     if (!desc) continue;
     const content = truncate(stripHtml(desc), MAX_CHARS_PER_DOC);
@@ -212,6 +218,9 @@ export async function auditCampaignConsistency(
   const { focus, limit = CONSISTENCY_AUDIT_DEFAULT_LIMIT } = validated.value;
 
   const activeProfile = getActiveProfile();
+  if (activeProfile && hasStaleFolderRefs(activeProfile)) {
+    console.warn(`[LoreBridge] Active profile "${activeProfile.name}" references deleted folders. Continuing with remaining valid folders.`);
+  }
   const filter = getProfileFilter(activeProfile);
   const documents = gatherDocuments(focus, filter, activeProfile?.includeActiveScene);
   if (documents.length === 0) {

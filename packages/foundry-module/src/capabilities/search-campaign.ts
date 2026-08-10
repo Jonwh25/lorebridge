@@ -10,7 +10,7 @@ import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { searchJournals } from "./journals.js";
 import { searchActors } from "./actors.js";
 import { searchScenes } from "./scenes.js";
-import { getActiveProfile, getProfileFilter } from "./context-profile.js";
+import { getActiveProfile, getProfileFilter, hasStaleFolderRefs } from "./context-profile.js";
 
 const DEFAULT_LIMIT = 20;
 const INTERNAL_LIMIT = 50;
@@ -44,7 +44,11 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Campaign search input is invalid.", { details: { validationErrors: validated.errors } });
   }
 
-  const profileFilter = getProfileFilter(getActiveProfile());
+  const activeProfile = getActiveProfile();
+  if (activeProfile && hasStaleFolderRefs(activeProfile)) {
+    console.warn(`[LoreBridge] Active profile "${activeProfile.name}" references deleted folders. Continuing with remaining valid folders.`);
+  }
+  const profileFilter = getProfileFilter(activeProfile);
   const allowedTypes = ["journal", "actor", "scene"] as const;
   const {
     query,
@@ -53,8 +57,9 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     mode: inputMode,
   } = validated.value;
   // Profile caps the limit and overrides the visibility mode when not explicitly supplied.
+  // Player-safe profiles always force player visibility regardless of caller input.
   const limit = Math.min(inputLimit, profileFilter.maxDocs);
-  const mode = inputMode ?? profileFilter.mode;
+  const mode = activeProfile?.visibilityMode === "player-safe" ? "player" : (inputMode ?? profileFilter.mode);
   // Filter types to those allowed by the active profile.
   const effectiveTypes = types.filter((t) => {
     if (t === "journal") return profileFilter.journals;
@@ -115,7 +120,32 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     }
   }
 
-  const results = scored
+  // Apply folder filter: re-resolve each matched document and check its current folder.
+  // This is done after sub-search so Spotlight or native search candidates are rechecked
+  // against live Foundry state before being ranked or returned.
+  const folderIds = profileFilter.folderIds;
+  const filteredScored = folderIds && folderIds.size > 0
+    ? scored.filter(({ match }) => {
+        if (match.documentType === "journal") {
+          const journal = game.journal?.get(match.journalId);
+          if (!journal) return false;
+          return folderIds.has(journal.folder?.id ?? "");
+        }
+        if (match.documentType === "actor") {
+          const actor = game.actors?.get(match.actorId);
+          if (!actor) return false;
+          return folderIds.has(actor.folder?.id ?? "");
+        }
+        if (match.documentType === "scene") {
+          const scene = game.scenes?.get(match.sceneId);
+          if (!scene) return false;
+          return folderIds.has(scene.folder?.id ?? "");
+        }
+        return true;
+      })
+    : scored;
+
+  const results = filteredScored
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
     .slice(0, limit)
     .map(({ match }) => match);

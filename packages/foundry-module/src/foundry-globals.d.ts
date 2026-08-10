@@ -35,6 +35,7 @@ type FoundryJournalEntry = {
   id: string;
   uuid: string;
   name: string;
+  folder?: { id: string; name: string } | null;
   ownership?: Record<string, number>;
   pages: Iterable<FoundryJournalPage> & {
     get(id: string): FoundryJournalPage | undefined;
