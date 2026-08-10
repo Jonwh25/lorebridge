@@ -71,7 +71,7 @@ function buildFolderColumnsHtml(profile: ContextProfile | null): string {
       <label style="display:flex;align-items:center;gap:5px;font-weight:bold;font-size:12px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;cursor:pointer">
         <input type="checkbox" class="lb-folder-all" data-group="${escapeHtml(type)}"> ${label}
       </label>
-      <div style="max-height:220px;overflow-y:auto">`;
+      <div style="max-height:300px;overflow-y:auto">`;
     for (const f of folders) {
       const checked = checkedIds.has(f.id) ? " checked" : "";
       html += `<label style="display:flex;align-items:center;gap:5px;padding:2px 0;font-size:12px;cursor:pointer">
@@ -172,7 +172,7 @@ function openProfileDialog(
   const title = profile ? `Edit Profile: ${profile.name}` : "New Context Profile";
   const dialog = new DialogV2({
     window: { title, resizable: true },
-    position: { width: 720, height: 440 },
+    position: { width: 900, height: 520 },
     content: buildFormHtml(profile),
     buttons: [
       {
