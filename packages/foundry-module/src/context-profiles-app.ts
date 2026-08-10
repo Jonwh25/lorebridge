@@ -4,10 +4,13 @@ import {
   getActiveProfileId,
   setActiveProfileId,
   makeProfile,
+  getProfileFilter,
+  hasStaleFolderRefs,
   type ContextProfile,
   type ContextProfileDocType,
   type ContextProfileVisibility,
 } from "./capabilities/context-profile.js";
+import { gatherDocuments } from "./capabilities/consistency-audit.js";
 
 type AnyRecord = Record<string, unknown>;
 type AppV2Instance = { render(options?: AnyRecord): Promise<unknown>; readonly element: HTMLElement };
@@ -46,6 +49,34 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+function buildFolderSectionHtml(profile: ContextProfile | null): string {
+  const checkedIds = new Set(profile?.allowedFolderIds ?? []);
+  const relevantTypes: Record<string, string> = { JournalEntry: "Journal Folders", Actor: "Actor Folders", Scene: "Scene Folders" };
+  const grouped: Record<string, Array<{ id: string; name: string }>> = {};
+  const allFolders = (game as unknown as { folders?: Iterable<{ id: string; name: string; type: string }> }).folders;
+  if (!allFolders) return "";
+  for (const folder of allFolders) {
+    if (!(folder.type in relevantTypes)) continue;
+    if (!grouped[folder.type]) grouped[folder.type] = [];
+    grouped[folder.type]!.push({ id: folder.id, name: folder.name });
+  }
+  const typeKeys = Object.keys(grouped);
+  if (typeKeys.length === 0) return "";
+  let html = `<fieldset style="margin:8px 0;padding:8px;border:1px solid #ccc;border-radius:4px">
+    <legend>Folder Restrictions <span style="color:#888;font-size:11px">(leave all unchecked for no restriction)</span></legend>
+    <div style="max-height:130px;overflow-y:auto;padding-right:4px">`;
+  for (const type of typeKeys) {
+    const folders = grouped[type]!;
+    html += `<div style="color:#555;font-size:11px;font-weight:bold;margin-top:4px">${escapeHtml(relevantTypes[type] ?? type)}</div>`;
+    for (const f of folders) {
+      const checked = checkedIds.has(f.id) ? " checked" : "";
+      html += `<label style="display:block;padding-left:12px"><input type="checkbox" data-folder-id="${escapeHtml(f.id)}"${checked}> ${escapeHtml(f.name)}</label>`;
+    }
+  }
+  html += `</div></fieldset>`;
+  return html;
+}
+
 function buildFormHtml(profile: ContextProfile | null): string {
   const name = profile ? escapeHtml(profile.name) : "";
   const maxDocs = profile ? profile.maxDocs : 50;
@@ -65,6 +96,7 @@ function buildFormHtml(profile: ContextProfile | null): string {
       <label style="display:block"><input type="checkbox" name="scenes" ${types.includes("scene") ? "checked" : ""}> Scenes</label>
       <label style="display:block;margin-top:6px"><input type="checkbox" name="includeActiveScene" ${includeActiveScene ? "checked" : ""}> Always include active scene</label>
     </fieldset>
+    ${buildFolderSectionHtml(profile)}
     <div class="form-group">
       <label>Visibility Filter</label>
       <select name="visibilityMode">
@@ -104,7 +136,14 @@ function readProfileFromDialog(button: HTMLButtonElement, existingId?: string): 
   const includeActiveScene = form.querySelector<HTMLInputElement>('input[name="includeActiveScene"]')?.checked ?? false;
   const excludedRaw = (form.querySelector<HTMLInputElement>('input[name="excludedCompendiums"]')?.value ?? "").trim();
   const excludedCompendiums = excludedRaw ? excludedRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  return makeProfile(name, allowedDocTypes, vis, maxDocs, existingId, includeActiveScene, excludedCompendiums);
+  const allowedFolderIds: string[] = [];
+  form.querySelectorAll<HTMLInputElement>("input[data-folder-id]").forEach((cb) => {
+    if (cb.checked) {
+      const fid = cb.dataset["folderId"];
+      if (fid) allowedFolderIds.push(fid);
+    }
+  });
+  return makeProfile(name, allowedDocTypes, vis, maxDocs, existingId, includeActiveScene, excludedCompendiums, allowedFolderIds);
 }
 
 async function openProfileDialog(profile: ContextProfile | null): Promise<ContextProfile | null> {
@@ -138,6 +177,7 @@ export class LoreBridgeContextProfilesApp extends AppBase {
       "duplicate-profile": LoreBridgeContextProfilesApp._onDuplicateProfile,
       "activate-profile": LoreBridgeContextProfilesApp._onActivateProfile,
       "clear-active": LoreBridgeContextProfilesApp._onClearActive,
+      "preview-profile": LoreBridgeContextProfilesApp._onPreviewProfile,
     },
   };
 
@@ -154,14 +194,19 @@ export class LoreBridgeContextProfilesApp extends AppBase {
       const m: Record<ContextProfileDocType, string> = { journal: "Journals", actor: "Actors", scene: "Scenes" };
       return t.map((x) => m[x]).join(", ") || "None";
     };
-    const rows = profiles.map((p) => ({
-      id: p.id,
-      name: p.name,
-      typesLabel: typeLabel(p.allowedDocTypes),
-      visibilityLabel: visLabel(p.visibilityMode),
-      maxDocs: p.maxDocs,
-      isActive: p.id === activeId,
-    }));
+    const rows = profiles.map((p) => {
+      const folderCount = p.allowedFolderIds?.length ?? 0;
+      return {
+        id: p.id,
+        name: p.name,
+        typesLabel: typeLabel(p.allowedDocTypes),
+        visibilityLabel: visLabel(p.visibilityMode),
+        maxDocs: p.maxDocs,
+        isActive: p.id === activeId,
+        folderLabel: folderCount > 0 ? `${folderCount} folder${folderCount !== 1 ? "s" : ""}` : "",
+        hasStaleFolder: hasStaleFolderRefs(p),
+      };
+    });
     const activeProfile = profiles.find((p) => p.id === activeId);
     return {
       profiles: rows,
@@ -243,10 +288,51 @@ export class LoreBridgeContextProfilesApp extends AppBase {
       undefined,
       source.includeActiveScene,
       source.excludedCompendiums ? [...source.excludedCompendiums] : undefined,
+      source.allowedFolderIds ? [...source.allowedFolderIds] : undefined,
     );
     profiles.push(copy);
     await saveContextProfiles(profiles);
     await (this as unknown as AppV2Instance).render();
+  }
+
+  static async _onPreviewProfile(
+    this: LoreBridgeContextProfilesApp,
+    _event: PointerEvent,
+    target: HTMLElement,
+  ): Promise<void> {
+    const id = target.dataset["id"];
+    if (!id) return;
+    const profiles = getContextProfiles();
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    const filter = getProfileFilter(profile);
+    const docs = gatherDocuments(undefined, filter, profile.includeActiveScene);
+    const journalCount = docs.filter((d) => d.type === "journal-page").length;
+    const actorCount = docs.filter((d) => d.type === "actor").length;
+    const sceneCount = docs.filter((d) => d.type === "scene").length;
+    const breakdownParts: string[] = [];
+    if (journalCount > 0) breakdownParts.push(`${journalCount} journal page${journalCount !== 1 ? "s" : ""}`);
+    if (actorCount > 0) breakdownParts.push(`${actorCount} actor${actorCount !== 1 ? "s" : ""}`);
+    if (sceneCount > 0) breakdownParts.push(`${sceneCount} scene${sceneCount !== 1 ? "s" : ""}`);
+    const sampleItems = docs.slice(0, 10).map((d) => `<li>${escapeHtml(d.name)}</li>`).join("");
+    const sampleHtml = sampleItems
+      ? `<ul style="margin:6px 0;padding-left:20px;font-size:12px">${sampleItems}</ul>`
+      : `<p style="color:#888;font-size:12px;margin:6px 0">No matching documents found.</p>`;
+    const content = `<div style="padding:4px 0">
+      <p style="margin:0 0 6px"><strong>${escapeHtml(profile.name)}</strong> would scope to <strong>${docs.length}</strong> document${docs.length !== 1 ? "s" : ""} (max ${profile.maxDocs}).</p>
+      ${breakdownParts.length > 0 ? `<p style="margin:0 0 6px;font-size:12px;color:#555">${breakdownParts.join(", ")}</p>` : ""}
+      <p style="margin:0 0 4px;font-size:12px;color:#888">First ${Math.min(10, docs.length)} matching documents:</p>
+      ${sampleHtml}
+    </div>`;
+    const DialogV2 = foundryApi?.DialogV2;
+    if (DialogV2) {
+      await DialogV2.prompt({
+        window: { title: `Preview: ${profile.name}` },
+        content,
+        ok: { label: "Close", callback: () => null },
+        rejectClose: false,
+      } as AnyRecord);
+    }
   }
 
   static async _onActivateProfile(

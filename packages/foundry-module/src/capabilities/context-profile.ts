@@ -15,6 +15,8 @@ export type ContextProfile = {
   includeActiveScene?: boolean;
   /** Pack IDs excluded by this profile (merged with the global setting). */
   excludedCompendiums?: string[];
+  /** Foundry folder IDs this profile is restricted to (empty = no folder restriction). */
+  allowedFolderIds?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -63,6 +65,8 @@ export type ProfileDocTypeFilter = {
   /** Search visibility mode: "player" filters to player-visible docs, undefined means no filter. */
   mode: "gm" | "player" | undefined;
   maxDocs: number;
+  /** Folder IDs this filter is restricted to. Undefined or empty Set means no restriction. */
+  folderIds?: Set<string>;
 };
 
 export function getProfileFilter(profile: ContextProfile | null): ProfileDocTypeFilter {
@@ -74,13 +78,17 @@ export function getProfileFilter(profile: ContextProfile | null): ProfileDocType
   // "gm-only" → no direct search filter available; profile restricts doc types only
   // "all" → no mode filter
   const mode: "player" | undefined = profile.visibilityMode === "player-safe" ? "player" : undefined;
-  return {
+  const filter: ProfileDocTypeFilter = {
     journals: types.includes("journal"),
     actors: types.includes("actor"),
     scenes: types.includes("scene"),
     mode,
     maxDocs: profile.maxDocs,
   };
+  if (profile.allowedFolderIds && profile.allowedFolderIds.length > 0) {
+    filter.folderIds = new Set(profile.allowedFolderIds);
+  }
+  return filter;
 }
 
 /**
@@ -109,9 +117,10 @@ function isValidProfile(x: unknown): x is ContextProfile {
   if (!Array.isArray(p["allowedDocTypes"])) return false;
   if (!["all", "player-safe", "gm-only"].includes(p["visibilityMode"] as string)) return false;
   if (typeof p["maxDocs"] !== "number" || p["maxDocs"] < 1) return false;
-  // Optional fields: includeActiveScene (boolean), excludedCompendiums (string[])
+  // Optional fields
   if (p["includeActiveScene"] !== undefined && typeof p["includeActiveScene"] !== "boolean") return false;
   if (p["excludedCompendiums"] !== undefined && !Array.isArray(p["excludedCompendiums"])) return false;
+  if (p["allowedFolderIds"] !== undefined && !Array.isArray(p["allowedFolderIds"])) return false;
   return true;
 }
 
@@ -123,6 +132,7 @@ export function makeProfile(
   id?: string,
   includeActiveScene?: boolean,
   excludedCompendiums?: string[],
+  allowedFolderIds?: string[],
 ): ContextProfile {
   const profile: ContextProfile = {
     id: id ?? crypto.randomUUID(),
@@ -133,5 +143,20 @@ export function makeProfile(
   };
   if (includeActiveScene) profile.includeActiveScene = true;
   if (excludedCompendiums && excludedCompendiums.length > 0) profile.excludedCompendiums = excludedCompendiums;
+  if (allowedFolderIds && allowedFolderIds.length > 0) profile.allowedFolderIds = allowedFolderIds;
   return profile;
+}
+
+/**
+ * Returns true if the profile references folder IDs that no longer exist in the current world.
+ * Requires `game.folders` to be available (Foundry client context only).
+ */
+export function hasStaleFolderRefs(profile: ContextProfile): boolean {
+  if (!profile.allowedFolderIds || profile.allowedFolderIds.length === 0) return false;
+  const folders = (game as unknown as { folders?: { get(id: string): unknown | undefined } }).folders;
+  if (!folders) return false;
+  for (const fid of profile.allowedFolderIds) {
+    if (!folders.get(fid)) return true;
+  }
+  return false;
 }

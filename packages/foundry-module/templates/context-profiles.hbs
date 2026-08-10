@@ -20,22 +20,28 @@
         <th style="padding:4px 8px">Types</th>
         <th style="padding:4px 8px">Visibility</th>
         <th style="padding:4px 8px">Max Docs</th>
+        <th style="padding:4px 8px">Folders</th>
         <th style="padding:4px 8px"></th>
       </tr>
     </thead>
     <tbody>
       {{#each profiles}}
       <tr style="border-bottom:1px solid #ddd{{#if isActive}};background:rgba(52,152,219,.08){{/if}}">
-        <td style="padding:5px 8px;font-weight:{{#if isActive}}bold{{else}}normal{{/if}}">{{name}}</td>
+        <td style="padding:5px 8px;font-weight:{{#if isActive}}bold{{else}}normal{{/if}}">
+          {{name}}
+          {{#if hasStaleFolder}}<span title="This profile references deleted folders — edit the profile to remove them" style="color:#e67e22;margin-left:4px">⚠</span>{{/if}}
+        </td>
         <td style="padding:5px 8px;color:#555">{{typesLabel}}</td>
         <td style="padding:5px 8px;color:#555">{{visibilityLabel}}</td>
         <td style="padding:5px 8px;color:#555">{{maxDocs}}</td>
+        <td style="padding:5px 8px;color:#555">{{#if folderLabel}}{{folderLabel}}{{else}}<em style="color:#aaa">Any</em>{{/if}}</td>
         <td style="padding:5px 8px;white-space:nowrap">
           {{#if isActive}}
           <em style="color:#3498db;font-size:12px">Active</em>
           {{else}}
           <button type="button" data-action="activate-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Set Active</button>
           {{/if}}
+          <button type="button" data-action="preview-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Preview</button>
           <button type="button" data-action="duplicate-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Duplicate</button>
           <button type="button" data-action="edit-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Edit</button>
           <button type="button" data-action="delete-profile" data-id="{{id}}" style="padding:1px 8px;font-size:12px">Delete</button>
