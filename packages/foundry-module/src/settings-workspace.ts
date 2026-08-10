@@ -40,23 +40,18 @@ const foundryApi = (
 ).foundry?.applications?.api as
   | {
       ApplicationV2?: AppV2Static;
-      HandlebarsApplicationMixin?: (base: AppV2Static) => AppV2Static;
       DialogV2?: { prompt(cfg: AnyRecord): Promise<unknown> };
     }
   | undefined;
 
 const TestSafeBase: AppV2Static = class implements AppV2Instance {
   static DEFAULT_OPTIONS: AnyRecord = {};
-  static PARTS: AnyRecord = {};
   readonly element: HTMLElement = document.createElement("div");
   async render(_options?: AnyRecord): Promise<unknown> { return undefined; }
   async close(_options?: AnyRecord): Promise<unknown> { return undefined; }
 };
 
-const ApplicationV2 = foundryApi?.ApplicationV2 ?? TestSafeBase;
-const AppBase: AppV2Static = foundryApi?.HandlebarsApplicationMixin
-  ? foundryApi.HandlebarsApplicationMixin(ApplicationV2)
-  : ApplicationV2;
+const AppBase: AppV2Static = foundryApi?.ApplicationV2 ?? TestSafeBase;
 
 // ---------------------------------------------------------------------------
 // Section IDs
@@ -430,12 +425,7 @@ export class LoreBridgeSettingsApp extends AppBase {
     },
   };
 
-  static override PARTS: AnyRecord = {
-    workspace: { template: "modules/lorebridge/templates/settings-workspace.hbs" },
-  };
-
   private _activeSection: SectionId = "home";
-  private _sectionContent = "";
 
   private static _instance: LoreBridgeSettingsApp | null = null;
 
@@ -446,15 +436,36 @@ export class LoreBridgeSettingsApp extends AppBase {
     void (LoreBridgeSettingsApp._instance as unknown as AppV2Instance).render({ force: true });
   }
 
-  async _prepareContext(_options?: AnyRecord): Promise<AnyRecord> {
-    this._sectionContent = await this._buildSectionContent();
-    return {
-      navItems: NAV_ITEMS.map((n) => ({
-        ...n,
-        active: n.id === this._activeSection,
-      })),
-      sectionContent: this._sectionContent,
-    };
+  async _renderHTML(_context: AnyRecord, _options: unknown): Promise<HTMLElement> {
+    const sectionContent = await this._buildSectionContent();
+    const navHtml = NAV_ITEMS.map((n) => {
+      const active = n.id === this._activeSection;
+      return `<button type="button" data-action="nav" data-section="${n.id}"
+        style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;
+               background:${active ? "rgba(52,152,219,.18)" : "transparent"};
+               border:none;border-left:3px solid ${active ? "#3498db" : "transparent"};
+               cursor:pointer;text-align:left;font-size:0.85em;
+               color:${active ? "#3498db" : "inherit"}">
+        <i class="${n.icon}" style="width:16px;text-align:center"></i>
+        ${esc(n.label)}
+      </button>`;
+    }).join("");
+
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div style="display:flex;height:100%;overflow:hidden">
+        <nav style="width:160px;flex-shrink:0;border-right:1px solid rgba(0,0,0,.2);overflow-y:auto;padding:8px 0">
+          ${navHtml}
+        </nav>
+        <div style="flex:1;overflow-y:auto;min-width:0">
+          ${sectionContent}
+        </div>
+      </div>`;
+    return container;
+  }
+
+  _replaceHTML(result: HTMLElement, content: HTMLElement, _options: unknown): void {
+    content.replaceChildren(...Array.from(result.childNodes));
   }
 
   private async _buildSectionContent(): Promise<string> {
