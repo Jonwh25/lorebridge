@@ -95,14 +95,14 @@ function toggle(
   hint: string,
 ): string {
   return `
-    <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08)">
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.08)">
       <div style="flex:1">
         <div style="font-weight:bold;font-size:0.9em">${esc(label)}</div>
         <div style="font-size:0.78em;color:#888;margin-top:2px">${esc(hint)}</div>
       </div>
-      <label class="lb-toggle" style="display:inline-flex;align-items:center;cursor:pointer;gap:6px;flex-shrink:0">
-        <input type="checkbox" name="${esc(key)}" ${value ? "checked" : ""} style="margin:0">
-        <span style="font-size:0.82em;color:#666">${value ? "On" : "Off"}</span>
+      <label class="lb-switch" style="flex-shrink:0">
+        <input type="checkbox" name="${esc(key)}" ${value ? "checked" : ""}>
+        <span class="lb-slider"></span>
       </label>
     </div>`;
 }
@@ -453,6 +453,15 @@ export class LoreBridgeSettingsApp extends AppBase {
 
     const container = document.createElement("div");
     container.innerHTML = `
+      <style>
+        .lb-switch { position:relative; display:inline-block; width:44px; height:24px; }
+        .lb-switch input { opacity:0; width:0; height:0; position:absolute; }
+        .lb-slider { position:absolute; cursor:pointer; inset:0; background:#555; border-radius:24px; transition:.25s; }
+        .lb-slider::before { content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.25s; }
+        .lb-switch input:checked + .lb-slider { background:#3498db; }
+        .lb-switch input:checked + .lb-slider::before { transform:translateX(20px); }
+        .lb-switch input:focus-visible + .lb-slider { outline:2px solid #3498db; outline-offset:2px; }
+      </style>
       <div style="display:flex;height:100%;overflow:hidden">
         <nav style="width:160px;flex-shrink:0;border-right:1px solid rgba(0,0,0,.2);overflow-y:auto;padding:8px 0">
           ${navHtml}
