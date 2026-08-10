@@ -113,7 +113,7 @@ function formatDate(ts: number): string {
   });
 }
 
-function buildPanelHtml(entries: GenerationHistoryEntry[]): string {
+export function buildHistorySectionHtml(entries: GenerationHistoryEntry[]): string {
   const style = `
     <style>
       #lorebridge-generation-history .window-content {
@@ -148,11 +148,11 @@ function buildPanelHtml(entries: GenerationHistoryEntry[]): string {
         </div>
         <div style="font-size:0.82em;color:#bbb;font-style:italic;margin-bottom:8px;">${preview}${hasMore ? "…" : ""}</div>
         <div style="display:flex;gap:6px;justify-content:flex-end;">
-          <button data-action="delete" data-entry-id="${esc(e.id)}"
+          <button data-action="history-delete" data-entry-id="${esc(e.id)}"
             style="padding:3px 10px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a;border-radius:3px;cursor:pointer;font-size:0.82em;">
             <i class="fas fa-trash"></i> Delete
           </button>
-          <button data-action="reopen" data-entry-id="${esc(e.id)}"
+          <button data-action="history-reopen" data-entry-id="${esc(e.id)}"
             style="padding:3px 10px;background:#1a2a3a;color:#7ab;border:1px solid #3a5a7a;border-radius:3px;cursor:pointer;font-size:0.82em;">
             <i class="fas fa-eye"></i> Reopen
           </button>
@@ -162,7 +162,7 @@ function buildPanelHtml(entries: GenerationHistoryEntry[]): string {
 
   return `${style}<div class="lb-history-list">
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-      <button data-action="clear-all"
+      <button data-action="history-clear-all"
         style="padding:4px 12px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a;border-radius:3px;cursor:pointer;font-size:0.82em;">
         <i class="fas fa-trash-alt"></i> Clear All
       </button>
@@ -205,7 +205,7 @@ export class GenerationHistoryPanel extends _AppV2Base {
 
   override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
     const container = document.createElement("div");
-    container.innerHTML = buildPanelHtml(getHistoryEntries());
+    container.innerHTML = buildHistorySectionHtml(getHistoryEntries());
     return container;
   }
 
@@ -216,9 +216,9 @@ export class GenerationHistoryPanel extends _AppV2Base {
   override _onClickAction(_event: PointerEvent, target: HTMLElement): void | Promise<void> {
     const action = target.dataset["action"];
     const id = target.dataset["entryId"] ?? "";
-    if (action === "reopen") return _doReopen(id);
-    if (action === "delete") return _doDelete(id, this);
-    if (action === "clear-all") return _doClearAll(this);
+    if (action === "history-reopen") return _doReopen(id);
+    if (action === "history-delete") return _doDelete(id, this);
+    if (action === "history-clear-all") return _doClearAll(this);
   }
 }
 
