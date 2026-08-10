@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-08-10
+
+### Fixed
+
+- **Configure Profiles dialog now opens in installed builds** (#248): `context-profiles.hbs` was omitted from the packaging script, causing the Configure Profiles button to fail silently in all v0.21.0 releases. The template is now included and the release archive verification script checks for it.
+
 ## [0.21.0] - 2026-08-09
 
 ### Added
