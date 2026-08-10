@@ -400,15 +400,19 @@ behavior when no profile is active.
 ### Milestone 22 — Context Profile Advanced Scoping
 
 Add finer-grained profile scoping and visibility into exactly what a profile
-will include before it is used.
+will include before it is used, and consolidate LoreBridge configuration into
+a coherent settings workspace that makes those access boundaries understandable.
 
 1. [Context Profiles: folder-level scoping](https://github.com/Jonwh25/lorebridge/issues/185)
 2. [Context Profiles: profile preview](https://github.com/Jonwh25/lorebridge/issues/186)
 3. [Context Profiles: source recheck at request time](https://github.com/Jonwh25/lorebridge/issues/187)
+4. [Redesign LoreBridge settings as a unified, logically grouped workspace](https://github.com/Jonwh25/lorebridge/issues/251)
 
 Success test: a GM scopes a profile to selected folders, previews the matched
 sources before activation, and can safely continue using the profile after
-sources are moved, deleted, or restricted.
+sources are moved, deleted, or restricted. LoreBridge configuration is available
+through one resizable, logically grouped settings workspace that preserves
+existing values, security boundaries, and predictable save behavior.
 
 ### Milestone 23 — Campaign Memory Engine for Living NPCs
 
