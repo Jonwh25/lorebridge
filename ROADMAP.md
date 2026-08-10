@@ -442,7 +442,31 @@ reviewable timeline of important interactions and relationship changes, and a
 new roleplay or profile-generation request incorporates approved memories
 without rewriting unrelated NPC data.
 
-### Milestone 24 — Session and Character Portability
+### Milestone 24 — Campaign Codex Integration: NPC Dossier Widget
+
+Add an optional Campaign Codex integration that registers a LoreBridge
+**NPC Dossier** widget. Campaign Codex becomes the canonical store for
+structured NPC narrative and campaign relationships; LoreBridge reads that
+data for generation, roleplay, and future memory features instead of
+maintaining a competing canonical profile.
+
+1. [Campaign Codex integration: canonical NPC Dossier widget](https://github.com/Jonwh25/lorebridge/issues/258)
+
+LoreBridge registers the widget only when Campaign Codex is active and
+compatible, and continues to work without it. The widget provides a
+structured, versioned dossier model covering reference, identity,
+roleplaying guidance, conditional information, Q&A, knowledge, and
+GM-only secrets using Foundry's native Secret block behavior. Generated
+suggestions remain previewed and explicitly approved.
+
+Success test: with Campaign Codex enabled, **LoreBridge NPC Dossier** appears
+in Available Widgets; a GM can edit and persist every structured field and
+repeatable row; the rendered dossier is usable at practical sizes with scrolling;
+GM-only secrets are excluded from player-visible rendering and LoreBridge context;
+LoreBridge generation prefers dossier data when present and falls back cleanly
+when Campaign Codex is absent or disabled.
+
+### Milestone 25 — Session and Character Portability
 
 Replace the remaining Character Vault workflows with bounded, GM-controlled
 session provisioning, hotbar distribution, reset operations, and
@@ -465,9 +489,9 @@ and reset non-GM accounts with clear previews and confirmations. An authorized
 player can restore only a character they own from the permitted backup surface,
 with no access to other actors, GM data, or repository secrets.
 
-### Post-Milestone 24 — Roadmap and 1.0 Readiness Review
+### Post-Milestone 25 — Roadmap and 1.0 Readiness Review
 
-After Milestone 24, reassess deferred issues, newly discovered work, operational
+After Milestone 25, reassess deferred issues, newly discovered work, operational
 evidence, and release maturity through [#244](https://github.com/Jonwh25/lorebridge/issues/244).
 This is a decision gate, not an automatic commitment to release 1.0.
 
