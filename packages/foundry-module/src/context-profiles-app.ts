@@ -172,7 +172,7 @@ function openProfileDialog(
   const title = profile ? `Edit Profile: ${profile.name}` : "New Context Profile";
   const dialog = new DialogV2({
     window: { title, resizable: true },
-    position: { width: 900, height: 520 },
+    position: { width: 900, height: 620 },
     content: buildFormHtml(profile),
     buttons: [
       {
