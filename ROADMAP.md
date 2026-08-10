@@ -421,7 +421,7 @@ proven stable. This is intentionally a later milestone rather than part of the
 Milestone 17 delivery scope.
 
 1. [Campaign Memory Engine for Living NPCs](https://github.com/Jonwh25/lorebridge/issues/198)
-2. [NPC Workspace: D&D 5e trait table picker and background field](https://github.com/Jonwh25/lorebridge/issues/207)
+2. ✅ [NPC Workspace: D&D 5e trait table picker and background field](https://github.com/Jonwh25/lorebridge/issues/207)
 
 NPCs should accumulate meaningful campaign events, relationship changes,
 promises, debts, betrayals, status changes, and other persistent history over
