@@ -11,6 +11,10 @@ export type ContextProfile = {
   allowedDocTypes: ContextProfileDocType[];
   visibilityMode: ContextProfileVisibility;
   maxDocs: number;
+  /** When true, always include the active scene regardless of allowedDocTypes. */
+  includeActiveScene?: boolean;
+  /** Pack IDs excluded by this profile (merged with the global setting). */
+  excludedCompendiums?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -79,6 +83,20 @@ export function getProfileFilter(profile: ContextProfile | null): ProfileDocType
   };
 }
 
+/**
+ * Returns profile-level excluded compendium pack IDs merged with a base set.
+ * Pass the global setting's exclusion set as `globalExcluded`.
+ */
+export function mergeProfileCompendiumExclusions(
+  profile: ContextProfile | null,
+  globalExcluded: Set<string>,
+): Set<string> {
+  if (!profile?.excludedCompendiums?.length) return globalExcluded;
+  const merged = new Set(globalExcluded);
+  for (const id of profile.excludedCompendiums) merged.add(id);
+  return merged;
+}
+
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
@@ -91,6 +109,9 @@ function isValidProfile(x: unknown): x is ContextProfile {
   if (!Array.isArray(p["allowedDocTypes"])) return false;
   if (!["all", "player-safe", "gm-only"].includes(p["visibilityMode"] as string)) return false;
   if (typeof p["maxDocs"] !== "number" || p["maxDocs"] < 1) return false;
+  // Optional fields: includeActiveScene (boolean), excludedCompendiums (string[])
+  if (p["includeActiveScene"] !== undefined && typeof p["includeActiveScene"] !== "boolean") return false;
+  if (p["excludedCompendiums"] !== undefined && !Array.isArray(p["excludedCompendiums"])) return false;
   return true;
 }
 
@@ -100,12 +121,17 @@ export function makeProfile(
   visibilityMode: ContextProfileVisibility,
   maxDocs: number,
   id?: string,
+  includeActiveScene?: boolean,
+  excludedCompendiums?: string[],
 ): ContextProfile {
-  return {
+  const profile: ContextProfile = {
     id: id ?? crypto.randomUUID(),
     name: name.trim(),
     allowedDocTypes,
     visibilityMode,
     maxDocs,
   };
+  if (includeActiveScene) profile.includeActiveScene = true;
+  if (excludedCompendiums && excludedCompendiums.length > 0) profile.excludedCompendiums = excludedCompendiums;
+  return profile;
 }

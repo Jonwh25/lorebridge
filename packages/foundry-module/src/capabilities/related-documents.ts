@@ -12,6 +12,7 @@ import { isPlayerVisible } from "./visibility.js";
 import { getActor } from "./actors.js";
 import { getJournal, getJournalPage } from "./journals.js";
 import { getScene } from "./scenes.js";
+import { getActiveProfile, getProfileFilter } from "./context-profile.js";
 
 function actorHtml(actorId: string): string {
   const actor = game.actors?.get(actorId);
@@ -32,17 +33,36 @@ function actorHtml(actorId: string): string {
 const DEFAULT_LIMIT = 20;
 const UUID_LINK_CAP = 20;
 
-// Matches @UUID[Actor.abc123], @UUID[JournalEntry.abc123.JournalEntryPage.def456], etc.
+// Matches @UUID[Actor.abc123]{...} — used in Markdown-format journal pages.
 const UUID_LINK_RE = /@UUID\[([^\]]+)\]/g;
+// Matches data-uuid="Actor.abc123" — used in HTML-format (ProseMirror) journal pages.
+const DATA_UUID_RE = /data-uuid="([^"]+)"/g;
 
 function extractUuidLinks(html: string): string[] {
+  const seen = new Set<string>();
   const uuids: string[] = [];
+
+  function add(raw: string): void {
+    const uuid = raw.split("{")[0]?.trim() ?? raw;
+    if (uuid && !seen.has(uuid) && uuids.length < UUID_LINK_CAP) {
+      seen.add(uuid);
+      uuids.push(uuid);
+    }
+  }
+
+  // HTML-format pages (ProseMirror): links stored as data-uuid attributes.
+  DATA_UUID_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
+  while ((match = DATA_UUID_RE.exec(html)) !== null && uuids.length < UUID_LINK_CAP) {
+    if (match[1]) add(match[1]);
+  }
+
+  // Markdown-format pages: links stored as @UUID[...] text.
   UUID_LINK_RE.lastIndex = 0;
   while ((match = UUID_LINK_RE.exec(html)) !== null && uuids.length < UUID_LINK_CAP) {
-    const raw = match[1];
-    if (raw) uuids.push(raw.split("{")[0]?.trim() ?? raw);
+    if (match[1]) add(match[1]);
   }
+
   return uuids;
 }
 
@@ -165,13 +185,29 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
 
   const { uuid, limit = DEFAULT_LIMIT, types = ["actor", "journal", "journalPage", "scene"], mode } = validated.value;
   const trimmedUuid = uuid.trim();
-  const playerMode = mode === "player";
+
+  // Apply active profile constraints on top of caller-supplied params.
+  const activeProfile = getActiveProfile();
+  const profileFilter = getProfileFilter(activeProfile);
+  // Map profile's allowedDocTypes to ResolvedDocumentType; "journal" covers both journal and journalPage.
+  const profileAllowedTypes: ResolvedDocumentType[] = [];
+  if (profileFilter.journals) profileAllowedTypes.push("journal", "journalPage");
+  if (profileFilter.actors) profileAllowedTypes.push("actor");
+  if (profileFilter.scenes) profileAllowedTypes.push("scene");
+  // Intersect caller types with profile-allowed types (profile wins when active).
+  const effectiveTypes: ResolvedDocumentType[] = activeProfile
+    ? types.filter((t) => profileAllowedTypes.includes(t))
+    : types;
+  // Profile playerMode takes precedence; caller "player" mode also activates it.
+  const playerMode = mode === "player" || profileFilter.mode === "player";
+  // Cap limit at profile maxDocs when a profile is active.
+  const effectiveLimit = activeProfile ? Math.min(limit, profileFilter.maxDocs) : limit;
 
   const source = resolveSourceDocument(trimmedUuid);
   const related = new Map<string, RelatedDocument>();
 
   if (source.html) {
-    collectFromHtml(source.html, related, types, playerMode);
+    collectFromHtml(source.html, related, effectiveTypes, playerMode);
   }
 
   if (source.sceneOutput) {
@@ -181,7 +217,7 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
       const journalUuid = scene.linkedJournal.pageUuid ?? scene.linkedJournal.uuid;
       const journalDocType: ResolvedDocumentType = scene.linkedJournal.pageUuid ? "journalPage" : "journal";
       const journalName = scene.linkedJournal.pageName ?? scene.linkedJournal.name;
-      if (types.includes(journalDocType) && !related.has(journalUuid)) {
+      if (effectiveTypes.includes(journalDocType) && !related.has(journalUuid)) {
         const ownerId = scene.linkedJournal.id;
         const ownership = game.journal?.get(ownerId)?.ownership;
         if (!playerMode || isPlayerVisible(ownership)) {
@@ -195,7 +231,7 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
       const noteUuid = note.pageUuid ?? note.journalUuid;
       const noteDocType: ResolvedDocumentType = note.pageUuid ? "journalPage" : "journal";
       const noteName = note.pageName ?? note.journalName ?? note.label ?? note.journalId ?? noteUuid;
-      if (types.includes(noteDocType) && !related.has(noteUuid)) {
+      if (effectiveTypes.includes(noteDocType) && !related.has(noteUuid)) {
         const ownership = note.journalId ? game.journal?.get(note.journalId)?.ownership : undefined;
         if (!playerMode || isPlayerVisible(ownership)) {
           related.set(noteUuid, { uuid: noteUuid, documentType: noteDocType, name: noteName, relationshipType: "sceneNote" });
@@ -205,7 +241,7 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
 
     for (const token of scene.tokens ?? []) {
       if (!token.actorUuid) continue;
-      if (types.includes("actor") && !related.has(token.actorUuid)) {
+      if (effectiveTypes.includes("actor") && !related.has(token.actorUuid)) {
         const actorId = token.actorId;
         const ownership = actorId ? game.actors?.get(actorId)?.ownership : undefined;
         if (!playerMode || isPlayerVisible(ownership)) {
@@ -221,7 +257,7 @@ export function getRelatedDocuments(input: GetRelatedDocumentsInput): GetRelated
     uuid: trimmedUuid,
     documentType: source.documentType,
     name: source.name,
-    related: Array.from(related.values()).slice(0, limit),
+    related: Array.from(related.values()).slice(0, effectiveLimit),
   };
 
   const outputValidation = validateGetRelatedDocumentsOutput(output);

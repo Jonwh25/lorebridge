@@ -8,6 +8,8 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { getActiveProfile, getProfileFilter, type ProfileDocTypeFilter } from "./context-profile.js";
+import { isPlayerVisible } from "./visibility.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -62,54 +64,68 @@ function scoreRelevance(name: string, content: string, focus: string): number {
   return 0;
 }
 
-function gatherDocuments(focus?: string): ContentDocument[] {
+function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, includeActiveScene?: boolean): ContentDocument[] {
+  const playerMode = filter?.mode === "player";
+  const maxDocs = filter?.maxDocs ?? MAX_DOCUMENTS;
   const docs: ContentDocument[] = [];
 
   // Journal pages
-  for (const journal of game.journal ?? []) {
-    for (const page of journal.pages) {
-      const html = page.text?.content ?? "";
-      if (!html) continue;
-      const content = truncate(stripHtml(html), MAX_CHARS_PER_DOC);
+  if (!filter || filter.journals) {
+    for (const journal of game.journal ?? []) {
+      if (playerMode && !isPlayerVisible(journal.ownership)) continue;
+      for (const page of journal.pages) {
+        const html = page.text?.content ?? "";
+        if (!html) continue;
+        const content = truncate(stripHtml(html), MAX_CHARS_PER_DOC);
+        if (!content) continue;
+        docs.push({
+          uuid: `JournalEntry.${journal.id}.JournalEntryPage.${page.id}`,
+          name: `${journal.name} → ${page.name}`,
+          type: "journal-page",
+          content,
+        });
+      }
+    }
+  }
+
+  // Actors (biography text)
+  if (!filter || filter.actors) {
+    for (const actor of game.actors ?? []) {
+      if (playerMode && !isPlayerVisible(actor.ownership)) continue;
+      const system = actor.system as Record<string, unknown>;
+      const paths: string[][] = [
+        ["details", "biography", "value"],
+        ["details", "biography"],
+        ["biography", "value"],
+        ["description", "value"],
+        ["details", "description"],
+      ];
+      let bio = "";
+      for (const path of paths) {
+        let node: unknown = system;
+        for (const key of path) node = (node as Record<string, unknown>)?.[key];
+        if (typeof node === "string" && node.length > 0) { bio = node; break; }
+      }
+      if (!bio) continue;
+      const content = truncate(stripHtml(bio), MAX_CHARS_PER_DOC);
       if (!content) continue;
       docs.push({
-        uuid: `JournalEntry.${journal.id}.JournalEntryPage.${page.id}`,
-        name: `${journal.name} → ${page.name}`,
-        type: "journal-page",
+        uuid: `Actor.${actor.id}`,
+        name: actor.name,
+        type: "actor",
         content,
       });
     }
   }
 
-  // Actors (biography text)
-  for (const actor of game.actors ?? []) {
-    const system = actor.system as Record<string, unknown>;
-    const paths: string[][] = [
-      ["details", "biography", "value"],
-      ["details", "biography"],
-      ["biography", "value"],
-      ["description", "value"],
-      ["details", "description"],
-    ];
-    let bio = "";
-    for (const path of paths) {
-      let node: unknown = system;
-      for (const key of path) node = (node as Record<string, unknown>)?.[key];
-      if (typeof node === "string" && node.length > 0) { bio = node; break; }
-    }
-    if (!bio) continue;
-    const content = truncate(stripHtml(bio), MAX_CHARS_PER_DOC);
-    if (!content) continue;
-    docs.push({
-      uuid: `Actor.${actor.id}`,
-      name: actor.name,
-      type: "actor",
-      content,
-    });
-  }
-
   // Scenes (description if available)
+  const activeSceneId = (game.scenes as unknown as { active?: { id: string } })?.active?.id;
+  const sceneAllowed = !filter || filter.scenes;
   for (const scene of game.scenes ?? []) {
+    const isActive = scene.id === activeSceneId;
+    // Include scene if: scenes allowed by filter, OR includeActiveScene flag is set and this is the active scene
+    if (!sceneAllowed && !(includeActiveScene && isActive)) continue;
+    if (playerMode && !isPlayerVisible((scene as unknown as { ownership?: Record<string, number> }).ownership)) continue;
     const desc = (scene as unknown as { description?: string }).description ?? "";
     if (!desc) continue;
     const content = truncate(stripHtml(desc), MAX_CHARS_PER_DOC);
@@ -122,12 +138,12 @@ function gatherDocuments(focus?: string): ContentDocument[] {
     });
   }
 
-  // Sort by relevance to focus, then truncate to MAX_DOCUMENTS
+  // Sort by relevance to focus, then truncate to profile maxDocs
   if (focus) {
     docs.sort((a, b) => scoreRelevance(b.name, b.content, focus) - scoreRelevance(a.name, a.content, focus));
   }
 
-  return docs.slice(0, MAX_DOCUMENTS);
+  return docs.slice(0, maxDocs);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +211,9 @@ export async function auditCampaignConsistency(
 
   const { focus, limit = CONSISTENCY_AUDIT_DEFAULT_LIMIT } = validated.value;
 
-  const documents = gatherDocuments(focus);
+  const activeProfile = getActiveProfile();
+  const filter = getProfileFilter(activeProfile);
+  const documents = gatherDocuments(focus, filter, activeProfile?.includeActiveScene);
   if (documents.length === 0) {
     const output: AuditCampaignConsistencyOutput = {
       sourceId: `foundry:${game.world.id}`,

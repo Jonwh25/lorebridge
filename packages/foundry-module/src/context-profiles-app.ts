@@ -51,6 +51,8 @@ function buildFormHtml(profile: ContextProfile | null): string {
   const maxDocs = profile ? profile.maxDocs : 50;
   const types = profile ? profile.allowedDocTypes : (["journal", "actor", "scene"] as ContextProfileDocType[]);
   const vis = profile ? profile.visibilityMode : "all";
+  const includeActiveScene = profile?.includeActiveScene ?? false;
+  const excludedCompendiums = escapeHtml((profile?.excludedCompendiums ?? []).join(", "));
   return `
     <div class="form-group">
       <label>Profile Name</label>
@@ -61,6 +63,7 @@ function buildFormHtml(profile: ContextProfile | null): string {
       <label style="display:block"><input type="checkbox" name="journals" ${types.includes("journal") ? "checked" : ""}> Journals</label>
       <label style="display:block"><input type="checkbox" name="actors" ${types.includes("actor") ? "checked" : ""}> Actors</label>
       <label style="display:block"><input type="checkbox" name="scenes" ${types.includes("scene") ? "checked" : ""}> Scenes</label>
+      <label style="display:block;margin-top:6px"><input type="checkbox" name="includeActiveScene" ${includeActiveScene ? "checked" : ""}> Always include active scene</label>
     </fieldset>
     <div class="form-group">
       <label>Visibility Filter</label>
@@ -73,6 +76,10 @@ function buildFormHtml(profile: ContextProfile | null): string {
     <div class="form-group">
       <label>Max Documents <span style="color:#888;font-size:11px">(10–200)</span></label>
       <input type="number" name="maxDocs" value="${maxDocs}" min="10" max="200" step="10">
+    </div>
+    <div class="form-group">
+      <label>Excluded Compendiums <span style="color:#888;font-size:11px">(comma-separated pack IDs)</span></label>
+      <input type="text" name="excludedCompendiums" value="${excludedCompendiums}" placeholder="e.g. world.secret, dnd5e.monsters">
     </div>`;
 }
 
@@ -94,7 +101,10 @@ function readProfileFromDialog(button: HTMLButtonElement, existingId?: string): 
   }
   const vis = (form.querySelector<HTMLSelectElement>('select[name="visibilityMode"]')?.value ?? "all") as ContextProfileVisibility;
   const maxDocs = Math.min(200, Math.max(10, parseInt(form.querySelector<HTMLInputElement>('input[name="maxDocs"]')?.value ?? "50", 10) || 50));
-  return makeProfile(name, allowedDocTypes, vis, maxDocs, existingId);
+  const includeActiveScene = form.querySelector<HTMLInputElement>('input[name="includeActiveScene"]')?.checked ?? false;
+  const excludedRaw = (form.querySelector<HTMLInputElement>('input[name="excludedCompendiums"]')?.value ?? "").trim();
+  const excludedCompendiums = excludedRaw ? excludedRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  return makeProfile(name, allowedDocTypes, vis, maxDocs, existingId, includeActiveScene, excludedCompendiums);
 }
 
 async function openProfileDialog(profile: ContextProfile | null): Promise<ContextProfile | null> {
@@ -125,6 +135,7 @@ export class LoreBridgeContextProfilesApp extends AppBase {
       "new-profile": LoreBridgeContextProfilesApp._onNewProfile,
       "edit-profile": LoreBridgeContextProfilesApp._onEditProfile,
       "delete-profile": LoreBridgeContextProfilesApp._onDeleteProfile,
+      "duplicate-profile": LoreBridgeContextProfilesApp._onDuplicateProfile,
       "activate-profile": LoreBridgeContextProfilesApp._onActivateProfile,
       "clear-active": LoreBridgeContextProfilesApp._onClearActive,
     },
@@ -211,6 +222,30 @@ export class LoreBridgeContextProfilesApp extends AppBase {
     const updated = profiles.filter((p) => p.id !== id);
     await saveContextProfiles(updated);
     if (getActiveProfileId() === id) await setActiveProfileId("");
+    await (this as unknown as AppV2Instance).render();
+  }
+
+  static async _onDuplicateProfile(
+    this: LoreBridgeContextProfilesApp,
+    _event: PointerEvent,
+    target: HTMLElement,
+  ): Promise<void> {
+    const id = target.dataset["id"];
+    if (!id) return;
+    const profiles = getContextProfiles();
+    const source = profiles.find((p) => p.id === id);
+    if (!source) return;
+    const copy = makeProfile(
+      `${source.name} (copy)`,
+      [...source.allowedDocTypes],
+      source.visibilityMode,
+      source.maxDocs,
+      undefined,
+      source.includeActiveScene,
+      source.excludedCompendiums ? [...source.excludedCompendiums] : undefined,
+    );
+    profiles.push(copy);
+    await saveContextProfiles(profiles);
     await (this as unknown as AppV2Instance).render();
   }
 
