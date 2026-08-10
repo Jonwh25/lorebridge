@@ -48,12 +48,8 @@ test("registers safe world and client scoped defaults", () => {
 
   registerLoreBridgeSettings();
 
-  assert.equal(menus.size, 5);
-  assert.equal(menus.get("configuration")?.restricted, true);
-  assert.equal(menus.get("features")?.restricted, true);
-  assert.equal(menus.get("contextProfiles")?.restricted, true);
-  assert.equal(menus.get("generationHistory")?.restricted, true);
-  assert.equal(menus.get("playerLoreAllowlist")?.restricted, true);
+  assert.equal(menus.size, 1);
+  assert.equal(menus.get("workspace")?.restricted, true);
 
   assert.equal(registrations.size, 21);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.default, false);
@@ -80,11 +76,11 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcMentionEnabled)?.requiresReload, true);
 
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.scope, "world");
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.capabilityApiEnabled)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.scope, "world");
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.remoteIntegrationEnabled)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.scope, "world");
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.provider)?.config, false);
 
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backendUrl)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backendUrl)?.config, false);
@@ -99,10 +95,10 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.generationHistory)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.generationHistory)?.default, "[]");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.scope, "world");
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.maxHistoryLength)?.default, 10);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.scope, "world");
-  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.config, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.default, true);
 });
 

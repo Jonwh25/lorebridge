@@ -1,8 +1,4 @@
-import { LoreBridgeConfigurationApp } from "./configuration-app.js";
-import { LoreBridgeFeatureSettingsApp } from "./feature-settings-app.js";
-import { LoreBridgeContextProfilesApp } from "./context-profiles-app.js";
-import { GenerationHistoryPanel } from "./generation-history.js";
-import { PlayerLoreAllowlistApp } from "./player-lore-menu-app.js";
+import { LoreBridgeSettingsApp } from "./settings-workspace.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -15,7 +11,8 @@ type FoundrySettingsApi = typeof game.settings & {
       label: string;
       hint: string;
       icon: string;
-      type: typeof LoreBridgeConfigurationApp | typeof LoreBridgeFeatureSettingsApp | typeof LoreBridgeContextProfilesApp | typeof GenerationHistoryPanel | typeof PlayerLoreAllowlistApp;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      type: new (...args: any[]) => unknown;
       restricted: boolean;
     },
   ): void;
@@ -74,48 +71,12 @@ export type LoreBridgeSettings = {
 export function registerLoreBridgeSettings(): void {
   const settings = getFoundrySettingsApi();
 
-  settings.registerMenu(MODULE_ID, "configuration", {
-    name: "Configure LoreBridge",
-    label: "Configure LoreBridge",
-    hint: "Check the backend connection and pair this GM browser.",
+  settings.registerMenu(MODULE_ID, "workspace", {
+    name: "LoreBridge Settings",
+    label: "Open LoreBridge Settings",
+    hint: "Configure connection, features, AI content, access controls, and generation history in one place.",
     icon: "fas fa-bridge",
-    type: LoreBridgeConfigurationApp,
-    restricted: true,
-  });
-
-  settings.registerMenu(MODULE_ID, "features", {
-    name: "Configure LoreBridge Features",
-    label: "Configure Features",
-    hint: "Choose which LoreBridge feature categories are available in this world.",
-    icon: "fas fa-sliders-h",
-    type: LoreBridgeFeatureSettingsApp,
-    restricted: true,
-  });
-
-  settings.registerMenu(MODULE_ID, "contextProfiles", {
-    name: "Configure Context Profiles",
-    label: "Configure Profiles",
-    hint: "Create and manage reusable scopes that limit which documents LoreBridge can access.",
-    icon: "fas fa-filter",
-    type: LoreBridgeContextProfilesApp,
-    restricted: true,
-  });
-
-  settings.registerMenu(MODULE_ID, "generationHistory", {
-    name: "Generation History",
-    label: "Generation History",
-    hint: "Browse recent AI-generated content and reopen dismissed results.",
-    icon: "fas fa-history",
-    type: GenerationHistoryPanel,
-    restricted: true,
-  });
-
-  settings.registerMenu(MODULE_ID, "playerLoreAllowlist", {
-    name: "Configure Player Lore",
-    label: "Configure Player Lore",
-    hint: "Choose which player-visible journals players can query with /lb ask. Requires Player Lore to be enabled in Feature Settings.",
-    icon: "fas fa-book-open",
-    type: PlayerLoreAllowlistApp,
+    type: LoreBridgeSettingsApp,
     restricted: true,
   });
 
@@ -132,7 +93,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Max Generation History Length",
     hint: "Maximum number of recent AI generations to keep. Oldest entries are pruned automatically.",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 10,
   });
@@ -141,7 +102,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Save Generated Images to History",
     hint: "Include AI-generated portrait and token images in generation history entries.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
   });
@@ -168,7 +129,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable LoreBridge Capability API",
     hint: "Expose approved LoreBridge capabilities to the GM browser session.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -178,7 +139,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable Remote AI Integration",
     hint: "Allow LoreBridge to connect to a configured backend service. No provider API keys are stored in Foundry.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -188,7 +149,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Remote AI Provider",
     hint: "Select the provider used by the LoreBridge backend. This does not store provider credentials in Foundry.",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     choices: {
       none: "None",
@@ -203,7 +164,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Session Log Journal",
     hint: "Name of the journal that contains session log pages. Each page in this journal is treated as one session entry.",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "Session Logs",
   });
@@ -212,7 +173,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Excluded Compendiums",
     hint: "Comma-separated list of compendium pack IDs to hide from LoreBridge (e.g. dnd5e.spells,world.private).",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "",
   });
@@ -221,7 +182,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable AI-Proposed Writes",
     hint: "Allow AI assistants to propose journal page updates. Each change requires explicit GM approval before any content is modified.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -231,7 +192,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable Controlled Combat Writes",
     hint: "Allow narrowly typed combat actions to be proposed. Every action requires fresh-state validation and explicit GM approval.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -241,7 +202,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable Foundry UI Buttons",
     hint: "Show LoreBridge generation and suggestion buttons on supported sheets.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -251,7 +212,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable /lb Chat Command",
     hint: "Allow LoreBridge /lb questions, roleplay, city, and NPC commands in chat.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -261,7 +222,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable Journal Page Q&A Panel",
     hint: "Show the Ask LoreBridge panel on journal sheets.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     requiresReload: true,
@@ -271,7 +232,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable @NPC Mention Responses",
     hint: "Allow players and the GM to address AI-enabled NPCs in chat using @ActorName.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -281,7 +242,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Portrait Save Directory",
     hint: "Directory (relative to Foundry's Data folder) where AI-generated portraits are saved. Example: Artwork/Portraits/LoreBridge",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "modules/lorebridge/images",
   });
@@ -290,7 +251,7 @@ export function registerLoreBridgeSettings(): void {
     name: "Enable Player Lore Assistant",
     hint: "Allow players to ask questions answered only from GM-published, player-visible journals using /lb ask. Disabled by default.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
     requiresReload: true,
@@ -324,31 +285,6 @@ export function registerLoreBridgeSettings(): void {
   });
 }
 
-/**
- * The feature settings are edited through the dedicated submenu. They remain
- * registered with SettingsConfig so its Save Changes action can own the
- * standard world-reload confirmation, but are hidden from the general list.
- */
-export function registerFeatureSettingsPresentation(): void {
-  Hooks.on("renderApplicationV2", (app: unknown) => {
-    const element = (app as { element?: HTMLElement }).element;
-    if (!element) return;
-
-    for (const setting of [
-      LOREBRIDGE_SETTINGS.writesEnabled,
-      LOREBRIDGE_SETTINGS.combatWritesEnabled,
-      LOREBRIDGE_SETTINGS.uiButtonsEnabled,
-      LOREBRIDGE_SETTINGS.chatCommandEnabled,
-      LOREBRIDGE_SETTINGS.journalQaEnabled,
-      LOREBRIDGE_SETTINGS.npcMentionEnabled,
-      LOREBRIDGE_SETTINGS.playerLoreEnabled,
-    ]) {
-      const input = element.querySelector<HTMLInputElement>(`input[name='${MODULE_ID}.${setting}']`);
-      const row = input?.closest<HTMLElement>(".form-group");
-      if (row) row.style.display = "none";
-    }
-  });
-}
 
 export function getLoreBridgeSettings(): LoreBridgeSettings {
   const settings = getFoundrySettingsApi();
