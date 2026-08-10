@@ -384,13 +384,13 @@ turn advance, one initiative correction, and ending the encounter. Each valid
 action affects only the previewed target, while expired, reused, or stale
 proposals are rejected without changing combat state.
 
-### Milestone 21 — Context Profile Depth
+### Milestone 21 — Context Profile Depth ✅ Complete
 
 Deepen the reusable context-profile system with broader enforcement and
 high-value quality-of-life controls.
 
-1. [Context Profiles: enforcement in consistency auditor, active-scene toggle, and profile duplication](https://github.com/Jonwh25/lorebridge/issues/183)
-2. [Context Profiles: get_related_documents enforcement and compendium exclusion per profile](https://github.com/Jonwh25/lorebridge/issues/184)
+1. ✅ [Context Profiles: enforcement in consistency auditor, active-scene toggle, and profile duplication](https://github.com/Jonwh25/lorebridge/issues/183)
+2. ✅ [Context Profiles: get_related_documents enforcement and compendium exclusion per profile](https://github.com/Jonwh25/lorebridge/issues/184)
 
 Success test: context profiles consistently bound the consistency auditor and
 related-document retrieval, can optionally include the active scene, can be
