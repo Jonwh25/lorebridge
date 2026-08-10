@@ -4,6 +4,17 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-08-10
+
+### Added
+
+- **NPC persistent memory engine** (#198): every `@NPC` chat exchange that produces an AI response is automatically saved as a persistent memory entry on the actor (`lorebridge.memories` flag). Memories survive page reloads and sessions. Recent memories (up to 20) are injected into the roleplay system prompt so the NPC can reference prior conversations in future interactions — making recurring NPC encounters richer and more coherent across sessions.
+  - Each memory entry records a timestamp, player name, player message, and NPC response.
+  - Entries are capped at 50 per NPC; oldest entries are pruned automatically when the cap is reached.
+  - A **Memories** section in the NPC biography panel (the inline LoreBridge panel on the actor sheet) shows accumulated entries in reverse-chronological order with per-entry delete and a Clear All button.
+  - A **Memories** nav item in the NPC Workspace window shows the same management UI with an entry count in the sidebar.
+- **NPC Workspace: D&D 5e background field and trait table picker** (#207): the Overview section of the NPC profile now includes a Background field with a dropdown of the 13 SRD standard backgrounds plus a custom free-text option. A **Roll Traits** button in the Personality & Motivation section (panel and workspace) randomly selects a personality trait, ideal, bond, and flaw from the SRD trait tables for the NPC's background and pre-populates the edit form. Generated background values are synced to the native `system.details.background` dnd5e actor field.
+
 ## [0.22.0] - 2026-08-10
 
 ### Added

@@ -77,7 +77,7 @@ or rebuilding, native search and content scanners remain available.
 | Campaign retrieval | World summary; journal, actor, scene, item, compendium, asset, chat, combat, and session-log search and retrieval |
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
-| NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, and optional voice responses |
+| NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |

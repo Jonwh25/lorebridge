@@ -414,13 +414,13 @@ sources are moved, deleted, or restricted. LoreBridge configuration is available
 through one resizable, logically grouped settings workspace that preserves
 existing values, security boundaries, and predictable save behavior.
 
-### Milestone 23 — Campaign Memory Engine for Living NPCs
+### Milestone 23 — Campaign Memory Engine for Living NPCs ✅ Complete
 
 Add persistent NPC memory after the structured NPC model and AI workspace have
 proven stable. This is intentionally a later milestone rather than part of the
 Milestone 17 delivery scope.
 
-1. [Campaign Memory Engine for Living NPCs](https://github.com/Jonwh25/lorebridge/issues/198)
+1. ✅ [Campaign Memory Engine for Living NPCs](https://github.com/Jonwh25/lorebridge/issues/198)
 2. ✅ [NPC Workspace: D&D 5e trait table picker and background field](https://github.com/Jonwh25/lorebridge/issues/207)
 
 NPCs should accumulate meaningful campaign events, relationship changes,
