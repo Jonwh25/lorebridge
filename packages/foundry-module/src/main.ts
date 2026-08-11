@@ -167,10 +167,11 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
 
       // Set the label text — preserve icon element, replace text node.
       const textNodes = Array.from(label.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
-      if (textNodes.length > 0) {
-        textNodes[0].textContent = opt.label;
+      const firstTextNode = textNodes[0];
+      if (firstTextNode !== undefined) {
+        firstTextNode.textContent = opt.label;
         for (let i = 1; i < textNodes.length; i++) {
-          textNodes[i].remove();
+          textNodes[i]?.remove();
         }
       } else if (iconEl) {
         iconEl.insertAdjacentText("afterend", opt.label);
