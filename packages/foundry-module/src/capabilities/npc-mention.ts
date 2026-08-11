@@ -1,4 +1,5 @@
 import { getLoreBridgeSettings } from "../settings.js";
+import { getActorDossierCache, getDossierSummaryText } from "./campaign-codex-widget.js";
 
 const MODULE_ID = "lorebridge";
 const HISTORY_MAX = 20;
@@ -122,8 +123,14 @@ async function callRoleplay(
   ).replace(/<[^>]+>/g, "").slice(0, 2000);
 
   const preamble = (actor.getFlag(MODULE_ID, "preamble") as string | undefined) ?? "";
+
+  // Prefer Campaign Codex Dossier roleplay data when present; fall back to
+  // preamble (GM-authored), then system trait field.
+  const dossier = getActorDossierCache(actor);
+  const dossierPersonality = dossier ? getDossierSummaryText(dossier, true).slice(0, 2000) : "";
   const personality =
     preamble ||
+    dossierPersonality ||
     ((actor.system as { details?: { trait?: string } })?.details?.trait ?? "");
 
   const memoryPayload = memories.map(m => ({

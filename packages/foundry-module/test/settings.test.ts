@@ -51,7 +51,11 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 21);
+  assert.equal(registrations.size, 22);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.requiresReload, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.default, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerLoreEnabled)?.requiresReload, true);
@@ -145,6 +149,7 @@ test("reads and normalizes configured values", () => {
     npcMentionEnabled: false,
     portraitSaveDirectory: "modules/lorebridge/images",
     playerLoreEnabled: false,
+    campaignCodexEnabled: true,
   });
 });
 
