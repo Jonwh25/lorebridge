@@ -882,8 +882,13 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
 
 export function registerCampaignCodexWidget(): void {
   const cc = game.modules.get("campaign-codex") as CCModuleEntry | undefined;
+  console.warn(
+    `LoreBridge | registerCampaignCodexWidget called — cc.active=${cc?.active}, ` +
+    `api=${Boolean(cc?.api)}, CCW=${Boolean(cc?.api?.CampaignCodexWidget)}, ` +
+    `registry=${Boolean(cc?.api?.widgetManager?.widgetRegistry)}`
+  );
   if (!cc?.active) {
-    console.debug("LoreBridge | Campaign Codex is not active; NPC Dossier widget not registered.");
+    console.warn("LoreBridge | Campaign Codex is not active; NPC Dossier widget not registered.");
     return;
   }
 
