@@ -506,11 +506,16 @@ function stripSecretBlocks(html: string): string {
 
 async function enrichText(html: string, isGM: boolean): Promise<string> {
   try {
-    const TE = (globalThis as unknown as {
-      TextEditor?: { enrichHTML(c: string, o?: Record<string, unknown>): Promise<string> }
-    }).TextEditor;
-    if (TE?.enrichHTML) {
-      return await TE.enrichHTML(html, { secrets: isGM, async: true });
+    type TELike = { enrichHTML(c: string, o?: Record<string, unknown>): Promise<string> };
+    const g = globalThis as unknown as Record<string, unknown>;
+    // Foundry v14+ namespaced path; fall back to legacy global for v13
+    const TE =
+      ((g["foundry"] as Record<string, unknown> | undefined)
+        ?.["applications"] as Record<string, unknown> | undefined)
+        ?.["ux"] as { TextEditor?: { implementation?: TELike } } | undefined;
+    const impl: TELike | undefined = TE?.TextEditor?.implementation ?? (g["TextEditor"] as TELike | undefined);
+    if (impl?.enrichHTML) {
+      return await impl.enrichHTML(html, { secrets: isGM, async: true });
     }
   } catch { /* Foundry not available */ }
   return isGM ? html : stripSecretBlocks(html);
