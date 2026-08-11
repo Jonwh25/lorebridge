@@ -126,39 +126,93 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
   // Guard against double-injection.
   if (frame.querySelector(".lb-create-actor-injected")) return;
 
-  // Find the <ol> that holds the type radio buttons (try multiple selectors).
-  const typeList = frame.querySelector<HTMLElement>(
-    "ol.pick-an-option, ol.document-types, ol.radio-list, ol[class*='type'], .window-content form > ol, form > ol, ol",
-  );
+  // Find the <ol> that holds the type radio buttons.
+  const typeList = frame.querySelector<HTMLElement>("ol");
 
-  if (!typeList) {
-    // Fallback: insert a separator + two buttons above the form footer.
+  const customOptions: Array<{ value: string; label: string; icon: string }> = [
+    { value: "lb-statblock",   label: "Generate Statblock with AI",   icon: "fas fa-dragon" },
+    { value: "lb-bulk-create", label: "Bulk Create Player Characters", icon: "fas fa-users"  },
+  ];
+
+  // Clone the first native <li> so our items inherit exact structure and CSS classes.
+  // dnd5e structure: <li><label><dnd5e-icon/><span>text</span><input radio></label></li>
+  // Generic Foundry: <li><input radio><label for="..."><i></i>text</label></li>
+  const templateLi = typeList?.querySelector<HTMLElement>("li") ?? null;
+
+  if (typeList && templateLi) {
+    for (const opt of customOptions) {
+      const li = templateLi.cloneNode(true) as HTMLElement;
+      li.classList.add("lb-create-actor-injected");
+      li.removeAttribute("data-tooltip");
+
+      // Update radio input value and clear checked state.
+      const radio = li.querySelector<HTMLInputElement>("input[type='radio']");
+      if (radio) {
+        radio.value = opt.value;
+        radio.removeAttribute("checked");
+        radio.checked = false;
+        if (radio.id) {
+          const newId = `actor-type-${opt.value}`;
+          const linkedLabel = li.querySelector<HTMLLabelElement>(`label[for="${radio.id}"]`);
+          if (linkedLabel) linkedLabel.htmlFor = newId;
+          radio.id = newId;
+        }
+      }
+
+      // Replace dnd5e-icon web component with a standard <i> element (same 32×32 box).
+      const dnd5eIcon = li.querySelector("dnd5e-icon");
+      if (dnd5eIcon) {
+        const i = document.createElement("i");
+        i.className = opt.icon;
+        i.style.cssText = "display:block;width:32px;height:32px;font-size:22px;line-height:32px;text-align:center;flex-shrink:0;";
+        dnd5eIcon.replaceWith(i);
+      } else {
+        const iconEl = li.querySelector("i");
+        if (iconEl) iconEl.className = opt.icon;
+      }
+
+      // Update label text: try <span> first (dnd5e), then text nodes (generic Foundry).
+      const span = li.querySelector("label span, span");
+      if (span) {
+        span.textContent = opt.label;
+      } else {
+        const label = li.querySelector("label");
+        if (label) {
+          for (const node of Array.from(label.childNodes)) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+              node.textContent = ` ${opt.label}`;
+              break;
+            }
+          }
+        }
+      }
+
+      typeList.appendChild(li);
+    }
+  } else {
+    // Fallback: two side-by-side buttons above the form footer.
     const footer = frame.querySelector<HTMLElement>(".form-footer, footer, .dialog-buttons");
     if (!footer) return;
-    _injectCreateActorButtons(frame, footer, "beforebegin");
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("lb-create-actor-injected");
+    wrapper.style.cssText = "display:flex;gap:4px;margin-bottom:6px;";
+    for (const opt of customOptions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.cssText = "flex:1;";
+      btn.innerHTML = `<i class="${opt.icon}"></i> ${opt.label}`;
+      btn.addEventListener("click", () => {
+        if (opt.value === "lb-statblock") void showNpcStatBlockDialog();
+        else void openBulkCreateDialog();
+      });
+      wrapper.appendChild(btn);
+    }
+    footer.insertAdjacentElement("beforebegin", wrapper);
     return;
   }
 
-  // Build custom <li> entries from scratch to match native radio-list items.
-  const customOptions: Array<{ value: string; label: string; icon: string }> = [
-    { value: "lb-statblock",   label: "Generate Statblock with AI",    icon: "fas fa-dragon" },
-    { value: "lb-bulk-create", label: "Bulk Create Player Characters",  icon: "fas fa-users"  },
-  ];
-
-  // Copy classes from the first native <li> so our items inherit the same layout rules.
-  const nativeLiClasses = Array.from(typeList.querySelector("li")?.classList ?? []);
-
-  for (const opt of customOptions) {
-    const li = document.createElement("li");
-    if (nativeLiClasses.length > 0) li.className = nativeLiClasses.join(" ");
-    li.classList.add("lb-create-actor-injected");
-
-    const radioId = `actor-type-${opt.value}`;
-    li.innerHTML = `<input type="radio" id="${radioId}" name="type" value="${opt.value}"><label for="${radioId}"><i class="${opt.icon}"></i>${opt.label}</label>`;
-    typeList.appendChild(li);
-  }
-
   // Intercept form submit (capture phase) to route custom type values.
+  // Works for both type="submit" buttons and ApplicationV2 programmatic submit.
   const form = frame.querySelector("form") ?? frame.closest("form");
   if (!form) return;
   form.addEventListener("submit", (event) => {
@@ -170,29 +224,6 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
     if (value === "lb-statblock") void showNpcStatBlockDialog();
     else void openBulkCreateDialog();
   }, true);
-}
-
-function _injectCreateActorButtons(frame: HTMLElement, target: HTMLElement, position: InsertPosition): void {
-  if (frame.querySelector(".lb-create-actor-injected")) return;
-  const wrapper = document.createElement("div");
-  wrapper.classList.add("lb-create-actor-injected");
-  wrapper.style.cssText = "display:flex;gap:4px;margin-bottom:4px;";
-  const btns: Array<{ icon: string; label: string; value: string }> = [
-    { icon: "fas fa-dragon", label: "Generate Statblock with AI",   value: "lb-statblock"   },
-    { icon: "fas fa-users",  label: "Bulk Create Player Characters", value: "lb-bulk-create" },
-  ];
-  for (const b of btns) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.style.cssText = "flex:1";
-    btn.innerHTML = `<i class="${b.icon}"></i> ${b.label}`;
-    btn.addEventListener("click", () => {
-      if (b.value === "lb-statblock") void showNpcStatBlockDialog();
-      else void openBulkCreateDialog();
-    });
-    wrapper.appendChild(btn);
-  }
-  target.insertAdjacentElement(position, wrapper);
 }
 
 function _injectMacroSidebarButton(frame: HTMLElement): void {
@@ -283,8 +314,18 @@ Hooks.once("ready", () => {
   // receive and apply GM hotbar broadcasts (#231).
   registerHotbarDistributeListener();
 
-  // Register sidebar injection hooks (Actor Directory bulk create, Macro Directory hotbar).
+  // Register sidebar injection hooks (Macro Directory hotbar).
   registerSidebarHooks();
+
+  // Also inject directly into the already-rendered Macro sidebar in case it
+  // rendered before our ready hook (character-vault registers at module level;
+  // we cover the same initial render here by targeting ui.macros.element).
+  if (game.user?.isGM) {
+    const macrosUi = (ui as unknown as { macros?: { element?: HTMLElement } }).macros;
+    if (macrosUi?.element) {
+      _injectMacroSidebarButton(macrosUi.element);
+    }
+  }
 
   // Register player actor import header button for non-GM actor owners (#228).
   registerPlayerActorImportSheetHook();
