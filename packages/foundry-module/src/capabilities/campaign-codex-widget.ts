@@ -790,12 +790,15 @@ async function renderProfileReadView(data: NpcDossierData, isGM: boolean, actorN
        </div>`
     : "";
 
-  // GM Secrets
+  // GM Secrets — wrap in Foundry secret block so it gets secret-block styling
   let secretsHtml = "";
   if (isGM) {
     const narrative = ov.secretsNarrative.trim();
     if (narrative) {
-      const enriched = await enrichText(narrative, true);
+      const wrapped = narrative.startsWith("<section")
+        ? narrative
+        : `<section class="secret">${narrative}</section>`;
+      const enriched = await enrichText(wrapped, true);
       secretsHtml = `${sectionHeading("GM Secrets")}
         <div class="lb-dos-gm-secrets-wrap">${enriched}</div>`;
     }
@@ -1020,7 +1023,7 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
       if (visibleQa[i + 1]) row.push(makeQaCell(visibleQa[i + 1]));
       pairs.push(row);
     }
-    qaHtml = `${sectionHeading("Likely Questions &amp; Answers")}${factTable(pairs)}`;
+    qaHtml = `${sectionHeading("Likely Questions & Answers")}${factTable(pairs)}`;
   }
 
   // Reference Knowledge — 2-col: knowledge bullets | knowledge limits
