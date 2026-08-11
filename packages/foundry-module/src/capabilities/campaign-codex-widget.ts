@@ -183,7 +183,7 @@ const DOSSIER_CSS = `
 .lb-dos-cond-trigger { display: block; color: #d6ad45; font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
 .lb-dos-qa-question  { display: block; color: #8eb9d4; font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
 .lb-dos-know-topic   { display: block; color: #a0c878; font-weight: 700; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
-.lb-dos-secret-heading { display: block; font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
+.lb-dos-secret-heading { display: block; color: #d6ad45; font-weight: 700; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
 
 /* Player knowledge box */
 .lb-dos-pk-title { color: #d6ad45; font-weight: bold; margin-bottom: 5px; display: block; }
