@@ -87,10 +87,10 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
-import { registerHotbarDistributeListener, registerSidebarHooks, injectBulkCreateIntoCreateDialog } from "./capabilities/session-tools.js";
+import { registerHotbarDistributeListener, registerSidebarHooks, openBulkCreateDialog } from "./capabilities/session-tools.js";
 import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
-import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
+import { showNpcStatBlockDialog } from "./capabilities/npc-statblock.js";
 import { openSessionCommandCenter } from "./session-command-center.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -117,6 +117,92 @@ function getModuleVersion(): string {
   return moduleMetadata?.version ?? "unknown";
 }
 
+function injectCreateActorTypeOptions(frame: HTMLElement): void {
+  // Detect the Create Actor dialog by its window title.
+  const titleEl = frame.querySelector(".window-title, header .title, .app-title");
+  const title = titleEl?.textContent?.toLowerCase() ?? "";
+  if (!title.includes("create actor") && !title.includes("new actor")) return;
+
+  // Guard against double-injection.
+  if (frame.querySelector(".lb-create-actor-injected")) return;
+  frame.dataset.lbInjected = "1";
+
+  // Find the <ol> that holds the type radio buttons.
+  const typeList = frame.querySelector("ol");
+  if (!typeList) return;
+
+  // Clone a template <li> from the existing list to match native styling exactly.
+  const templateLi = typeList.querySelector("li");
+  if (!templateLi) return;
+
+  // Build our custom entries.
+  const customOptions: Array<{ value: string; label: string; icon: string }> = [
+    { value: "lb-statblock", label: "Generate Statblock with AI", icon: "fas fa-dragon" },
+    { value: "lb-bulk-create", label: "Bulk Create Player Characters", icon: "fas fa-users" },
+  ];
+
+  for (const opt of customOptions) {
+    const li = templateLi.cloneNode(true) as HTMLElement;
+
+    // Update the radio input value and id.
+    const radio = li.querySelector<HTMLInputElement>("input[type='radio']");
+    if (radio) {
+      radio.value = opt.value;
+      radio.id = `actor-type-${opt.value}`;
+      radio.name = "type";
+      radio.checked = false;
+      radio.removeAttribute("checked");
+    }
+
+    // Update the label.
+    const label = li.querySelector("label");
+    if (label) {
+      if (radio) label.htmlFor = radio.id;
+
+      // Replace icon if present.
+      const iconEl = label.querySelector("i");
+      if (iconEl) {
+        iconEl.className = opt.icon;
+      }
+
+      // Set the label text — preserve icon element, replace text node.
+      const textNodes = Array.from(label.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+      if (textNodes.length > 0) {
+        textNodes[0].textContent = opt.label;
+        for (let i = 1; i < textNodes.length; i++) {
+          textNodes[i].remove();
+        }
+      } else if (iconEl) {
+        iconEl.insertAdjacentText("afterend", opt.label);
+      } else {
+        label.textContent = opt.label;
+      }
+    }
+
+    // Mark injected and append.
+    li.classList.add("lb-create-actor-injected");
+    typeList.appendChild(li);
+  }
+
+  // Intercept form submit in the capture phase to handle custom type values.
+  const form = frame.querySelector("form");
+  if (!form) return;
+  form.addEventListener("submit", (event) => {
+    const selectedRadio = form.querySelector<HTMLInputElement>("input[type='radio'][name='type']:checked");
+    const value = selectedRadio?.value;
+    if (value !== "lb-statblock" && value !== "lb-bulk-create") return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (value === "lb-statblock") {
+      void showNpcStatBlockDialog();
+    } else if (value === "lb-bulk-create") {
+      void openBulkCreateDialog();
+    }
+  }, true);
+}
+
 Hooks.once("init", () => {
   registerLoreBridgeSettings();
   registerChatCommand();
@@ -127,8 +213,7 @@ Hooks.once("init", () => {
     if (!game.user?.isGM) return;
     const frame = (app as { element?: HTMLElement }).element;
     if (!frame) return;
-    injectActorsSidebarButton(frame, app);
-    injectBulkCreateIntoCreateDialog(frame);
+    injectCreateActorTypeOptions(frame);
   });
   registerNpcPreambleSheetHook();
   registerPortraitMenuHook();

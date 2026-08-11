@@ -622,7 +622,7 @@ function buildPreviewHtml(stat: NpcStatBlockResult): string {
 // Main flow
 // ---------------------------------------------------------------------------
 
-async function showNpcStatBlockDialog(): Promise<void> {
+export async function showNpcStatBlockDialog(): Promise<void> {
   const world = game.world;
   const worldName = world?.title ?? "Unknown World";
 
