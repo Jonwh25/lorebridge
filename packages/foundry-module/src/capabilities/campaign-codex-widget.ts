@@ -41,7 +41,6 @@ interface CCWidgetBase {
   readonly widgetId: string;
   getData(): Promise<unknown>;
   saveData(data: unknown): Promise<void>;
-  renderWidget(): void;
   render(): Promise<string>;
   activateListeners(htmlElement: HTMLElement): Promise<void> | void;
 }
@@ -706,6 +705,20 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
     private _editMode = false;
     private _activeSection: DossierSection = "reference";
     private _saving = false;
+    private _container: HTMLElement | null = null;
+
+    // CC's base class does not expose renderWidget(); we implement our own
+    // re-render by replacing the container's innerHTML and re-wiring listeners.
+    renderWidget(): void {
+      if (!this._container) return;
+      const container = this._container;
+      this.render().then(html => {
+        container.innerHTML = html;
+        this.activateListeners(container);
+      }).catch(err => {
+        console.warn("LoreBridge | NpcDossierWidget re-render failed:", err);
+      });
+    }
 
     async render(): Promise<string> {
       const raw = await this.getData();
@@ -764,6 +777,8 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
     }
 
     async activateListeners(htmlElement: HTMLElement): Promise<void> {
+      this._container = htmlElement;
+
       // Call base class implementation via prototype to avoid TypeScript "always true" warning
       const proto = Object.getPrototypeOf(Object.getPrototypeOf(this)) as Record<string, unknown>;
       const baseMethod = proto["activateListeners"];
