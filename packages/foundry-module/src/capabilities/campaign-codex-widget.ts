@@ -1038,7 +1038,7 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
          </td>`
       : "";
     if (bulletsCell || limitsCell) {
-      refKnowHtml = `${sectionHeading("Reference Knowledge")}${factTable([[bulletsCell, limitsCell].filter(Boolean).join("")])}`;
+      refKnowHtml = `${sectionHeading("Reference Knowledge")}${factTable([[bulletsCell, limitsCell].filter(Boolean)])}`;
     }
   }
 
