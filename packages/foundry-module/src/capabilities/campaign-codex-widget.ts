@@ -30,10 +30,12 @@ type CCWidgetConstructor = new (
 interface CCWidgetBase {
   readonly isGM: boolean;
   readonly widgetId: string;
+  readonly document: unknown;
   getData(): Promise<unknown>;
   saveData(data: unknown): Promise<void>;
   render(): Promise<string>;
   activateListeners(htmlElement: HTMLElement): Promise<void> | void;
+  _refreshWidget(htmlElement?: HTMLElement | null): Promise<void>;
 }
 
 interface CampaignCodexApi {
@@ -1279,61 +1281,50 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
 }
 
 // ---------------------------------------------------------------------------
-// Widget class factory
+// Widget class factory — one section per widget, no internal tab navigation
 // ---------------------------------------------------------------------------
 
-export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor): CCWidgetConstructor {
-  class NpcDossierWidget extends (CampaignCodexWidget as abstract new(...args: unknown[]) => CCWidgetBase) {
+export function createSectionWidget(
+  section: DossierSection,
+  CampaignCodexWidget: CCWidgetConstructor,
+): CCWidgetConstructor {
+  class DossierSectionWidget extends (CampaignCodexWidget as abstract new(...args: unknown[]) => CCWidgetBase) {
     private _editMode = false;
-    private _activeSection: DossierSection = "info";
     private _saving = false;
-    private _container: HTMLElement | null = null;
 
-    renderWidget(): void {
-      if (!this._container) return;
-      const container = this._container;
-      this.render().then(html => {
-        container.innerHTML = html;
-        this.activateListeners(container);
-      }).catch(err => {
-        console.warn("LoreBridge | NpcDossierWidget re-render failed:", err);
-      });
+    // Read dossier from shared lorebridge flag (all 4 section widgets share one data store)
+    async getData(): Promise<unknown> {
+      const doc = this.document as { getFlag?(scope: string, key: string): unknown };
+      return doc.getFlag?.("lorebridge", "npcDossier") ?? {};
     }
 
-    private _getActorName(): string {
-      const actor = tryGetLinkedActor((this as unknown as { document: unknown }).document);
-      return actor?.name ?? "";
+    // Write dossier to shared lorebridge flag
+    async saveData(data: unknown): Promise<void> {
+      const doc = this.document as { setFlag?(scope: string, key: string, val: unknown): Promise<void> };
+      await doc.setFlag?.("lorebridge", "npcDossier", data);
     }
 
     async render(): Promise<string> {
       injectDossierStyles();
-
       const raw = await this.getData();
       const data = normalizeDossierData(raw);
       const actorName = this._getActorName();
 
-      const tabs: { id: DossierSection; label: string }[] = [
-        { id: "info",      label: "Info" },
-        { id: "profile",   label: "Profile" },
-        { id: "roleplay",  label: "Roleplaying" },
-        { id: "knowledge", label: "Knowledge" },
-      ];
-
-      const tabsHtml = tabs.map(t =>
-        `<button type="button" class="lb-dos-tab${this._activeSection === t.id ? " active" : ""}" data-section="${t.id}">${escHtml(t.label)}</button>`
-      ).join("");
-
       let contentHtml: string;
       if (this._editMode) {
-        if (this._activeSection === "info")      contentHtml = renderInfoEditForm(data);
-        else if (this._activeSection === "profile")   contentHtml = renderProfileEditForm(data, this.isGM);
-        else if (this._activeSection === "roleplay")  contentHtml = renderRoleplayEditForm(data);
-        else                                           contentHtml = renderKnowledgeEditForm(data);
+        switch (section) {
+          case "info":     contentHtml = renderInfoEditForm(data); break;
+          case "profile":  contentHtml = renderProfileEditForm(data, this.isGM); break;
+          case "roleplay": contentHtml = renderRoleplayEditForm(data); break;
+          default:         contentHtml = renderKnowledgeEditForm(data);
+        }
       } else {
-        if (this._activeSection === "info")      contentHtml = renderInfoReadView(data);
-        else if (this._activeSection === "profile")   contentHtml = await renderProfileReadView(data, this.isGM, actorName);
-        else if (this._activeSection === "roleplay")  contentHtml = renderRoleplayReadView(data, actorName);
-        else                                           contentHtml = renderKnowledgeReadView(data, this.isGM, actorName);
+        switch (section) {
+          case "info":     contentHtml = renderInfoReadView(data); break;
+          case "profile":  contentHtml = await renderProfileReadView(data, this.isGM, actorName); break;
+          case "roleplay": contentHtml = renderRoleplayReadView(data, actorName); break;
+          default:         contentHtml = renderKnowledgeReadView(data, this.isGM, actorName);
+        }
       }
 
       const editControls = this.isGM
@@ -1352,67 +1343,51 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
         : "";
 
       return `<div class="lb-dossier">
-        <nav class="lb-dos-nav">${tabsHtml}</nav>
         <div class="lb-dos-content">${contentHtml}</div>
         ${editControls}
       </div>`;
     }
 
     async activateListeners(htmlElement: HTMLElement): Promise<void> {
-      this._container = htmlElement;
-
       const proto = Object.getPrototypeOf(Object.getPrototypeOf(this)) as Record<string, unknown>;
       const baseMethod = proto["activateListeners"];
       if (typeof baseMethod === "function") {
         await Promise.resolve((baseMethod as (el: HTMLElement) => void | Promise<void>).call(this, htmlElement));
       }
 
-      // Tab navigation
-      htmlElement.querySelectorAll<HTMLButtonElement>(".lb-dos-tab").forEach(btn => {
-        btn.addEventListener("click", () => {
-          this._activeSection = btn.dataset["section"] as DossierSection;
-          this._editMode = false;
-          this.renderWidget();
-        });
-      });
-
-      // Edit
       htmlElement.querySelector<HTMLButtonElement>('[data-action="editSection"]')?.addEventListener("click", () => {
         if (!this.isGM) return;
         this._editMode = true;
-        this.renderWidget();
+        void this._refreshWidget(htmlElement);
       });
 
-      // Cancel
       htmlElement.querySelector<HTMLButtonElement>('[data-action="cancelEdit"]')?.addEventListener("click", () => {
         this._editMode = false;
-        this.renderWidget();
+        void this._refreshWidget(htmlElement);
       });
 
-      // Save
       htmlElement.querySelector<HTMLButtonElement>('[data-action="saveEdit"]')?.addEventListener("click", async () => {
         if (!this.isGM || this._saving) return;
         this._saving = true;
         try {
           const raw = await this.getData();
           const current = normalizeDossierData(raw);
-          const updated = readDossierFromForm(htmlElement, this._activeSection, current);
+          const updated = readDossierFromForm(htmlElement, section, current);
           await this.saveData(updated);
           await this._mirrorToActorFlags(updated);
           this._editMode = false;
-          const n = (globalThis as unknown as { ui?: { notifications?: { info(m: string): void } } }).ui;
-          n?.notifications?.info("LoreBridge: NPC Dossier saved.");
+          const notif = (globalThis as unknown as { ui?: { notifications?: { info(m: string): void } } }).ui;
+          notif?.notifications?.info("LoreBridge: NPC Dossier saved.");
         } catch (err) {
           console.error("LoreBridge | NPC Dossier save failed:", err);
-          const n = (globalThis as unknown as { ui?: { notifications?: { warn(m: string): void } } }).ui;
-          n?.notifications?.warn("LoreBridge: NPC Dossier save failed. See console for details.");
+          const notif = (globalThis as unknown as { ui?: { notifications?: { warn(m: string): void } } }).ui;
+          notif?.notifications?.warn("LoreBridge: NPC Dossier save failed. See console for details.");
         } finally {
           this._saving = false;
-          this.renderWidget();
+          void this._refreshWidget(htmlElement);
         }
       });
 
-      // Add repeatable row
       htmlElement.querySelectorAll<HTMLButtonElement>("[data-add]").forEach(btn => {
         btn.addEventListener("click", () => {
           const list = btn.dataset["add"] as string;
@@ -1440,6 +1415,19 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
       this._wireRemoveButtons(htmlElement);
     }
 
+    private _getActorName(): string {
+      return tryGetLinkedActor(this.document)?.name ?? "";
+    }
+
+    private async _mirrorToActorFlags(data: NpcDossierData): Promise<void> {
+      try {
+        const actor = tryGetLinkedActor(this.document);
+        if (actor) await actor.setFlag("lorebridge", "dossierCache", data);
+      } catch (err) {
+        console.debug("LoreBridge | Could not mirror dossier to actor flags:", err);
+      }
+    }
+
     private _wireRemoveButtons(container: HTMLElement): void {
       container.querySelectorAll<HTMLButtonElement>(".lb-dos-remove-row").forEach(btn => {
         const fresh = btn.cloneNode(true) as HTMLButtonElement;
@@ -1451,20 +1439,76 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
         });
       });
     }
-
-    private async _mirrorToActorFlags(data: NpcDossierData): Promise<void> {
-      try {
-        const actor = tryGetLinkedActor((this as unknown as { document: unknown }).document);
-        if (actor) {
-          await actor.setFlag("lorebridge", "dossierCache", data);
-        }
-      } catch (err) {
-        console.debug("LoreBridge | Could not mirror dossier to actor flags:", err);
-      }
-    }
   }
 
-  return NpcDossierWidget as unknown as CCWidgetConstructor;
+  // Give each class a distinct name so CC's widgetType derivation differs per section
+  const classNames: Record<DossierSection, string> = {
+    info:      "NpcDossierInfoWidget",
+    profile:   "NpcDossierProfileWidget",
+    roleplay:  "NpcDossierRoleplayWidget",
+    knowledge: "NpcDossierKnowledgeWidget",
+  };
+  Object.defineProperty(DossierSectionWidget, "name", { value: classNames[section] });
+
+  return DossierSectionWidget as unknown as CCWidgetConstructor;
+}
+
+// ---------------------------------------------------------------------------
+// Widget definitions & auto-add constants
+// ---------------------------------------------------------------------------
+
+const LB_WIDGET_DEFS: ReadonlyArray<{ name: string; section: DossierSection; tab: string }> = [
+  { name: "LB: NPC Info",        section: "info",      tab: "info" },
+  { name: "LB: NPC Profile",     section: "profile",   tab: "custom-info-lb-profile" },
+  { name: "LB: NPC Roleplaying", section: "roleplay",  tab: "custom-info-lb-roleplay" },
+  { name: "LB: NPC Knowledge",   section: "knowledge", tab: "custom-info-lb-knowledge" },
+];
+
+// Custom info tabs injected into each NPC journal's CC sidebar (Profile / Roleplaying / Knowledge)
+const LB_CUSTOM_TABS: ReadonlyArray<{ key: string; label: string; icon: string }> = [
+  { key: "custom-info-lb-profile",   label: "Profile",     icon: "fas fa-user" },
+  { key: "custom-info-lb-roleplay",  label: "Roleplaying", icon: "fas fa-theater-masks" },
+  { key: "custom-info-lb-knowledge", label: "Knowledge",   icon: "fas fa-brain" },
+];
+
+type CCJournalLike = {
+  getFlag(scope: string, key: string): unknown;
+  setFlag(scope: string, key: string, value: unknown): Promise<void>;
+  flags?: Record<string, Record<string, unknown>>;
+};
+
+function isNpcCodexJournal(journal: CCJournalLike): boolean {
+  const explicit = String(journal.getFlag("campaign-codex", "type") ?? "").trim();
+  if (explicit === "npc") return true;
+  return journal.flags?.["core"]?.["sheetClass"] === "campaign-codex.NPCSheet";
+}
+
+async function autoAddDossierWidgets(journal: CCJournalLike): Promise<void> {
+  if (!isNpcCodexJournal(journal)) return;
+
+  // 1. Merge in Profile / Roleplaying / Knowledge sidebar tabs without duplicating
+  const existingTabs = (
+    journal.getFlag("campaign-codex", "custom-info-tabs") as
+      Array<{ key: string; label: string; icon: string }> | undefined
+  ) ?? [];
+  const existingTabKeys = new Set(existingTabs.map(t => t.key));
+  const tabsToAdd = LB_CUSTOM_TABS.filter(t => !existingTabKeys.has(t.key));
+  if (tabsToAdd.length > 0) {
+    await journal.setFlag("campaign-codex", "custom-info-tabs", [...existingTabs, ...tabsToAdd]);
+  }
+
+  // 2. Merge in sheet-widget entries without duplicating by widgetName
+  const existingWidgets = (
+    journal.getFlag("campaign-codex", "sheet-widgets") as
+      Array<{ widgetName: string; id: string; active: boolean; tab: string }> | undefined
+  ) ?? [];
+  const existingNames = new Set(existingWidgets.map(w => w.widgetName));
+  const widgetsToAdd = LB_WIDGET_DEFS
+    .filter(def => !existingNames.has(def.name))
+    .map(def => ({ id: uid(), widgetName: def.name, active: true, tab: def.tab }));
+  if (widgetsToAdd.length > 0) {
+    await journal.setFlag("campaign-codex", "sheet-widgets", [...existingWidgets, ...widgetsToAdd]);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1474,24 +1518,57 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
 export function registerCampaignCodexWidget(): void {
   const cc = game.modules.get("campaign-codex") as CCModuleEntry | undefined;
   if (!cc?.active) {
-    console.info("LoreBridge | Campaign Codex is not active; NPC Dossier widget not registered.");
+    console.info("LoreBridge | Campaign Codex not active; NPC Dossier widgets not registered.");
     return;
   }
 
   const api = cc.api;
   if (!api?.CampaignCodexWidget || !api?.widgetManager?.widgetRegistry) {
     console.warn(
-      "LoreBridge | Campaign Codex is active but does not expose the widget API " +
-      "(CampaignCodexWidget or widgetManager.widgetRegistry missing). NPC Dossier widget not registered."
+      "LoreBridge | Campaign Codex active but widget API unavailable " +
+      "(CampaignCodexWidget or widgetManager.widgetRegistry missing). NPC Dossier widgets not registered."
     );
     return;
   }
 
   try {
-    const DossierWidget = createNpcDossierWidget(api.CampaignCodexWidget);
-    api.widgetManager.widgetRegistry.set("LoreBridge NPC Dossier", DossierWidget);
-    console.info("LoreBridge | NPC Dossier widget registered with Campaign Codex.");
+    const Base = api.CampaignCodexWidget;
+    const registry = api.widgetManager.widgetRegistry;
+    for (const def of LB_WIDGET_DEFS) {
+      registry.set(def.name, createSectionWidget(def.section, Base));
+    }
+    console.info("LoreBridge | NPC Dossier widgets registered with Campaign Codex.");
   } catch (err) {
-    console.warn("LoreBridge | Failed to register NPC Dossier widget with Campaign Codex:", err);
+    console.warn("LoreBridge | Failed to register NPC Dossier widgets:", err);
+    return;
   }
+
+  // Auto-add 4 widgets + 3 custom tabs to all existing NPC journals (after CC fully initializes)
+  setTimeout(() => {
+    const journals = (game.journal as { contents: CCJournalLike[] }).contents;
+    void Promise.all(
+      journals.map(j =>
+        autoAddDossierWidgets(j).catch((err: unknown) =>
+          console.debug("LoreBridge | Auto-add skipped for journal:", err)
+        )
+      )
+    ).then(() => {
+      console.info("LoreBridge | NPC Dossier auto-add complete.");
+    });
+  }, 2000);
+
+  // Auto-add to newly created journals (CC may set type flag synchronously on creation)
+  Hooks.on("createJournalEntry", (document: unknown) => {
+    setTimeout(
+      () => void autoAddDossierWidgets(document as CCJournalLike).catch(() => { /* silent */ }),
+      500,
+    );
+  });
+
+  // Catch journals where CC sets the type flag in a follow-up update after creation
+  Hooks.on("updateJournalEntry", (document: unknown, change: unknown) => {
+    const changedFlags = (change as Record<string, unknown>)?.["flags"];
+    if (!(changedFlags as Record<string, unknown> | undefined)?.["campaign-codex"]) return;
+    void autoAddDossierWidgets(document as CCJournalLike).catch(() => { /* silent */ });
+  });
 }
