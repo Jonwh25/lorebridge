@@ -44,6 +44,12 @@ export type NpcDossierKnowledge = {
   sourceUuid: string;
 };
 
+export type NpcDossierSecret = {
+  id: string;
+  heading: string;
+  text: string;
+};
+
 export type NpcDossierData = {
   schemaVersion: 1;
   /** Reference / Info tab — source and discovery data */
@@ -77,6 +83,7 @@ export type NpcDossierData = {
     bullets: string[];
     relationships: NpcDossierRelationship[];
     secretsNarrative: string;
+    secrets: NpcDossierSecret[];
   };
   /** Roleplay tab — how to run this NPC at the table */
   roleplay: {

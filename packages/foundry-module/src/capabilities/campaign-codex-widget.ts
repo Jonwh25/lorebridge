@@ -13,6 +13,7 @@ import type {
   NpcDossierConditional,
   NpcDossierQa,
   NpcDossierKnowledge,
+  NpcDossierSecret,
 } from "@lorebridge/shared";
 
 export type { NpcDossierData };
@@ -179,8 +180,10 @@ const DOSSIER_CSS = `
 .lb-dos-rel-name { color: #d6ad45; }
 
 /* Knowledge / conditional cards (2-col table) */
-.lb-dos-cond-trigger { color: #d6ad45; font-weight: bold; }
-.lb-dos-qa-question  { color: #8eb9d4; font-weight: bold; }
+.lb-dos-cond-trigger { display: block; color: #d6ad45; font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.lb-dos-qa-question  { display: block; color: #8eb9d4; font-weight: 700; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.lb-dos-know-topic   { display: block; color: #a0c878; font-weight: 700; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.lb-dos-secret-heading { display: block; font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
 
 /* Player knowledge box */
 .lb-dos-pk-title { color: #d6ad45; font-weight: bold; margin-bottom: 5px; display: block; }
@@ -363,6 +366,7 @@ export function makeDefaultDossierData(): NpcDossierData {
       bullets: [],
       relationships: [],
       secretsNarrative: "",
+      secrets: [],
     },
     roleplay: {
       tagline: "",
@@ -423,6 +427,7 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
       bullets:              arr(ov["bullets"]),
       relationships:        relArr(ov["relationships"]),
       secretsNarrative:     str(ov["secretsNarrative"]),
+      secrets:              secretArr(ov["secrets"]),
     },
     roleplay: {
       tagline:              str(rp["tagline"] ?? rp["personalityAndDemeanor"]),
@@ -453,6 +458,13 @@ function relArr(v: unknown): NpcDossierRelationship[] {
     x !== null && typeof x === "object" &&
     typeof (x as NpcDossierRelationship).id === "string" &&
     typeof (x as NpcDossierRelationship).name === "string"
+  );
+}
+function secretArr(v: unknown): NpcDossierSecret[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierSecret =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierSecret).id === "string"
   );
 }
 function goalArr(v: unknown): NpcDossierGoal[] {
@@ -762,7 +774,7 @@ async function renderProfileReadView(data: NpcDossierData, isGM: boolean, actorN
     id.alignment.trim()   ? factCell("Alignment", id.alignment)         : "",
     sourceLine             ? factCell("Source", sourceLine)               : "",
     ref.nicknames.trim()   ? factCell("Known As", ref.nicknames)         : "",
-    ref.statBlockReference.trim() ? factCell("Stat Block", ref.statBlockReference) : "",
+    // Stat Block fields intentionally omitted from Profile read view
   ].filter(Boolean);
   const coreHtml = coreRow.length
     ? `${sectionHeading("Core Profile")}${factTable([coreRow])}`
@@ -790,17 +802,23 @@ async function renderProfileReadView(data: NpcDossierData, isGM: boolean, actorN
        </div>`
     : "";
 
-  // GM Secrets — wrap in Foundry secret block so it gets secret-block styling
+  // GM Secrets — each entry wrapped in a single Foundry secret block
   let secretsHtml = "";
   if (isGM) {
-    const narrative = ov.secretsNarrative.trim();
-    if (narrative) {
-      const wrapped = narrative.startsWith("<section")
-        ? narrative
-        : `<section class="secret">${narrative}</section>`;
+    const secretEntries = ov.secrets.filter(s => s.heading.trim() || s.text.trim());
+    // Backward compat: fall back to old secretsNarrative if no structured entries
+    if (secretEntries.length > 0) {
+      const innerHtml = secretEntries.map(s =>
+        `${s.heading.trim() ? `<p class="lb-dos-secret-heading">${escHtml(s.heading)}</p>` : ""}` +
+        `${s.text.trim() ? `<p style="margin:0 0 8px">${escHtml(s.text)}</p>` : ""}`
+      ).join("");
+      const enriched = await enrichText(`<section class="secret">${innerHtml}</section>`, true);
+      secretsHtml = `${sectionHeading("GM Secrets")}<div class="lb-dos-gm-secrets-wrap">${enriched}</div>`;
+    } else if (ov.secretsNarrative.trim()) {
+      const narrative = ov.secretsNarrative.trim();
+      const wrapped = narrative.startsWith("<section") ? narrative : `<section class="secret">${narrative}</section>`;
       const enriched = await enrichText(wrapped, true);
-      secretsHtml = `${sectionHeading("GM Secrets")}
-        <div class="lb-dos-gm-secrets-wrap">${enriched}</div>`;
+      secretsHtml = `${sectionHeading("GM Secrets")}<div class="lb-dos-gm-secrets-wrap">${enriched}</div>`;
     }
   }
 
@@ -829,10 +847,6 @@ function renderProfileEditForm(data: NpcDossierData, isGM: boolean): string {
       ${textField("sourceBook", "Source Book", ref.sourceBook)}
       ${textField("sourcePage", "Page", ref.sourcePage)}
     </div>
-    <div class="lb-dos-grid-2">
-      ${textField("statBlockReference", "Stat Block", ref.statBlockReference)}
-      ${textField("statBlockAlterations", "Stat Block Alterations", ref.statBlockAlterations)}
-    </div>
     ${editHeading("Overview Bullets")}
     <p class="lb-dos-field-hint">One bullet per line.</p>
     ${textArea("bullets", "Overview Bullets", bulletsText, 5)}
@@ -845,9 +859,28 @@ function renderProfileEditForm(data: NpcDossierData, isGM: boolean): string {
     </button>
     ${isGM ? `
     ${editHeading("GM Secrets")}
-    <p class="lb-dos-field-hint">Use Foundry secret blocks: &lt;section class="secret"&gt;…&lt;/section&gt;. Hidden from players.</p>
-    ${textArea("secretsNarrative", "GM Secrets", ov.secretsNarrative, 4)}
+    <p class="lb-dos-field-hint">Each entry becomes a Foundry secret block, hidden from players. Add one entry per distinct secret.</p>
+    <div class="lb-dos-repeatable" data-list="secrets">
+      ${ov.secrets.map(s => renderSecretRow(s)).join("")}
+    </div>
+    <button type="button" class="lb-dos-add-row" data-add="secrets">
+      <i class="fas fa-plus"></i> Add Secret
+    </button>
     ` : ""}
+  </div>`;
+}
+
+function renderSecretRow(s: NpcDossierSecret): string {
+  return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(s.id)}">
+    <div class="lb-dos-repeat-fields">
+      <input type="text" class="lb-dos-field-input" data-field="heading"
+        placeholder="Secret heading (e.g. Ireena's Adoption)" value="${escHtml(s.heading)}">
+      <textarea class="lb-dos-field-textarea" data-field="text"
+        rows="3" placeholder="Secret details…">${escHtml(s.text)}</textarea>
+    </div>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(s.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
   </div>`;
 }
 
@@ -998,8 +1031,9 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
       const row: string[] = [];
       const makeCondCell = (c: NpcDossierConditional) =>
         `<td class="lb-dos-fact-cell" style="width:50%">
-          <p><span class="lb-dos-cond-trigger">${escHtml(c.trigger)} </span>${escHtml(c.response)}</p>
-          ${c.consequence.trim() ? `<p style="font-style:italic;margin-top:4px">${escHtml(c.consequence)}</p>` : ""}
+          <span class="lb-dos-cond-trigger">${escHtml(c.trigger)}</span>
+          <p style="margin:0">${escHtml(c.response)}</p>
+          ${c.consequence.trim() ? `<p style="font-style:italic;margin:4px 0 0">${escHtml(c.consequence)}</p>` : ""}
         </td>`;
       row.push(makeCondCell(visibleCond[i]));
       if (visibleCond[i + 1]) row.push(makeCondCell(visibleCond[i + 1]));
@@ -1017,7 +1051,8 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
       const row: string[] = [];
       const makeQaCell = (q: NpcDossierQa) =>
         `<td class="lb-dos-fact-cell" style="width:50%">
-          <p><span class="lb-dos-qa-question">${escHtml(q.question)} </span>${escHtml(q.answer)}</p>
+          <span class="lb-dos-qa-question">${escHtml(q.question)}</span>
+          <p style="margin:0">${escHtml(q.answer)}</p>
         </td>`;
       row.push(makeQaCell(visibleQa[i]));
       if (visibleQa[i + 1]) row.push(makeQaCell(visibleQa[i + 1]));
@@ -1034,9 +1069,14 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
     const bulletsCell = knowledgeBullets.length
       ? `<td class="lb-dos-fact-cell" style="width:50%">
           <span class="lb-dos-fact-cell-label">Other Knowledge</span>
-          <ul style="margin:0;padding-left:18px;line-height:1.45">
-            ${knowledgeBullets.map(k => `<li>${escHtml(k.statement)}</li>`).join("")}
-          </ul>
+          <div style="margin-top:4px">
+            ${knowledgeBullets.map(k =>
+              `<div style="margin-bottom:6px">
+                ${k.topicOrCategory.trim() ? `<span class="lb-dos-know-topic">${escHtml(k.topicOrCategory)}</span>` : ""}
+                <span>${escHtml(k.statement)}</span>
+              </div>`
+            ).join("")}
+          </div>
          </td>`
       : "";
     const limitsCell = data.knowledgeLimits.trim()
@@ -1174,6 +1214,14 @@ function readRelationshipRow(row: Element): NpcDossierRelationship | null {
   return { id, name, description: desc };
 }
 
+function readSecretRow(row: Element): NpcDossierSecret | null {
+  const id      = row.getAttribute("data-row-id") ?? uid();
+  const heading = fieldVal(row, "heading");
+  const text    = fieldVal(row, "text");
+  if (!heading && !text) return null;
+  return { id, heading, text };
+}
+
 function readGoalRow(row: Element): NpcDossierGoal | null {
   const id   = row.getAttribute("data-row-id") ?? uid();
   const goal = fieldVal(row, "goal");
@@ -1248,10 +1296,8 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
   } else if (section === "profile") {
     updated.reference = {
       ...updated.reference,
-      sourceBook:          readField(container, "sourceBook"),
-      sourcePage:          readField(container, "sourcePage"),
-      statBlockReference:  readField(container, "statBlockReference"),
-      statBlockAlterations: readField(container, "statBlockAlterations"),
+      sourceBook: readField(container, "sourceBook"),
+      sourcePage: readField(container, "sourcePage"),
     };
     updated.identity = {
       ...updated.identity,
@@ -1260,10 +1306,10 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
     const bulletsRaw = readField(container, "bullets");
     updated.overview = {
       ...updated.overview,
-      profileTagline:   readField(container, "profileTagline"),
-      bullets:          bulletsRaw.split("\n").map(b => b.trim()).filter(Boolean),
-      relationships:    readRepeatableList(container, "relationships", readRelationshipRow),
-      secretsNarrative: readField(container, "secretsNarrative"),
+      profileTagline: readField(container, "profileTagline"),
+      bullets:        bulletsRaw.split("\n").map(b => b.trim()).filter(Boolean),
+      relationships:  readRepeatableList(container, "relationships", readRelationshipRow),
+      secrets:        readRepeatableList(container, "secrets", readSecretRow),
     };
   } else if (section === "roleplay") {
     updated.roleplay = {
@@ -1404,6 +1450,7 @@ export function createSectionWidget(
           const newId = uid();
           let rowHtml = "";
           if (list === "relationships") rowHtml = renderRelationshipRow({ id: newId, name: "", description: "" });
+          else if (list === "secrets")  rowHtml = renderSecretRow({ id: newId, heading: "", text: "" });
           else if (list === "goals")   rowHtml = renderGoalRow({ id: newId, goal: "", questReference: "" });
           else if (list === "conditionalInfo") rowHtml = renderConditionalRow({ id: newId, trigger: "", response: "", consequence: "", relatedUuid: "", visibility: "normal" });
           else if (list === "qa")      rowHtml = renderQaRow({ id: newId, question: "", answer: "", visibility: "normal", relatedSourceUuid: "" });
