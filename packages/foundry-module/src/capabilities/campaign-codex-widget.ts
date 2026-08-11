@@ -49,7 +49,7 @@ interface CCWidgetBase {
 interface CampaignCodexApi {
   CampaignCodexWidget: CCWidgetConstructor;
   widgetManager: {
-    registerWidget(displayName: string, widgetClass: CCWidgetConstructor): void;
+    widgetRegistry: Map<string, CCWidgetConstructor>;
   };
 }
 
@@ -888,17 +888,17 @@ export function registerCampaignCodexWidget(): void {
   }
 
   const api = cc.api;
-  if (!api?.CampaignCodexWidget || !api?.widgetManager) {
+  if (!api?.CampaignCodexWidget || !api?.widgetManager?.widgetRegistry) {
     console.warn(
       "LoreBridge | Campaign Codex is active but does not expose the widget API " +
-      "(CampaignCodexWidget or widgetManager missing). NPC Dossier widget not registered."
+      "(CampaignCodexWidget or widgetManager.widgetRegistry missing). NPC Dossier widget not registered."
     );
     return;
   }
 
   try {
     const DossierWidget = createNpcDossierWidget(api.CampaignCodexWidget);
-    api.widgetManager.registerWidget("LoreBridge NPC Dossier", DossierWidget);
+    api.widgetManager.widgetRegistry.set("LoreBridge NPC Dossier", DossierWidget);
     console.info("LoreBridge | NPC Dossier widget registered with Campaign Codex.");
   } catch (err) {
     console.warn("LoreBridge | Failed to register NPC Dossier widget with Campaign Codex:", err);
