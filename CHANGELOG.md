@@ -4,6 +4,24 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-08-11
+
+### Added
+
+- **Campaign Codex NPC Dossier widget** (#258): optional integration that registers four structured Campaign Codex widgets on every NPC journal — **LB: NPC Info**, **LB: NPC Profile**, **LB: NPC Roleplaying**, and **LB: NPC Knowledge**. All four widgets share a single `lorebridge.npcDossier` flag so editing any section updates the same data object.
+  - **LB: NPC Info** — source book and page, stat block reference, discovery region and location, and full identity/appearance fields (race, alignment, sex, age, height, weight, eyes, hair, occupation).
+  - **LB: NPC Profile** — player knowledge summary, profile tagline, overview bullets, relationship entries, and a repeatable **GM Secrets** list. Each secret entry has a heading and body text and renders inside a native Foundry `<section class="secret">` block (gold border, Reveal button, invisible to players).
+  - **LB: NPC Roleplaying** — first impression, personality, motivation, fear, mannerisms, voice/speech, conversational approach, at-the-table guidance, and repeatable goal entries.
+  - **LB: NPC Knowledge** — conditional information (trigger → response → consequence), Q&A entries with normal/conditional/secret visibility, general knowledge statements with topic and quality, and knowledge limits. Trigger, question, and topic labels render as block-level uppercase headings for quick scanning during play.
+  - Widgets are **auto-added** to all existing NPC journals 2 seconds after startup and to new NPC journals within 500 ms of creation, with deduplication.
+  - LoreBridge generation and roleplay context prefer dossier data when present and fall back cleanly when Campaign Codex is absent.
+- **Campaign Codex NPC Dossier settings toggle** (#258): a new **Campaign Codex NPC Dossier** toggle in LoreBridge Settings → Features controls whether the integration is active (default: enabled). Disabling it skips widget registration and auto-add entirely. Dossier data stored in flags is preserved when the feature is disabled and fully restored when re-enabled. Changing the toggle triggers a reload dialog. Users without Campaign Codex can leave the toggle off with no side effects.
+
+### Notes
+
+- Campaign Codex is an optional dependency. LoreBridge loads and operates normally when Campaign Codex is absent or disabled.
+- A follow-on data migration macro (#260) to export dossier content to plain journal pages is tracked as deferred work.
+
 ## [0.23.0] - 2026-08-10
 
 ### Added

@@ -442,7 +442,7 @@ reviewable timeline of important interactions and relationship changes, and a
 new roleplay or profile-generation request incorporates approved memories
 without rewriting unrelated NPC data.
 
-### Milestone 24 — Campaign Codex Integration: NPC Dossier Widget
+### Milestone 24 — Campaign Codex Integration: NPC Dossier Widget ✅ Complete
 
 Add an optional Campaign Codex integration that registers a LoreBridge
 **NPC Dossier** widget. Campaign Codex becomes the canonical store for
@@ -450,7 +450,7 @@ structured NPC narrative and campaign relationships; LoreBridge reads that
 data for generation, roleplay, and future memory features instead of
 maintaining a competing canonical profile.
 
-1. [Campaign Codex integration: canonical NPC Dossier widget](https://github.com/Jonwh25/lorebridge/issues/258)
+1. ✅ [Campaign Codex integration: canonical NPC Dossier widget](https://github.com/Jonwh25/lorebridge/issues/258)
 
 LoreBridge registers the widget only when Campaign Codex is active and
 compatible, and continues to work without it. The widget provides a
