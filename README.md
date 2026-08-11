@@ -78,6 +78,7 @@ or rebuilding, native search and content scanners remain available.
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
+| Campaign Codex integration | Optional NPC Dossier widgets that register with Campaign Codex — four structured sidebar tabs (Info, Profile, Roleplaying, Knowledge) auto-added to NPC journals; GM Secrets in native Foundry secret blocks; dossier data consumed by LoreBridge generation and roleplay |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |
