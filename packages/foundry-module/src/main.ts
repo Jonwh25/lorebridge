@@ -87,6 +87,8 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
+import { registerHotbarDistributeListener } from "./capabilities/session-tools.js";
+import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
 import { openSessionCommandCenter } from "./session-command-center.js";
@@ -172,6 +174,13 @@ Hooks.once("ready", () => {
   // Register the player lore socket listener for all users so players can route
   // questions to the GM's browser via the module socket channel.
   registerPlayerLoreSocketListener();
+
+  // Register hotbar distribution socket listener for all users so players
+  // receive and apply GM hotbar broadcasts (#231).
+  registerHotbarDistributeListener();
+
+  // Register player actor import header button for non-GM actor owners (#228).
+  registerPlayerActorImportSheetHook();
 
   // Register Campaign Codex NPC Dossier widget when CC is active and compatible.
   // Defer via setTimeout so all other modules' ready hooks (including CC's API

@@ -319,6 +319,35 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // listDirectory — lists files in a campaign-root directory at HEAD.
+  // Returns an empty array when the directory does not exist.
+  // -------------------------------------------------------------------------
+
+  async listDirectory(
+    relativePath: string,
+  ): Promise<Array<{ name: string; sha: string; type: "file" | "dir" }>> {
+    const fullPath = resolveCampaignPath(this.config.campaignRoot, relativePath);
+    const url = `${this.repoBase()}/contents/${encodeURIPathSegments(fullPath)}?ref=${encodeURIComponent(this.config.branch)}`;
+    let data: unknown;
+    try {
+      data = await this.call(url);
+    } catch (error) {
+      if (error instanceof GitHubAdapterError && error.code === "not_found") {
+        return [];
+      }
+      throw error;
+    }
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return (data as Array<Record<string, unknown>>).map((item) => ({
+      name: String(item["name"] ?? ""),
+      sha: String(item["sha"] ?? ""),
+      type: item["type"] === "dir" ? ("dir" as const) : ("file" as const),
+    }));
+  }
+
+  // -------------------------------------------------------------------------
   // createBackupCommit — atomically commits one or more files.
   // Fails fast on non-fast-forward conflicts without overwriting remote work.
   // -------------------------------------------------------------------------
