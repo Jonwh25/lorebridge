@@ -418,3 +418,10 @@ declare const ui: {
     error(message: string): void;
   };
 };
+
+declare const TextEditor: {
+  enrichHTML(
+    content: string,
+    options?: { secrets?: boolean; async?: boolean; [key: string]: unknown }
+  ): Promise<string>;
+};

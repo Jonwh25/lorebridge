@@ -1,6 +1,7 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
 import { type NpcMemoryEntry, getMemories, deleteMemory, clearMemories } from "./npc-mention.js";
+import { getActorDossierCache, getDossierSummaryText } from "./campaign-codex-widget.js";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the backend NpcProfileSections model
@@ -914,6 +915,13 @@ async function persistSection(actor: FoundryActor, section: NpcSection, data: Re
 }
 
 function getBiography(actor: FoundryActor): string {
+  // Prefer structured dossier data (Campaign Codex) when available; include
+  // provenance so the AI model knows the source.
+  const dossier = getActorDossierCache(actor);
+  if (dossier) {
+    const summary = getDossierSummaryText(dossier, true).slice(0, 1000);
+    if (summary) return `[Campaign Codex Dossier]\n${summary}`;
+  }
   const raw = (actor.system as { details?: { biography?: { value?: string } } })?.details?.biography?.value ?? "";
   return raw.replace(/<[^>]+>/g, "").slice(0, 1000);
 }

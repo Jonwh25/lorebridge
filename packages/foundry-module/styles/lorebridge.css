@@ -66,3 +66,312 @@
   .lb-combat-approval__change { grid-template-columns: minmax(0, 1fr); }
   .lb-combat-approval footer button { flex: 1 1 10rem; }
 }
+
+/* ============================================================
+   LoreBridge NPC Dossier Widget (Campaign Codex integration)
+   ============================================================ */
+
+.lb-dossier {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.lb-dos-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--color-border-light-2, #777);
+  flex: 0 0 auto;
+}
+
+.lb-dos-tab {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--color-border-light-2, #777);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.78rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.lb-dos-tab.active {
+  background: var(--color-warm-1, #7c6b32);
+  color: #fff;
+  border-color: var(--color-warm-1, #7c6b32);
+}
+
+.lb-dos-tab:hover:not(.active) {
+  background: var(--color-bg-option, rgba(0, 0, 0, 0.08));
+}
+
+.lb-dos-content {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.6rem 0.75rem;
+  scrollbar-gutter: stable;
+}
+
+/* Section titles */
+.lb-dos-section-title {
+  font-weight: bold;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-warm-2, #c9a227);
+  border-bottom: 1px solid var(--color-warm-2, #c9a227);
+  margin: 0.75rem 0 0.4rem 0;
+  padding-bottom: 0.15rem;
+}
+
+.lb-dos-section-title:first-child { margin-top: 0; }
+
+/* Two-column fact grid */
+.lb-dos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 320px) {
+  .lb-dos-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.lb-dos-fact { min-width: 0; }
+.lb-dos-fact-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.6;
+  line-height: 1.2;
+}
+.lb-dos-fact-value {
+  font-size: 0.86rem;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+/* Ordered two-column edit grid */
+.lb-dos-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.5rem;
+}
+
+@media (max-width: 320px) {
+  .lb-dos-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Overview bullets */
+.lb-dos-bullets {
+  list-style: disc inside;
+  margin: 0 0 0.4rem 0;
+  padding: 0;
+}
+.lb-dos-bullets li {
+  margin-bottom: 0.2rem;
+  font-size: 0.86rem;
+  word-break: break-word;
+}
+
+/* Repeatable knowledge/Q&A cards (read view) */
+.lb-dos-card {
+  border: 1px solid var(--color-border-light-2, #888);
+  border-radius: 3px;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.4rem;
+  position: relative;
+  min-width: 0;
+}
+
+.lb-dos-card-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.lb-dos-card-value {
+  font-size: 0.86rem;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+/* Tags */
+.lb-dos-tag {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+  font-size: 0.68rem;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  background: var(--color-bg-option, rgba(0,0,0,0.12));
+  vertical-align: middle;
+}
+.lb-dos-tag--gm {
+  background: rgba(200, 60, 60, 0.2);
+  color: var(--color-level-error, #c00);
+}
+.lb-dos-tag--quality-knows { background: rgba(60, 160, 60, 0.2); }
+.lb-dos-tag--quality-believes { background: rgba(60, 120, 200, 0.2); }
+.lb-dos-tag--quality-rumor { background: rgba(200, 150, 40, 0.2); }
+.lb-dos-tag--quality-mistaken { background: rgba(200, 60, 60, 0.2); }
+
+/* GM-only secrets block */
+.lb-dos-secrets {
+  background: rgba(180, 30, 30, 0.06);
+  border-left: 3px solid var(--color-level-error, #c33);
+  padding: 0.5rem 0.6rem;
+  margin-top: 0.5rem;
+  border-radius: 0 3px 3px 0;
+  font-size: 0.86rem;
+}
+
+/* Empty state */
+.lb-dos-empty {
+  color: var(--color-text-light-tertiary, #999);
+  font-size: 0.86rem;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+/* Action bar (edit/save/cancel) */
+.lb-dos-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--color-border-light-2, #777);
+  flex: 0 0 auto;
+}
+
+.lb-dos-btn {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--color-border-light-2, #777);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.lb-dos-btn:hover:not(:disabled) {
+  background: var(--color-bg-option, rgba(0, 0, 0, 0.08));
+}
+.lb-dos-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lb-dos-btn--primary {
+  background: #4e7ac7;
+  color: #fff;
+  border-color: #3a5e9e;
+}
+.lb-dos-btn--primary:hover:not(:disabled) { background: #3a5e9e; }
+.lb-dos-btn--cancel {
+  background: transparent;
+}
+
+/* Edit form */
+.lb-dos-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.lb-dos-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.lb-dos-field-label {
+  font-size: 0.73rem;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.lb-dos-field-hint {
+  font-size: 0.72rem;
+  opacity: 0.65;
+  margin: 0 0 0.25rem 0;
+  font-style: italic;
+}
+
+.lb-dos-field-input,
+.lb-dos-field-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--color-border-light-2, #888);
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.lb-dos-field-textarea {
+  resize: vertical;
+  min-height: 3rem;
+  line-height: 1.4;
+}
+
+/* Repeatable rows (edit view) */
+.lb-dos-repeatable {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lb-dos-repeatable-row {
+  display: flex;
+  gap: 0.35rem;
+  align-items: flex-start;
+  border: 1px solid var(--color-border-light-2, #888);
+  border-radius: 3px;
+  padding: 0.35rem 0.4rem;
+  min-width: 0;
+}
+
+.lb-dos-repeat-fields {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lb-dos-remove-row {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--color-border-light-2, #888);
+  background: transparent;
+  color: var(--color-level-error, #c33);
+  cursor: pointer;
+  font-size: 0.75rem;
+  border-radius: 2px;
+  align-self: flex-start;
+}
+
+.lb-dos-remove-row:hover { background: rgba(200, 60, 60, 0.12); }
+
+.lb-dos-add-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  border: 1px dashed var(--color-border-light-2, #888);
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  margin-top: 0.2rem;
+}
+.lb-dos-add-row:hover { background: var(--color-bg-option, rgba(0, 0, 0, 0.06)); }

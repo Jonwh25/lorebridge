@@ -214,3 +214,4 @@ export * from "./capabilities/journals.js";
 export * from "./capabilities/actors.js";
 export * from "./capabilities/scenes.js";
 export * from "./capabilities/combat-writes.js";
+export * from "./npc-dossier.js";
