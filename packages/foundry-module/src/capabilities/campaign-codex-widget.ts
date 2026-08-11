@@ -15,6 +15,7 @@ import type {
   NpcDossierKnowledge,
   NpcDossierSecret,
 } from "@lorebridge/shared";
+import { getLoreBridgeSettings } from "../settings.js";
 
 export type { NpcDossierData };
 
@@ -1571,6 +1572,10 @@ async function autoAddDossierWidgets(journal: CCJournalLike): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export function registerCampaignCodexWidget(): void {
+  if (!getLoreBridgeSettings().campaignCodexEnabled) {
+    console.info("LoreBridge | Campaign Codex NPC Dossier integration disabled in settings.");
+    return;
+  }
   const cc = game.modules.get("campaign-codex") as CCModuleEntry | undefined;
   if (!cc?.active) {
     console.info("LoreBridge | Campaign Codex not active; NPC Dossier widgets not registered.");

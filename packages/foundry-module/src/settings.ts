@@ -46,6 +46,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   portraitSaveDirectory: "portraitSaveDirectory",
   playerLoreEnabled: "playerLoreEnabled",
   playerLoreAllowlist: "playerLoreAllowlist",
+  campaignCodexEnabled: "campaignCodexEnabled",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -66,6 +67,7 @@ export type LoreBridgeSettings = {
   npcMentionEnabled: boolean;
   portraitSaveDirectory: string;
   playerLoreEnabled: boolean;
+  campaignCodexEnabled: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -266,6 +268,16 @@ export function registerLoreBridgeSettings(): void {
     default: "[]",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled, {
+    name: "Enable Campaign Codex NPC Dossier Widgets",
+    hint: "Register LoreBridge NPC Dossier widgets with Campaign Codex and auto-add them to NPC journals. Requires reload.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+    requiresReload: true,
+  });
+
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backendUrl, {
     name: "LoreBridge Backend URL",
     hint: "Browser-accessible HTTP(S) base URL for the LoreBridge backend.",
@@ -334,6 +346,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ).trim(),
     playerLoreEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled),
+    ),
+    campaignCodexEnabled: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled) ?? true,
     ),
   };
 }

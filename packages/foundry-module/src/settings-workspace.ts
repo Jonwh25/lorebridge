@@ -210,10 +210,11 @@ function buildFeaturesHtml(): string {
   return `
     <div style="padding:20px 24px">
       ${sectionHeader("Features", "Toggle which LoreBridge capabilities are active. Changes apply immediately — no page reload required.")}
-      ${toggle(LOREBRIDGE_SETTINGS.uiButtonsEnabled,     "UI Buttons",              s.uiButtonsEnabled,     "Show LoreBridge generation buttons on supported sheets.")}
-      ${toggle(LOREBRIDGE_SETTINGS.chatCommandEnabled,   "/lb Chat Command",        s.chatCommandEnabled,   "Allow /lb commands in chat.")}
-      ${toggle(LOREBRIDGE_SETTINGS.journalQaEnabled,     "Journal Page Q&A Panel",  s.journalQaEnabled,     "Show the Ask LoreBridge panel on journal sheets.")}
-      ${toggle(LOREBRIDGE_SETTINGS.npcMentionEnabled,    "@NPC Mention Responses",  s.npcMentionEnabled,    "Let players address AI-enabled NPCs via @ActorName in chat.")}
+      ${toggle(LOREBRIDGE_SETTINGS.uiButtonsEnabled,       "UI Buttons",                    s.uiButtonsEnabled,       "Show LoreBridge generation buttons on supported sheets.")}
+      ${toggle(LOREBRIDGE_SETTINGS.chatCommandEnabled,     "/lb Chat Command",              s.chatCommandEnabled,     "Allow /lb commands in chat.")}
+      ${toggle(LOREBRIDGE_SETTINGS.journalQaEnabled,       "Journal Page Q&A Panel",        s.journalQaEnabled,       "Show the Ask LoreBridge panel on journal sheets.")}
+      ${toggle(LOREBRIDGE_SETTINGS.npcMentionEnabled,      "@NPC Mention Responses",        s.npcMentionEnabled,      "Let players address AI-enabled NPCs via @ActorName in chat.")}
+      ${toggle(LOREBRIDGE_SETTINGS.campaignCodexEnabled,   "Campaign Codex NPC Dossier",    s.campaignCodexEnabled,   "Register NPC Dossier widgets with Campaign Codex and auto-add them to NPC journals. Requires Campaign Codex to be installed.")}
       ${toggle(LOREBRIDGE_SETTINGS.writesEnabled,        "AI-Proposed Writes",      s.writesEnabled,        "Allow AI to propose journal page updates (GM approval required).")}
       ${toggle(LOREBRIDGE_SETTINGS.combatWritesEnabled,  "Controlled Combat Writes",s.combatWritesEnabled,  "Allow narrowly typed combat action proposals (GM approval required).")}
       ${toggle(LOREBRIDGE_SETTINGS.playerLoreEnabled,    "Player Lore Assistant",   s.playerLoreEnabled,    "Let players use /lb ask to query GM-published player-visible journals.")}
@@ -620,10 +621,11 @@ export class LoreBridgeSettingsApp extends AppBase {
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled,    checked(LOREBRIDGE_SETTINGS.uiButtonsEnabled)),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled,   checked(LOREBRIDGE_SETTINGS.chatCommandEnabled)),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled,     checked(LOREBRIDGE_SETTINGS.journalQaEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled,    checked(LOREBRIDGE_SETTINGS.npcMentionEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled,        checked(LOREBRIDGE_SETTINGS.writesEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled,  checked(LOREBRIDGE_SETTINGS.combatWritesEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled,    checked(LOREBRIDGE_SETTINGS.playerLoreEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled,      checked(LOREBRIDGE_SETTINGS.npcMentionEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled,   checked(LOREBRIDGE_SETTINGS.campaignCodexEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled,          checked(LOREBRIDGE_SETTINGS.writesEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled,    checked(LOREBRIDGE_SETTINGS.combatWritesEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled,      checked(LOREBRIDGE_SETTINGS.playerLoreEnabled)),
     ]);
     ui.notifications.info("LoreBridge: Feature settings saved.");
     void this._self().render({ force: false });
