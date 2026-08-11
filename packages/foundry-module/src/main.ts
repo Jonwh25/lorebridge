@@ -257,12 +257,25 @@ Hooks.once("init", () => {
     const appObj = app as { element?: HTMLElement; constructor?: { name?: string } };
     const frame = appObj.element;
     if (!frame) return;
-    injectCreateActorTypeOptions(frame);
-    // Inject macro sidebar button when the MacroDirectory renders.
+    // Defer so dnd5e can finish populating <li> items into the type <ol>
+    // before we try to clone them (they are added in a post-render step).
+    setTimeout(() => { injectCreateActorTypeOptions(frame); }, 0);
+    // MacroDirectory injection via constructor name (covers ApplicationV2 path).
     const appName = appObj.constructor?.name ?? "";
     if (appName === "MacroDirectory" || appName === "Macros") {
       _injectMacroSidebarButton(frame);
     }
+  });
+  // Register renderMacroDirectory here (init) so we catch the initial
+  // sidebar render, which fires before the ready hook runs.
+  Hooks.on("renderMacroDirectory", (...args: unknown[]) => {
+    if (!game.user?.isGM) return;
+    const html = args[1];
+    const root = html instanceof HTMLElement ? html
+      : (html as { get?(i: number): HTMLElement } | null)?.get?.(0)
+      ?? (args[0] as { element?: HTMLElement }).element
+      ?? null;
+    if (root instanceof HTMLElement) _injectMacroSidebarButton(root);
   });
   registerNpcPreambleSheetHook();
   registerPortraitMenuHook();
@@ -317,14 +330,14 @@ Hooks.once("ready", () => {
   // Register sidebar injection hooks (Macro Directory hotbar).
   registerSidebarHooks();
 
-  // Also inject directly into the already-rendered Macro sidebar in case it
-  // rendered before our ready hook (character-vault registers at module level;
-  // we cover the same initial render here by targeting ui.macros.element).
+  // Inject directly into the already-rendered Macro sidebar.
+  // Try ui.macros.element first, then a direct DOM query as fallback.
   if (game.user?.isGM) {
-    const macrosUi = (ui as unknown as { macros?: { element?: HTMLElement } }).macros;
-    if (macrosUi?.element) {
-      _injectMacroSidebarButton(macrosUi.element);
-    }
+    const macrosEl = (
+      (ui as unknown as { macros?: { element?: HTMLElement } }).macros?.element
+      ?? document.querySelector<HTMLElement>("#macros, .sidebar-tab.macros, section[data-tab='macros']")
+    );
+    if (macrosEl) _injectMacroSidebarButton(macrosEl);
   }
 
   // Register player actor import header button for non-GM actor owners (#228).
