@@ -87,7 +87,7 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
-import { registerHotbarDistributeListener, registerSidebarHooks } from "./capabilities/session-tools.js";
+import { registerHotbarDistributeListener, registerSidebarHooks, injectBulkCreateIntoCreateDialog } from "./capabilities/session-tools.js";
 import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
@@ -128,6 +128,7 @@ Hooks.once("init", () => {
     const frame = (app as { element?: HTMLElement }).element;
     if (!frame) return;
     injectActorsSidebarButton(frame, app);
+    injectBulkCreateIntoCreateDialog(frame);
   });
   registerNpcPreambleSheetHook();
   registerPortraitMenuHook();

@@ -503,13 +503,17 @@ function _injectSidebarButton(
 ): void {
   const root = _getSidebarRoot(args);
   if (!root || root.querySelector(`.${guardClass}`)) return;
-  // Try standard footer first, then fall back to any section-level footer or the root itself.
+
+  // Prefer an explicit footer; fall back to the last direct child element so the
+  // button ends up at the visual bottom of the panel even if there is no <footer>.
   const target = (
     root.querySelector("footer") ??
     root.querySelector(".directory-footer") ??
     root.querySelector("section footer") ??
+    (root.lastElementChild as HTMLElement | null) ??
     root
   ) as HTMLElement;
+
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = guardClass;
@@ -520,21 +524,57 @@ function _injectSidebarButton(
 }
 
 /**
+ * Inject a "Bulk Create Player Characters" item into the Create Actor dialog.
+ * Called from the renderApplicationV2 hook in main.ts alongside injectActorsSidebarButton.
+ */
+export function injectBulkCreateIntoCreateDialog(frame: HTMLElement): void {
+  if (!game.user?.isGM) return;
+  if (frame.querySelector("[data-lb-bulk-create]")) return;
+
+  const windowTitle = (
+    frame.querySelector(".window-title, header .title, .app-title")?.textContent ?? ""
+  ).trim().toLowerCase();
+  if (!windowTitle.includes("create actor") && !windowTitle.includes("new actor")) return;
+
+  // Try to find the type-picker list used by the Create Actor dialog.
+  const typeList = frame.querySelector<HTMLElement>(
+    "ol.pick-an-option, ol.document-types, ol[class*='type'], .window-content form > ol, .window-content > ol",
+  );
+
+  if (typeList) {
+    // Append as a list item matching the existing type rows.
+    const li = document.createElement("li");
+    li.dataset["lbBulkCreate"] = "1";
+    li.style.cssText = "border-top:1px solid rgba(0,0,0,.15);padding-top:6px;margin-top:4px;list-style:none";
+    li.innerHTML = `
+      <label style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:4px">
+        <i class="fas fa-users" style="width:22px;text-align:center;font-size:1em;color:#7ab"></i>
+        <span>Bulk Create Player Characters</span>
+      </label>`;
+    li.querySelector("label")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      void openBulkCreateDialog();
+    });
+    typeList.appendChild(li);
+  } else {
+    // Fallback: button above the form footer (same location as Generate Stat Block).
+    const footer = frame.querySelector<HTMLElement>(".form-footer, .dialog-buttons");
+    if (!footer) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset["lbBulkCreate"] = "1";
+    btn.style.cssText = "width:100%;margin-bottom:6px";
+    btn.innerHTML = '<i class="fas fa-users"></i> Bulk Create Player Characters';
+    btn.addEventListener("click", () => { void openBulkCreateDialog(); });
+    footer.insertAdjacentElement("beforebegin", btn);
+  }
+}
+
+/**
  * Register hooks that inject GM-only action buttons into Foundry sidebar panels.
- * #230: Actor Directory footer → Bulk Create Player Characters
  * #231: Macro Directory footer → Distribute Hotbar to Players
  */
 export function registerSidebarHooks(): void {
-  Hooks.on("renderActorDirectory", (...args: unknown[]) => {
-    if (!game.user?.isGM) return;
-    _injectSidebarButton(
-      args,
-      "lb-bulk-create-btn",
-      '<i class="fas fa-users"></i> Bulk Create Player Characters',
-      () => { void openBulkCreateDialog(); },
-    );
-  });
-
   // Foundry v14: macro sidebar renders as "Macros" class → hook is "renderMacros".
   // Register both names so either v14 or older builds fire correctly.
   const _injectHotbarBtn = (...args: unknown[]) => {
