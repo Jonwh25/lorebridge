@@ -100,7 +100,7 @@ export function normalizeDossierToContext(
     line("Eyes", id.eyes),
     line("Hair", id.hair),
     line("Occupation/Class", id.occupationOrClass),
-    line("Distinguishing Features", id.distinguishingFeatures),
+    line("Appearance", id.appearance),
   ]);
   if (idParts.length) {
     parts.push("== Identity ==");
@@ -114,13 +114,10 @@ export function normalizeDossierToContext(
     parts.push(...bullets.map(b => `- ${b.trim()}`));
   }
 
-  const overviewParts = nonEmpty([
-    line("Family", dossier.overview.familyNotes),
-    line("Friends", dossier.overview.friends),
-    line("Acquaintances", dossier.overview.otherAcquaintances),
-    line("Relationships", dossier.overview.relationshipNotes),
-  ]);
-  if (overviewParts.length) parts.push(...overviewParts);
+  const rels = dossier.overview.relationships.filter(r => r.name.trim() || r.description.trim());
+  if (rels.length) {
+    parts.push(...rels.map(r => line(r.name || "Relationship", r.description)));
+  }
 
   // Secrets narrative (GM only) — strip HTML tags but keep the text content;
   // do NOT call stripSecrets() here because that removes the secret blocks entirely.
@@ -133,10 +130,13 @@ export function normalizeDossierToContext(
   const rp = dossier.roleplay;
   const rpParts = nonEmpty([
     line("First Impression", rp.firstImpression),
-    line("Personality", rp.personalityAndDemeanor),
+    line("Personality", rp.personality),
+    line("Motivation", rp.motivation),
+    line("Fear", rp.fear),
+    line("Mannerisms", rp.mannerisms),
     line("Voice/Speech", rp.voiceOrSpeech),
     line("Conversational Approach", rp.conversationalApproach),
-    line("Running This NPC", rp.runningTheNpc),
+    line("At the Table", rp.atTheTable),
   ]);
   if (rpParts.length) {
     parts.push("== Roleplay ==");

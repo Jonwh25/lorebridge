@@ -13,6 +13,12 @@ export type NpcDossierGoal = {
   questReference: string;
 };
 
+export type NpcDossierRelationship = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 export type NpcDossierConditional = {
   id: string;
   trigger: string;
@@ -40,43 +46,53 @@ export type NpcDossierKnowledge = {
 
 export type NpcDossierData = {
   schemaVersion: 1;
+  /** Reference / Info tab — source and discovery data */
   reference: {
     nicknames: string;
     sourceBook: string;
     sourcePage: string;
-    mapReference: string;
     statBlockReference: string;
     statBlockAlterations: string;
+    discoveryRegion: string;
+    discoveryLocation: string;
   };
+  /** Identity / Info tab — physical and biographical facts */
   identity: {
-    sexOrGender: string;
+    occupationOrClass: string;
     race: string;
+    sexOrGender: string;
     age: string;
     alignment: string;
     height: string;
     weight: string;
     eyes: string;
     hair: string;
-    occupationOrClass: string;
-    distinguishingFeatures: string;
+    appearance: string;
   };
+  /** Overview / Profile tab — summary, relationships, GM secrets */
   overview: {
+    playerKnowledgeTitle: string;
+    playerKnowledge: string;
+    profileTagline: string;
     bullets: string[];
-    familyNotes: string;
-    friends: string;
-    otherAcquaintances: string;
-    relationshipNotes: string;
+    relationships: NpcDossierRelationship[];
     secretsNarrative: string;
   };
+  /** Roleplay tab — how to run this NPC at the table */
   roleplay: {
+    tagline: string;
     firstImpression: string;
-    personalityAndDemeanor: string;
+    personality: string;
+    motivation: string;
+    fear: string;
+    mannerisms: string;
     voiceOrSpeech: string;
     conversationalApproach: string;
-    runningTheNpc: string;
+    atTheTable: string;
     goals: NpcDossierGoal[];
   };
   conditionalInfo: NpcDossierConditional[];
   qa: NpcDossierQa[];
   knowledge: NpcDossierKnowledge[];
+  knowledgeLimits: string;
 };

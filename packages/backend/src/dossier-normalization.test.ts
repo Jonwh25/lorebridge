@@ -19,48 +19,57 @@ const ISMARK_FIXTURE: NpcDossierData = {
     nicknames: "Ismark the Lesser",
     sourceBook: "Curse of Strahd",
     sourcePage: "43",
-    mapReference: "Village of Barovia — Blood of the Vine Tavern",
+    discoveryRegion: "Village of Barovia",
+    discoveryLocation: "Blood of the Vine Tavern",
     statBlockReference: "Veteran",
     statBlockAlterations: "Add Persuasion +4, History +4",
   },
   identity: {
-    sexOrGender: "Male",
+    occupationOrClass: "Burgomaster's son / Fighter",
     race: "Human (Barovian)",
+    sexOrGender: "Male",
     age: "30s",
     alignment: "Neutral Good",
     height: "5'11\"",
     weight: "Lean, athletic build",
     eyes: "Brown",
     hair: "Dark brown, unkempt",
-    occupationOrClass: "Burgomaster's son / Fighter",
-    distinguishingFeatures: "Haunted look, dark circles under eyes",
+    appearance: "Haunted look, dark circles under eyes",
   },
   overview: {
+    playerKnowledgeTitle: "About Ismark",
+    playerKnowledge: "Son of the late Burgomaster. Seeks help escorting his sister Ireena to safety.",
+    profileTagline: "A burdened son carrying responsibilities he never asked for.",
     bullets: [
       "Son of the late Burgomaster Kolyan Indirovich of the Village of Barovia.",
       "Seeks to escort his sister Ireena to safety outside Strahd's reach.",
       "Considers himself unworthy of the title 'the Greater' like his ancestor.",
       "Deeply loyal despite his fear of Strahd.",
     ],
-    familyNotes: "Sister: Ireena Kolyana. Adopted — see GM secrets. Father: Kolyan Indirovich (deceased).",
-    friends: "Father Donavich (estranged), Vistani traders he trusts cautiously.",
-    otherAcquaintances: "Blood of the Vine Tavern regulars.",
-    relationshipNotes: "Protective of Ireena above all else.",
+    relationships: [
+      { id: "r1", name: "Ireena Kolyana", description: "Sister. Protective of her above all else. Adopted — see GM secrets." },
+      { id: "r2", name: "Kolyan Indirovich", description: "Father (deceased). Father Donavich (estranged)." },
+    ],
     secretsNarrative:
       '<section class="secret">Ireena is adopted; Ismark learned this shortly before Kolyan died. ' +
       "He has not told Ireena and fears she will be devastated.</section>",
   },
   roleplay: {
+    tagline: "An honest, exhausted ally who still chooses hope.",
     firstImpression: "Exhausted, slightly disheveled man who nonetheless carries himself with quiet authority.",
-    personalityAndDemeanor: "Self-deprecating but earnest. Takes responsibility seriously even when overwhelmed.",
+    personality: "Self-deprecating but earnest. Takes responsibility seriously even when overwhelmed.",
+    motivation: "Escort Ireena to safety and give his father a proper burial.",
+    fear: "Failing Ireena or being unable to protect those who depend on him.",
+    mannerisms: "Quiet pauses when worried. Flinches at mention of Strahd.",
     voiceOrSpeech: "Measured, slightly formal. Speaks more quietly when worried.",
     conversationalApproach: "Open with strangers who seem trustworthy. Deflects personal questions with practicalities.",
-    runningTheNpc: "Lead with Ireena's safety as his primary concern. Let guilt show when pressed.",
+    atTheTable: "Lead with Ireena's safety as his primary concern. Let guilt show when pressed.",
     goals: [
       { id: "g1", goal: "Escort Ireena to Vallaki or beyond.", questReference: "" },
       { id: "g2", goal: "Bury his father in consecrated ground.", questReference: "" },
     ],
   },
+  knowledgeLimits: "Does not know the true nature of the mists or Strahd's deeper plans.",
   conditionalInfo: [
     {
       id: "c1",
@@ -216,7 +225,7 @@ test("normalizeDossierToContext includes overview bullets", () => {
 test("normalizeDossierToContext includes roleplay fields", () => {
   const ctx = normalizeDossierToContext(ISMARK_FIXTURE, true);
   assert.ok(ctx.includes("Self-deprecating"), "should include personality");
-  assert.ok(ctx.includes("Escort Ireena"), "should include goals");
+  assert.ok(ctx.includes("Escort Ireena to Vallaki"), "should include goals");
 });
 
 test("normalizeDossierToContext includes conditional info triggers", () => {
@@ -302,13 +311,14 @@ test("normalizeDossierToContext caps knowledge at 10 entries", () => {
 test("normalizeDossierToContext returns empty string for empty dossier", () => {
   const empty: NpcDossierData = {
     schemaVersion: 1,
-    reference: { nicknames: "", sourceBook: "", sourcePage: "", mapReference: "", statBlockReference: "", statBlockAlterations: "" },
-    identity: { sexOrGender: "", race: "", age: "", alignment: "", height: "", weight: "", eyes: "", hair: "", occupationOrClass: "", distinguishingFeatures: "" },
-    overview: { bullets: [], familyNotes: "", friends: "", otherAcquaintances: "", relationshipNotes: "", secretsNarrative: "" },
-    roleplay: { firstImpression: "", personalityAndDemeanor: "", voiceOrSpeech: "", conversationalApproach: "", runningTheNpc: "", goals: [] },
+    reference: { nicknames: "", sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
+    identity: { occupationOrClass: "", race: "", sexOrGender: "", age: "", alignment: "", height: "", weight: "", eyes: "", hair: "", appearance: "" },
+    overview: { playerKnowledgeTitle: "", playerKnowledge: "", profileTagline: "", bullets: [], relationships: [], secretsNarrative: "" },
+    roleplay: { tagline: "", firstImpression: "", personality: "", motivation: "", fear: "", mannerisms: "", voiceOrSpeech: "", conversationalApproach: "", atTheTable: "", goals: [] },
     conditionalInfo: [],
     qa: [],
     knowledge: [],
+    knowledgeLimits: "",
   };
   const ctx = normalizeDossierToContext(empty, true);
   assert.equal(ctx, "");

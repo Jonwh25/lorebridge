@@ -4,21 +4,12 @@
  * Registers a structured NPC dossier widget with Campaign Codex when that
  * module is active and exposes a compatible widget API. LoreBridge continues
  * to work normally when Campaign Codex is absent or disabled.
- *
- * Data ownership:
- * - Campaign Codex stores the dossier via its own widget storage.
- * - A normalised copy is mirrored to actor.flags["lorebridge"]["dossierCache"]
- *   so that the NPC workspace and roleplay features can prefer dossier data
- *   over the legacy LoreBridge NPC Profile without coupling to Campaign Codex
- *   internals.
- *
- * Widget registration happens in Hooks.once("ready") to ensure Campaign Codex
- * has fully initialised its API before LoreBridge accesses it.
  */
 
 import type {
   NpcDossierData,
   NpcDossierGoal,
+  NpcDossierRelationship,
   NpcDossierConditional,
   NpcDossierQa,
   NpcDossierKnowledge,
@@ -27,7 +18,7 @@ import type {
 export type { NpcDossierData };
 
 // ---------------------------------------------------------------------------
-// Campaign Codex API types (minimal surface used by LoreBridge)
+// Campaign Codex API types
 // ---------------------------------------------------------------------------
 
 type CCWidgetConstructor = new (
@@ -59,10 +50,276 @@ type CCModuleEntry = {
 };
 
 // ---------------------------------------------------------------------------
-// Dossier types re-exported so callers can type-check cache reads
+// Embedded CSS — injected once into document.head
 // ---------------------------------------------------------------------------
 
-// (imported above from backend)
+const DOSSIER_CSS = `
+.lb-dossier {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* Tab nav */
+.lb-dos-nav {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(214,173,69,0.22);
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.lb-dos-tab {
+  padding: 4px 11px;
+  background: transparent;
+  border: 1px solid rgba(214,173,69,0.28);
+  border-radius: 4px;
+  color: #c9a84c;
+  cursor: pointer;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.lb-dos-tab:hover { background: rgba(214,173,69,0.10); color: #d6ad45; }
+.lb-dos-tab.active {
+  background: rgba(214,173,69,0.16);
+  border-color: rgba(214,173,69,0.55);
+  color: #d6ad45;
+}
+
+/* Scrollable area */
+.lb-dos-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Section headings */
+.lb-dos-section-heading {
+  color: #d6ad45;
+  margin: 14px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(214,173,69,0.35);
+  text-transform: uppercase;
+  font-size: 14px;
+  display: block;
+}
+.lb-dos-section-heading:first-child { margin-top: 0; }
+
+/* Gold header banner */
+.lb-dos-banner {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: rgba(181,145,63,0.10);
+  border-left: 4px solid #d6ad45;
+}
+.lb-dos-banner--blue {
+  background: rgba(90,130,160,0.10);
+  border-left-color: #6f9fbf;
+}
+.lb-dos-banner-title { font-weight: bold; color: #d6ad45; }
+.lb-dos-banner-title--blue { color: #8eb9d4; }
+.lb-dos-banner-sub { font-style: italic; }
+
+/* Nickname bar (Info tab) */
+.lb-dos-nickname-bar {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-left: 4px solid #d6b35a;
+  background: rgba(214,179,90,0.08);
+  font-size: 14px;
+}
+.lb-dos-nickname-label { color: #d6b35a; }
+
+/* Fact table */
+.lb-dos-fact-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 6px;
+  table-layout: fixed;
+  margin-bottom: 14px;
+}
+.lb-dos-fact-cell {
+  padding: 10px;
+  vertical-align: top;
+  border: 1px solid rgba(214,173,69,0.35);
+  background: rgba(255,255,255,0.035);
+  border-radius: 5px;
+}
+.lb-dos-fact-cell-label {
+  color: #d6ad45;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 3px;
+}
+
+/* Info/text boxes */
+.lb-dos-text-box {
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(214,173,69,0.22);
+  border-radius: 5px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.lb-dos-text-box ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.55;
+}
+.lb-dos-text-box ul li { margin-bottom: 2px; }
+
+/* Relationship notes */
+.lb-dos-rel-name { color: #d6ad45; }
+
+/* Knowledge / conditional cards (2-col table) */
+.lb-dos-cond-trigger { color: #d6ad45; font-weight: bold; }
+.lb-dos-qa-question  { color: #8eb9d4; font-weight: bold; }
+
+/* Player knowledge box */
+.lb-dos-pk-title { color: #d6ad45; font-weight: bold; margin-bottom: 5px; display: block; }
+
+/* GM secret section heading (shown even when block is hidden) */
+.lb-dos-gm-secrets-wrap { margin-top: 4px; }
+
+/* Actions bar */
+.lb-dos-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid rgba(214,173,69,0.15);
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+.lb-dos-btn {
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.83rem;
+  border: 1px solid rgba(214,173,69,0.35);
+  background: transparent;
+  color: #c9a84c;
+}
+.lb-dos-btn:hover { background: rgba(214,173,69,0.12); color: #d6ad45; }
+.lb-dos-btn--primary {
+  background: rgba(214,173,69,0.18);
+  border-color: rgba(214,173,69,0.55);
+  color: #d6ad45;
+}
+.lb-dos-btn--primary:hover { background: rgba(214,173,69,0.30); }
+.lb-dos-btn--cancel { border-color: rgba(200,200,200,0.2); color: #909090; }
+.lb-dos-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Empty state */
+.lb-dos-empty {
+  color: rgba(200,189,168,0.5);
+  font-style: italic;
+  text-align: center;
+  padding: 24px;
+}
+
+/* Edit form */
+.lb-dos-edit-form { padding-bottom: 4px; }
+.lb-dos-edit-heading {
+  color: #d6ad45;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid rgba(214,173,69,0.25);
+  padding-bottom: 4px;
+  margin: 14px 0 8px;
+  display: block;
+}
+.lb-dos-edit-heading:first-child { margin-top: 0; }
+.lb-dos-field-group { margin-bottom: 7px; }
+.lb-dos-field-label {
+  display: block;
+  font-size: 0.76rem;
+  color: rgba(214,179,90,0.75);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lb-dos-field-hint {
+  font-size: 0.76rem;
+  color: rgba(200,189,168,0.55);
+  font-style: italic;
+  margin: 0 0 5px;
+}
+.lb-dos-field-input,
+.lb-dos-field-textarea,
+.lb-dos-field-select {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(214,173,69,0.22);
+  border-radius: 4px;
+  color: #ece6d8;
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.lb-dos-field-input:focus,
+.lb-dos-field-textarea:focus { outline: none; border-color: rgba(214,173,69,0.55); }
+.lb-dos-field-textarea { resize: vertical; line-height: 1.45; }
+.lb-dos-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lb-dos-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; }
+.lb-dos-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+
+/* Repeatable rows */
+.lb-dos-repeatable { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+.lb-dos-repeatable-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(214,173,69,0.15);
+  border-radius: 4px;
+  padding: 6px;
+}
+.lb-dos-repeat-fields { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.lb-dos-remove-row {
+  background: none;
+  border: none;
+  color: rgba(200,189,168,0.35);
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+.lb-dos-remove-row:hover { color: #e5aaa0; background: rgba(120,45,38,0.2); }
+.lb-dos-add-row {
+  background: none;
+  border: 1px dashed rgba(214,173,69,0.25);
+  border-radius: 4px;
+  color: rgba(214,173,69,0.55);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  width: 100%;
+  text-align: center;
+}
+.lb-dos-add-row:hover { border-color: rgba(214,173,69,0.5); color: #d6ad45; background: rgba(214,173,69,0.06); }
+`;
+
+let _cssInjected = false;
+function injectDossierStyles(): void {
+  if (_cssInjected || document.getElementById("lb-npc-dossier-styles")) {
+    _cssInjected = true;
+    return;
+  }
+  _cssInjected = true;
+  const style = document.createElement("style");
+  style.id = "lb-npc-dossier-styles";
+  style.textContent = DOSSIER_CSS;
+  document.head.appendChild(style);
+}
 
 // ---------------------------------------------------------------------------
 // Default data factory
@@ -80,42 +337,149 @@ export function makeDefaultDossierData(): NpcDossierData {
       nicknames: "",
       sourceBook: "",
       sourcePage: "",
-      mapReference: "",
       statBlockReference: "",
       statBlockAlterations: "",
+      discoveryRegion: "",
+      discoveryLocation: "",
     },
     identity: {
-      sexOrGender: "",
+      occupationOrClass: "",
       race: "",
+      sexOrGender: "",
       age: "",
       alignment: "",
       height: "",
       weight: "",
       eyes: "",
       hair: "",
-      occupationOrClass: "",
-      distinguishingFeatures: "",
+      appearance: "",
     },
     overview: {
+      playerKnowledgeTitle: "",
+      playerKnowledge: "",
+      profileTagline: "",
       bullets: [],
-      familyNotes: "",
-      friends: "",
-      otherAcquaintances: "",
-      relationshipNotes: "",
+      relationships: [],
       secretsNarrative: "",
     },
     roleplay: {
+      tagline: "",
       firstImpression: "",
-      personalityAndDemeanor: "",
+      personality: "",
+      motivation: "",
+      fear: "",
+      mannerisms: "",
       voiceOrSpeech: "",
       conversationalApproach: "",
-      runningTheNpc: "",
+      atTheTable: "",
       goals: [],
     },
     conditionalInfo: [],
     qa: [],
     knowledge: [],
+    knowledgeLimits: "",
   };
+}
+
+/** Merge saved data with defaults so missing fields don't cause errors. */
+function normalizeDossierData(raw: unknown): NpcDossierData {
+  const def = makeDefaultDossierData();
+  if (!raw || typeof raw !== "object") return def;
+  const r = raw as Record<string, unknown>;
+  const ref = (r["reference"] as Record<string, unknown> | undefined) ?? {};
+  const id  = (r["identity"]  as Record<string, unknown> | undefined) ?? {};
+  const ov  = (r["overview"]  as Record<string, unknown> | undefined) ?? {};
+  const rp  = (r["roleplay"]  as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    schemaVersion: 1,
+    reference: {
+      nicknames:           str(ref["nicknames"]),
+      sourceBook:          str(ref["sourceBook"]),
+      sourcePage:          str(ref["sourcePage"]),
+      statBlockReference:  str(ref["statBlockReference"]),
+      statBlockAlterations: str(ref["statBlockAlterations"]),
+      discoveryRegion:     str(ref["discoveryRegion"]  ?? ref["mapReference"]),
+      discoveryLocation:   str(ref["discoveryLocation"]),
+    },
+    identity: {
+      occupationOrClass: str(id["occupationOrClass"]),
+      race:              str(id["race"]),
+      sexOrGender:       str(id["sexOrGender"]),
+      age:               str(id["age"]),
+      alignment:         str(id["alignment"]),
+      height:            str(id["height"]),
+      weight:            str(id["weight"]),
+      eyes:              str(id["eyes"]),
+      hair:              str(id["hair"]),
+      appearance:        str(id["appearance"] ?? id["distinguishingFeatures"]),
+    },
+    overview: {
+      playerKnowledgeTitle: str(ov["playerKnowledgeTitle"]),
+      playerKnowledge:      str(ov["playerKnowledge"]),
+      profileTagline:       str(ov["profileTagline"]),
+      bullets:              arr(ov["bullets"]),
+      relationships:        relArr(ov["relationships"]),
+      secretsNarrative:     str(ov["secretsNarrative"]),
+    },
+    roleplay: {
+      tagline:              str(rp["tagline"] ?? rp["personalityAndDemeanor"]),
+      firstImpression:      str(rp["firstImpression"]),
+      personality:          str(rp["personality"]),
+      motivation:           str(rp["motivation"]),
+      fear:                 str(rp["fear"]),
+      mannerisms:           str(rp["mannerisms"]),
+      voiceOrSpeech:        str(rp["voiceOrSpeech"]),
+      conversationalApproach: str(rp["conversationalApproach"]),
+      atTheTable:           str(rp["atTheTable"] ?? rp["runningTheNpc"]),
+      goals:                goalArr(rp["goals"]),
+    },
+    conditionalInfo: condArr(r["conditionalInfo"]),
+    qa:              qaArr(r["qa"]),
+    knowledge:       knowArr(r["knowledge"]),
+    knowledgeLimits: str(r["knowledgeLimits"]),
+  };
+}
+
+function str(v: unknown): string { return typeof v === "string" ? v : ""; }
+function arr(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+function relArr(v: unknown): NpcDossierRelationship[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierRelationship =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierRelationship).id === "string" &&
+    typeof (x as NpcDossierRelationship).name === "string"
+  );
+}
+function goalArr(v: unknown): NpcDossierGoal[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierGoal =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierGoal).id === "string"
+  );
+}
+function condArr(v: unknown): NpcDossierConditional[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierConditional =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierConditional).id === "string"
+  );
+}
+function qaArr(v: unknown): NpcDossierQa[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierQa =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierQa).id === "string"
+  );
+}
+function knowArr(v: unknown): NpcDossierKnowledge[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is NpcDossierKnowledge =>
+    x !== null && typeof x === "object" &&
+    typeof (x as NpcDossierKnowledge).id === "string"
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -138,93 +502,80 @@ function stripSecretBlocks(html: string): string {
   return html.replace(/<section[^>]+class="[^"]*secret[^"]*"[^>]*>[\s\S]*?<\/section>/gi, "").trim();
 }
 
+async function enrichText(html: string, isGM: boolean): Promise<string> {
+  try {
+    const TE = (globalThis as unknown as {
+      TextEditor?: { enrichHTML(c: string, o?: Record<string, unknown>): Promise<string> }
+    }).TextEditor;
+    if (TE?.enrichHTML) {
+      return await TE.enrichHTML(html, { secrets: isGM, async: true });
+    }
+  } catch { /* Foundry not available */ }
+  return isGM ? html : stripSecretBlocks(html);
+}
+
 // ---------------------------------------------------------------------------
 // Context extraction — used by npc-workspace and npc-mention
 // ---------------------------------------------------------------------------
 
-/** Read the dossier cache mirrored from the CC widget for a given actor. */
 export function getActorDossierCache(actor: FoundryActor): NpcDossierData | null {
   const raw = actor.getFlag("lorebridge", "dossierCache") as unknown;
-  if (
-    typeof raw !== "object" ||
-    raw === null ||
-    (raw as Record<string, unknown>)["schemaVersion"] !== 1
-  ) {
-    return null;
-  }
-  return raw as NpcDossierData;
+  if (typeof raw !== "object" || raw === null) return null;
+  return normalizeDossierData(raw);
 }
 
-/**
- * Serialize dossier data to a short text summary for AI context.
- * Excludes secrets narrative for non-GM use.
- */
 export function getDossierSummaryText(dossier: NpcDossierData, isGM = true): string {
   const parts: string[] = [];
-
   const ref = dossier.reference;
+  const id  = dossier.identity;
+  const ov  = dossier.overview;
+  const rp  = dossier.roleplay;
+
   if (ref.nicknames.trim()) parts.push(`Nicknames: ${ref.nicknames.trim()}`);
   if (ref.sourceBook.trim()) {
     const page = ref.sourcePage.trim() ? ` p.${ref.sourcePage.trim()}` : "";
     parts.push(`Source: ${ref.sourceBook.trim()}${page}`);
   }
-  if (ref.statBlockReference.trim()) parts.push(`Stat Block: ${ref.statBlockReference.trim()}`);
-
-  const id = dossier.identity;
-  if (id.sexOrGender.trim()) parts.push(`Gender: ${id.sexOrGender.trim()}`);
-  if (id.race.trim()) parts.push(`Race: ${id.race.trim()}`);
-  if (id.age.trim()) parts.push(`Age: ${id.age.trim()}`);
+  if (id.race.trim())  parts.push(`Race: ${id.race.trim()}`);
+  if (id.age.trim())   parts.push(`Age: ${id.age.trim()}`);
   if (id.alignment.trim()) parts.push(`Alignment: ${id.alignment.trim()}`);
   if (id.occupationOrClass.trim()) parts.push(`Occupation: ${id.occupationOrClass.trim()}`);
-  if (id.distinguishingFeatures.trim()) parts.push(`Appearance: ${id.distinguishingFeatures.trim()}`);
 
-  const bullets = dossier.overview.bullets.filter(b => b.trim()).slice(0, 6);
+  const bullets = ov.bullets.filter(b => b.trim()).slice(0, 6);
   if (bullets.length) parts.push(...bullets.map(b => `- ${b.trim()}`));
 
-  if (dossier.overview.familyNotes.trim()) parts.push(`Family: ${dossier.overview.familyNotes.trim()}`);
-
-  if (isGM && dossier.overview.secretsNarrative.trim()) {
-    const stripped = stripHtml(stripSecretBlocks(dossier.overview.secretsNarrative));
+  if (isGM && ov.secretsNarrative.trim()) {
+    const stripped = stripHtml(stripSecretBlocks(ov.secretsNarrative));
     if (stripped) parts.push(`[GM] Secrets: ${stripped}`);
   }
 
-  const rp = dossier.roleplay;
-  if (rp.personalityAndDemeanor.trim()) parts.push(`Personality: ${rp.personalityAndDemeanor.trim()}`);
-  if (rp.voiceOrSpeech.trim()) parts.push(`Voice: ${rp.voiceOrSpeech.trim()}`);
-  if (rp.conversationalApproach.trim()) parts.push(`Conversational Approach: ${rp.conversationalApproach.trim()}`);
-  if (rp.runningTheNpc.trim()) parts.push(`Running this NPC: ${rp.runningTheNpc.trim()}`);
+  if (rp.personality.trim())          parts.push(`Personality: ${rp.personality.trim()}`);
+  if (rp.voiceOrSpeech.trim())        parts.push(`Voice: ${rp.voiceOrSpeech.trim()}`);
+  if (rp.conversationalApproach.trim()) parts.push(`Conversational: ${rp.conversationalApproach.trim()}`);
 
   const goals = rp.goals.filter(g => g.goal.trim()).slice(0, 3);
   if (goals.length) parts.push(`Goals: ${goals.map(g => g.goal.trim()).join("; ")}`);
 
-  const normalQa = dossier.qa
-    .filter(q => (isGM || q.visibility !== "secret") && q.question.trim() && q.answer.trim())
-    .slice(0, 5);
-  if (normalQa.length) {
-    for (const q of normalQa) {
-      parts.push(`Q: ${q.question.trim()} → ${q.answer.trim()}`);
-    }
-  }
+  const visibleQa = dossier.qa.filter(
+    q => (isGM || q.visibility !== "secret") && q.question.trim() && q.answer.trim()
+  ).slice(0, 5);
+  for (const q of visibleQa) parts.push(`Q: ${q.question.trim()} → ${q.answer.trim()}`);
 
   return parts.join("\n");
 }
 
 // ---------------------------------------------------------------------------
-// Try to find the actor linked to a Campaign Codex document
+// Linked actor
 // ---------------------------------------------------------------------------
 
 function tryGetLinkedActor(doc: unknown): FoundryActor | null {
   if (!doc || typeof doc !== "object") return null;
   const d = doc as Record<string, unknown>;
-
-  // Pattern 1: system.actorId (Campaign Codex v6+ style)
   const sysId = (d["system"] as Record<string, unknown> | undefined)?.["actorId"];
   if (typeof sysId === "string") {
     const a = (game.actors as { get(id: string): FoundryActor | undefined }).get(sysId);
     if (a) return a;
   }
-
-  // Pattern 2: flags["campaign-codex"].actorId
   const flagId = (
     (d["flags"] as Record<string, Record<string, unknown>> | undefined)?.["campaign-codex"]
   )?.["actorId"];
@@ -232,191 +583,370 @@ function tryGetLinkedActor(doc: unknown): FoundryActor | null {
     const a = (game.actors as { get(id: string): FoundryActor | undefined }).get(flagId);
     if (a) return a;
   }
-
-  // Pattern 3: linked actor document
-  const linked = (d["linked"] as { id?: string } | undefined);
-  if (linked?.id) {
-    const a = (game.actors as { get(id: string): FoundryActor | undefined }).get(linked.id);
-    if (a) return a;
-  }
-
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// HTML rendering helpers
+// HTML helpers
 // ---------------------------------------------------------------------------
 
-type DossierSection = "reference" | "overview" | "roleplay" | "knowledge";
+type DossierSection = "info" | "profile" | "roleplay" | "knowledge";
 
-function renderFactRow(label: string, value: string): string {
-  if (!value.trim()) return "";
-  return `<div class="lb-dos-fact">
-    <div class="lb-dos-fact-label">${escHtml(label)}</div>
-    <div class="lb-dos-fact-value">${escHtml(value)}</div>
+function sectionHeading(text: string): string {
+  return `<span class="lb-dos-section-heading">${escHtml(text)}</span>`;
+}
+
+function editHeading(text: string): string {
+  return `<span class="lb-dos-edit-heading">${escHtml(text)}</span>`;
+}
+
+function textField(name: string, label: string, value: string, placeholder = ""): string {
+  return `<div class="lb-dos-field-group">
+    <label class="lb-dos-field-label">${escHtml(label)}</label>
+    <input type="text" class="lb-dos-field-input" name="${escHtml(name)}"
+      value="${escHtml(value)}" placeholder="${escHtml(placeholder)}">
   </div>`;
 }
 
-function renderSectionHeader(title: string): string {
-  return `<div class="lb-dos-section-title">${escHtml(title)}</div>`;
-}
-
-// Reference tab — read view
-function renderReferenceReadView(data: NpcDossierData): string {
-  const ref = data.reference;
-  const id = data.identity;
-  const refFacts = [
-    renderFactRow("Nicknames", ref.nicknames),
-    renderFactRow("Source Book", ref.sourceBook),
-    renderFactRow("Page", ref.sourcePage),
-    renderFactRow("Map Reference", ref.mapReference),
-    renderFactRow("Stat Block", ref.statBlockReference),
-    renderFactRow("Alterations", ref.statBlockAlterations),
-  ].filter(Boolean).join("");
-  const idFacts = [
-    renderFactRow("Gender", id.sexOrGender),
-    renderFactRow("Race", id.race),
-    renderFactRow("Age", id.age),
-    renderFactRow("Alignment", id.alignment),
-    renderFactRow("Height", id.height),
-    renderFactRow("Weight", id.weight),
-    renderFactRow("Eyes", id.eyes),
-    renderFactRow("Hair", id.hair),
-    renderFactRow("Occupation / Class", id.occupationOrClass),
-    renderFactRow("Distinguishing Features", id.distinguishingFeatures),
-  ].filter(Boolean).join("");
-  return `
-    ${refFacts || idFacts ? "" : '<p class="lb-dos-empty">No reference data yet.</p>'}
-    ${refFacts ? `${renderSectionHeader("Reference")}
-    <div class="lb-dos-grid">${refFacts}</div>` : ""}
-    ${idFacts ? `${renderSectionHeader("Identity & Appearance")}
-    <div class="lb-dos-grid">${idFacts}</div>` : ""}
-  `;
-}
-
-// Reference tab — edit view
-function renderReferenceEditForm(data: NpcDossierData): string {
-  const ref = data.reference;
-  const id = data.identity;
-  return `<div class="lb-dos-edit-form">
-    ${renderSectionHeader("Reference")}
-    ${renderTextField("nicknames", "Nicknames", ref.nicknames)}
-    <div class="lb-dos-grid-2">
-      ${renderTextField("sourceBook", "Source Book", ref.sourceBook)}
-      ${renderTextField("sourcePage", "Page", ref.sourcePage)}
-    </div>
-    ${renderTextField("mapReference", "Map Reference", ref.mapReference)}
-    ${renderTextField("statBlockReference", "Stat Block Reference", ref.statBlockReference)}
-    ${renderTextField("statBlockAlterations", "Stat Block Alterations", ref.statBlockAlterations)}
-    ${renderSectionHeader("Identity & Appearance")}
-    <p class="lb-dos-field-hint">Gender and alignment are synced from the linked Actor when present. Values here are dossier-owned.</p>
-    <div class="lb-dos-grid-2">
-      ${renderTextField("sexOrGender", "Gender", id.sexOrGender)}
-      ${renderTextField("race", "Race", id.race)}
-      ${renderTextField("age", "Age", id.age)}
-      ${renderTextField("alignment", "Alignment", id.alignment)}
-      ${renderTextField("height", "Height", id.height)}
-      ${renderTextField("weight", "Weight / Build", id.weight)}
-      ${renderTextField("eyes", "Eyes", id.eyes)}
-      ${renderTextField("hair", "Hair", id.hair)}
-    </div>
-    ${renderTextField("occupationOrClass", "Occupation / Class", id.occupationOrClass)}
-    ${renderTextArea("distinguishingFeatures", "Distinguishing Features", id.distinguishingFeatures, 2)}
+function textArea(name: string, label: string, value: string, rows = 3, placeholder = ""): string {
+  return `<div class="lb-dos-field-group">
+    <label class="lb-dos-field-label">${escHtml(label)}</label>
+    <textarea class="lb-dos-field-textarea" name="${escHtml(name)}"
+      rows="${rows}" placeholder="${escHtml(placeholder)}">${escHtml(value)}</textarea>
   </div>`;
 }
 
-// Overview tab — read view (async for TextEditor secrets enrichment)
-async function renderOverviewReadView(data: NpcDossierData, isGM: boolean): Promise<string> {
-  const ov = data.overview;
-  const bullets = ov.bullets.filter(b => b.trim());
-  const bulletsHtml = bullets.length
-    ? `<ul class="lb-dos-bullets">${bullets.map(b => `<li>${escHtml(b)}</li>`).join("")}</ul>`
+function factCell(label: string, value: string): string {
+  return `<td class="lb-dos-fact-cell">
+    <span class="lb-dos-fact-cell-label">${escHtml(label)}</span>
+    ${escHtml(value)}
+  </td>`;
+}
+
+function factTable(rows: string[][]): string {
+  if (!rows.length) return "";
+  const rowsHtml = rows.map(cells =>
+    `<tr>${cells.map(c => c).join("")}</tr>`
+  ).join("");
+  return `<table class="lb-dos-fact-table"><tbody>${rowsHtml}</tbody></table>`;
+}
+
+// ---------------------------------------------------------------------------
+// INFO TAB — read view
+// ---------------------------------------------------------------------------
+
+function renderInfoReadView(data: NpcDossierData): string {
+  const ref = data.reference;
+  const id  = data.identity;
+  const ov  = data.overview;
+
+  const nicknameHtml = ref.nicknames.trim()
+    ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
     : "";
-  const facts = [
-    renderFactRow("Family", ov.familyNotes),
-    renderFactRow("Friends", ov.friends),
-    renderFactRow("Other Acquaintances", ov.otherAcquaintances),
-    renderFactRow("Relationship Notes", ov.relationshipNotes),
-  ].filter(Boolean).join("");
 
+  // Identity table — 4 columns
+  const identityRow = [
+    id.occupationOrClass.trim() ? factCell("Occupation / Role", id.occupationOrClass) : "",
+    id.race.trim()              ? factCell("Species", id.race) : "",
+    id.sexOrGender.trim()       ? factCell("Gender", id.sexOrGender) : "",
+    id.age.trim()               ? factCell("Age", id.age) : "",
+  ].filter(Boolean);
+  const identityHtml = identityRow.length
+    ? `${sectionHeading("Identity")}${factTable([identityRow])}`
+    : "";
+
+  // Appearance table
+  const heightWeight = [id.height.trim(), id.weight.trim()].filter(Boolean).join(" / ");
+  const eyesHair     = [id.eyes.trim(), id.hair.trim()].filter(Boolean).join(" / ");
+  const appearRow = [
+    heightWeight    ? factCell("Height / Weight", heightWeight) : "",
+    eyesHair        ? factCell("Eyes / Hair", eyesHair) : "",
+    id.appearance.trim() ? factCell("Appearance", id.appearance) : "",
+  ].filter(Boolean);
+  const appearHtml = appearRow.length
+    ? `${sectionHeading("Appearance")}${factTable([appearRow])}`
+    : "";
+
+  // Discovery table
+  const discRow = [
+    ref.discoveryRegion.trim()   ? factCell("Region Discovered", ref.discoveryRegion) : "",
+    ref.discoveryLocation.trim() ? factCell("Location Discovered", ref.discoveryLocation) : "",
+  ].filter(Boolean);
+  const discHtml = discRow.length
+    ? `${sectionHeading("Discovery")}${factTable([discRow])}`
+    : "";
+
+  // Player Knowledge box
+  const pkHtml = ov.playerKnowledge.trim()
+    ? `${sectionHeading("Player Knowledge")}
+       <div class="lb-dos-text-box">
+         ${ov.playerKnowledgeTitle.trim() ? `<span class="lb-dos-pk-title">${escHtml(ov.playerKnowledgeTitle)}</span>` : ""}
+         ${escHtml(ov.playerKnowledge)}
+       </div>`
+    : "";
+
+  if (!nicknameHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
+    return `<p class="lb-dos-empty">No info data yet. Click Edit to begin.</p>`;
+  }
+  return `${nicknameHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
+}
+
+// ---------------------------------------------------------------------------
+// INFO TAB — edit view
+// ---------------------------------------------------------------------------
+
+function renderInfoEditForm(data: NpcDossierData): string {
+  const ref = data.reference;
+  const id  = data.identity;
+  const ov  = data.overview;
+  return `<div class="lb-dos-edit-form">
+    ${editHeading("Nickname")}
+    ${textField("nicknames", "Known As / Nickname", ref.nicknames)}
+    ${editHeading("Identity")}
+    <div class="lb-dos-grid-2">
+      ${textField("occupationOrClass", "Occupation / Role", id.occupationOrClass)}
+      ${textField("race", "Species", id.race)}
+      ${textField("sexOrGender", "Gender", id.sexOrGender)}
+      ${textField("age", "Age", id.age)}
+    </div>
+    ${editHeading("Appearance")}
+    <div class="lb-dos-grid-2">
+      ${textField("height", "Height", id.height)}
+      ${textField("weight", "Weight / Build", id.weight)}
+      ${textField("eyes", "Eyes", id.eyes)}
+      ${textField("hair", "Hair", id.hair)}
+    </div>
+    ${textArea("appearance", "Appearance Description", id.appearance, 2)}
+    ${editHeading("Discovery")}
+    <div class="lb-dos-grid-2">
+      ${textField("discoveryRegion", "Region Discovered", ref.discoveryRegion)}
+      ${textField("discoveryLocation", "Location Discovered", ref.discoveryLocation)}
+    </div>
+    ${editHeading("Player Knowledge")}
+    ${textField("playerKnowledgeTitle", "Section Title", ov.playerKnowledgeTitle, "About [NPC Name]")}
+    ${textArea("playerKnowledge", "Summary (visible to players)", ov.playerKnowledge, 3)}
+  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// PROFILE TAB — read view
+// ---------------------------------------------------------------------------
+
+async function renderProfileReadView(data: NpcDossierData, isGM: boolean, actorName: string): Promise<string> {
+  const ref = data.reference;
+  const ov  = data.overview;
+  const id  = data.identity;
+
+  // Banner
+  const tagline = ov.profileTagline.trim();
+  const bannerHtml = tagline
+    ? `<div class="lb-dos-banner">
+        <span class="lb-dos-banner-title">Profile:</span>
+        <em class="lb-dos-banner-sub"> ${escHtml(tagline)}</em>
+       </div>`
+    : "";
+
+  // Core Profile — 3 columns: alignment | source | known as
+  const sourceLine = [
+    ref.sourceBook.trim(),
+    ref.sourcePage.trim() ? `p. ${ref.sourcePage.trim()}` : "",
+  ].filter(Boolean).join(", ");
+  const coreRow = [
+    id.alignment.trim()   ? factCell("Alignment", id.alignment)         : "",
+    sourceLine             ? factCell("Source", sourceLine)               : "",
+    ref.nicknames.trim()   ? factCell("Known As", ref.nicknames)         : "",
+    ref.statBlockReference.trim() ? factCell("Stat Block", ref.statBlockReference) : "",
+  ].filter(Boolean);
+  const coreHtml = coreRow.length
+    ? `${sectionHeading("Core Profile")}${factTable([coreRow])}`
+    : "";
+
+  // Overview bullets
+  const bullets = ov.bullets.filter(b => b.trim());
+  const overviewHtml = bullets.length
+    ? `${sectionHeading("Overview")}
+       <div class="lb-dos-text-box">
+         <ul>${bullets.map(b => `<li>${escHtml(b)}</li>`).join("")}</ul>
+       </div>`
+    : "";
+
+  // Relationship Notes
+  const rels = ov.relationships.filter(r => r.name.trim() || r.description.trim());
+  const relHtml = rels.length
+    ? `${sectionHeading("Relationship Notes")}
+       <div class="lb-dos-text-box">
+         ${rels.map(r => {
+           const name = r.name.trim();
+           const desc = r.description.trim();
+           return `<p>${name ? `<span class="lb-dos-rel-name">${escHtml(name)}:</span> ` : ""}${escHtml(desc)}</p>`;
+         }).join("")}
+       </div>`
+    : "";
+
+  // GM Secrets
   let secretsHtml = "";
-  if (isGM && ov.secretsNarrative.trim()) {
-    const enriched = await enrichText(ov.secretsNarrative, true);
-    secretsHtml = `<div class="lb-dos-secrets">
-      <div class="lb-dos-fact-label" style="margin-bottom:0.25rem;">GM Only — Secrets &amp; Hidden Information</div>
-      ${enriched}
-    </div>`;
+  if (isGM) {
+    const narrative = ov.secretsNarrative.trim();
+    if (narrative) {
+      const enriched = await enrichText(narrative, true);
+      secretsHtml = `${sectionHeading("GM Secrets")}
+        <div class="lb-dos-gm-secrets-wrap">${enriched}</div>`;
+    }
   }
 
-  const isEmpty = !bulletsHtml && !facts && !secretsHtml;
-  return `
-    ${isEmpty ? '<p class="lb-dos-empty">No overview data yet.</p>' : ""}
-    ${bulletsHtml ? `${renderSectionHeader("Overview")}\n${bulletsHtml}` : ""}
-    ${facts ? `${renderSectionHeader("Background & Relationships")}\n<div class="lb-dos-grid">${facts}</div>` : ""}
-    ${secretsHtml}
-  `;
+  const isEmpty = !bannerHtml && !coreHtml && !overviewHtml && !relHtml && !secretsHtml;
+  if (isEmpty) return `<p class="lb-dos-empty">No profile data yet. Click Edit to begin.</p>`;
+
+  return `${bannerHtml}${coreHtml}${overviewHtml}${relHtml}${secretsHtml}`;
 }
 
-// Overview tab — edit view
-function renderOverviewEditForm(data: NpcDossierData): string {
-  const ov = data.overview;
+// ---------------------------------------------------------------------------
+// PROFILE TAB — edit view
+// ---------------------------------------------------------------------------
+
+function renderProfileEditForm(data: NpcDossierData, isGM: boolean): string {
+  const ref = data.reference;
+  const id  = data.identity;
+  const ov  = data.overview;
   const bulletsText = ov.bullets.filter(b => b.trim()).join("\n");
+
   return `<div class="lb-dos-edit-form">
-    ${renderSectionHeader("Overview Bullets")}
+    ${editHeading("Profile Tagline")}
+    ${textField("profileTagline", "One-Line Description", ov.profileTagline, "A kind but burdened young noble…")}
+    ${editHeading("Core Profile")}
+    <div class="lb-dos-grid-3">
+      ${textField("alignment", "Alignment", id.alignment)}
+      ${textField("sourceBook", "Source Book", ref.sourceBook)}
+      ${textField("sourcePage", "Page", ref.sourcePage)}
+    </div>
+    <div class="lb-dos-grid-2">
+      ${textField("statBlockReference", "Stat Block", ref.statBlockReference)}
+      ${textField("statBlockAlterations", "Stat Block Alterations", ref.statBlockAlterations)}
+    </div>
+    ${editHeading("Overview Bullets")}
     <p class="lb-dos-field-hint">One bullet per line.</p>
-    ${renderTextArea("bullets", "Overview Bullets", bulletsText, 4)}
-    ${renderSectionHeader("Background & Relationships")}
-    ${renderTextArea("familyNotes", "Family Notes", ov.familyNotes, 2)}
-    ${renderTextArea("friends", "Friends", ov.friends, 2)}
-    ${renderTextArea("otherAcquaintances", "Other Acquaintances", ov.otherAcquaintances, 2)}
-    ${renderTextArea("relationshipNotes", "Relationship Notes", ov.relationshipNotes, 2)}
-    ${renderSectionHeader("GM Only — Secrets & Hidden Information")}
-    <p class="lb-dos-field-hint">Wrap GM-only content in Foundry secret blocks:
-      <code>&lt;section class="secret"&gt;…&lt;/section&gt;</code>.
-      This content is excluded from player-safe context and AI responses.</p>
-    ${renderTextArea("secretsNarrative", "Secrets Narrative (GM Only)", ov.secretsNarrative, 4)}
+    ${textArea("bullets", "Overview Bullets", bulletsText, 5)}
+    ${editHeading("Relationship Notes")}
+    <div class="lb-dos-repeatable" data-list="relationships">
+      ${ov.relationships.map(r => renderRelationshipRow(r)).join("")}
+    </div>
+    <button type="button" class="lb-dos-add-row" data-add="relationships">
+      <i class="fas fa-plus"></i> Add Relationship
+    </button>
+    ${isGM ? `
+    ${editHeading("GM Secrets")}
+    <p class="lb-dos-field-hint">Use Foundry secret blocks: &lt;section class="secret"&gt;…&lt;/section&gt;. Hidden from players.</p>
+    ${textArea("secretsNarrative", "GM Secrets", ov.secretsNarrative, 4)}
+    ` : ""}
   </div>`;
 }
 
-// Roleplay tab — read view
-function renderRoleplayReadView(data: NpcDossierData): string {
-  const rp = data.roleplay;
-  const facts = [
-    renderFactRow("First Impression", rp.firstImpression),
-    renderFactRow("Personality & Demeanor", rp.personalityAndDemeanor),
-    renderFactRow("Voice / Speech", rp.voiceOrSpeech),
-    renderFactRow("Conversational Approach", rp.conversationalApproach),
-    renderFactRow("Running This NPC", rp.runningTheNpc),
-  ].filter(Boolean).join("");
-  const goals = rp.goals.filter(g => g.goal.trim());
-  const goalsHtml = goals.length ? `
-    ${renderSectionHeader("Current Goals")}
-    <ul class="lb-dos-bullets">
-      ${goals.map(g =>
-        `<li>${escHtml(g.goal)}${g.questReference.trim() ? ` <span class="lb-dos-tag">Quest: ${escHtml(g.questReference)}</span>` : ""}</li>`
-      ).join("")}
-    </ul>` : "";
-  const isEmpty = !facts && !goalsHtml;
-  return `
-    ${isEmpty ? '<p class="lb-dos-empty">No roleplay data yet.</p>' : ""}
-    ${facts ? `${renderSectionHeader("Guidance")}\n<div class="lb-dos-grid">${facts}</div>` : ""}
-    ${goalsHtml}
-  `;
+function renderRelationshipRow(r: NpcDossierRelationship): string {
+  return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(r.id)}">
+    <div class="lb-dos-repeat-fields">
+      <input type="text" class="lb-dos-field-input" data-field="name"
+        placeholder="Person's name" value="${escHtml(r.name)}">
+      <textarea class="lb-dos-field-textarea" data-field="description"
+        rows="2" placeholder="Relationship description">${escHtml(r.description)}</textarea>
+    </div>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(r.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>`;
 }
 
-// Roleplay tab — edit view
+// ---------------------------------------------------------------------------
+// ROLEPLAY TAB — read view
+// ---------------------------------------------------------------------------
+
+function renderRoleplayReadView(data: NpcDossierData, actorName: string): string {
+  const rp = data.roleplay;
+
+  // Banner
+  const tagParts: string[] = [];
+  if (actorName.trim()) tagParts.push(`Roleplaying ${actorName}`);
+  const bannerHtml = `<div class="lb-dos-banner">
+    <span class="lb-dos-banner-title">${escHtml(tagParts[0] ?? "Roleplaying")}${rp.tagline.trim() ? ":" : ""}</span>
+    ${rp.tagline.trim() ? `<em class="lb-dos-banner-sub"> ${escHtml(rp.tagline)}</em>` : ""}
+  </div>`;
+
+  // First Impression
+  const fiHtml = rp.firstImpression.trim()
+    ? `${sectionHeading("First Impression")}
+       <div class="lb-dos-text-box">${escHtml(rp.firstImpression)}</div>`
+    : "";
+
+  // Characterization 4-col
+  const charRow = [
+    rp.personality.trim() ? factCell("Personality", rp.personality) : "",
+    rp.motivation.trim()  ? factCell("Motivation",  rp.motivation)  : "",
+    rp.fear.trim()        ? factCell("Fear",        rp.fear)        : "",
+    rp.mannerisms.trim()  ? factCell("Mannerisms",  rp.mannerisms)  : "",
+  ].filter(Boolean);
+  const charHtml = charRow.length
+    ? `${sectionHeading("Characterization")}${factTable([charRow])}`
+    : "";
+
+  // Voice & Conversation 2-col
+  const vcRow = [
+    rp.voiceOrSpeech.trim()          ? factCell("Voice / Speech Guidance",  rp.voiceOrSpeech)          : "",
+    rp.conversationalApproach.trim() ? factCell("Conversational Approach", rp.conversationalApproach) : "",
+  ].filter(Boolean);
+  const vcHtml = vcRow.length
+    ? `${sectionHeading("Voice & Conversation")}${factTable([vcRow])}`
+    : "";
+
+  // At the Table bullets
+  const atLines = rp.atTheTable.split("\n").map(l => l.trim()).filter(Boolean);
+  const atHtml = atLines.length
+    ? `${sectionHeading("At the Table")}
+       <div class="lb-dos-text-box">
+         <ul>${atLines.map(l => `<li>${escHtml(l)}</li>`).join("")}</ul>
+       </div>`
+    : "";
+
+  // Goals
+  const goals = rp.goals.filter(g => g.goal.trim());
+  const goalsHtml = goals.length
+    ? `${sectionHeading("Goals")}
+       <div class="lb-dos-text-box">
+         <ul>${goals.map(g =>
+           `<li>${escHtml(g.goal)}${g.questReference.trim() ? ` <em>(Quest: ${escHtml(g.questReference)})</em>` : ""}</li>`
+         ).join("")}</ul>
+       </div>`
+    : "";
+
+  const hasContent = fiHtml || charHtml || vcHtml || atHtml || goalsHtml;
+  return `${bannerHtml}${hasContent ? `${fiHtml}${charHtml}${vcHtml}${atHtml}${goalsHtml}` : `<p class="lb-dos-empty">No roleplay data yet. Click Edit to begin.</p>`}`;
+}
+
+// ---------------------------------------------------------------------------
+// ROLEPLAY TAB — edit view
+// ---------------------------------------------------------------------------
+
 function renderRoleplayEditForm(data: NpcDossierData): string {
   const rp = data.roleplay;
   return `<div class="lb-dos-edit-form">
-    ${renderSectionHeader("Guidance")}
-    ${renderTextArea("firstImpression", "First Impression", rp.firstImpression, 2)}
-    ${renderTextArea("personalityAndDemeanor", "Personality & Demeanor", rp.personalityAndDemeanor, 2)}
-    ${renderTextField("voiceOrSpeech", "Voice / Speech Guidance", rp.voiceOrSpeech)}
-    ${renderTextArea("conversationalApproach", "Conversational Approach", rp.conversationalApproach, 2)}
-    ${renderTextArea("runningTheNpc", "Running This NPC", rp.runningTheNpc, 2)}
-    ${renderSectionHeader("Current Goals")}
+    ${editHeading("Header")}
+    ${textField("tagline", "Tagline", rp.tagline, "An honest, exhausted ally who still chooses hope.")}
+    ${editHeading("First Impression")}
+    ${textArea("firstImpression", "First Impression", rp.firstImpression, 3)}
+    ${editHeading("Characterization")}
+    <div class="lb-dos-grid-2">
+      ${textArea("personality", "Personality", rp.personality, 2)}
+      ${textArea("motivation", "Motivation", rp.motivation, 2)}
+      ${textArea("fear", "Fear", rp.fear, 2)}
+      ${textArea("mannerisms", "Mannerisms", rp.mannerisms, 2)}
+    </div>
+    ${editHeading("Voice & Conversation")}
+    ${textArea("voiceOrSpeech", "Voice / Speech Guidance", rp.voiceOrSpeech, 2)}
+    ${textArea("conversationalApproach", "Conversational Approach", rp.conversationalApproach, 2)}
+    ${editHeading("At the Table")}
+    <p class="lb-dos-field-hint">One bullet per line.</p>
+    ${textArea("atTheTable", "At the Table Bullets", rp.atTheTable, 4)}
+    ${editHeading("Goals")}
     <div class="lb-dos-repeatable" data-list="goals">
-      ${rp.goals.map(g => renderGoalEditRow(g)).join("")}
+      ${rp.goals.map(g => renderGoalRow(g)).join("")}
     </div>
     <button type="button" class="lb-dos-add-row" data-add="goals">
       <i class="fas fa-plus"></i> Add Goal
@@ -424,174 +954,189 @@ function renderRoleplayEditForm(data: NpcDossierData): string {
   </div>`;
 }
 
-function renderGoalEditRow(g: NpcDossierGoal): string {
+function renderGoalRow(g: NpcDossierGoal): string {
   return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(g.id)}">
     <div class="lb-dos-repeat-fields">
-      <input type="text" class="lb-dos-field-input" data-field="goal" placeholder="Goal description" value="${escHtml(g.goal)}">
-      <input type="text" class="lb-dos-field-input" data-field="questReference" placeholder="Quest reference (optional)" value="${escHtml(g.questReference)}">
+      <input type="text" class="lb-dos-field-input" data-field="goal"
+        placeholder="Goal description" value="${escHtml(g.goal)}">
+      <input type="text" class="lb-dos-field-input" data-field="questReference"
+        placeholder="Quest reference (optional)" value="${escHtml(g.questReference)}">
     </div>
-    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(g.id)}" title="Remove"><i class="fas fa-times"></i></button>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(g.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
   </div>`;
 }
 
-// Knowledge tab — read view
-function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean): string {
-  const visibleCond = data.conditionalInfo.filter(c => isGM || c.visibility !== "secret");
-  const visibleQa = data.qa.filter(q => isGM || q.visibility !== "secret");
-  const condHtml = visibleCond.length
-    ? visibleCond.map(c => `<div class="lb-dos-card">
-        <div class="lb-dos-card-label">Trigger</div>
-        <div class="lb-dos-card-value">${escHtml(c.trigger)}</div>
-        <div class="lb-dos-card-label" style="margin-top:0.25rem">Response</div>
-        <div class="lb-dos-card-value">${escHtml(c.response)}</div>
-        ${c.consequence.trim() ? `<div class="lb-dos-card-label" style="margin-top:0.25rem">Consequence</div>
-        <div class="lb-dos-card-value">${escHtml(c.consequence)}</div>` : ""}
-        ${c.visibility === "secret" ? '<span class="lb-dos-tag lb-dos-tag--gm">GM</span>' : ""}
-      </div>`).join("")
-    : "";
-  const qaHtml = visibleQa.length
-    ? visibleQa.map(q => `<div class="lb-dos-card">
-        <div class="lb-dos-card-label">Q</div>
-        <div class="lb-dos-card-value">${escHtml(q.question)}</div>
-        <div class="lb-dos-card-label" style="margin-top:0.25rem">A</div>
-        <div class="lb-dos-card-value">${escHtml(q.answer)}</div>
-        ${q.visibility === "secret" ? '<span class="lb-dos-tag lb-dos-tag--gm">GM</span>' : ""}
-      </div>`).join("")
-    : "";
-  const knowHtml = data.knowledge.filter(k => k.statement.trim())
-    .map(k => `<div class="lb-dos-card">
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem">
-        <span class="lb-dos-tag lb-dos-tag--quality-${escHtml(k.quality)}">${escHtml(k.quality)}</span>
-        ${k.topicOrCategory.trim() ? `<span class="lb-dos-fact-label">${escHtml(k.topicOrCategory)}</span>` : ""}
-      </div>
-      <div class="lb-dos-card-value">${escHtml(k.statement)}</div>
-    </div>`).join("");
+// ---------------------------------------------------------------------------
+// KNOWLEDGE TAB — read view
+// ---------------------------------------------------------------------------
 
-  const isEmpty = !condHtml && !qaHtml && !knowHtml;
-  return `
-    ${isEmpty ? '<p class="lb-dos-empty">No knowledge data yet.</p>' : ""}
-    ${condHtml ? `${renderSectionHeader("Conditional Information")}\n${condHtml}` : ""}
-    ${qaHtml ? `${renderSectionHeader("Questions & Answers")}\n${qaHtml}` : ""}
-    ${knowHtml ? `${renderSectionHeader("General Knowledge")}\n${knowHtml}` : ""}
-  `;
+function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName: string): string {
+  // Blue banner
+  const bannerHtml = `<div class="lb-dos-banner lb-dos-banner--blue">
+    <span class="lb-dos-banner-title lb-dos-banner-title--blue">Knowledge &amp; Responses:</span>
+    <em class="lb-dos-banner-sub"> Information ${escHtml(actorName || "this NPC")} can provide and the conditions that unlock it.</em>
+  </div>`;
+
+  // Conditional Information — 2-col table
+  const visibleCond = data.conditionalInfo.filter(c => isGM || c.visibility !== "secret");
+  let condHtml = "";
+  if (visibleCond.length) {
+    const pairs: string[][] = [];
+    for (let i = 0; i < visibleCond.length; i += 2) {
+      const row: string[] = [];
+      const makeCondCell = (c: NpcDossierConditional) =>
+        `<td class="lb-dos-fact-cell" style="width:50%">
+          <p><span class="lb-dos-cond-trigger">${escHtml(c.trigger)} </span>${escHtml(c.response)}</p>
+          ${c.consequence.trim() ? `<p style="font-style:italic;margin-top:4px">${escHtml(c.consequence)}</p>` : ""}
+        </td>`;
+      row.push(makeCondCell(visibleCond[i]));
+      if (visibleCond[i + 1]) row.push(makeCondCell(visibleCond[i + 1]));
+      pairs.push(row);
+    }
+    condHtml = `${sectionHeading("Conditional Information")}${factTable(pairs)}`;
+  }
+
+  // Q&A — 2-col table
+  const visibleQa = data.qa.filter(q => isGM || q.visibility !== "secret");
+  let qaHtml = "";
+  if (visibleQa.length) {
+    const pairs: string[][] = [];
+    for (let i = 0; i < visibleQa.length; i += 2) {
+      const row: string[] = [];
+      const makeQaCell = (q: NpcDossierQa) =>
+        `<td class="lb-dos-fact-cell" style="width:50%">
+          <p><span class="lb-dos-qa-question">${escHtml(q.question)} </span>${escHtml(q.answer)}</p>
+        </td>`;
+      row.push(makeQaCell(visibleQa[i]));
+      if (visibleQa[i + 1]) row.push(makeQaCell(visibleQa[i + 1]));
+      pairs.push(row);
+    }
+    qaHtml = `${sectionHeading("Likely Questions &amp; Answers")}${factTable(pairs)}`;
+  }
+
+  // Reference Knowledge — 2-col: knowledge bullets | knowledge limits
+  const knowledgeBullets = data.knowledge.filter(k => k.statement.trim());
+  const hasRefKnow = knowledgeBullets.length || data.knowledgeLimits.trim();
+  let refKnowHtml = "";
+  if (hasRefKnow) {
+    const bulletsCell = knowledgeBullets.length
+      ? `<td class="lb-dos-fact-cell" style="width:50%">
+          <span class="lb-dos-fact-cell-label">Other Knowledge</span>
+          <ul style="margin:0;padding-left:18px;line-height:1.45">
+            ${knowledgeBullets.map(k => `<li>${escHtml(k.statement)}</li>`).join("")}
+          </ul>
+         </td>`
+      : "";
+    const limitsCell = data.knowledgeLimits.trim()
+      ? `<td class="lb-dos-fact-cell" style="width:50%">
+          <span class="lb-dos-fact-cell-label">Knowledge Limits</span>
+          ${escHtml(data.knowledgeLimits)}
+         </td>`
+      : "";
+    if (bulletsCell || limitsCell) {
+      refKnowHtml = `${sectionHeading("Reference Knowledge")}${factTable([[bulletsCell, limitsCell].filter(Boolean).join("")])}`;
+    }
+  }
+
+  const isEmpty = !condHtml && !qaHtml && !refKnowHtml;
+  return `${bannerHtml}${isEmpty ? `<p class="lb-dos-empty">No knowledge data yet. Click Edit to begin.</p>` : `${condHtml}${qaHtml}${refKnowHtml}`}`;
 }
 
-// Knowledge tab — edit view
+// ---------------------------------------------------------------------------
+// KNOWLEDGE TAB — edit view
+// ---------------------------------------------------------------------------
+
 function renderKnowledgeEditForm(data: NpcDossierData): string {
-  const visOptions = ["normal", "conditional", "secret"]
-    .map(v => `<option value="${v}">{v}</option>`)
-    .join("");
-  const qOptions = ["knows", "believes", "rumor", "mistaken"]
-    .map(v => `<option value="${v}">${v}</option>`)
-    .join("");
   return `<div class="lb-dos-edit-form">
-    ${renderSectionHeader("Conditional Information")}
+    ${editHeading("Conditional Information")}
     <div class="lb-dos-repeatable" data-list="conditionalInfo">
-      ${data.conditionalInfo.map(c => renderConditionalEditRow(c)).join("")}
+      ${data.conditionalInfo.map(c => renderConditionalRow(c)).join("")}
     </div>
     <button type="button" class="lb-dos-add-row" data-add="conditionalInfo">
       <i class="fas fa-plus"></i> Add Conditional
     </button>
-    ${renderSectionHeader("Questions & Answers")}
+    ${editHeading("Questions & Answers")}
     <div class="lb-dos-repeatable" data-list="qa">
-      ${data.qa.map(q => renderQaEditRow(q)).join("")}
+      ${data.qa.map(q => renderQaRow(q)).join("")}
     </div>
     <button type="button" class="lb-dos-add-row" data-add="qa">
       <i class="fas fa-plus"></i> Add Q&amp;A
     </button>
-    ${renderSectionHeader("General Knowledge")}
+    ${editHeading("General Knowledge")}
+    <p class="lb-dos-field-hint">Facts this NPC knows (shown in Other Knowledge).</p>
     <div class="lb-dos-repeatable" data-list="knowledge">
-      ${data.knowledge.map(k => renderKnowledgeEditRow(k)).join("")}
+      ${data.knowledge.map(k => renderKnowledgeRow(k)).join("")}
     </div>
     <button type="button" class="lb-dos-add-row" data-add="knowledge">
       <i class="fas fa-plus"></i> Add Knowledge
     </button>
-    ${visOptions} ${qOptions}
+    ${editHeading("Knowledge Limits")}
+    ${textArea("knowledgeLimits", "What this NPC does NOT know", data.knowledgeLimits, 3)}
   </div>`;
 }
 
-function renderConditionalEditRow(c: NpcDossierConditional): string {
+function renderConditionalRow(c: NpcDossierConditional): string {
   return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(c.id)}">
     <div class="lb-dos-repeat-fields">
-      <input type="text" class="lb-dos-field-input" data-field="trigger" placeholder="Trigger condition" value="${escHtml(c.trigger)}">
-      <input type="text" class="lb-dos-field-input" data-field="response" placeholder="Response" value="${escHtml(c.response)}">
-      <input type="text" class="lb-dos-field-input" data-field="consequence" placeholder="Consequence (optional)" value="${escHtml(c.consequence)}">
-      <select class="lb-dos-field-input" data-field="visibility">
+      <input type="text" class="lb-dos-field-input" data-field="trigger"
+        placeholder="Trigger condition (bold, shown first)" value="${escHtml(c.trigger)}">
+      <textarea class="lb-dos-field-textarea" data-field="response"
+        rows="2" placeholder="Response text">${escHtml(c.response)}</textarea>
+      <select class="lb-dos-field-input lb-dos-field-select" data-field="visibility">
         ${(["normal", "conditional", "secret"] as const).map(v =>
           `<option value="${v}"${c.visibility === v ? " selected" : ""}>${v}</option>`
         ).join("")}
       </select>
     </div>
-    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(c.id)}" title="Remove"><i class="fas fa-times"></i></button>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(c.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
   </div>`;
 }
 
-function renderQaEditRow(q: NpcDossierQa): string {
+function renderQaRow(q: NpcDossierQa): string {
   return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(q.id)}">
     <div class="lb-dos-repeat-fields">
-      <input type="text" class="lb-dos-field-input" data-field="question" placeholder="Question" value="${escHtml(q.question)}">
-      <textarea class="lb-dos-field-textarea" data-field="answer" rows="2" placeholder="Answer">${escHtml(q.answer)}</textarea>
-      <select class="lb-dos-field-input" data-field="visibility">
+      <input type="text" class="lb-dos-field-input" data-field="question"
+        placeholder="Question (shown in blue bold)" value="${escHtml(q.question)}">
+      <textarea class="lb-dos-field-textarea" data-field="answer"
+        rows="2" placeholder="Answer text">${escHtml(q.answer)}</textarea>
+      <select class="lb-dos-field-input lb-dos-field-select" data-field="visibility">
         ${(["normal", "conditional", "secret"] as const).map(v =>
           `<option value="${v}"${q.visibility === v ? " selected" : ""}>${v}</option>`
         ).join("")}
       </select>
     </div>
-    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(q.id)}" title="Remove"><i class="fas fa-times"></i></button>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(q.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
   </div>`;
 }
 
-function renderKnowledgeEditRow(k: NpcDossierKnowledge): string {
+function renderKnowledgeRow(k: NpcDossierKnowledge): string {
   return `<div class="lb-dos-repeatable-row" data-row-id="${escHtml(k.id)}">
     <div class="lb-dos-repeat-fields">
-      <textarea class="lb-dos-field-textarea" data-field="statement" rows="2" placeholder="Knowledge statement">${escHtml(k.statement)}</textarea>
-      <input type="text" class="lb-dos-field-input" data-field="topicOrCategory" placeholder="Topic / Category" value="${escHtml(k.topicOrCategory)}">
-      <select class="lb-dos-field-input" data-field="quality">
-        ${(["knows", "believes", "rumor", "mistaken"] as const).map(v =>
-          `<option value="${v}"${k.quality === v ? " selected" : ""}>${v}</option>`
-        ).join("")}
-      </select>
+      <textarea class="lb-dos-field-textarea" data-field="statement"
+        rows="2" placeholder="Knowledge statement">${escHtml(k.statement)}</textarea>
+      <input type="text" class="lb-dos-field-input" data-field="topicOrCategory"
+        placeholder="Topic / Category" value="${escHtml(k.topicOrCategory)}">
     </div>
-    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(k.id)}" title="Remove"><i class="fas fa-times"></i></button>
+    <button type="button" class="lb-dos-remove-row" data-remove-id="${escHtml(k.id)}" title="Remove">
+      <i class="fas fa-times"></i>
+    </button>
   </div>`;
-}
-
-function renderTextField(name: string, label: string, value: string): string {
-  return `<div class="lb-dos-field-group">
-    <label class="lb-dos-field-label" for="lb-dos-${escHtml(name)}">${escHtml(label)}</label>
-    <input type="text" id="lb-dos-${escHtml(name)}" class="lb-dos-field-input" name="${escHtml(name)}" value="${escHtml(value)}">
-  </div>`;
-}
-
-function renderTextArea(name: string, label: string, value: string, rows = 3): string {
-  return `<div class="lb-dos-field-group">
-    <label class="lb-dos-field-label" for="lb-dos-${escHtml(name)}">${escHtml(label)}</label>
-    <textarea id="lb-dos-${escHtml(name)}" class="lb-dos-field-textarea" name="${escHtml(name)}" rows="${rows}">${escHtml(value)}</textarea>
-  </div>`;
-}
-
-// TextEditor enrichment (GM sees secrets, non-GM does not)
-async function enrichText(html: string, isGM: boolean): Promise<string> {
-  try {
-    const TE = (globalThis as unknown as { TextEditor?: { enrichHTML(c: string, o?: Record<string, unknown>): Promise<string> } }).TextEditor;
-    if (TE?.enrichHTML) {
-      return await TE.enrichHTML(html, { secrets: isGM, async: true });
-    }
-  } catch { /* Foundry not available (e.g., tests) */ }
-  // Fallback: strip secret blocks for non-GM, return raw for GM
-  return isGM ? html : stripSecretBlocks(html);
 }
 
 // ---------------------------------------------------------------------------
-// Read form data from edit elements
+// Form reading helpers
 // ---------------------------------------------------------------------------
 
-function readTextField(container: Element, name: string): string {
-  return (container.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value ?? "").trim();
-}
-
-function readTextArea(container: Element, name: string): string {
-  return (container.querySelector<HTMLTextAreaElement>(`[name="${name}"]`)?.value ?? "").trim();
+function readField(container: Element, name: string): string {
+  return (
+    (container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`)?.value ?? "")
+  ).trim();
 }
 
 function readRepeatableList<T>(container: Element, listName: string, readRow: (row: Element) => T | null): T[] {
@@ -603,94 +1148,131 @@ function readRepeatableList<T>(container: Element, listName: string, readRow: (r
   return items;
 }
 
+function fieldVal(row: Element, field: string): string {
+  return (
+    (row.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      `[data-field="${field}"]`
+    )?.value ?? "")
+  ).trim();
+}
+
+function readRelationshipRow(row: Element): NpcDossierRelationship | null {
+  const id   = row.getAttribute("data-row-id") ?? uid();
+  const name = fieldVal(row, "name");
+  const desc = fieldVal(row, "description");
+  if (!name && !desc) return null;
+  return { id, name, description: desc };
+}
+
 function readGoalRow(row: Element): NpcDossierGoal | null {
-  const id = row.getAttribute("data-row-id") ?? uid();
-  const goal = (row.querySelector<HTMLInputElement>('[data-field="goal"]')?.value ?? "").trim();
-  const questReference = (row.querySelector<HTMLInputElement>('[data-field="questReference"]')?.value ?? "").trim();
+  const id   = row.getAttribute("data-row-id") ?? uid();
+  const goal = fieldVal(row, "goal");
   if (!goal) return null;
-  return { id, goal, questReference };
+  return { id, goal, questReference: fieldVal(row, "questReference") };
 }
 
 function readConditionalRow(row: Element): NpcDossierConditional | null {
-  const id = row.getAttribute("data-row-id") ?? uid();
-  const trigger = (row.querySelector<HTMLInputElement>('[data-field="trigger"]')?.value ?? "").trim();
-  const response = (row.querySelector<HTMLInputElement>('[data-field="response"]')?.value ?? "").trim();
-  const consequence = (row.querySelector<HTMLInputElement>('[data-field="consequence"]')?.value ?? "").trim();
-  const visibility = (row.querySelector<HTMLSelectElement>('[data-field="visibility"]')?.value ?? "normal") as NpcDossierConditional["visibility"];
+  const id      = row.getAttribute("data-row-id") ?? uid();
+  const trigger = fieldVal(row, "trigger");
+  const response = fieldVal(row, "response");
   if (!trigger && !response) return null;
-  return { id, trigger, response, consequence, relatedUuid: "", visibility };
+  return {
+    id, trigger, response,
+    consequence: fieldVal(row, "consequence"),
+    relatedUuid: "",
+    visibility: (fieldVal(row, "visibility") || "normal") as NpcDossierConditional["visibility"],
+  };
 }
 
 function readQaRow(row: Element): NpcDossierQa | null {
-  const id = row.getAttribute("data-row-id") ?? uid();
-  const question = (row.querySelector<HTMLInputElement>('[data-field="question"]')?.value ?? "").trim();
-  const answer = (row.querySelector<HTMLTextAreaElement>('[data-field="answer"]')?.value ?? "").trim();
-  const visibility = (row.querySelector<HTMLSelectElement>('[data-field="visibility"]')?.value ?? "normal") as NpcDossierQa["visibility"];
+  const id       = row.getAttribute("data-row-id") ?? uid();
+  const question = fieldVal(row, "question");
+  const answer   = fieldVal(row, "answer");
   if (!question && !answer) return null;
-  return { id, question, answer, visibility, relatedSourceUuid: "" };
+  return {
+    id, question, answer,
+    visibility: (fieldVal(row, "visibility") || "normal") as NpcDossierQa["visibility"],
+    relatedSourceUuid: "",
+  };
 }
 
 function readKnowledgeRow(row: Element): NpcDossierKnowledge | null {
-  const id = row.getAttribute("data-row-id") ?? uid();
-  const statement = (row.querySelector<HTMLTextAreaElement>('[data-field="statement"]')?.value ?? "").trim();
-  const topicOrCategory = (row.querySelector<HTMLInputElement>('[data-field="topicOrCategory"]')?.value ?? "").trim();
-  const quality = (row.querySelector<HTMLSelectElement>('[data-field="quality"]')?.value ?? "knows") as NpcDossierKnowledge["quality"];
+  const id        = row.getAttribute("data-row-id") ?? uid();
+  const statement = fieldVal(row, "statement");
   if (!statement) return null;
-  return { id, statement, topicOrCategory, quality, sourceUuid: "" };
+  return {
+    id, statement,
+    topicOrCategory: fieldVal(row, "topicOrCategory"),
+    quality: "knows",
+    sourceUuid: "",
+  };
 }
-
-// ---------------------------------------------------------------------------
-// Read full dossier data from an edit form element
-// ---------------------------------------------------------------------------
 
 function readDossierFromForm(container: Element, section: DossierSection, current: NpcDossierData): NpcDossierData {
   const updated = JSON.parse(JSON.stringify(current)) as NpcDossierData;
 
-  if (section === "reference") {
+  if (section === "info") {
     updated.reference = {
-      nicknames: readTextField(container, "nicknames"),
-      sourceBook: readTextField(container, "sourceBook"),
-      sourcePage: readTextField(container, "sourcePage"),
-      mapReference: readTextField(container, "mapReference"),
-      statBlockReference: readTextField(container, "statBlockReference"),
-      statBlockAlterations: readTextField(container, "statBlockAlterations"),
+      ...updated.reference,
+      nicknames:          readField(container, "nicknames"),
+      discoveryRegion:    readField(container, "discoveryRegion"),
+      discoveryLocation:  readField(container, "discoveryLocation"),
     };
     updated.identity = {
-      sexOrGender: readTextField(container, "sexOrGender"),
-      race: readTextField(container, "race"),
-      age: readTextField(container, "age"),
-      alignment: readTextField(container, "alignment"),
-      height: readTextField(container, "height"),
-      weight: readTextField(container, "weight"),
-      eyes: readTextField(container, "eyes"),
-      hair: readTextField(container, "hair"),
-      occupationOrClass: readTextField(container, "occupationOrClass"),
-      distinguishingFeatures: readTextArea(container, "distinguishingFeatures"),
+      occupationOrClass: readField(container, "occupationOrClass"),
+      race:              readField(container, "race"),
+      sexOrGender:       readField(container, "sexOrGender"),
+      age:               readField(container, "age"),
+      alignment:         updated.identity.alignment, // alignment lives on profile tab
+      height:            readField(container, "height"),
+      weight:            readField(container, "weight"),
+      eyes:              readField(container, "eyes"),
+      hair:              readField(container, "hair"),
+      appearance:        readField(container, "appearance"),
     };
-  } else if (section === "overview") {
-    const bulletsRaw = readTextArea(container, "bullets");
-    const bullets = bulletsRaw.split("\n").map(b => b.trim()).filter(Boolean);
     updated.overview = {
-      bullets,
-      familyNotes: readTextArea(container, "familyNotes"),
-      friends: readTextArea(container, "friends"),
-      otherAcquaintances: readTextArea(container, "otherAcquaintances"),
-      relationshipNotes: readTextArea(container, "relationshipNotes"),
-      secretsNarrative: readTextArea(container, "secretsNarrative"),
+      ...updated.overview,
+      playerKnowledgeTitle: readField(container, "playerKnowledgeTitle"),
+      playerKnowledge:      readField(container, "playerKnowledge"),
+    };
+  } else if (section === "profile") {
+    updated.reference = {
+      ...updated.reference,
+      sourceBook:          readField(container, "sourceBook"),
+      sourcePage:          readField(container, "sourcePage"),
+      statBlockReference:  readField(container, "statBlockReference"),
+      statBlockAlterations: readField(container, "statBlockAlterations"),
+    };
+    updated.identity = {
+      ...updated.identity,
+      alignment: readField(container, "alignment"),
+    };
+    const bulletsRaw = readField(container, "bullets");
+    updated.overview = {
+      ...updated.overview,
+      profileTagline:   readField(container, "profileTagline"),
+      bullets:          bulletsRaw.split("\n").map(b => b.trim()).filter(Boolean),
+      relationships:    readRepeatableList(container, "relationships", readRelationshipRow),
+      secretsNarrative: readField(container, "secretsNarrative"),
     };
   } else if (section === "roleplay") {
     updated.roleplay = {
-      firstImpression: readTextArea(container, "firstImpression"),
-      personalityAndDemeanor: readTextArea(container, "personalityAndDemeanor"),
-      voiceOrSpeech: readTextField(container, "voiceOrSpeech"),
-      conversationalApproach: readTextArea(container, "conversationalApproach"),
-      runningTheNpc: readTextArea(container, "runningTheNpc"),
-      goals: readRepeatableList(container, "goals", readGoalRow),
+      tagline:              readField(container, "tagline"),
+      firstImpression:      readField(container, "firstImpression"),
+      personality:          readField(container, "personality"),
+      motivation:           readField(container, "motivation"),
+      fear:                 readField(container, "fear"),
+      mannerisms:           readField(container, "mannerisms"),
+      voiceOrSpeech:        readField(container, "voiceOrSpeech"),
+      conversationalApproach: readField(container, "conversationalApproach"),
+      atTheTable:           readField(container, "atTheTable"),
+      goals:                readRepeatableList(container, "goals", readGoalRow),
     };
   } else if (section === "knowledge") {
     updated.conditionalInfo = readRepeatableList(container, "conditionalInfo", readConditionalRow);
-    updated.qa = readRepeatableList(container, "qa", readQaRow);
-    updated.knowledge = readRepeatableList(container, "knowledge", readKnowledgeRow);
+    updated.qa              = readRepeatableList(container, "qa", readQaRow);
+    updated.knowledge       = readRepeatableList(container, "knowledge", readKnowledgeRow);
+    updated.knowledgeLimits = readField(container, "knowledgeLimits");
   }
 
   return updated;
@@ -703,12 +1285,10 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
 export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor): CCWidgetConstructor {
   class NpcDossierWidget extends (CampaignCodexWidget as abstract new(...args: unknown[]) => CCWidgetBase) {
     private _editMode = false;
-    private _activeSection: DossierSection = "reference";
+    private _activeSection: DossierSection = "info";
     private _saving = false;
     private _container: HTMLElement | null = null;
 
-    // CC's base class does not expose renderWidget(); we implement our own
-    // re-render by replacing the container's innerHTML and re-wiring listeners.
     renderWidget(): void {
       if (!this._container) return;
       const container = this._container;
@@ -720,18 +1300,22 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
       });
     }
 
+    private _getActorName(): string {
+      const actor = tryGetLinkedActor((this as unknown as { document: unknown }).document);
+      return actor?.name ?? "";
+    }
+
     async render(): Promise<string> {
+      injectDossierStyles();
+
       const raw = await this.getData();
-      const data = (
-        raw && typeof raw === "object" && (raw as Record<string, unknown>)["schemaVersion"] === 1
-          ? raw
-          : makeDefaultDossierData()
-      ) as NpcDossierData;
+      const data = normalizeDossierData(raw);
+      const actorName = this._getActorName();
 
       const tabs: { id: DossierSection; label: string }[] = [
-        { id: "reference", label: "Reference" },
-        { id: "overview", label: "Overview" },
-        { id: "roleplay", label: "Roleplay" },
+        { id: "info",      label: "Info" },
+        { id: "profile",   label: "Profile" },
+        { id: "roleplay",  label: "Roleplaying" },
         { id: "knowledge", label: "Knowledge" },
       ];
 
@@ -741,37 +1325,35 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
 
       let contentHtml: string;
       if (this._editMode) {
-        if (this._activeSection === "reference") contentHtml = renderReferenceEditForm(data);
-        else if (this._activeSection === "overview") contentHtml = renderOverviewEditForm(data);
-        else if (this._activeSection === "roleplay") contentHtml = renderRoleplayEditForm(data);
-        else contentHtml = renderKnowledgeEditForm(data);
+        if (this._activeSection === "info")      contentHtml = renderInfoEditForm(data);
+        else if (this._activeSection === "profile")   contentHtml = renderProfileEditForm(data, this.isGM);
+        else if (this._activeSection === "roleplay")  contentHtml = renderRoleplayEditForm(data);
+        else                                           contentHtml = renderKnowledgeEditForm(data);
       } else {
-        if (this._activeSection === "reference") contentHtml = renderReferenceReadView(data);
-        else if (this._activeSection === "overview") contentHtml = await renderOverviewReadView(data, this.isGM);
-        else if (this._activeSection === "roleplay") contentHtml = renderRoleplayReadView(data);
-        else contentHtml = renderKnowledgeReadView(data, this.isGM);
+        if (this._activeSection === "info")      contentHtml = renderInfoReadView(data);
+        else if (this._activeSection === "profile")   contentHtml = await renderProfileReadView(data, this.isGM, actorName);
+        else if (this._activeSection === "roleplay")  contentHtml = renderRoleplayReadView(data, actorName);
+        else                                           contentHtml = renderKnowledgeReadView(data, this.isGM, actorName);
       }
 
       const editControls = this.isGM
         ? (this._editMode
           ? `<div class="lb-dos-actions">
-              <button type="button" class="lb-dos-btn lb-dos-btn--cancel" data-action="cancelEdit">Cancel</button>
-              <button type="button" class="lb-dos-btn lb-dos-btn--primary" data-action="saveEdit" ${this._saving ? "disabled" : ""}>
-                ${this._saving ? "Saving…" : "Save"}
-              </button>
-            </div>`
+               <button type="button" class="lb-dos-btn lb-dos-btn--cancel" data-action="cancelEdit">Cancel</button>
+               <button type="button" class="lb-dos-btn lb-dos-btn--primary" data-action="saveEdit"${this._saving ? " disabled" : ""}>
+                 ${this._saving ? "Saving…" : "Save"}
+               </button>
+             </div>`
           : `<div class="lb-dos-actions">
-              <button type="button" class="lb-dos-btn" data-action="editSection">
-                <i class="fas fa-edit"></i> Edit
-              </button>
-            </div>`)
+               <button type="button" class="lb-dos-btn" data-action="editSection">
+                 <i class="fas fa-edit"></i> Edit
+               </button>
+             </div>`)
         : "";
 
       return `<div class="lb-dossier">
         <nav class="lb-dos-nav">${tabsHtml}</nav>
-        <div class="lb-dos-content">
-          ${contentHtml}
-        </div>
+        <div class="lb-dos-content">${contentHtml}</div>
         ${editControls}
       </div>`;
     }
@@ -779,7 +1361,6 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
     async activateListeners(htmlElement: HTMLElement): Promise<void> {
       this._container = htmlElement;
 
-      // Call base class implementation via prototype to avoid TypeScript "always true" warning
       const proto = Object.getPrototypeOf(Object.getPrototypeOf(this)) as Record<string, unknown>;
       const baseMethod = proto["activateListeners"];
       if (typeof baseMethod === "function") {
@@ -795,30 +1376,26 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
         });
       });
 
-      // Edit button
+      // Edit
       htmlElement.querySelector<HTMLButtonElement>('[data-action="editSection"]')?.addEventListener("click", () => {
         if (!this.isGM) return;
         this._editMode = true;
         this.renderWidget();
       });
 
-      // Cancel edit
+      // Cancel
       htmlElement.querySelector<HTMLButtonElement>('[data-action="cancelEdit"]')?.addEventListener("click", () => {
         this._editMode = false;
         this.renderWidget();
       });
 
-      // Save edit
+      // Save
       htmlElement.querySelector<HTMLButtonElement>('[data-action="saveEdit"]')?.addEventListener("click", async () => {
         if (!this.isGM || this._saving) return;
         this._saving = true;
         try {
           const raw = await this.getData();
-          const current = (
-            raw && typeof raw === "object" && (raw as Record<string, unknown>)["schemaVersion"] === 1
-              ? raw
-              : makeDefaultDossierData()
-          ) as NpcDossierData;
+          const current = normalizeDossierData(raw);
           const updated = readDossierFromForm(htmlElement, this._activeSection, current);
           await this.saveData(updated);
           await this._mirrorToActorFlags(updated);
@@ -835,25 +1412,26 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
         }
       });
 
-      // Add repeatable row buttons
+      // Add repeatable row
       htmlElement.querySelectorAll<HTMLButtonElement>("[data-add]").forEach(btn => {
         btn.addEventListener("click", () => {
           const list = btn.dataset["add"] as string;
-          const container = htmlElement.querySelector(`[data-list="${list}"]`);
-          if (!container) return;
+          const listContainer = htmlElement.querySelector(`[data-list="${list}"]`);
+          if (!listContainer) return;
           const newId = uid();
           let rowHtml = "";
-          if (list === "goals") rowHtml = renderGoalEditRow({ id: newId, goal: "", questReference: "" });
-          else if (list === "conditionalInfo") rowHtml = renderConditionalEditRow({ id: newId, trigger: "", response: "", consequence: "", relatedUuid: "", visibility: "normal" });
-          else if (list === "qa") rowHtml = renderQaEditRow({ id: newId, question: "", answer: "", visibility: "normal", relatedSourceUuid: "" });
-          else if (list === "knowledge") rowHtml = renderKnowledgeEditRow({ id: newId, statement: "", topicOrCategory: "", quality: "knows", sourceUuid: "" });
+          if (list === "relationships") rowHtml = renderRelationshipRow({ id: newId, name: "", description: "" });
+          else if (list === "goals")   rowHtml = renderGoalRow({ id: newId, goal: "", questReference: "" });
+          else if (list === "conditionalInfo") rowHtml = renderConditionalRow({ id: newId, trigger: "", response: "", consequence: "", relatedUuid: "", visibility: "normal" });
+          else if (list === "qa")      rowHtml = renderQaRow({ id: newId, question: "", answer: "", visibility: "normal", relatedSourceUuid: "" });
+          else if (list === "knowledge") rowHtml = renderKnowledgeRow({ id: newId, statement: "", topicOrCategory: "", quality: "knows", sourceUuid: "" });
           if (rowHtml) {
             const div = document.createElement("div");
             div.innerHTML = rowHtml;
             const newRow = div.firstElementChild;
             if (newRow) {
-              container.appendChild(newRow);
-              this._wireRemoveButtons(container as HTMLElement);
+              listContainer.appendChild(newRow);
+              this._wireRemoveButtons(listContainer as HTMLElement);
             }
           }
         });
@@ -864,7 +1442,6 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
 
     private _wireRemoveButtons(container: HTMLElement): void {
       container.querySelectorAll<HTMLButtonElement>(".lb-dos-remove-row").forEach(btn => {
-        // Avoid double-binding by cloning
         const fresh = btn.cloneNode(true) as HTMLButtonElement;
         btn.parentNode?.replaceChild(fresh, btn);
         fresh.addEventListener("click", () => {
@@ -882,7 +1459,6 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
           await actor.setFlag("lorebridge", "dossierCache", data);
         }
       } catch (err) {
-        // Non-fatal: mirror is best-effort; CC storage is authoritative
         console.debug("LoreBridge | Could not mirror dossier to actor flags:", err);
       }
     }
@@ -897,13 +1473,8 @@ export function createNpcDossierWidget(CampaignCodexWidget: CCWidgetConstructor)
 
 export function registerCampaignCodexWidget(): void {
   const cc = game.modules.get("campaign-codex") as CCModuleEntry | undefined;
-  console.warn(
-    `LoreBridge | registerCampaignCodexWidget called — cc.active=${cc?.active}, ` +
-    `api=${Boolean(cc?.api)}, CCW=${Boolean(cc?.api?.CampaignCodexWidget)}, ` +
-    `registry=${Boolean(cc?.api?.widgetManager?.widgetRegistry)}`
-  );
   if (!cc?.active) {
-    console.warn("LoreBridge | Campaign Codex is not active; NPC Dossier widget not registered.");
+    console.info("LoreBridge | Campaign Codex is not active; NPC Dossier widget not registered.");
     return;
   }
 
