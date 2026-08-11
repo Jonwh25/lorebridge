@@ -22,6 +22,12 @@
           "verified": "4.0.2"
         }
       }
+    ],
+    "optional": [
+      {
+        "id": "campaign-codex",
+        "type": "module"
+      }
     ]
   },
   "socket": true,

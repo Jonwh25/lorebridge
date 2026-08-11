@@ -174,7 +174,9 @@ Hooks.once("ready", () => {
   registerPlayerLoreSocketListener();
 
   // Register Campaign Codex NPC Dossier widget when CC is active and compatible.
-  registerCampaignCodexWidget();
+  // Defer via setTimeout so all other modules' ready hooks (including CC's API
+  // setup) complete before we attempt registration.
+  setTimeout(() => { registerCampaignCodexWidget(); }, 0);
 
   const settings = getLoreBridgeSettings();
   const isGM = Boolean(game.user?.isGM);
