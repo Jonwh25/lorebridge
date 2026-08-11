@@ -53,6 +53,7 @@ const ISMARK_FIXTURE: NpcDossierData = {
     secretsNarrative:
       '<section class="secret">Ireena is adopted; Ismark learned this shortly before Kolyan died. ' +
       "He has not told Ireena and fears she will be devastated.</section>",
+    secrets: [],
   },
   roleplay: {
     tagline: "An honest, exhausted ally who still chooses hope.",
@@ -313,7 +314,7 @@ test("normalizeDossierToContext returns empty string for empty dossier", () => {
     schemaVersion: 1,
     reference: { nicknames: "", sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
     identity: { occupationOrClass: "", race: "", sexOrGender: "", age: "", alignment: "", height: "", weight: "", eyes: "", hair: "", appearance: "" },
-    overview: { playerKnowledgeTitle: "", playerKnowledge: "", profileTagline: "", bullets: [], relationships: [], secretsNarrative: "" },
+    overview: { playerKnowledgeTitle: "", playerKnowledge: "", profileTagline: "", bullets: [], relationships: [], secretsNarrative: "", secrets: [] },
     roleplay: { tagline: "", firstImpression: "", personality: "", motivation: "", fear: "", mannerisms: "", voiceOrSpeech: "", conversationalApproach: "", atTheTable: "", goals: [] },
     conditionalInfo: [],
     qa: [],

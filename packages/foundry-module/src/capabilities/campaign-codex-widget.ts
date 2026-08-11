@@ -1035,8 +1035,8 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
           <p style="margin:0">${escHtml(c.response)}</p>
           ${c.consequence.trim() ? `<p style="font-style:italic;margin:4px 0 0">${escHtml(c.consequence)}</p>` : ""}
         </td>`;
-      row.push(makeCondCell(visibleCond[i]));
-      if (visibleCond[i + 1]) row.push(makeCondCell(visibleCond[i + 1]));
+      row.push(makeCondCell(visibleCond[i]!));
+      if (visibleCond[i + 1]) row.push(makeCondCell(visibleCond[i + 1]!));
       pairs.push(row);
     }
     condHtml = `${sectionHeading("Conditional Information")}${factTable(pairs)}`;
@@ -1054,8 +1054,8 @@ function renderKnowledgeReadView(data: NpcDossierData, isGM: boolean, actorName:
           <span class="lb-dos-qa-question">${escHtml(q.question)}</span>
           <p style="margin:0">${escHtml(q.answer)}</p>
         </td>`;
-      row.push(makeQaCell(visibleQa[i]));
-      if (visibleQa[i + 1]) row.push(makeQaCell(visibleQa[i + 1]));
+      row.push(makeQaCell(visibleQa[i]!));
+      if (visibleQa[i + 1]) row.push(makeQaCell(visibleQa[i + 1]!));
       pairs.push(row);
     }
     qaHtml = `${sectionHeading("Likely Questions & Answers")}${factTable(pairs)}`;
@@ -1600,7 +1600,7 @@ export function registerCampaignCodexWidget(): void {
 
   // Auto-add 4 widgets + 3 custom tabs to all existing NPC journals (after CC fully initializes)
   setTimeout(() => {
-    const journals = (game.journal as { contents: CCJournalLike[] }).contents;
+    const journals = (game.journal as unknown as { contents: CCJournalLike[] }).contents;
     void Promise.all(
       journals.map(j =>
         autoAddDossierWidgets(j).catch((err: unknown) =>
