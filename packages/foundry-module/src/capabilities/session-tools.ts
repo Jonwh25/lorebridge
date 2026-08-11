@@ -490,9 +490,15 @@ export async function openHotbarDistributeDialog(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function _getSidebarRoot(args: unknown[]): HTMLElement | null {
-  // In Foundry v14 ApplicationV2, app.element holds the rendered DOM root.
-  const app = args[0] as { element?: HTMLElement };
-  return app.element ?? null;
+  // Foundry passes (app, html, data) where html may be HTMLElement or jQuery.
+  const html = args[1];
+  if (html instanceof HTMLElement) return html;
+  // jQuery-wrapped (.get(0) pattern used by character-vault)
+  if (html && typeof (html as { get?: (i: number) => HTMLElement }).get === "function") {
+    return (html as { get(i: number): HTMLElement }).get(0) ?? null;
+  }
+  // Fallback: ApplicationV2 app.element
+  return (args[0] as { element?: HTMLElement }).element ?? null;
 }
 
 function _injectSidebarButton(
@@ -504,23 +510,25 @@ function _injectSidebarButton(
   const root = _getSidebarRoot(args);
   if (!root || root.querySelector(`.${guardClass}`)) return;
 
-  // Prefer an explicit footer; fall back to the last direct child element so the
-  // button ends up at the visual bottom of the panel even if there is no <footer>.
-  const target = (
-    root.querySelector("footer") ??
+  // Use the same target selector pattern as character-vault.
+  const footer = (
     root.querySelector(".directory-footer") ??
+    root.querySelector("footer") ??
     root.querySelector("section footer") ??
     (root.lastElementChild as HTMLElement | null) ??
     root
   ) as HTMLElement;
 
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("action-buttons", "flexcol", guardClass);
+
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = guardClass;
-  btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
   btn.innerHTML = html;
   btn.addEventListener("click", handler);
-  target.appendChild(btn);
+
+  wrapper.appendChild(btn);
+  footer.appendChild(wrapper);
 }
 
 /**
