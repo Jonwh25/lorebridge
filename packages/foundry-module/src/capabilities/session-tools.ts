@@ -495,6 +495,30 @@ function _getSidebarRoot(args: unknown[]): HTMLElement | null {
   return app.element ?? null;
 }
 
+function _injectSidebarButton(
+  args: unknown[],
+  guardClass: string,
+  html: string,
+  handler: () => void,
+): void {
+  const root = _getSidebarRoot(args);
+  if (!root || root.querySelector(`.${guardClass}`)) return;
+  // Try standard footer first, then fall back to any section-level footer or the root itself.
+  const target = (
+    root.querySelector("footer") ??
+    root.querySelector(".directory-footer") ??
+    root.querySelector("section footer") ??
+    root
+  ) as HTMLElement;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = guardClass;
+  btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
+  btn.innerHTML = html;
+  btn.addEventListener("click", handler);
+  target.appendChild(btn);
+}
+
 /**
  * Register hooks that inject GM-only action buttons into Foundry sidebar panels.
  * #230: Actor Directory footer → Bulk Create Player Characters
@@ -503,31 +527,25 @@ function _getSidebarRoot(args: unknown[]): HTMLElement | null {
 export function registerSidebarHooks(): void {
   Hooks.on("renderActorDirectory", (...args: unknown[]) => {
     if (!game.user?.isGM) return;
-    const root = _getSidebarRoot(args);
-    if (!root || root.querySelector(".lb-bulk-create-btn")) return;
-    const footer = root.querySelector("footer") as HTMLElement | null;
-    if (!footer) return;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "lb-bulk-create-btn";
-    btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
-    btn.innerHTML = '<i class="fas fa-users"></i> Bulk Create Player Characters';
-    btn.addEventListener("click", () => { void openBulkCreateDialog(); });
-    footer.appendChild(btn);
+    _injectSidebarButton(
+      args,
+      "lb-bulk-create-btn",
+      '<i class="fas fa-users"></i> Bulk Create Player Characters',
+      () => { void openBulkCreateDialog(); },
+    );
   });
 
-  Hooks.on("renderMacroDirectory", (...args: unknown[]) => {
+  // Foundry v14: macro sidebar renders as "Macros" class → hook is "renderMacros".
+  // Register both names so either v14 or older builds fire correctly.
+  const _injectHotbarBtn = (...args: unknown[]) => {
     if (!game.user?.isGM) return;
-    const root = _getSidebarRoot(args);
-    if (!root || root.querySelector(".lb-hotbar-distribute-btn")) return;
-    const footer = root.querySelector("footer") as HTMLElement | null;
-    if (!footer) return;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "lb-hotbar-distribute-btn";
-    btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
-    btn.innerHTML = '<i class="fas fa-share"></i> Distribute Hotbar to Players';
-    btn.addEventListener("click", () => { void openHotbarDistributeDialog(); });
-    footer.appendChild(btn);
-  });
+    _injectSidebarButton(
+      args,
+      "lb-hotbar-distribute-btn",
+      '<i class="fas fa-share"></i> Distribute Hotbar to Players',
+      () => { void openHotbarDistributeDialog(); },
+    );
+  };
+  Hooks.on("renderMacroDirectory", _injectHotbarBtn);
+  Hooks.on("renderMacros", _injectHotbarBtn);
 }

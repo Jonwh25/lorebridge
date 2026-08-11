@@ -110,7 +110,9 @@ const OWNER_PERMISSION = 3;
 
 function isActorOwner(actor: FoundryActorExt): boolean {
   const user = game.user as unknown as FoundryUserExt | undefined;
-  if (!user || user.isGM) return false;
+  if (!user) return false;
+  // GMs can access the import on any character-type actor (useful for testing and restoring on behalf of a player).
+  if (user.isGM) return actor.type === "character";
   return actor.testUserPermission(user, OWNER_PERMISSION);
 }
 
@@ -244,7 +246,7 @@ export function registerPlayerActorImportSheetHook(): void {
   Hooks.on("getHeaderControlsActorSheetV2", (...args: unknown[]) => {
     const [app, controls] = args as [{ document?: FoundryActorExt }, unknown[]];
     const user = game.user as unknown as FoundryUserExt | undefined;
-    if (!user || user.isGM) return; // GM uses the GM restore path
+    if (!user) return;
 
     const actor = app.document;
     if (!actor) return;

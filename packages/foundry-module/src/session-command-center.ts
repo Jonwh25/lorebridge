@@ -301,7 +301,7 @@ class SessionCommandCenter extends _AppBase {
     id: "lorebridge-session-command-center",
     classes: ["lorebridge-scc"],
     window: { title: "LoreBridge — Session Command Center", resizable: true },
-    position: { width: 560, height: 620 },
+    position: { width: 580, height: 720 },
   };
 
   private _hookIds: number[] = [];
