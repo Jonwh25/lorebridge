@@ -130,8 +130,8 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
   const typeList = frame.querySelector<HTMLElement>("ol");
 
   const customOptions: Array<{ value: string; label: string; icon: string }> = [
-    { value: "lb-statblock",   label: "Generate Statblock with AI",   icon: "fas fa-dragon" },
-    { value: "lb-bulk-create", label: "Bulk Create Player Characters", icon: "fas fa-users"  },
+    { value: "lb-statblock",   label: "AI NPC",       icon: "fas fa-dragon" },
+    { value: "lb-bulk-create", label: "Player Party", icon: "fas fa-users"  },
   ];
 
   // Clone the first native <li> so our items inherit exact structure and CSS classes.

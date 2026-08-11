@@ -664,7 +664,7 @@ export async function showNpcStatBlockDialog(): Promise<void> {
   `;
 
   new foundry.applications.api.DialogV2({
-    window: { title: "LoreBridge — Generate NPC Stat Block", resizable: false },
+    window: { title: "LoreBridge — Generate NPC", resizable: false },
     position: { width: 440 },
     content,
     buttons: [

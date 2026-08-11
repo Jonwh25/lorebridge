@@ -271,7 +271,7 @@ export async function openBulkCreateDialog(): Promise<void> {
   let strength: PasswordStrength = "simple";
 
   await DialogV2.prompt({
-    window: { title: "Bulk Create Player Characters", resizable: true },
+    window: { title: "LoreBridge — Create Player Party", resizable: true },
     content: `
       <div style="padding:8px;font-size:0.9em">
         <div style="margin-bottom:10px">
@@ -299,7 +299,7 @@ export async function openBulkCreateDialog(): Promise<void> {
         </div>
       </div>`,
     ok: {
-      label: "Create",
+      label: "Create Party",
       icon: "fas fa-users",
       callback: (_event: Event, button: HTMLButtonElement) => {
         const form = button.closest("form") ?? button.form ?? button.closest(".dialog-content");
