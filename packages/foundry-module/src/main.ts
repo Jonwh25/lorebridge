@@ -87,7 +87,7 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
-import { registerHotbarDistributeListener } from "./capabilities/session-tools.js";
+import { registerHotbarDistributeListener, registerSidebarHooks } from "./capabilities/session-tools.js";
 import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
@@ -178,6 +178,9 @@ Hooks.once("ready", () => {
   // Register hotbar distribution socket listener for all users so players
   // receive and apply GM hotbar broadcasts (#231).
   registerHotbarDistributeListener();
+
+  // Register sidebar injection hooks (Actor Directory bulk create, Macro Directory hotbar).
+  registerSidebarHooks();
 
   // Register player actor import header button for non-GM actor owners (#228).
   registerPlayerActorImportSheetHook();

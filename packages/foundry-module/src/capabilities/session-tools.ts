@@ -52,6 +52,14 @@ declare const User: {
   deleteDocuments(ids: string[]): Promise<void>;
 };
 
+declare const Folder: {
+  create(data: AnyRecord): Promise<{ id: string } | undefined>;
+};
+
+declare const ChatMessage: {
+  create(data: AnyRecord): Promise<void>;
+};
+
 // ---------------------------------------------------------------------------
 // Role constants (Foundry USER_ROLES)
 // ---------------------------------------------------------------------------
@@ -198,6 +206,7 @@ function parseNames(raw: string): BulkCreateEntry[] {
 export async function bulkCreateUsers(
   rawNames: string,
   strength: PasswordStrength,
+  folderName: string,
 ): Promise<BulkCreateResult | null> {
   if (!game.user?.isGM) throw new Error("GM only.");
 
@@ -207,27 +216,33 @@ export async function bulkCreateUsers(
     return null;
   }
 
+  // Find or create the target folder
+  const targetFolderName = folderName.trim() || "Heroes";
+  const existingFolder = Array.from(game.folders as unknown as Iterable<{ name: string; type: string; id: string }>)
+    .find((f) => f.name === targetFolderName && f.type === "Actor");
+  const folderId: string | null = existingFolder?.id ??
+    (await Folder.create({ name: targetFolderName, type: "Actor" }))?.id ?? null;
+
   const results: BulkCreateResult["entries"] = [];
 
   for (const entry of entries) {
     const password = generatePassword(strength);
     const totalActors = 1 + entry.extraActors;
 
-    // Create primary actor
     const primaryActor = await Actor.create({
       name: entry.name,
       type: "character",
+      folder: folderId,
     });
 
-    // Create extra actors if requested
     for (let i = 1; i < totalActors; i++) {
       await Actor.create({
         name: `${entry.name} (${i})`,
         type: "character",
+        folder: folderId,
       });
     }
 
-    // Create user linked to primary actor
     await User.create({
       name: entry.name,
       password,
@@ -252,20 +267,28 @@ export async function openBulkCreateDialog(): Promise<void> {
 
   let submitted = false;
   let rawNames = "";
+  let rawFolder = "Heroes";
   let strength: PasswordStrength = "simple";
 
   await DialogV2.prompt({
-    window: { title: "Bulk Create Users & Actors", resizable: true },
+    window: { title: "Bulk Create Player Characters", resizable: true },
     content: `
       <div style="padding:8px;font-size:0.9em">
-        <p style="margin:0 0 8px;color:#aaa">
-          Enter one player name per line. Append <code>+N</code> to create N extra actors
-          (e.g. <code>Thalindra+2</code> creates Thalindra plus 2 extra actors).
-        </p>
-        <textarea name="names" rows="8"
-          style="width:100%;padding:6px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd;resize:vertical"
-          placeholder="Alice&#10;Bob+2&#10;Carol"></textarea>
-        <div style="margin-top:10px">
+        <div style="margin-bottom:10px">
+          <label style="font-weight:bold;font-size:0.85em;display:block;margin-bottom:4px">Folder</label>
+          <input type="text" name="folder" value="Heroes"
+            style="width:100%;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd"
+            placeholder="Heroes">
+          <p style="margin:3px 0 0;font-size:0.78em;color:#888">Actors are created in this folder (created if it doesn't exist).</p>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="font-weight:bold;font-size:0.85em;display:block;margin-bottom:4px">Player Names</label>
+          <textarea name="names" rows="6"
+            style="width:100%;padding:6px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd;resize:vertical"
+            placeholder="Valeros,Seoni,Kyra&#10;or one per line — use +N for extra actors (e.g. Valeros+2)"></textarea>
+          <p style="margin:3px 0 0;font-size:0.78em;color:#888">Comma- or newline-separated. <code>Valeros+2</code> creates Valeros plus 2 extra actors.</p>
+        </div>
+        <div>
           <label style="font-weight:bold;font-size:0.85em">Password strength</label><br>
           <label style="cursor:pointer;margin-right:16px">
             <input type="radio" name="strength" value="simple" checked> Simple (pronounceable)
@@ -280,6 +303,7 @@ export async function openBulkCreateDialog(): Promise<void> {
       icon: "fas fa-users",
       callback: (_event: Event, button: HTMLButtonElement) => {
         const form = button.closest("form") ?? button.form ?? button.closest(".dialog-content");
+        rawFolder = (form?.querySelector<HTMLInputElement>("input[name='folder']"))?.value ?? "Heroes";
         rawNames = (form?.querySelector<HTMLTextAreaElement>("textarea[name='names']"))?.value ?? "";
         strength = (form?.querySelector<HTMLInputElement>("input[name='strength']:checked"))?.value === "strong" ? "strong" : "simple";
         submitted = true;
@@ -292,42 +316,45 @@ export async function openBulkCreateDialog(): Promise<void> {
 
   let result: BulkCreateResult | null;
   try {
-    result = await bulkCreateUsers(rawNames, strength);
+    result = await bulkCreateUsers(rawNames, strength, rawFolder);
   } catch (err) {
     ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Creation failed."}`);
     return;
   }
   if (!result) return;
 
-  // Show summary dialog with username/password pairs
+  // Post a GM-only chat message with the credential table
   const rows = result.entries.map((e) => `
     <tr>
-      <td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.07)">${e.username.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.07);font-family:monospace">${e.password}</td>
-      <td style="padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.07);text-align:center">${e.actorCount}</td>
+      <td style="padding:3px 8px;border-bottom:1px solid rgba(0,0,0,.12)">${e.username.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</td>
+      <td style="padding:3px 8px;border-bottom:1px solid rgba(0,0,0,.12);font-family:monospace">${e.password}</td>
+      <td style="padding:3px 8px;border-bottom:1px solid rgba(0,0,0,.12);text-align:center">${e.actorCount}</td>
     </tr>`).join("");
 
-  const tableHtml = `
-    <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:0.85em">
-        <thead>
-          <tr style="border-bottom:2px solid rgba(255,255,255,.15);text-align:left">
-            <th style="padding:4px 8px">Username</th>
-            <th style="padding:4px 8px">Password</th>
-            <th style="padding:4px 8px;text-align:center">Actors</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    <p style="margin-top:8px;font-size:0.8em;color:#aaa">Distribute these credentials to your players.</p>`;
+  const messageHtml = `
+    <strong>LoreBridge — Bulk Create Results</strong>
+    <table style="width:100%;border-collapse:collapse;font-size:0.85em;margin-top:6px">
+      <thead>
+        <tr style="border-bottom:2px solid rgba(0,0,0,.2);text-align:left">
+          <th style="padding:3px 8px">Username</th>
+          <th style="padding:3px 8px">Password</th>
+          <th style="padding:3px 8px;text-align:center">Actors</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="margin:6px 0 0;font-size:0.78em;color:#666">Folder: <em>${(rawFolder.trim() || "Heroes").replace(/&/g,"&amp;").replace(/</g,"&lt;")}</em> — GM-only whisper</p>`;
 
-  await DialogV2.prompt({
-    window: { title: "Created — Copy Credentials", resizable: true },
-    content: tableHtml,
-    ok: { label: "Done", icon: "fas fa-check" },
-    rejectClose: false,
+  const gmIds = Array.from(game.users as unknown as FoundryUserCollection)
+    .filter((u) => u.role === 4)
+    .map((u) => u.id);
+  await ChatMessage.create({
+    content: messageHtml,
+    whisper: gmIds,
+    speaker: { alias: "LoreBridge" },
   });
+
+  ui.notifications.info(`LoreBridge: Created ${result.entries.length} user(s) — see GM chat for credentials.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -456,4 +483,51 @@ export async function openHotbarDistributeDialog(): Promise<void> {
   } satisfies HotbarDistributeMessage);
 
   ui.notifications.info(`LoreBridge: Hotbar page(s) ${selectedPages.join(", ")} sent to ${connectedPlayers.length} player(s).`);
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar injection helpers
+// ---------------------------------------------------------------------------
+
+function _getSidebarRoot(args: unknown[]): HTMLElement | null {
+  // In Foundry v14 ApplicationV2, app.element holds the rendered DOM root.
+  const app = args[0] as { element?: HTMLElement };
+  return app.element ?? null;
+}
+
+/**
+ * Register hooks that inject GM-only action buttons into Foundry sidebar panels.
+ * #230: Actor Directory footer → Bulk Create Player Characters
+ * #231: Macro Directory footer → Distribute Hotbar to Players
+ */
+export function registerSidebarHooks(): void {
+  Hooks.on("renderActorDirectory", (...args: unknown[]) => {
+    if (!game.user?.isGM) return;
+    const root = _getSidebarRoot(args);
+    if (!root || root.querySelector(".lb-bulk-create-btn")) return;
+    const footer = root.querySelector("footer") as HTMLElement | null;
+    if (!footer) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "lb-bulk-create-btn";
+    btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
+    btn.innerHTML = '<i class="fas fa-users"></i> Bulk Create Player Characters';
+    btn.addEventListener("click", () => { void openBulkCreateDialog(); });
+    footer.appendChild(btn);
+  });
+
+  Hooks.on("renderMacroDirectory", (...args: unknown[]) => {
+    if (!game.user?.isGM) return;
+    const root = _getSidebarRoot(args);
+    if (!root || root.querySelector(".lb-hotbar-distribute-btn")) return;
+    const footer = root.querySelector("footer") as HTMLElement | null;
+    if (!footer) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "lb-hotbar-distribute-btn";
+    btn.style.cssText = "width:100%;margin-top:4px;font-size:0.8em";
+    btn.innerHTML = '<i class="fas fa-share"></i> Distribute Hotbar to Players';
+    btn.addEventListener("click", () => { void openHotbarDistributeDialog(); });
+    footer.appendChild(btn);
+  });
 }

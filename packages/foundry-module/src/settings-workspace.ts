@@ -16,12 +16,6 @@ import {
   getContextProfiles,
   saveContextProfiles,
 } from "./capabilities/context-profile.js";
-import {
-  removeNonGmUsers,
-  openBulkCreateDialog,
-  openHotbarDistributeDialog,
-} from "./capabilities/session-tools.js";
-
 const MODULE_ID = "lorebridge";
 
 type AnyRecord = Record<string, unknown>;
@@ -68,7 +62,6 @@ type SectionId =
   | "features"
   | "ai-content"
   | "access-safety"
-  | "session-tools"
   | "history"
   | "advanced";
 
@@ -78,7 +71,6 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: "features",      label: "Features",        icon: "fas fa-sliders-h" },
   { id: "ai-content",    label: "AI & Content",    icon: "fas fa-magic" },
   { id: "access-safety", label: "Access & Safety", icon: "fas fa-shield-alt" },
-  { id: "session-tools", label: "Session Tools",   icon: "fas fa-users-cog" },
   { id: "history",       label: "History",         icon: "fas fa-history" },
   { id: "advanced",      label: "Advanced",        icon: "fas fa-cogs" },
 ];
@@ -140,7 +132,6 @@ function buildHomeHtml(): string {
           { id: "features",      icon: "fas fa-sliders-h",   label: "Features",        desc: "Enable / disable capabilities" },
           { id: "ai-content",    icon: "fas fa-magic",       label: "AI & Content",    desc: "Provider, session log, compendiums" },
           { id: "access-safety", icon: "fas fa-shield-alt",  label: "Access & Safety", desc: "Context profiles, player lore" },
-          { id: "session-tools", icon: "fas fa-users-cog",  label: "Session Tools",   desc: "Bulk create, hotbar, reset" },
           { id: "history",       icon: "fas fa-history",     label: "History",         desc: "Recent AI generations" },
           { id: "advanced",      icon: "fas fa-cogs",        label: "Advanced",        desc: "Portrait directory, history length" },
         ].map(({ id, icon, label, desc }) => `
@@ -361,62 +352,6 @@ function buildHistoryHtml(): string {
   </div>`;
 }
 
-function buildSessionToolsHtml(): string {
-  return `
-    <div style="padding:20px 24px">
-      ${sectionHeader("Session Tools", "GM-only tools for table setup, hotbar distribution, and session reset. All destructive actions require explicit confirmation.")}
-
-      <div style="margin-bottom:20px">
-        <div style="font-weight:bold;font-size:0.9em;margin-bottom:6px">
-          <i class="fas fa-users" style="margin-right:6px;color:#7ab"></i>Bulk User &amp; Actor Creation
-        </div>
-        <p style="margin:0 0 8px;font-size:0.82em;color:#888">
-          Create one Foundry user and blank actor per player name. Generates random passwords and links each user to their actor.
-          Use <code>Name+N</code> syntax to create extra actors per user (e.g. Thalindra+2).
-        </p>
-        <button data-action="session-bulk-create" style="padding:6px 14px">
-          <i class="fas fa-user-plus"></i> Create Users &amp; Actors…
-        </button>
-      </div>
-
-      <div style="margin-bottom:20px;padding-top:16px;border-top:1px solid rgba(0,0,0,.1)">
-        <div style="font-weight:bold;font-size:0.9em;margin-bottom:6px">
-          <i class="fas fa-share" style="margin-right:6px;color:#7ab"></i>Distribute Hotbar to Players
-        </div>
-        <p style="margin:0 0 8px;font-size:0.82em;color:#888">
-          Copy one or more GM hotbar pages to all currently connected players. Player hotbar pages are overwritten.
-          Disconnected players are not affected.
-        </p>
-        <button data-action="session-hotbar-distribute" style="padding:6px 14px">
-          <i class="fas fa-share"></i> Distribute Hotbar…
-        </button>
-      </div>
-
-      <div style="margin-bottom:20px;padding-top:16px;border-top:1px solid rgba(0,0,0,.1)">
-        <div style="font-weight:bold;font-size:0.9em;margin-bottom:6px">
-          <i class="fas fa-trash" style="margin-right:6px;color:#a44"></i>Remove All Player Accounts
-        </div>
-        <p style="margin:0 0 8px;font-size:0.82em;color:#888">
-          Delete all Player and Trusted Player accounts from this world. GM and Assistant GM accounts are never affected.
-          Use this to reset before a new campaign or one-shot. Requires explicit confirmation listing all affected accounts.
-        </p>
-        <button data-action="session-remove-users" style="padding:6px 14px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a">
-          <i class="fas fa-trash"></i> Remove All Players…
-        </button>
-      </div>
-
-      <div style="padding-top:16px;border-top:1px solid rgba(0,0,0,.1)">
-        <div style="font-weight:bold;font-size:0.9em;margin-bottom:6px">
-          <i class="fas fa-file-import" style="margin-right:6px;color:#7ab"></i>Player Character Import
-        </div>
-        <p style="margin:0;font-size:0.82em;color:#888">
-          Players with Owner permission on an actor can import their character from a GitHub backup directly from the actor sheet header.
-          The <strong>Import from Backup</strong> button appears on owned character sheets when the LoreBridge backend is configured with a GitHub backup repository.
-        </p>
-      </div>
-    </div>`;
-}
-
 function buildAdvancedHtml(): string {
   const s = getLoreBridgeSettings();
   const maxLen = Number(
@@ -483,9 +418,6 @@ export class LoreBridgeSettingsApp extends AppBase {
       "profile-edit": LoreBridgeSettingsApp._onProfileEdit,
       "profile-delete": LoreBridgeSettingsApp._onProfileDelete,
       "player-lore-allowlist": LoreBridgeSettingsApp._onPlayerLoreAllowlist,
-      "session-bulk-create": LoreBridgeSettingsApp._onSessionBulkCreate,
-      "session-hotbar-distribute": LoreBridgeSettingsApp._onSessionHotbarDistribute,
-      "session-remove-users": LoreBridgeSettingsApp._onSessionRemoveUsers,
       "history-delete": LoreBridgeSettingsApp._onHistoryDelete,
       "history-reopen": LoreBridgeSettingsApp._onHistoryReopen,
       "history-clear-all": LoreBridgeSettingsApp._onHistoryClearAll,
@@ -552,7 +484,6 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "features":      return buildFeaturesHtml();
       case "ai-content":    return buildAiContentHtml();
       case "access-safety": return buildAccessSafetyHtml();
-      case "session-tools": return buildSessionToolsHtml();
       case "history":       return buildHistoryHtml();
       case "advanced":      return buildAdvancedHtml();
     }
@@ -924,46 +855,6 @@ export class LoreBridgeSettingsApp extends AppBase {
     ]);
     ui.notifications.info("LoreBridge: Advanced settings saved.");
     void this._self().render({ force: false });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Session Tools (#230, #231, #232)
-  // ---------------------------------------------------------------------------
-
-  static async _onSessionBulkCreate(
-    this: LoreBridgeSettingsApp,
-    _event: PointerEvent,
-    _target: HTMLElement,
-  ): Promise<void> {
-    try {
-      await openBulkCreateDialog();
-    } catch (err) {
-      ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Operation failed."}`);
-    }
-  }
-
-  static async _onSessionHotbarDistribute(
-    this: LoreBridgeSettingsApp,
-    _event: PointerEvent,
-    _target: HTMLElement,
-  ): Promise<void> {
-    try {
-      await openHotbarDistributeDialog();
-    } catch (err) {
-      ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Operation failed."}`);
-    }
-  }
-
-  static async _onSessionRemoveUsers(
-    this: LoreBridgeSettingsApp,
-    _event: PointerEvent,
-    _target: HTMLElement,
-  ): Promise<void> {
-    try {
-      await removeNonGmUsers();
-    } catch (err) {
-      ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Operation failed."}`);
-    }
   }
 
   // ---------------------------------------------------------------------------
