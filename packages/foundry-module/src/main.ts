@@ -87,7 +87,7 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
-import { registerHotbarDistributeListener, registerSidebarHooks, openBulkCreateDialog } from "./capabilities/session-tools.js";
+import { registerHotbarDistributeListener, registerSidebarHooks, openBulkCreateDialog, openHotbarDistributeDialog } from "./capabilities/session-tools.js";
 import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
 import { showNpcStatBlockDialog } from "./capabilities/npc-statblock.js";
@@ -125,83 +125,94 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
 
   // Guard against double-injection.
   if (frame.querySelector(".lb-create-actor-injected")) return;
-  frame.dataset.lbInjected = "1";
 
-  // Find the <ol> that holds the type radio buttons.
-  const typeList = frame.querySelector("ol");
-  if (!typeList) return;
+  // Find the <ol> that holds the type radio buttons (try multiple selectors).
+  const typeList = frame.querySelector<HTMLElement>(
+    "ol.pick-an-option, ol.document-types, ol.radio-list, ol[class*='type'], .window-content form > ol, form > ol, ol",
+  );
 
-  // Clone a template <li> from the existing list to match native styling exactly.
-  const templateLi = typeList.querySelector("li");
-  if (!templateLi) return;
+  if (!typeList) {
+    // Fallback: insert a separator + two buttons above the form footer.
+    const footer = frame.querySelector<HTMLElement>(".form-footer, footer, .dialog-buttons");
+    if (!footer) return;
+    _injectCreateActorButtons(frame, footer, "beforebegin");
+    return;
+  }
 
-  // Build our custom entries.
+  // Build custom <li> entries from scratch to match native radio-list items.
   const customOptions: Array<{ value: string; label: string; icon: string }> = [
-    { value: "lb-statblock", label: "Generate Statblock with AI", icon: "fas fa-dragon" },
-    { value: "lb-bulk-create", label: "Bulk Create Player Characters", icon: "fas fa-users" },
+    { value: "lb-statblock",   label: "Generate Statblock with AI",    icon: "fas fa-dragon" },
+    { value: "lb-bulk-create", label: "Bulk Create Player Characters",  icon: "fas fa-users"  },
   ];
 
+  // Copy classes from the first native <li> so our items inherit the same layout rules.
+  const nativeLiClasses = Array.from(typeList.querySelector("li")?.classList ?? []);
+
   for (const opt of customOptions) {
-    const li = templateLi.cloneNode(true) as HTMLElement;
-
-    // Update the radio input value and id.
-    const radio = li.querySelector<HTMLInputElement>("input[type='radio']");
-    if (radio) {
-      radio.value = opt.value;
-      radio.id = `actor-type-${opt.value}`;
-      radio.name = "type";
-      radio.checked = false;
-      radio.removeAttribute("checked");
-    }
-
-    // Update the label.
-    const label = li.querySelector("label");
-    if (label) {
-      if (radio) label.htmlFor = radio.id;
-
-      // Replace icon if present.
-      const iconEl = label.querySelector("i");
-      if (iconEl) {
-        iconEl.className = opt.icon;
-      }
-
-      // Set the label text — preserve icon element, replace text node.
-      const textNodes = Array.from(label.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
-      const firstTextNode = textNodes[0];
-      if (firstTextNode !== undefined) {
-        firstTextNode.textContent = opt.label;
-        for (let i = 1; i < textNodes.length; i++) {
-          textNodes[i]?.remove();
-        }
-      } else if (iconEl) {
-        iconEl.insertAdjacentText("afterend", opt.label);
-      } else {
-        label.textContent = opt.label;
-      }
-    }
-
-    // Mark injected and append.
+    const li = document.createElement("li");
+    if (nativeLiClasses.length > 0) li.className = nativeLiClasses.join(" ");
     li.classList.add("lb-create-actor-injected");
+
+    const radioId = `actor-type-${opt.value}`;
+    li.innerHTML = `<input type="radio" id="${radioId}" name="type" value="${opt.value}"><label for="${radioId}"><i class="${opt.icon}"></i>${opt.label}</label>`;
     typeList.appendChild(li);
   }
 
-  // Intercept form submit in the capture phase to handle custom type values.
-  const form = frame.querySelector("form");
+  // Intercept form submit (capture phase) to route custom type values.
+  const form = frame.querySelector("form") ?? frame.closest("form");
   if (!form) return;
   form.addEventListener("submit", (event) => {
     const selectedRadio = form.querySelector<HTMLInputElement>("input[type='radio'][name='type']:checked");
     const value = selectedRadio?.value;
     if (value !== "lb-statblock" && value !== "lb-bulk-create") return;
-
     event.preventDefault();
     event.stopImmediatePropagation();
-
-    if (value === "lb-statblock") {
-      void showNpcStatBlockDialog();
-    } else if (value === "lb-bulk-create") {
-      void openBulkCreateDialog();
-    }
+    if (value === "lb-statblock") void showNpcStatBlockDialog();
+    else void openBulkCreateDialog();
   }, true);
+}
+
+function _injectCreateActorButtons(frame: HTMLElement, target: HTMLElement, position: InsertPosition): void {
+  if (frame.querySelector(".lb-create-actor-injected")) return;
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("lb-create-actor-injected");
+  wrapper.style.cssText = "display:flex;gap:4px;margin-bottom:4px;";
+  const btns: Array<{ icon: string; label: string; value: string }> = [
+    { icon: "fas fa-dragon", label: "Generate Statblock with AI",   value: "lb-statblock"   },
+    { icon: "fas fa-users",  label: "Bulk Create Player Characters", value: "lb-bulk-create" },
+  ];
+  for (const b of btns) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.cssText = "flex:1";
+    btn.innerHTML = `<i class="${b.icon}"></i> ${b.label}`;
+    btn.addEventListener("click", () => {
+      if (b.value === "lb-statblock") void showNpcStatBlockDialog();
+      else void openBulkCreateDialog();
+    });
+    wrapper.appendChild(btn);
+  }
+  target.insertAdjacentElement(position, wrapper);
+}
+
+function _injectMacroSidebarButton(frame: HTMLElement): void {
+  if (frame.querySelector(".lb-hotbar-distribute-btn")) return;
+
+  const footer = (
+    frame.querySelector(".directory-footer") ??
+    frame.querySelector("footer") ??
+    frame.querySelector("section footer")
+  ) as HTMLElement | null;
+  if (!footer) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("action-buttons", "flexcol", "lb-hotbar-distribute-btn");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.innerHTML = '<i class="fas fa-share"></i> Distribute Hotbar to Players';
+  btn.addEventListener("click", () => { void openHotbarDistributeDialog(); });
+  wrapper.appendChild(btn);
+  footer.appendChild(wrapper);
 }
 
 Hooks.once("init", () => {
@@ -212,9 +223,15 @@ Hooks.once("init", () => {
   registerNpcMentionHook();
   Hooks.on("renderApplicationV2", (app: unknown) => {
     if (!game.user?.isGM) return;
-    const frame = (app as { element?: HTMLElement }).element;
+    const appObj = app as { element?: HTMLElement; constructor?: { name?: string } };
+    const frame = appObj.element;
     if (!frame) return;
     injectCreateActorTypeOptions(frame);
+    // Inject macro sidebar button when the MacroDirectory renders.
+    const appName = appObj.constructor?.name ?? "";
+    if (appName === "MacroDirectory" || appName === "Macros") {
+      _injectMacroSidebarButton(frame);
+    }
   });
   registerNpcPreambleSheetHook();
   registerPortraitMenuHook();
