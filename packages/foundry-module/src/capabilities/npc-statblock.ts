@@ -186,7 +186,6 @@ function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): R
           burrow: stat.speedBurrow,
           units: "ft",
         },
-        prof: 0,
       },
       details: {
         biography: { value: stat.biography ? `<p>${stat.biography}</p>` : "" },
@@ -198,7 +197,7 @@ function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): R
         cr: stat.cr,
       },
       traits: {
-        size: stat.size?.toLowerCase().slice(0, 3) || "med",
+        size: ({ tiny: "tiny", small: "sm", medium: "med", large: "lg", huge: "huge", gargantuan: "grg" }[stat.size?.toLowerCase() ?? ""] ?? "med"),
         languages: { value: [], custom: stat.languages },
         di: { value: [], custom: stat.damageImmunities },
         dr: { value: [], custom: stat.damageResistances },
