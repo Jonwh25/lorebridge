@@ -489,18 +489,29 @@ and reset non-GM accounts with clear previews and confirmations. An authorized
 player can restore only a character they own from the permitted backup surface,
 with no access to other actors, GM data, or repository secrets.
 
-### Post-Milestone 25 — Roadmap and 1.0 Readiness Review
+### Post-Milestone 25 — Roadmap and 1.0 Readiness Review ✅ Complete
 
-After Milestone 25, reassess deferred issues, newly discovered work, operational
-evidence, and release maturity through [#244](https://github.com/Jonwh25/lorebridge/issues/244).
-This is a decision gate, not an automatic commitment to release 1.0.
+The [1.0 readiness review](https://github.com/Jonwh25/lorebridge/issues/244)
+was completed after Milestone 25 (2026-08-11). Decision:
 
-The review will choose among four explicit outcomes: pull justified deferred or
-new work into the pre-1.0 roadmap, continue beta validation, begin a dedicated
-1.0 hardening and stable-release milestone, or place remaining enhancements
-after 1.0. Security, permission, data-integrity, installation, upgrade, and core
-contract risks may block a stable release; optional additive features do not
-block 1.0 without evidence that they are essential to the dependable core.
+**LoreBridge will continue beta validation for approximately 3–4 months of
+real-campaign use before a 1.0 stable release.**
+
+Findings from the review:
+
+- No open security defects, data-integrity gaps, or known bugs.
+- All writes are GM-only, previewed, single-use token approved, and audited.
+- The architecture and security model are solid across all 25 milestones.
+- Features delivered in Milestones 23–25 (NPC memory, Campaign Codex widget,
+  player actor import) are less than a week old and need soak time in real games.
+- Spotlight Omnisearch was incorrectly listed as a required dependency; the
+  code already fell back gracefully. Corrected to optional in [PR #264](https://github.com/Jonwh25/lorebridge/pull/264).
+- All five deferred features remain post-1.0.
+
+When sufficient campaign sessions have confirmed stable behavior, a dedicated
+**Milestone 26 — 1.0 Hardening** milestone will be opened to address upgrade
+path validation, MCP contract stability documentation, and any issues surfaced
+from real use before the stable release.
 
 ## Deferred work
 
