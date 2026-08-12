@@ -30,6 +30,13 @@ Foundry documents or provider credentials.
   correcting one combatant's initiative, or ending the active encounter.
 - Check campaign health, audit consistency, scope searches with Context
   Profiles, and back up supported content to a private GitHub repository.
+- Provision a new group for a session: create Foundry users and linked PC
+  actors with random passwords from the **Player Party** option in the Create
+  Actor dialog; distribute hotbar pages to connected players from the Macros
+  sidebar; and reset non-GM accounts with **Remove All Players** from the
+  Session Command Center.
+- Let players import their own character from a backup using **Import from
+  Backup** in the actor sheet header without exposing other actors or GM data.
 
 Example requests:
 
@@ -82,6 +89,7 @@ or rebuilding, native search and content scanners remain available.
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |
+| Session tools | **AI NPC** and **Player Party** in the Create Actor dialog; **Distribute Hotbar to Players** in the Macros sidebar; **Remove All Players** in the Session Command Center; **Import from Backup** in the actor sheet header for player-owned characters |
 | Extensibility | GM-authored macro tools exposed through an explicit declaration and feature gate |
 
 See the [user guide](https://github.com/Jonwh25/lorebridge/wiki/Using-LoreBridge)
