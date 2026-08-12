@@ -466,16 +466,16 @@ GM-only secrets are excluded from player-visible rendering and LoreBridge contex
 LoreBridge generation prefers dossier data when present and falls back cleanly
 when Campaign Codex is absent or disabled.
 
-### Milestone 25 — Session and Character Portability
+### Milestone 25 — Session and Character Portability ✅ Complete
 
 Replace the remaining Character Vault workflows with bounded, GM-controlled
 session provisioning, hotbar distribution, reset operations, and
 permission-safe player character portability.
 
-1. [Bulk user and actor creation with random passwords](https://github.com/Jonwh25/lorebridge/issues/230)
-2. [Copy GM hotbar to all connected players](https://github.com/Jonwh25/lorebridge/issues/231)
-3. [Remove all non-GM users for session reset](https://github.com/Jonwh25/lorebridge/issues/232)
-4. [Player-driven actor import from GitHub backup](https://github.com/Jonwh25/lorebridge/issues/228)
+1. ✅ [Bulk user and actor creation with random passwords](https://github.com/Jonwh25/lorebridge/issues/230)
+2. ✅ [Copy GM hotbar to all connected players](https://github.com/Jonwh25/lorebridge/issues/231)
+3. ✅ [Remove all non-GM users for session reset](https://github.com/Jonwh25/lorebridge/issues/232)
+4. ✅ [Player-driven actor import from GitHub backup](https://github.com/Jonwh25/lorebridge/issues/228)
 
 The first three operations form a repeatable GM-controlled table setup and
 reset workflow. User deletion and hotbar replacement must remain previewed,

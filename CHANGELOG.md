@@ -4,6 +4,20 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-08-11
+
+### Added
+
+- **AI NPC in Create Actor dialog** (#110, #228–232): a native **AI NPC** radio-button entry is injected into Foundry's Create Actor type list (matching the style of Encounter, Group, NPC, PC, Vehicle). Selecting it and clicking Create Actor opens **LoreBridge — Generate NPC** where the GM describes the creature, sets CR, tone, and rules edition, then generates a full D&D 5e stat block with items. The preview dialog shows the complete stat block and the **Create Actor** button places it in a "LoreBridge NPCs" folder.
+- **Player Party in Create Actor dialog** (#230): a native **Player Party** radio-button entry in the same Create Actor list opens **LoreBridge — Create Player Party** — the GM enters one player name per line (optional `+N` for extra actors), selects a folder name and password strength, and confirms with **Create Party**. LoreBridge creates linked Foundry User and Actor pairs and presents a copyable credential table.
+- **Distribute Hotbar to Players in Macros sidebar** (#231): a **Distribute Hotbar to Players** button is injected at the bottom of the Macros sidebar footer, visible to GMs at all times alongside their macros. Opens a page-selector; the GM picks hotbar pages (1–5) to broadcast. Connected players overwrite only the selected pages; disconnected players are not affected.
+- **Remove All Players in Session Command Center** (#232): a **Remove All Players…** Quick Actions button in the Session Command Center opens a confirmation dialog listing every Player and Trusted account before deletion. GM (role 4) and Assistant GM (role 3) accounts are never affected.
+- **Import from Backup in actor sheet header** (#228): non-GM players with OWNER permission on a character actor see **Import from Backup** in the actor sheet ⋮ header menu. Two authenticated backend endpoints list and retrieve character-type actor sidecars from the GitHub backup. NPC actors are never exposed; the import never changes the actor's Foundry `_id`.
+
+### Fixed
+
+- **NPC actor creation size key** (#110): `buildDnd5eActorData` was computing dnd5e size keys with a `slice(0, 3)` heuristic that produced invalid values for every size other than Medium (`"lar"` for Large, `"tin"` for Tiny, `"hug"` for Huge). `CONFIG.DND5E.actorSizes` returned `undefined` for those keys, and dnd5e then crashed reading `.token` off it. Replaced with an explicit lookup table mapping full size words to the correct dnd5e keys (`tiny / sm / med / lg / huge / grg`).
+
 ## [0.24.0] - 2026-08-11
 
 ### Added
