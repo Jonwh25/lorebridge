@@ -4,6 +4,8 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-08-11
+
 ### Changed
 
 - **Spotlight Omnisearch is now optional**: the `spotlight-omnisearch` module dependency has been moved from `requires` to `optional` in `module.json`. LoreBridge already fell back gracefully to native Foundry search and bounded scanners when Spotlight was unavailable; this corrects the manifest to reflect actual runtime behavior. Installing Spotlight Omnisearch 4.0.2+ is still recommended for improved candidate search quality, but LoreBridge operates fully without it.
