@@ -1583,6 +1583,104 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // Player actor import (#228)
+  // These endpoints let an authenticated player browse and retrieve their own
+  // character backup without exposing GM data or other players' actors.
+  // ---------------------------------------------------------------------------
+
+  if (method === "GET" && url.pathname === "/v1/player/actor-backups") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    const ACTORS_DIR = "extensions/org.ravens-eye.foundry-vtt/actors";
+    try {
+      const entries = await github.listDirectory(ACTORS_DIR);
+      const yamlFiles = entries.filter((e) => e.type === "file" && e.name.endsWith(".yaml"));
+      const actors: Array<{ path: string; name: string; actorType: string }> = [];
+      for (const file of yamlFiles) {
+        try {
+          const rawContent = await github.readFile(`${ACTORS_DIR}/${file.name}`);
+          const obj = yamlLoad(rawContent) as Record<string, unknown>;
+          const structure = obj["structure"] as Record<string, unknown> | undefined;
+          const foundrySourceData = structure?.["foundrySourceData"] as Record<string, unknown> | undefined;
+          const actorName = typeof foundrySourceData?.["name"] === "string" ? foundrySourceData["name"] : file.name;
+          const actorType = typeof foundrySourceData?.["type"] === "string" ? foundrySourceData["type"] : "unknown";
+          // Only expose character-type actors, not GM-controlled NPCs.
+          if (actorType === "character" || actorType === "pc") {
+            actors.push({ path: `${ACTORS_DIR}/${file.name}`, name: actorName, actorType });
+          }
+        } catch {
+          // Skip unreadable or unparseable sidecar files — don't abort the whole listing.
+        }
+      }
+      sendJson(response, 200, { actors });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/player/actor-import") {
+    if (!authenticate(pairing, request, response)) return;
+    const filePath = url.searchParams.get("path");
+    if (!filePath || !filePath.trim()) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "The 'path' query parameter is required." } });
+      return;
+    }
+    // Security: path must be inside the actors extension directory and name a YAML file.
+    const ACTORS_DIR = "extensions/org.ravens-eye.foundry-vtt/actors";
+    if (!filePath.startsWith(ACTORS_DIR + "/") || !filePath.endsWith(".yaml")) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Path must reference an actor sidecar YAML file." } });
+      return;
+    }
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    try {
+      const rawContent = await github.readFile(filePath);
+      const obj = yamlLoad(rawContent) as Record<string, unknown>;
+      const structure = obj["structure"] as Record<string, unknown> | undefined;
+      const foundrySourceData = structure?.["foundrySourceData"] as Record<string, unknown> | undefined;
+      if (!foundrySourceData) {
+        sendJson(response, 404, { error: { code: "not_found", message: "Sidecar file does not contain foundrySourceData." } });
+        return;
+      }
+      const actorType = typeof foundrySourceData["type"] === "string" ? foundrySourceData["type"] : "unknown";
+      // Prevent players from importing NPC-type actors.
+      if (actorType !== "character" && actorType !== "pc") {
+        sendJson(response, 403, { error: { code: "access_denied", message: "Only character-type actors can be imported through this endpoint." } });
+        return;
+      }
+      // Return the foundrySourceData without the internal Foundry _id to avoid
+      // the import trying to overwrite a different actor.
+      const { _id: _stripped, ...dataWithoutId } = foundrySourceData;
+      sendJson(response, 200, { path: filePath, actorName: foundrySourceData["name"] ?? "Unknown", actorType, foundrySourceData: dataWithoutId });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 

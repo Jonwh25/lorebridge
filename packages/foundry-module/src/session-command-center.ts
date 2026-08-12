@@ -1,6 +1,7 @@
 import { getLoreBridgeSettings } from "./settings.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { handleSessionCleanup } from "./capabilities/session-cleanup.js";
+import { removeNonGmUsers } from "./capabilities/session-tools.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -242,6 +243,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
       `<button type="button" class="lb-scc__action-btn" data-action="session-cleanup" title="Detect new entities from the session log"><i class="fas fa-broom"></i> Session Cleanup</button>`,
     );
   }
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--danger" data-action="remove-all-players" title="Delete all Player and Trusted Player accounts"><i class="fas fa-user-minus"></i> Remove All Players…</button>`,
+  );
   return buttons.length > 0
     ? `<div class="lb-scc__actions">${buttons.join("")}</div>`
     : `<p class="lb-scc__empty">All LoreBridge actions are currently disabled in settings.</p>`;
@@ -274,6 +278,8 @@ const _CSS = `
 .lb-scc__actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .lb-scc__action-btn { font-size: 11px; padding: 3px 8px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; background: rgba(255,255,255,0.05); }
 .lb-scc__action-btn:hover { background: rgba(255,255,255,0.12); }
+.lb-scc__action-btn--danger { border-color: rgba(180,60,60,0.6); color: #cf8080; }
+.lb-scc__action-btn--danger:hover { background: rgba(180,60,60,0.18); }
 `.trim();
 
 let _cssInjected = false;
@@ -295,7 +301,7 @@ class SessionCommandCenter extends _AppBase {
     id: "lorebridge-session-command-center",
     classes: ["lorebridge-scc"],
     window: { title: "LoreBridge — Session Command Center", resizable: true },
-    position: { width: 560, height: 620 },
+    position: { width: 720, height: 720 },
   };
 
   private _hookIds: number[] = [];
@@ -393,6 +399,12 @@ class SessionCommandCenter extends _AppBase {
     }
     if (action === "session-cleanup") {
       void handleSessionCleanup("");
+      return;
+    }
+    if (action === "remove-all-players") {
+      void removeNonGmUsers().catch((err: unknown) => {
+        ui.notifications.error(`LoreBridge: ${err instanceof Error ? err.message : "Operation failed."}`);
+      });
       return;
     }
   }

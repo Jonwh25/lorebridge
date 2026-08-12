@@ -16,7 +16,6 @@ import {
   getContextProfiles,
   saveContextProfiles,
 } from "./capabilities/context-profile.js";
-
 const MODULE_ID = "lorebridge";
 
 type AnyRecord = Record<string, unknown>;

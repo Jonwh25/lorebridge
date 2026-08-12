@@ -87,8 +87,10 @@ import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabili
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
+import { registerHotbarDistributeListener, registerSidebarHooks, openBulkCreateDialog, openHotbarDistributeDialog } from "./capabilities/session-tools.js";
+import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
 import { registerSheetButtons } from "./capabilities/ui-sheets.js";
-import { injectActorsSidebarButton } from "./capabilities/npc-statblock.js";
+import { showNpcStatBlockDialog } from "./capabilities/npc-statblock.js";
 import { openSessionCommandCenter } from "./session-command-center.js";
 import { shouldExposeCapabilityApi } from "./runtime-policy.js";
 import {
@@ -115,6 +117,135 @@ function getModuleVersion(): string {
   return moduleMetadata?.version ?? "unknown";
 }
 
+function injectCreateActorTypeOptions(frame: HTMLElement): void {
+  // Detect the Create Actor dialog by its window title.
+  const titleEl = frame.querySelector(".window-title, header .title, .app-title");
+  const title = titleEl?.textContent?.toLowerCase() ?? "";
+  if (!title.includes("create actor") && !title.includes("new actor")) return;
+
+  // Guard against double-injection.
+  if (frame.querySelector(".lb-create-actor-injected")) return;
+
+  // Find the <ol> that holds the type radio buttons.
+  const typeList = frame.querySelector<HTMLElement>("ol");
+
+  const customOptions: Array<{ value: string; label: string; icon: string }> = [
+    { value: "lb-statblock",   label: "AI NPC",       icon: "fas fa-dragon" },
+    { value: "lb-bulk-create", label: "Player Party", icon: "fas fa-users"  },
+  ];
+
+  // Clone the first native <li> so our items inherit exact structure and CSS classes.
+  // dnd5e structure: <li><label><dnd5e-icon/><span>text</span><input radio></label></li>
+  // Generic Foundry: <li><input radio><label for="..."><i></i>text</label></li>
+  const templateLi = typeList?.querySelector<HTMLElement>("li") ?? null;
+
+  if (typeList && templateLi) {
+    for (const opt of customOptions) {
+      const li = templateLi.cloneNode(true) as HTMLElement;
+      li.classList.add("lb-create-actor-injected");
+      li.removeAttribute("data-tooltip");
+
+      // Update radio input value and clear checked state.
+      const radio = li.querySelector<HTMLInputElement>("input[type='radio']");
+      if (radio) {
+        radio.value = opt.value;
+        radio.removeAttribute("checked");
+        radio.checked = false;
+        if (radio.id) {
+          const newId = `actor-type-${opt.value}`;
+          const linkedLabel = li.querySelector<HTMLLabelElement>(`label[for="${radio.id}"]`);
+          if (linkedLabel) linkedLabel.htmlFor = newId;
+          radio.id = newId;
+        }
+      }
+
+      // Replace dnd5e-icon web component with a standard <i> element (same 32×32 box).
+      const dnd5eIcon = li.querySelector("dnd5e-icon");
+      if (dnd5eIcon) {
+        const i = document.createElement("i");
+        i.className = opt.icon;
+        i.style.cssText = "display:block;width:32px;height:32px;font-size:22px;line-height:32px;text-align:center;flex-shrink:0;";
+        dnd5eIcon.replaceWith(i);
+      } else {
+        const iconEl = li.querySelector("i");
+        if (iconEl) iconEl.className = opt.icon;
+      }
+
+      // Update label text: try <span> first (dnd5e), then text nodes (generic Foundry).
+      const span = li.querySelector("label span, span");
+      if (span) {
+        span.textContent = opt.label;
+      } else {
+        const label = li.querySelector("label");
+        if (label) {
+          for (const node of Array.from(label.childNodes)) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+              node.textContent = ` ${opt.label}`;
+              break;
+            }
+          }
+        }
+      }
+
+      typeList.appendChild(li);
+    }
+  } else {
+    // Fallback: two side-by-side buttons above the form footer.
+    const footer = frame.querySelector<HTMLElement>(".form-footer, footer, .dialog-buttons");
+    if (!footer) return;
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("lb-create-actor-injected");
+    wrapper.style.cssText = "display:flex;gap:4px;margin-bottom:6px;";
+    for (const opt of customOptions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.cssText = "flex:1;";
+      btn.innerHTML = `<i class="${opt.icon}"></i> ${opt.label}`;
+      btn.addEventListener("click", () => {
+        if (opt.value === "lb-statblock") void showNpcStatBlockDialog();
+        else void openBulkCreateDialog();
+      });
+      wrapper.appendChild(btn);
+    }
+    footer.insertAdjacentElement("beforebegin", wrapper);
+    return;
+  }
+
+  // Intercept form submit (capture phase) to route custom type values.
+  // Works for both type="submit" buttons and ApplicationV2 programmatic submit.
+  const form = frame.querySelector("form") ?? frame.closest("form");
+  if (!form) return;
+  form.addEventListener("submit", (event) => {
+    const selectedRadio = form.querySelector<HTMLInputElement>("input[type='radio'][name='type']:checked");
+    const value = selectedRadio?.value;
+    if (value !== "lb-statblock" && value !== "lb-bulk-create") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (value === "lb-statblock") void showNpcStatBlockDialog();
+    else void openBulkCreateDialog();
+  }, true);
+}
+
+function _injectMacroSidebarButton(frame: HTMLElement): void {
+  if (frame.querySelector(".lb-hotbar-distribute-btn")) return;
+
+  const footer = (
+    frame.querySelector(".directory-footer") ??
+    frame.querySelector("footer") ??
+    frame.querySelector("section footer")
+  ) as HTMLElement | null;
+  if (!footer) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("action-buttons", "flexcol", "lb-hotbar-distribute-btn");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.innerHTML = '<i class="fas fa-share"></i> Distribute Hotbar to Players';
+  btn.addEventListener("click", () => { void openHotbarDistributeDialog(); });
+  wrapper.appendChild(btn);
+  footer.appendChild(wrapper);
+}
+
 Hooks.once("init", () => {
   registerLoreBridgeSettings();
   registerChatCommand();
@@ -123,9 +254,28 @@ Hooks.once("init", () => {
   registerNpcMentionHook();
   Hooks.on("renderApplicationV2", (app: unknown) => {
     if (!game.user?.isGM) return;
-    const frame = (app as { element?: HTMLElement }).element;
+    const appObj = app as { element?: HTMLElement; constructor?: { name?: string } };
+    const frame = appObj.element;
     if (!frame) return;
-    injectActorsSidebarButton(frame, app);
+    // Defer so dnd5e can finish populating <li> items into the type <ol>
+    // before we try to clone them (they are added in a post-render step).
+    setTimeout(() => { injectCreateActorTypeOptions(frame); }, 0);
+    // MacroDirectory injection via constructor name (covers ApplicationV2 path).
+    const appName = appObj.constructor?.name ?? "";
+    if (appName === "MacroDirectory" || appName === "Macros") {
+      _injectMacroSidebarButton(frame);
+    }
+  });
+  // Register renderMacroDirectory here (init) so we catch the initial
+  // sidebar render, which fires before the ready hook runs.
+  Hooks.on("renderMacroDirectory", (...args: unknown[]) => {
+    if (!game.user?.isGM) return;
+    const html = args[1];
+    const root = html instanceof HTMLElement ? html
+      : (html as { get?(i: number): HTMLElement } | null)?.get?.(0)
+      ?? (args[0] as { element?: HTMLElement }).element
+      ?? null;
+    if (root instanceof HTMLElement) _injectMacroSidebarButton(root);
   });
   registerNpcPreambleSheetHook();
   registerPortraitMenuHook();
@@ -172,6 +322,26 @@ Hooks.once("ready", () => {
   // Register the player lore socket listener for all users so players can route
   // questions to the GM's browser via the module socket channel.
   registerPlayerLoreSocketListener();
+
+  // Register hotbar distribution socket listener for all users so players
+  // receive and apply GM hotbar broadcasts (#231).
+  registerHotbarDistributeListener();
+
+  // Register sidebar injection hooks (Macro Directory hotbar).
+  registerSidebarHooks();
+
+  // Inject directly into the already-rendered Macro sidebar.
+  // Try ui.macros.element first, then a direct DOM query as fallback.
+  if (game.user?.isGM) {
+    const macrosEl = (
+      (ui as unknown as { macros?: { element?: HTMLElement } }).macros?.element
+      ?? document.querySelector<HTMLElement>("#macros, .sidebar-tab.macros, section[data-tab='macros']")
+    );
+    if (macrosEl) _injectMacroSidebarButton(macrosEl);
+  }
+
+  // Register player actor import header button for non-GM actor owners (#228).
+  registerPlayerActorImportSheetHook();
 
   // Register Campaign Codex NPC Dossier widget when CC is active and compatible.
   // Defer via setTimeout so all other modules' ready hooks (including CC's API

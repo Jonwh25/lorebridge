@@ -828,3 +828,68 @@ test("GET /v1/backup/github/file returns 503 when GitHub is not configured", asy
     assert.equal(body.error.code, "not_configured");
   });
 });
+
+test("GET /v1/player/actor-backups returns 401 without authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/player/actor-backups`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/player/actor-backups returns 503 when GitHub is not configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/player/actor-backups`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "not_configured");
+  });
+});
+
+test("GET /v1/player/actor-import returns 401 without authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const path = "extensions/org.ravens-eye.foundry-vtt/actors/foundry-actor-test.yaml";
+    const response = await fetch(`${baseUrl}/v1/player/actor-import?path=${encodeURIComponent(path)}`);
+    assert.equal(response.status, 401);
+  });
+});
+
+test("GET /v1/player/actor-import returns 503 when GitHub is not configured", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const path = "extensions/org.ravens-eye.foundry-vtt/actors/foundry-actor-test.yaml";
+    const response = await fetch(`${baseUrl}/v1/player/actor-import?path=${encodeURIComponent(path)}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 503);
+    assert.equal(body.error.code, "not_configured");
+  });
+});
+
+test("GET /v1/player/actor-import rejects path outside actors directory", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    // Path not in actors directory
+    const response = await fetch(`${baseUrl}/v1/player/actor-import?path=${encodeURIComponent("extensions/other/secret.yaml")}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "invalid_request");
+  });
+});
+
+test("GET /v1/player/actor-import rejects missing path parameter", async () => {
+  await withServer(async (baseUrl) => {
+    const token = await pair(baseUrl);
+    const response = await fetch(`${baseUrl}/v1/player/actor-import`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const body = await response.json() as { error: { code: string } };
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "invalid_request");
+  });
+});
