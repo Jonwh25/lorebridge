@@ -13,7 +13,7 @@
     "verified": "14"
   },
   "relationships": {
-    "requires": [
+    "optional": [
       {
         "id": "spotlight-omnisearch",
         "type": "module",
@@ -21,9 +21,7 @@
           "minimum": "4.0.2",
           "verified": "4.0.2"
         }
-      }
-    ],
-    "optional": [
+      },
       {
         "id": "campaign-codex",
         "type": "module"
