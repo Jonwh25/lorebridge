@@ -4,6 +4,7 @@ import {
   getFoundrySettingsApi,
   getLoreBridgeSettings,
 } from "./settings.js";
+import { updateNpcTabCss } from "./capabilities/campaign-codex-widget.js";
 import { openPlayerLoreAllowlistDialog } from "./capabilities/player-lore.js";
 import { openProfileDialog } from "./context-profiles-app.js";
 import {
@@ -681,6 +682,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible,         checked(LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible)),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden,    checked(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)),
     ]);
+    updateNpcTabCss();
     ui.notifications.info("LoreBridge: Feature settings saved.");
 
     if (oldCcEnabled !== newCcEnabled) {
