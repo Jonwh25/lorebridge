@@ -509,9 +509,19 @@ Findings from the review:
 - All five deferred features remain post-1.0.
 
 When sufficient campaign sessions have confirmed stable behavior, a dedicated
-**Milestone 26 — 1.0 Hardening** milestone will be opened to address upgrade
+**Milestone 27 — 1.0 Hardening** milestone will be opened to address upgrade
 path validation, MCP contract stability documentation, and any issues surfaced
 from real use before the stable release.
+
+### Milestone 26 — Quality of Life & Small Enhancements 🔄 In Progress
+
+An open, rolling milestone for smaller enhancements and polish items that don't
+warrant a standalone milestone. Issues are collected here as they surface during
+real-campaign use.
+
+1. 🔄 [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
+
+Success test: each issue merged and passing its individual live acceptance test.
 
 ## Deferred work
 
