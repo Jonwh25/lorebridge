@@ -983,15 +983,19 @@ function renderRoleplayReadView(data: NpcDossierData, actorName: string): string
        <div class="lb-dos-text-box">${escHtml(rp.firstImpression)}</div>`
     : "";
 
-  // Characterization 4-col
-  const charRow = [
-    rp.personality.trim() ? factCell("Personality", rp.personality) : "",
-    rp.motivation.trim()  ? factCell("Motivation",  rp.motivation)  : "",
-    rp.fear.trim()        ? factCell("Fear",        rp.fear)        : "",
-    rp.mannerisms.trim()  ? factCell("Mannerisms",  rp.mannerisms)  : "",
-  ].filter(Boolean);
-  const charHtml = charRow.length
-    ? `${sectionHeading("Characterization")}${factTable([charRow])}`
+  // Characterization 2-col × 2-row: Personality+Motivation, then Fear+Mannerisms
+  const charRows = [
+    [
+      rp.personality.trim() ? factCell("Personality", rp.personality) : "",
+      rp.motivation.trim()  ? factCell("Motivation",  rp.motivation)  : "",
+    ].filter(Boolean),
+    [
+      rp.fear.trim()       ? factCell("Fear",       rp.fear)       : "",
+      rp.mannerisms.trim() ? factCell("Mannerisms", rp.mannerisms) : "",
+    ].filter(Boolean),
+  ].filter(row => row.length > 0);
+  const charHtml = charRows.length
+    ? `${sectionHeading("Characterization")}${factTable(charRows)}`
     : "";
 
   // Voice & Conversation 2-col
