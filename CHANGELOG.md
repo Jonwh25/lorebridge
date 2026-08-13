@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-08-13
+
+### Changed
+
+- **NPC Dossier Status: expanded options** (#266): the Status field now offers seven options — Alive 💚, Dead ☠️, Ghost (Active) 👻, Ghost (At Rest) 🕯️, Undead (Active) 🧟, Undead (Destroyed) 💀, and Unknown ❓. Each state has a distinct left-border colour and emoji in the read view. The edit form dropdown shows emoji prefixes on all options. Existing dossiers with the previous three values are unaffected; any unrecognised stored value continues to default to Alive.
+
 ## [0.26.0] - 2026-08-13
 
 ### Added
