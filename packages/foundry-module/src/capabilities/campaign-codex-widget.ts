@@ -359,10 +359,12 @@ function uid(): string {
 
 export function makeDefaultDossierData(): NpcDossierData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     reference: {
       nicknames: "",
       status: "Alive",
+      killedBy: "",
+      killedInSession: 0,
       sourceBook: "",
       sourcePage: "",
       statBlockReference: "",
@@ -421,10 +423,12 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
   const rp  = (r["roleplay"]  as Record<string, unknown> | undefined) ?? {};
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     reference: {
       nicknames:           str(ref["nicknames"]),
       status:              statusVal(ref["status"]),
+      killedBy:            str(ref["killedBy"]),
+      killedInSession:     num(ref["killedInSession"]),
       sourceBook:          str(ref["sourceBook"]),
       sourcePage:          str(ref["sourcePage"]),
       statBlockReference:  str(ref["statBlockReference"]),
@@ -473,8 +477,13 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
 }
 
 function str(v: unknown): string { return typeof v === "string" ? v : ""; }
+function num(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
 type NpcStatus = "Alive" | "Dead" | "Ghost (Active)" | "Ghost (At Rest)" | "Undead (Active)" | "Undead (Destroyed)" | "Unknown";
 const STATUS_VALUES: readonly NpcStatus[] = ["Alive", "Dead", "Ghost (Active)", "Ghost (At Rest)", "Undead (Active)", "Undead (Destroyed)", "Unknown"];
+const TERMINAL_STATUSES: ReadonlySet<NpcStatus> = new Set(["Dead", "Ghost (At Rest)", "Undead (Destroyed)"]);
 function statusVal(v: unknown): NpcStatus {
   if (STATUS_VALUES.includes(v as NpcStatus)) return v as NpcStatus;
   return "Alive";
@@ -600,6 +609,10 @@ export function getDossierSummaryText(dossier: NpcDossierData, isGM = true): str
 
   if (ref.nicknames.trim()) parts.push(`Nicknames: ${ref.nicknames.trim()}`);
   parts.push(`Status: ${ref.status || "Alive"}`);
+  if (TERMINAL_STATUSES.has((ref.status || "Alive") as NpcStatus)) {
+    if (ref.killedBy.trim())    parts.push(`Killed By: ${ref.killedBy.trim()}`);
+    if (ref.killedInSession > 0) parts.push(`Session #: ${ref.killedInSession}`);
+  }
   if (ref.sourceBook.trim()) {
     const page = ref.sourcePage.trim() ? ` p.${ref.sourcePage.trim()}` : "";
     parts.push(`Source: ${ref.sourceBook.trim()}${page}`);
@@ -726,6 +739,15 @@ function renderInfoReadView(data: NpcDossierData): string {
     ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
     : "";
 
+  const isTerminal = TERMINAL_STATUSES.has(status);
+  const killedRow = isTerminal ? [
+    ref.killedBy.trim()        ? factCell("Killed By",  ref.killedBy) : "",
+    ref.killedInSession > 0    ? factCell("Session #",  String(ref.killedInSession)) : "",
+  ].filter(Boolean) : [];
+  const killedHtml = killedRow.length
+    ? `${sectionHeading("Circumstances")}${factTable([killedRow])}`
+    : "";
+
   // Identity table — 4 columns
   const identityRow = [
     id.occupationOrClass.trim() ? factCell("Occupation / Role", id.occupationOrClass) : "",
@@ -767,10 +789,10 @@ function renderInfoReadView(data: NpcDossierData): string {
        </div>`
     : "";
 
-  if (!nicknameHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
+  if (!nicknameHtml && !killedHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
     return `${statusHtml}<p class="lb-dos-empty">No additional info yet. Click Edit to begin.</p>`;
   }
-  return `${nicknameHtml}${statusHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
+  return `${nicknameHtml}${statusHtml}${killedHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -785,6 +807,13 @@ function renderInfoEditForm(data: NpcDossierData): string {
     ${editHeading("Nickname / Status")}
     ${textField("nicknames", "Known As / Nickname", ref.nicknames)}
     ${selectField("status", "Status", statusVal(ref.status), STATUS_VALUES.map(s => ({ value: s, label: `${STATUS_ICON[s]} ${s}` })))}
+    <div data-killed-fields style="display:${TERMINAL_STATUSES.has(statusVal(ref.status)) ? "block" : "none"}">
+      ${editHeading("Circumstances")}
+      <div class="lb-dos-grid-2">
+        ${textField("killedBy", "Killed By", ref.killedBy)}
+        ${textField("killedInSession", "Session #", ref.killedInSession > 0 ? String(ref.killedInSession) : "")}
+      </div>
+    </div>
     ${editHeading("Identity")}
     <div class="lb-dos-grid-2">
       ${textField("occupationOrClass", "Occupation / Role", id.occupationOrClass)}
@@ -1342,6 +1371,8 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
       ...updated.reference,
       nicknames:          readField(container, "nicknames"),
       status:             statusVal(readField(container, "status")),
+      killedBy:           readField(container, "killedBy"),
+      killedInSession:    num(readField(container, "killedInSession")),
       discoveryRegion:    readField(container, "discoveryRegion"),
       discoveryLocation:  readField(container, "discoveryLocation"),
     };
@@ -1476,6 +1507,17 @@ export function createSectionWidget(
       const baseMethod = proto["activateListeners"];
       if (typeof baseMethod === "function") {
         await Promise.resolve((baseMethod as (el: HTMLElement) => void | Promise<void>).call(this, htmlElement));
+      }
+
+      if (section === "info" && this._editMode) {
+        const statusSel = htmlElement.querySelector<HTMLSelectElement>('select[name="status"]');
+        const killedDiv = htmlElement.querySelector<HTMLElement>("[data-killed-fields]");
+        if (statusSel && killedDiv) {
+          const update = () => {
+            killedDiv.style.display = TERMINAL_STATUSES.has(statusSel.value as NpcStatus) ? "block" : "none";
+          };
+          statusSel.addEventListener("change", update);
+        }
       }
 
       htmlElement.querySelector<HTMLButtonElement>('[data-action="editSection"]')?.addEventListener("click", () => {
