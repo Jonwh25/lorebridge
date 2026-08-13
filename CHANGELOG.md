@@ -4,6 +4,16 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-08-13
+
+### Added
+
+- **Global NPC tab visibility defaults** (#279): LoreBridge Settings → Features now includes an **NPC Tab Defaults** table with rows for Profile, Roleplaying, and Knowledge. Each row has two toggles — **Visible by Default** (whether the tab appears at all) and **Player Hidden** (whether the tab is restricted to GMs only). Default state is Visible ✓, Player Hidden ✓ for all three tabs. Saving the Features section writes these defaults directly to Campaign Codex's `tab-overrides` flag on every world NPC journal so that CC's own Configure Tabs dialog reflects the correct Enabled/Hidden state and CC natively enforces player visibility. No Foundry reload is required — open sheets re-render from the updated flag. Per-sheet overrides set in CC's Configure Tabs still apply and take effect immediately after a save.
+
+### Fixed
+
+- **Roleplaying dossier Characterization layout**: the four Characterization fields now display as a 2 × 2 grid (Personality + Motivation on the first row, Fear + Mannerisms on the second) instead of a cramped single row of four columns.
+
 ## [0.26.1] - 2026-08-13
 
 ### Changed
