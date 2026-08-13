@@ -19,7 +19,7 @@ export type { NpcDossierGoal, NpcDossierConditional, NpcDossierQa, NpcDossierKno
 export function isNpcDossierData(value: unknown): value is NpcDossierData {
   if (typeof value !== "object" || value === null) return false;
   const d = value as Record<string, unknown>;
-  if (d["schemaVersion"] !== 1) return false;
+  if (d["schemaVersion"] !== 1 && d["schemaVersion"] !== 2) return false;
   if (typeof d["reference"] !== "object" || d["reference"] === null) return false;
   if (typeof d["identity"] !== "object" || d["identity"] === null) return false;
   if (typeof d["overview"] !== "object" || d["overview"] === null) return false;
@@ -32,8 +32,20 @@ export function isNpcDossierData(value: unknown): value is NpcDossierData {
 
 /** Migrate unknown stored data to the current schema, or return null if not recoverable. */
 export function migrateDossierData(raw: unknown): NpcDossierData | null {
-  if (isNpcDossierData(raw)) return raw;
-  return null;
+  if (!isNpcDossierData(raw)) return null;
+  if (raw.schemaVersion === 1) {
+    const ref = raw.reference as Record<string, unknown>;
+    return {
+      ...raw,
+      schemaVersion: 2,
+      reference: {
+        ...raw.reference,
+        killedBy:         typeof ref["killedBy"] === "string" ? ref["killedBy"] : "",
+        killedInSession:  typeof ref["killedInSession"] === "number" ? ref["killedInSession"] : 0,
+      },
+    };
+  }
+  return raw;
 }
 
 // ---------------------------------------------------------------------------

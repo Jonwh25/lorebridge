@@ -18,6 +18,8 @@ const ISMARK_FIXTURE: NpcDossierData = {
   reference: {
     nicknames: "Ismark the Lesser",
     status: "Alive",
+    killedBy: "",
+    killedInSession: 0,
     sourceBook: "Curse of Strahd",
     sourcePage: "43",
     discoveryRegion: "Village of Barovia",
@@ -143,8 +145,12 @@ test("isNpcDossierData rejects null", () => {
   assert.equal(isNpcDossierData(null), false);
 });
 
+test("isNpcDossierData accepts valid schemaVersion 2 object", () => {
+  assert.equal(isNpcDossierData({ ...ISMARK_FIXTURE, schemaVersion: 2 }), true);
+});
+
 test("isNpcDossierData rejects wrong schemaVersion", () => {
-  assert.equal(isNpcDossierData({ ...ISMARK_FIXTURE, schemaVersion: 2 }), false);
+  assert.equal(isNpcDossierData({ ...ISMARK_FIXTURE, schemaVersion: 99 }), false);
 });
 
 test("isNpcDossierData rejects missing arrays", () => {
@@ -161,8 +167,16 @@ test("isNpcDossierData rejects missing required objects", () => {
 // migrateDossierData
 // ---------------------------------------------------------------------------
 
-test("migrateDossierData returns valid dossier unchanged", () => {
-  assert.deepEqual(migrateDossierData(ISMARK_FIXTURE), ISMARK_FIXTURE);
+test("migrateDossierData migrates schemaVersion 1 to 2", () => {
+  const result = migrateDossierData(ISMARK_FIXTURE);
+  assert.equal(result?.schemaVersion, 2);
+  assert.equal(result?.reference.killedBy, "");
+  assert.equal(result?.reference.killedInSession, 0);
+});
+
+test("migrateDossierData returns schemaVersion 2 dossier unchanged", () => {
+  const v2 = { ...ISMARK_FIXTURE, schemaVersion: 2 as const };
+  assert.deepEqual(migrateDossierData(v2), v2);
 });
 
 test("migrateDossierData returns null for unrecognized data", () => {
@@ -313,7 +327,7 @@ test("normalizeDossierToContext caps knowledge at 10 entries", () => {
 test("normalizeDossierToContext returns empty string for empty dossier", () => {
   const empty: NpcDossierData = {
     schemaVersion: 1,
-    reference: { nicknames: "", status: "Alive", sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
+    reference: { nicknames: "", status: "Alive", killedBy: "", killedInSession: 0, sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
     identity: { occupationOrClass: "", race: "", sexOrGender: "", age: "", alignment: "", height: "", weight: "", eyes: "", hair: "", appearance: "" },
     overview: { playerKnowledgeTitle: "", playerKnowledge: "", profileTagline: "", bullets: [], relationships: [], secretsNarrative: "", secrets: [] },
     roleplay: { tagline: "", firstImpression: "", personality: "", motivation: "", fear: "", mannerisms: "", voiceOrSpeech: "", conversationalApproach: "", atTheTable: "", goals: [] },

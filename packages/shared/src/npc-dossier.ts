@@ -51,11 +51,14 @@ export type NpcDossierSecret = {
 };
 
 export type NpcDossierData = {
-  schemaVersion: 1;
+  /** 1 = original schema; 2 = adds killedBy and killedInSession to reference */
+  schemaVersion: 1 | 2;
   /** Reference / Info tab — source and discovery data */
   reference: {
     nicknames: string;
     status: "Alive" | "Dead" | "Ghost (Active)" | "Ghost (At Rest)" | "Undead (Active)" | "Undead (Destroyed)" | "Unknown";
+    killedBy: string;
+    killedInSession: number;
     sourceBook: string;
     sourcePage: string;
     statBlockReference: string;
