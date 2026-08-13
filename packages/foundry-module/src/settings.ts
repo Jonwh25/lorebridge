@@ -47,6 +47,12 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   playerLoreEnabled: "playerLoreEnabled",
   playerLoreAllowlist: "playerLoreAllowlist",
   campaignCodexEnabled: "campaignCodexEnabled",
+  npcTabProfileVisible: "npcTabProfileVisible",
+  npcTabProfilePlayerHidden: "npcTabProfilePlayerHidden",
+  npcTabRoleplayVisible: "npcTabRoleplayVisible",
+  npcTabRoleplayPlayerHidden: "npcTabRoleplayPlayerHidden",
+  npcTabKnowledgeVisible: "npcTabKnowledgeVisible",
+  npcTabKnowledgePlayerHidden: "npcTabKnowledgePlayerHidden",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -68,6 +74,12 @@ export type LoreBridgeSettings = {
   portraitSaveDirectory: string;
   playerLoreEnabled: boolean;
   campaignCodexEnabled: boolean;
+  npcTabProfileVisible: boolean;
+  npcTabProfilePlayerHidden: boolean;
+  npcTabRoleplayVisible: boolean;
+  npcTabRoleplayPlayerHidden: boolean;
+  npcTabKnowledgeVisible: boolean;
+  npcTabKnowledgePlayerHidden: boolean;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -295,6 +307,60 @@ export function registerLoreBridgeSettings(): void {
     type: String,
     default: "",
   });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfileVisible, {
+    name: "NPC Profile Tab — Visible by Default",
+    hint: "Show the Profile tab on Campaign Codex NPC sheets by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden, {
+    name: "NPC Profile Tab — Player Hidden",
+    hint: "Hide the Profile tab from players by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayVisible, {
+    name: "NPC Roleplaying Tab — Visible by Default",
+    hint: "Show the Roleplaying tab on Campaign Codex NPC sheets by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden, {
+    name: "NPC Roleplaying Tab — Player Hidden",
+    hint: "Hide the Roleplaying tab from players by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible, {
+    name: "NPC Knowledge Tab — Visible by Default",
+    hint: "Show the Knowledge tab on Campaign Codex NPC sheets by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden, {
+    name: "NPC Knowledge Tab — Player Hidden",
+    hint: "Hide the Knowledge tab from players by default.",
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: true,
+  });
 }
 
 
@@ -349,6 +415,24 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ),
     campaignCodexEnabled: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled) ?? true,
+    ),
+    npcTabProfileVisible: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfileVisible) ?? true,
+    ),
+    npcTabProfilePlayerHidden: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden) ?? true,
+    ),
+    npcTabRoleplayVisible: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayVisible) ?? true,
+    ),
+    npcTabRoleplayPlayerHidden: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden) ?? true,
+    ),
+    npcTabKnowledgeVisible: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible) ?? true,
+    ),
+    npcTabKnowledgePlayerHidden: Boolean(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden) ?? true,
     ),
   };
 }

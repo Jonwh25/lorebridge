@@ -15,7 +15,7 @@ import type {
   NpcDossierKnowledge,
   NpcDossierSecret,
 } from "@lorebridge/shared";
-import { getLoreBridgeSettings } from "../settings.js";
+import { getLoreBridgeSettings, type LoreBridgeSettings } from "../settings.js";
 
 export type { NpcDossierData };
 
@@ -983,15 +983,19 @@ function renderRoleplayReadView(data: NpcDossierData, actorName: string): string
        <div class="lb-dos-text-box">${escHtml(rp.firstImpression)}</div>`
     : "";
 
-  // Characterization 4-col
-  const charRow = [
-    rp.personality.trim() ? factCell("Personality", rp.personality) : "",
-    rp.motivation.trim()  ? factCell("Motivation",  rp.motivation)  : "",
-    rp.fear.trim()        ? factCell("Fear",        rp.fear)        : "",
-    rp.mannerisms.trim()  ? factCell("Mannerisms",  rp.mannerisms)  : "",
-  ].filter(Boolean);
-  const charHtml = charRow.length
-    ? `${sectionHeading("Characterization")}${factTable([charRow])}`
+  // Characterization 2-col × 2-row: Personality+Motivation, then Fear+Mannerisms
+  const charRows = [
+    [
+      rp.personality.trim() ? factCell("Personality", rp.personality) : "",
+      rp.motivation.trim()  ? factCell("Motivation",  rp.motivation)  : "",
+    ].filter(Boolean),
+    [
+      rp.fear.trim()       ? factCell("Fear",       rp.fear)       : "",
+      rp.mannerisms.trim() ? factCell("Mannerisms", rp.mannerisms) : "",
+    ].filter(Boolean),
+  ].filter(row => row.length > 0);
+  const charHtml = charRows.length
+    ? `${sectionHeading("Characterization")}${factTable(charRows)}`
     : "";
 
   // Voice & Conversation 2-col
@@ -1629,6 +1633,98 @@ async function autoAddDossierWidgets(journal: CCJournalLike): Promise<void> {
   if (widgetsToAdd.length > 0) {
     await journal.setFlag("campaign-codex", "sheet-widgets", [...existingWidgets, ...widgetsToAdd]);
   }
+
+  // 3. Apply LoreBridge global tab defaults to CC's tab-overrides
+  await applyLbTabOverridesToJournal(journal, getLoreBridgeSettings()).catch(() => { /* silent for non-GM users */ });
+}
+
+// ---------------------------------------------------------------------------
+// NPC tab visibility defaults — write to CC's tab-overrides flag
+// ---------------------------------------------------------------------------
+
+type CCTabOverride = {
+  key: string;
+  label: string;
+  visible: boolean;
+  hidden: boolean;
+};
+
+const LB_TAB_DEFS = [
+  { key: "custom-info-lb-profile",   visibleKey: "npcTabProfileVisible"   as keyof LoreBridgeSettings, hiddenKey: "npcTabProfilePlayerHidden"   as keyof LoreBridgeSettings },
+  { key: "custom-info-lb-roleplay",  visibleKey: "npcTabRoleplayVisible"  as keyof LoreBridgeSettings, hiddenKey: "npcTabRoleplayPlayerHidden"  as keyof LoreBridgeSettings },
+  { key: "custom-info-lb-knowledge", visibleKey: "npcTabKnowledgeVisible" as keyof LoreBridgeSettings, hiddenKey: "npcTabKnowledgePlayerHidden" as keyof LoreBridgeSettings },
+];
+
+async function applyLbTabOverridesToJournal(
+  journal: CCJournalLike,
+  settings: LoreBridgeSettings,
+): Promise<void> {
+  if (!isNpcCodexJournal(journal)) return;
+
+  const existing = (
+    journal.getFlag("campaign-codex", "tab-overrides") as CCTabOverride[] | undefined
+  ) ?? [];
+
+  const byKey = new Map<string, CCTabOverride>(existing.map(o => [o.key, o]));
+
+  let changed = false;
+  for (const { key, visibleKey, hiddenKey } of LB_TAB_DEFS) {
+    const visible = settings[visibleKey] as boolean;
+    const hidden  = settings[hiddenKey]  as boolean;
+    const cur = byKey.get(key);
+    if (!cur || cur.visible !== visible || cur.hidden !== hidden) {
+      // label: "" matches CC's own format — Override Name field is left blank by default
+      byKey.set(key, { key, label: cur?.label ?? "", visible, hidden });
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await journal.setFlag("campaign-codex", "tab-overrides", Array.from(byKey.values()));
+  }
+}
+
+/**
+ * Propagate LoreBridge global NPC tab defaults to CC's tab-overrides flag on
+ * every world NPC journal. Call after the GM saves feature settings. CC reads
+ * these overrides natively, so the Configure Tabs dialog and player visibility
+ * both reflect the correct state without any CSS trickery.
+ */
+export async function propagateNpcTabDefaults(): Promise<void> {
+  if (!(game as { user?: { isGM?: boolean } }).user?.isGM) return;
+  const settings = getLoreBridgeSettings();
+  const journals = (game.journal as unknown as { contents: CCJournalLike[] }).contents;
+  await Promise.all(
+    journals.map(j =>
+      applyLbTabOverridesToJournal(j, settings).catch((err: unknown) =>
+        console.debug("LoreBridge | Failed to apply tab defaults to journal:", err),
+      ),
+    ),
+  );
+}
+
+// Keep a lightweight CSS fallback so tabs already rendered in the current DOM
+// are hidden immediately without waiting for CC to re-render on flag change.
+const LB_TAB_CSS_ID = "lb-npc-tab-defaults";
+
+export function updateNpcTabCss(): void {
+  const settings = getLoreBridgeSettings();
+  const isGM = Boolean((game as { user?: { isGM?: boolean } }).user?.isGM);
+  const rules: string[] = [];
+  for (const { key, visibleKey, hiddenKey } of LB_TAB_DEFS) {
+    const visible = settings[visibleKey] as boolean;
+    const hidden  = settings[hiddenKey]  as boolean;
+    if (!visible || (hidden && !isGM)) {
+      rules.push(`[data-tab="${key}"] { display: none !important; }`);
+    }
+  }
+  let el = document.getElementById(LB_TAB_CSS_ID) as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement("style");
+    el.id = LB_TAB_CSS_ID;
+    document.head.appendChild(el);
+  }
+  el.textContent = rules.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -1695,4 +1791,8 @@ export function registerCampaignCodexWidget(): void {
     if (!(changedFlags as Record<string, unknown> | undefined)?.["campaign-codex"]) return;
     void autoAddDossierWidgets(document as CCJournalLike).catch(() => { /* silent */ });
   });
+
+  // Inject global CSS that hides tabs based on current settings and user role.
+  // CSS is active before CC renders any tab element, so timing is not an issue.
+  updateNpcTabCss();
 }
