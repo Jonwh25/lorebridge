@@ -17,6 +17,7 @@ const ISMARK_FIXTURE: NpcDossierData = {
   schemaVersion: 1,
   reference: {
     nicknames: "Ismark the Lesser",
+    status: "Alive",
     sourceBook: "Curse of Strahd",
     sourcePage: "43",
     discoveryRegion: "Village of Barovia",
@@ -312,7 +313,7 @@ test("normalizeDossierToContext caps knowledge at 10 entries", () => {
 test("normalizeDossierToContext returns empty string for empty dossier", () => {
   const empty: NpcDossierData = {
     schemaVersion: 1,
-    reference: { nicknames: "", sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
+    reference: { nicknames: "", status: "Alive", sourceBook: "", sourcePage: "", discoveryRegion: "", discoveryLocation: "", statBlockReference: "", statBlockAlterations: "" },
     identity: { occupationOrClass: "", race: "", sexOrGender: "", age: "", alignment: "", height: "", weight: "", eyes: "", hair: "", appearance: "" },
     overview: { playerKnowledgeTitle: "", playerKnowledge: "", profileTagline: "", bullets: [], relationships: [], secretsNarrative: "", secrets: [] },
     roleplay: { tagline: "", firstImpression: "", personality: "", motivation: "", fear: "", mannerisms: "", voiceOrSpeech: "", conversationalApproach: "", atTheTable: "", goals: [] },
@@ -322,5 +323,5 @@ test("normalizeDossierToContext returns empty string for empty dossier", () => {
     knowledgeLimits: "",
   };
   const ctx = normalizeDossierToContext(empty, true);
-  assert.equal(ctx, "");
+  assert.equal(ctx, "== Reference ==\nStatus: Alive");
 });

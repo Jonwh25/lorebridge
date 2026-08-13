@@ -79,6 +79,7 @@ export function normalizeDossierToContext(
   const ref = dossier.reference;
   const refParts = nonEmpty([
     line("Nicknames", ref.nicknames),
+    line("Status", ref.status || "Alive"),
     line("Source", ref.sourceBook + (ref.sourcePage ? ` p.${ref.sourcePage}` : "")),
     line("Stat Block", ref.statBlockReference),
     line("Stat Block Alterations", ref.statBlockAlterations),

@@ -137,6 +137,31 @@ const DOSSIER_CSS = `
 }
 .lb-dos-nickname-label { color: #d6b35a; }
 
+/* Status badge (Info tab) */
+.lb-dos-status-bar {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.lb-dos-status-label {
+  color: rgba(214,179,90,0.75);
+  margin-right: 6px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lb-dos-status-badge {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.lb-dos-status-alive { background: rgba(70,160,80,0.12); color: #5aad68; border: 1px solid rgba(70,160,80,0.30); }
+.lb-dos-status-dead { background: rgba(180,50,50,0.15); color: #c45050; border: 1px solid rgba(180,50,50,0.35); }
+.lb-dos-status-unknown { background: rgba(140,140,140,0.12); color: #909090; border: 1px solid rgba(140,140,140,0.25); }
+
 /* Fact table */
 .lb-dos-fact-table {
   width: 100%;
@@ -341,6 +366,7 @@ export function makeDefaultDossierData(): NpcDossierData {
     schemaVersion: 1,
     reference: {
       nicknames: "",
+      status: "Alive",
       sourceBook: "",
       sourcePage: "",
       statBlockReference: "",
@@ -402,6 +428,7 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
     schemaVersion: 1,
     reference: {
       nicknames:           str(ref["nicknames"]),
+      status:              statusVal(ref["status"]),
       sourceBook:          str(ref["sourceBook"]),
       sourcePage:          str(ref["sourcePage"]),
       statBlockReference:  str(ref["statBlockReference"]),
@@ -450,6 +477,10 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
 }
 
 function str(v: unknown): string { return typeof v === "string" ? v : ""; }
+function statusVal(v: unknown): "Alive" | "Dead" | "Unknown" {
+  if (v === "Dead" || v === "Unknown") return v;
+  return "Alive";
+}
 function arr(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
@@ -552,6 +583,7 @@ export function getDossierSummaryText(dossier: NpcDossierData, isGM = true): str
   const rp  = dossier.roleplay;
 
   if (ref.nicknames.trim()) parts.push(`Nicknames: ${ref.nicknames.trim()}`);
+  parts.push(`Status: ${ref.status || "Alive"}`);
   if (ref.sourceBook.trim()) {
     const page = ref.sourcePage.trim() ? ` p.${ref.sourcePage.trim()}` : "";
     parts.push(`Source: ${ref.sourceBook.trim()}${page}`);
@@ -636,6 +668,16 @@ function textArea(name: string, label: string, value: string, rows = 3, placehol
   </div>`;
 }
 
+function selectField(name: string, label: string, value: string, options: { value: string; label: string }[]): string {
+  const optHtml = options.map(o =>
+    `<option value="${escHtml(o.value)}"${value === o.value ? " selected" : ""}>${escHtml(o.label)}</option>`
+  ).join("");
+  return `<div class="lb-dos-field-group">
+    <label class="lb-dos-field-label">${escHtml(label)}</label>
+    <select class="lb-dos-field-select" name="${escHtml(name)}">${optHtml}</select>
+  </div>`;
+}
+
 function factCell(label: string, value: string): string {
   return `<td class="lb-dos-fact-cell">
     <span class="lb-dos-fact-cell-label">${escHtml(label)}</span>
@@ -659,6 +701,12 @@ function renderInfoReadView(data: NpcDossierData): string {
   const ref = data.reference;
   const id  = data.identity;
   const ov  = data.overview;
+
+  const status = ref.status || "Alive";
+  const statusClass = status === "Dead" ? "lb-dos-status-dead"
+    : status === "Unknown" ? "lb-dos-status-unknown"
+    : "lb-dos-status-alive";
+  const statusHtml = `<div class="lb-dos-status-bar"><span class="lb-dos-status-label">Status</span><span class="lb-dos-status-badge ${statusClass}">${escHtml(status)}</span></div>`;
 
   const nicknameHtml = ref.nicknames.trim()
     ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
@@ -706,9 +754,9 @@ function renderInfoReadView(data: NpcDossierData): string {
     : "";
 
   if (!nicknameHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
-    return `<p class="lb-dos-empty">No info data yet. Click Edit to begin.</p>`;
+    return `${statusHtml}<p class="lb-dos-empty">No additional info yet. Click Edit to begin.</p>`;
   }
-  return `${nicknameHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
+  return `${statusHtml}${nicknameHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -720,8 +768,13 @@ function renderInfoEditForm(data: NpcDossierData): string {
   const id  = data.identity;
   const ov  = data.overview;
   return `<div class="lb-dos-edit-form">
-    ${editHeading("Nickname")}
+    ${editHeading("Nickname / Status")}
     ${textField("nicknames", "Known As / Nickname", ref.nicknames)}
+    ${selectField("status", "Status", ref.status || "Alive", [
+      { value: "Alive", label: "Alive" },
+      { value: "Dead", label: "Dead" },
+      { value: "Unknown", label: "Unknown" },
+    ])}
     ${editHeading("Identity")}
     <div class="lb-dos-grid-2">
       ${textField("occupationOrClass", "Occupation / Role", id.occupationOrClass)}
@@ -1274,6 +1327,7 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
     updated.reference = {
       ...updated.reference,
       nicknames:          readField(container, "nicknames"),
+      status:             statusVal(readField(container, "status")),
       discoveryRegion:    readField(container, "discoveryRegion"),
       discoveryLocation:  readField(container, "discoveryLocation"),
     };

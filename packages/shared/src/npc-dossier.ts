@@ -55,6 +55,7 @@ export type NpcDossierData = {
   /** Reference / Info tab — source and discovery data */
   reference: {
     nicknames: string;
+    status: "Alive" | "Dead" | "Unknown";
     sourceBook: string;
     sourcePage: string;
     statBlockReference: string;
