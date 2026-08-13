@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.26.3] - 2026-08-13
+
+### Added
+
+- **NPC Dossier: Killed By and Session # fields** (#275): the Info tab now includes two new fields — **Killed By** (text) and **Session #** (number) — that appear only when the NPC's status is a terminal state (Dead, Ghost (At Rest), or Undead (Destroyed)). In edit mode the Circumstances section shows and hides dynamically when the Status select is changed. In read view a **Circumstances** section appears below the Status bar when either field has a value. Both fields are included in the AI context summary for terminal-status NPCs. Schema version bumped from 1 to 2; existing dossiers load with empty defaults and no data migration is required.
+
 ## [0.26.2] - 2026-08-13
 
 ### Added
