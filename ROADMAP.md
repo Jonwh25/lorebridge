@@ -509,7 +509,7 @@ Findings from the review:
 - All five deferred features remain post-1.0.
 
 When sufficient campaign sessions have confirmed stable behavior, a dedicated
-**Milestone 27 — 1.0 Hardening** milestone will be opened to address upgrade
+**Milestone 28 — 1.0 Hardening** milestone will be opened to address upgrade
 path validation, MCP contract stability documentation, and any issues surfaced
 from real use before the stable release.
 
@@ -520,8 +520,41 @@ warrant a standalone milestone. Issues are collected here as they surface during
 real-campaign use.
 
 1. ✅ [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
+2. [ ] [Session Log Reader — extend with unified read API and AI extraction utility](https://github.com/Jonwh25/lorebridge/issues/269) *(prerequisite for Milestone 27)*
+3. [ ] [NPC Dossier — add killedBy and killedInSession fields to reference section](https://github.com/Jonwh25/lorebridge/issues/275)
 
 Success test: each issue merged and passing its individual live acceptance test.
+
+### Milestone 27 — Campaign Intelligence & Session Tracking
+
+AI-powered session log analysis that automatically tracks NPC status, party
+encounters, quest progress, and region visits across the full campaign history.
+Introduces a unified session reading and extraction layer, per-category JSON
+tracking files, player permission automation, portrait auto-matching from
+existing artwork, and a one-click post-session workflow.
+
+**Depends on:** Milestone 26 #269 (Session Log Reader extension)
+
+1. [ ] [NPC Status Tracker — track NPC alive/dead/ghost/undead status from session logs](https://github.com/Jonwh25/lorebridge/issues/270)
+2. [ ] [NPC Encounter Tracker — track which NPCs the party has met and set player permissions](https://github.com/Jonwh25/lorebridge/issues/271)
+3. [ ] [Quest Status Tracker — sync quest status from session logs to Campaign Codex](https://github.com/Jonwh25/lorebridge/issues/272)
+4. [ ] [Region Visit Tracker — track visited regions and set player permissions](https://github.com/Jonwh25/lorebridge/issues/273)
+5. [ ] [Player Permissions Sync — bulk set Observer on all encountered NPCs, visited regions, and active quests](https://github.com/Jonwh25/lorebridge/issues/274)
+6. [ ] [Portrait Auto-Match — match existing portrait images to NPC journals from LoreBridge panel](https://github.com/Jonwh25/lorebridge/issues/276)
+7. [ ] [Post-Session Checklist — single workflow button to process end-of-session updates](https://github.com/Jonwh25/lorebridge/issues/277)
+8. [ ] [GitHub Backup — backup LoreBridge JSON files and Foundry macros to GitHub](https://github.com/Jonwh25/lorebridge/issues/278)
+
+Issues #270–274 are independent trackers that can be built in parallel. #277
+and #278 depend on the tracker suite being complete. Portrait auto-match (#276)
+is independent and can ship at any point during the milestone.
+
+Success test: after a session, a GM runs the End of Session workflow, which
+reads the latest session log, automatically detects NPC status changes, new
+encounters, quest completions, and visited regions, pauses for GM confirmation
+on ambiguous items, syncs player Observer permissions across all tracked
+Campaign Codex journals, and commits all tracking data to GitHub in a single
+operation. A separate "Match Portraits" pass matches existing artwork to NPC
+journals by name without manual lookup.
 
 ## Deferred work
 
