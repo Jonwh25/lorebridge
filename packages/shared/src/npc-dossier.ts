@@ -55,7 +55,7 @@ export type NpcDossierData = {
   /** Reference / Info tab — source and discovery data */
   reference: {
     nicknames: string;
-    status: "Alive" | "Dead" | "Unknown";
+    status: "Alive" | "Dead" | "Ghost (Active)" | "Ghost (At Rest)" | "Undead (Active)" | "Undead (Destroyed)" | "Unknown";
     sourceBook: string;
     sourcePage: string;
     statBlockReference: string;

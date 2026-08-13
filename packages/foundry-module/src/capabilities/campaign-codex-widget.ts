@@ -143,12 +143,20 @@ const DOSSIER_CSS = `
   padding: 10px 12px;
   font-size: 14px;
 }
-.lb-dos-status-bar-alive   { border-left: 4px solid #5aad68; background: rgba(70,160,80,0.08); }
-.lb-dos-status-bar-dead    { border-left: 4px solid #c45050; background: rgba(180,50,50,0.08); }
-.lb-dos-status-bar-unknown { border-left: 4px solid #909090; background: rgba(140,140,140,0.08); }
-.lb-dos-status-key-alive   { color: #5aad68; }
-.lb-dos-status-key-dead    { color: #c45050; }
-.lb-dos-status-key-unknown { color: #909090; }
+.lb-dos-status-bar-alive            { border-left: 4px solid #5aad68; background: rgba(70,160,80,0.08); }
+.lb-dos-status-bar-dead             { border-left: 4px solid #c45050; background: rgba(180,50,50,0.08); }
+.lb-dos-status-bar-ghost-active     { border-left: 4px solid #9b5fc0; background: rgba(150,90,200,0.08); }
+.lb-dos-status-bar-ghost-rest       { border-left: 4px solid #7a6b8a; background: rgba(120,100,140,0.08); }
+.lb-dos-status-bar-undead-active    { border-left: 4px solid #8fbc45; background: rgba(130,180,60,0.08); }
+.lb-dos-status-bar-undead-destroyed { border-left: 4px solid #607080; background: rgba(80,100,110,0.08); }
+.lb-dos-status-bar-unknown          { border-left: 4px solid #909090; background: rgba(140,140,140,0.08); }
+.lb-dos-status-key-alive            { color: #5aad68; }
+.lb-dos-status-key-dead             { color: #c45050; }
+.lb-dos-status-key-ghost-active     { color: #9b5fc0; }
+.lb-dos-status-key-ghost-rest       { color: #7a6b8a; }
+.lb-dos-status-key-undead-active    { color: #8fbc45; }
+.lb-dos-status-key-undead-destroyed { color: #607080; }
+.lb-dos-status-key-unknown          { color: #909090; }
 
 /* Fact table */
 .lb-dos-fact-table {
@@ -465,10 +473,30 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
 }
 
 function str(v: unknown): string { return typeof v === "string" ? v : ""; }
-function statusVal(v: unknown): "Alive" | "Dead" | "Unknown" {
-  if (v === "Dead" || v === "Unknown") return v;
+type NpcStatus = "Alive" | "Dead" | "Ghost (Active)" | "Ghost (At Rest)" | "Undead (Active)" | "Undead (Destroyed)" | "Unknown";
+const STATUS_VALUES: readonly NpcStatus[] = ["Alive", "Dead", "Ghost (Active)", "Ghost (At Rest)", "Undead (Active)", "Undead (Destroyed)", "Unknown"];
+function statusVal(v: unknown): NpcStatus {
+  if (STATUS_VALUES.includes(v as NpcStatus)) return v as NpcStatus;
   return "Alive";
 }
+const STATUS_KEY: Record<NpcStatus, string> = {
+  "Alive":             "alive",
+  "Dead":              "dead",
+  "Ghost (Active)":    "ghost-active",
+  "Ghost (At Rest)":   "ghost-rest",
+  "Undead (Active)":   "undead-active",
+  "Undead (Destroyed)":"undead-destroyed",
+  "Unknown":           "unknown",
+};
+const STATUS_ICON: Record<NpcStatus, string> = {
+  "Alive":             "💚",
+  "Dead":              "☠️",
+  "Ghost (Active)":    "👻",
+  "Ghost (At Rest)":   "🕯️",
+  "Undead (Active)":   "🧟",
+  "Undead (Destroyed)":"💀",
+  "Unknown":           "❓",
+};
 function arr(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
@@ -690,10 +718,9 @@ function renderInfoReadView(data: NpcDossierData): string {
   const id  = data.identity;
   const ov  = data.overview;
 
-  const status = ref.status || "Alive";
-  const sl = status.toLowerCase();
-  const statusIcon = status === "Dead" ? "☠️" : status === "Unknown" ? "❓" : "💚";
-  const statusHtml = `<div class="lb-dos-status-bar lb-dos-status-bar-${sl}"><span class="lb-dos-status-key-${sl}">Status:</span> ${statusIcon} ${escHtml(status)}</div>`;
+  const status = statusVal(ref.status);
+  const sk = STATUS_KEY[status];
+  const statusHtml = `<div class="lb-dos-status-bar lb-dos-status-bar-${sk}"><span class="lb-dos-status-key-${sk}">Status:</span> ${STATUS_ICON[status]} ${escHtml(status)}</div>`;
 
   const nicknameHtml = ref.nicknames.trim()
     ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
@@ -757,11 +784,7 @@ function renderInfoEditForm(data: NpcDossierData): string {
   return `<div class="lb-dos-edit-form">
     ${editHeading("Nickname / Status")}
     ${textField("nicknames", "Known As / Nickname", ref.nicknames)}
-    ${selectField("status", "Status", ref.status || "Alive", [
-      { value: "Alive", label: "Alive" },
-      { value: "Dead", label: "Dead" },
-      { value: "Unknown", label: "Unknown" },
-    ])}
+    ${selectField("status", "Status", statusVal(ref.status), STATUS_VALUES.map(s => ({ value: s, label: `${STATUS_ICON[s]} ${s}` })))}
     ${editHeading("Identity")}
     <div class="lb-dos-grid-2">
       ${textField("occupationOrClass", "Occupation / Role", id.occupationOrClass)}
