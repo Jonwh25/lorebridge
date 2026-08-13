@@ -63,6 +63,7 @@ live checkout:
 
 ```bash
 cd /data/lorebridge
+git stash
 git fetch origin
 git checkout main
 git pull --ff-only
