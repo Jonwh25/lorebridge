@@ -519,7 +519,7 @@ An open, rolling milestone for smaller enhancements and polish items that don't
 warrant a standalone milestone. Issues are collected here as they surface during
 real-campaign use.
 
-1. 🔄 [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
+1. ✅ [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
 
 Success test: each issue merged and passing its individual live acceptance test.
 

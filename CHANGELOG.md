@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-08-13
+
+### Added
+
+- **NPC Dossier: Status field** (#266): the Info tab of the LoreBridge NPC Dossier widget now includes a **Status** field (`Alive` / `Dead` / `Unknown`, default `Alive`). In the read view a colour-coded left-border bar appears beneath the Nickname bar — 💚 green for Alive, ☠️ red for Dead, ❓ gray for Unknown. In the edit form a select dropdown is placed beneath the Known As / Nickname field. Status is included in both the widget summary text and the backend AI context so generation and roleplay calls reflect NPC mortality. Existing dossiers default to `Alive` transparently with no data migration required.
+
 ## [0.25.1] - 2026-08-11
 
 ### Changed
