@@ -15,7 +15,7 @@ import type {
   NpcDossierKnowledge,
   NpcDossierSecret,
 } from "@lorebridge/shared";
-import { getLoreBridgeSettings } from "../settings.js";
+import { getLoreBridgeSettings, type LoreBridgeSettings } from "../settings.js";
 
 export type { NpcDossierData };
 
@@ -1629,43 +1629,91 @@ async function autoAddDossierWidgets(journal: CCJournalLike): Promise<void> {
   if (widgetsToAdd.length > 0) {
     await journal.setFlag("campaign-codex", "sheet-widgets", [...existingWidgets, ...widgetsToAdd]);
   }
+
+  // 3. Apply LoreBridge global tab defaults to CC's tab-overrides
+  await applyLbTabOverridesToJournal(journal, getLoreBridgeSettings()).catch(() => { /* silent for non-GM users */ });
 }
 
 // ---------------------------------------------------------------------------
-// Global CSS — NPC tab visibility defaults
+// NPC tab visibility defaults — write to CC's tab-overrides flag
 // ---------------------------------------------------------------------------
 
-const LB_TAB_CSS_ID = "lb-npc-tab-defaults";
+type CCTabOverride = {
+  key: string;
+  label: string;
+  visible: boolean;
+  hidden: boolean;
+};
 
-const LB_TAB_SETTINGS = [
-  { key: "custom-info-lb-profile",   visibleKey: "npcTabProfileVisible",   phKey: "npcTabProfilePlayerHidden"   },
-  { key: "custom-info-lb-roleplay",  visibleKey: "npcTabRoleplayVisible",   phKey: "npcTabRoleplayPlayerHidden"  },
-  { key: "custom-info-lb-knowledge", visibleKey: "npcTabKnowledgeVisible",  phKey: "npcTabKnowledgePlayerHidden" },
-] as const;
+const LB_TAB_DEFS = [
+  { key: "custom-info-lb-profile",   visibleKey: "npcTabProfileVisible"   as keyof LoreBridgeSettings, hiddenKey: "npcTabProfilePlayerHidden"   as keyof LoreBridgeSettings },
+  { key: "custom-info-lb-roleplay",  visibleKey: "npcTabRoleplayVisible"  as keyof LoreBridgeSettings, hiddenKey: "npcTabRoleplayPlayerHidden"  as keyof LoreBridgeSettings },
+  { key: "custom-info-lb-knowledge", visibleKey: "npcTabKnowledgeVisible" as keyof LoreBridgeSettings, hiddenKey: "npcTabKnowledgePlayerHidden" as keyof LoreBridgeSettings },
+];
 
-/**
- * Inject or update a <style> block in document.head that hides LoreBridge
- * custom NPC tabs according to global defaults and the current user's role.
- * Call once at init and again after features are saved so that already-open
- * journal sheets pick up the change immediately.
- */
-export function updateNpcTabCss(): void {
-  const settings = getLoreBridgeSettings();
-  const isGM = Boolean(
-    (game as { user?: { isGM?: boolean } }).user?.isGM,
-  );
+async function applyLbTabOverridesToJournal(
+  journal: CCJournalLike,
+  settings: LoreBridgeSettings,
+): Promise<void> {
+  if (!isNpcCodexJournal(journal)) return;
 
-  const rules: string[] = [];
-  for (const { key, visibleKey, phKey } of LB_TAB_SETTINGS) {
-    const visible      = settings[visibleKey] as boolean;
-    const playerHidden = settings[phKey]      as boolean;
-    const shouldHide   = !visible || (playerHidden && !isGM);
-    if (shouldHide) {
-      // Target both the tab nav button and the content panel CC renders for this key.
-      rules.push(`[data-tab="${key}"] { display: none !important; }`);
+  const existing = (
+    journal.getFlag("campaign-codex", "tab-overrides") as CCTabOverride[] | undefined
+  ) ?? [];
+
+  const byKey = new Map<string, CCTabOverride>(existing.map(o => [o.key, o]));
+
+  let changed = false;
+  for (const { key, visibleKey, hiddenKey } of LB_TAB_DEFS) {
+    const visible = settings[visibleKey] as boolean;
+    const hidden  = settings[hiddenKey]  as boolean;
+    const cur = byKey.get(key);
+    if (!cur || cur.visible !== visible || cur.hidden !== hidden) {
+      // label: "" matches CC's own format — Override Name field is left blank by default
+      byKey.set(key, { key, label: cur?.label ?? "", visible, hidden });
+      changed = true;
     }
   }
 
+  if (changed) {
+    await journal.setFlag("campaign-codex", "tab-overrides", Array.from(byKey.values()));
+  }
+}
+
+/**
+ * Propagate LoreBridge global NPC tab defaults to CC's tab-overrides flag on
+ * every world NPC journal. Call after the GM saves feature settings. CC reads
+ * these overrides natively, so the Configure Tabs dialog and player visibility
+ * both reflect the correct state without any CSS trickery.
+ */
+export async function propagateNpcTabDefaults(): Promise<void> {
+  if (!(game as { user?: { isGM?: boolean } }).user?.isGM) return;
+  const settings = getLoreBridgeSettings();
+  const journals = (game.journal as unknown as { contents: CCJournalLike[] }).contents;
+  await Promise.all(
+    journals.map(j =>
+      applyLbTabOverridesToJournal(j, settings).catch((err: unknown) =>
+        console.debug("LoreBridge | Failed to apply tab defaults to journal:", err),
+      ),
+    ),
+  );
+}
+
+// Keep a lightweight CSS fallback so tabs already rendered in the current DOM
+// are hidden immediately without waiting for CC to re-render on flag change.
+const LB_TAB_CSS_ID = "lb-npc-tab-defaults";
+
+export function updateNpcTabCss(): void {
+  const settings = getLoreBridgeSettings();
+  const isGM = Boolean((game as { user?: { isGM?: boolean } }).user?.isGM);
+  const rules: string[] = [];
+  for (const { key, visibleKey, hiddenKey } of LB_TAB_DEFS) {
+    const visible = settings[visibleKey] as boolean;
+    const hidden  = settings[hiddenKey]  as boolean;
+    if (!visible || (hidden && !isGM)) {
+      rules.push(`[data-tab="${key}"] { display: none !important; }`);
+    }
+  }
   let el = document.getElementById(LB_TAB_CSS_ID) as HTMLStyleElement | null;
   if (!el) {
     el = document.createElement("style");
