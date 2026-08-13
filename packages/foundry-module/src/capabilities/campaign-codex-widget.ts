@@ -137,6 +137,19 @@ const DOSSIER_CSS = `
 }
 .lb-dos-nickname-label { color: #d6b35a; }
 
+/* Status bar (Info tab) — mirrors .lb-dos-nickname-bar with status colour theming */
+.lb-dos-status-bar {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.lb-dos-status-bar-alive   { border-left: 4px solid #5aad68; background: rgba(70,160,80,0.08); }
+.lb-dos-status-bar-dead    { border-left: 4px solid #c45050; background: rgba(180,50,50,0.08); }
+.lb-dos-status-bar-unknown { border-left: 4px solid #909090; background: rgba(140,140,140,0.08); }
+.lb-dos-status-key-alive   { color: #5aad68; }
+.lb-dos-status-key-dead    { color: #c45050; }
+.lb-dos-status-key-unknown { color: #909090; }
+
 /* Fact table */
 .lb-dos-fact-table {
   width: 100%;
@@ -341,6 +354,7 @@ export function makeDefaultDossierData(): NpcDossierData {
     schemaVersion: 1,
     reference: {
       nicknames: "",
+      status: "Alive",
       sourceBook: "",
       sourcePage: "",
       statBlockReference: "",
@@ -402,6 +416,7 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
     schemaVersion: 1,
     reference: {
       nicknames:           str(ref["nicknames"]),
+      status:              statusVal(ref["status"]),
       sourceBook:          str(ref["sourceBook"]),
       sourcePage:          str(ref["sourcePage"]),
       statBlockReference:  str(ref["statBlockReference"]),
@@ -450,6 +465,10 @@ function normalizeDossierData(raw: unknown): NpcDossierData {
 }
 
 function str(v: unknown): string { return typeof v === "string" ? v : ""; }
+function statusVal(v: unknown): "Alive" | "Dead" | "Unknown" {
+  if (v === "Dead" || v === "Unknown") return v;
+  return "Alive";
+}
 function arr(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
@@ -552,6 +571,7 @@ export function getDossierSummaryText(dossier: NpcDossierData, isGM = true): str
   const rp  = dossier.roleplay;
 
   if (ref.nicknames.trim()) parts.push(`Nicknames: ${ref.nicknames.trim()}`);
+  parts.push(`Status: ${ref.status || "Alive"}`);
   if (ref.sourceBook.trim()) {
     const page = ref.sourcePage.trim() ? ` p.${ref.sourcePage.trim()}` : "";
     parts.push(`Source: ${ref.sourceBook.trim()}${page}`);
@@ -636,6 +656,16 @@ function textArea(name: string, label: string, value: string, rows = 3, placehol
   </div>`;
 }
 
+function selectField(name: string, label: string, value: string, options: { value: string; label: string }[]): string {
+  const optHtml = options.map(o =>
+    `<option value="${escHtml(o.value)}"${value === o.value ? " selected" : ""}>${escHtml(o.label)}</option>`
+  ).join("");
+  return `<div class="lb-dos-field-group">
+    <label class="lb-dos-field-label">${escHtml(label)}</label>
+    <select class="lb-dos-field-select" name="${escHtml(name)}">${optHtml}</select>
+  </div>`;
+}
+
 function factCell(label: string, value: string): string {
   return `<td class="lb-dos-fact-cell">
     <span class="lb-dos-fact-cell-label">${escHtml(label)}</span>
@@ -659,6 +689,11 @@ function renderInfoReadView(data: NpcDossierData): string {
   const ref = data.reference;
   const id  = data.identity;
   const ov  = data.overview;
+
+  const status = ref.status || "Alive";
+  const sl = status.toLowerCase();
+  const statusIcon = status === "Dead" ? "☠️" : status === "Unknown" ? "❓" : "💚";
+  const statusHtml = `<div class="lb-dos-status-bar lb-dos-status-bar-${sl}"><span class="lb-dos-status-key-${sl}">Status:</span> ${statusIcon} ${escHtml(status)}</div>`;
 
   const nicknameHtml = ref.nicknames.trim()
     ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
@@ -706,9 +741,9 @@ function renderInfoReadView(data: NpcDossierData): string {
     : "";
 
   if (!nicknameHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
-    return `<p class="lb-dos-empty">No info data yet. Click Edit to begin.</p>`;
+    return `${statusHtml}<p class="lb-dos-empty">No additional info yet. Click Edit to begin.</p>`;
   }
-  return `${nicknameHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
+  return `${nicknameHtml}${statusHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -720,8 +755,13 @@ function renderInfoEditForm(data: NpcDossierData): string {
   const id  = data.identity;
   const ov  = data.overview;
   return `<div class="lb-dos-edit-form">
-    ${editHeading("Nickname")}
+    ${editHeading("Nickname / Status")}
     ${textField("nicknames", "Known As / Nickname", ref.nicknames)}
+    ${selectField("status", "Status", ref.status || "Alive", [
+      { value: "Alive", label: "Alive" },
+      { value: "Dead", label: "Dead" },
+      { value: "Unknown", label: "Unknown" },
+    ])}
     ${editHeading("Identity")}
     <div class="lb-dos-grid-2">
       ${textField("occupationOrClass", "Occupation / Role", id.occupationOrClass)}
@@ -1274,6 +1314,7 @@ function readDossierFromForm(container: Element, section: DossierSection, curren
     updated.reference = {
       ...updated.reference,
       nicknames:          readField(container, "nicknames"),
+      status:             statusVal(readField(container, "status")),
       discoveryRegion:    readField(container, "discoveryRegion"),
       discoveryLocation:  readField(container, "discoveryLocation"),
     };
