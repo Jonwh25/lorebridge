@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 28);
+  assert.equal(registrations.size, 29);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -119,6 +119,10 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)?.default, true);
+
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.lorefolderPath)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.lorefolderPath)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.lorefolderPath)?.default, "lorebridge");
 });
 
 test("reads and normalizes configured values", () => {
@@ -171,6 +175,7 @@ test("reads and normalizes configured values", () => {
     npcTabRoleplayPlayerHidden: true,
     npcTabKnowledgeVisible: true,
     npcTabKnowledgePlayerHidden: true,
+    lorefolderPath: "lorebridge",
   });
 });
 

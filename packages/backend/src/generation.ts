@@ -87,6 +87,37 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, bas
 }
 
 // ---------------------------------------------------------------------------
+// Session extraction
+// ---------------------------------------------------------------------------
+
+const EXTRACT_CONTENT_MAX = 40_000;
+
+export async function extractFromSession(
+  provider: ProviderService,
+  content: string,
+  prompt: string,
+): Promise<{ result: string }> {
+  const truncated = content.length > EXTRACT_CONTENT_MAX
+    ? content.slice(0, EXTRACT_CONTENT_MAX) + "\n[... content truncated ...]"
+    : content;
+
+  const fullPrompt = [
+    "You are an assistant helping a tabletop RPG game master extract structured information from session notes.",
+    "Answer only based on what is explicitly stated or strongly implied in the session notes below.",
+    "If the information is not present, say so briefly.",
+    "",
+    "=== SESSION NOTES ===",
+    truncated,
+    "=== END SESSION NOTES ===",
+    "",
+    prompt,
+  ].join("\n");
+
+  const result = await callAI(provider, fullPrompt, 1024);
+  return { result };
+}
+
+// ---------------------------------------------------------------------------
 // Boxed text (existing)
 // ---------------------------------------------------------------------------
 
