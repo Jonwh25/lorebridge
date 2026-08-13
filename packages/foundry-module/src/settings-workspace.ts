@@ -114,6 +114,31 @@ function sectionHeader(title: string, hint?: string): string {
     </div>`;
 }
 
+function tabDefaultRow(
+  label: string,
+  visibleKey: string,
+  playerHiddenKey: string,
+  visible: boolean,
+  playerHidden: boolean,
+): string {
+  return `
+    <tr style="border-bottom:1px solid rgba(0,0,0,.08)">
+      <td style="padding:8px 4px;font-size:0.88em">${esc(label)}</td>
+      <td style="padding:8px;text-align:center">
+        <label class="lb-switch">
+          <input type="checkbox" name="${esc(visibleKey)}" ${visible ? "checked" : ""}>
+          <span class="lb-slider"></span>
+        </label>
+      </td>
+      <td style="padding:8px;text-align:center">
+        <label class="lb-switch">
+          <input type="checkbox" name="${esc(playerHiddenKey)}" ${playerHidden ? "checked" : ""}>
+          <span class="lb-slider"></span>
+        </label>
+      </td>
+    </tr>`;
+}
+
 // ---------------------------------------------------------------------------
 // Section builders
 // ---------------------------------------------------------------------------
@@ -217,6 +242,27 @@ function buildFeaturesHtml(): string {
       ${toggle(LOREBRIDGE_SETTINGS.writesEnabled,        "AI-Proposed Writes",      s.writesEnabled,        "Allow AI to propose journal page updates (GM approval required).")}
       ${toggle(LOREBRIDGE_SETTINGS.combatWritesEnabled,  "Controlled Combat Writes",s.combatWritesEnabled,  "Allow narrowly typed combat action proposals (GM approval required).")}
       ${toggle(LOREBRIDGE_SETTINGS.playerLoreEnabled,    "Player Lore Assistant",   s.playerLoreEnabled,    "Let players use /lb ask to query GM-published player-visible journals.")}
+
+      <div style="margin-top:20px;border-top:1px solid rgba(0,0,0,.12);padding-top:16px">
+        ${sectionHeader("NPC Tab Defaults", "Default visibility for the three LoreBridge tabs on Campaign Codex NPC sheets. Applied at render time — no reload needed. Per-sheet overrides set in CC's Configure Tabs dialog take precedence.")}
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:0.85em">
+            <thead>
+              <tr style="border-bottom:2px solid rgba(0,0,0,.2);text-align:center">
+                <th style="padding:6px 8px;text-align:left">Tab</th>
+                <th style="padding:6px 24px">Visible by Default</th>
+                <th style="padding:6px 24px">Player Hidden</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tabDefaultRow("Profile",     LOREBRIDGE_SETTINGS.npcTabProfileVisible,      LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden,      s.npcTabProfileVisible,      s.npcTabProfilePlayerHidden)}
+              ${tabDefaultRow("Roleplaying", LOREBRIDGE_SETTINGS.npcTabRoleplayVisible,     LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden,     s.npcTabRoleplayVisible,     s.npcTabRoleplayPlayerHidden)}
+              ${tabDefaultRow("Knowledge",   LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible,    LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden,    s.npcTabKnowledgeVisible,    s.npcTabKnowledgePlayerHidden)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div style="margin-top:16px;text-align:right">
         <button data-action="features-save" style="padding:6px 16px">
           <i class="fas fa-save"></i> Save Features
@@ -620,14 +666,20 @@ export class LoreBridgeSettingsApp extends AppBase {
     const newCcEnabled = checked(LOREBRIDGE_SETTINGS.campaignCodexEnabled);
 
     await Promise.all([
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled,    checked(LOREBRIDGE_SETTINGS.uiButtonsEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled,   checked(LOREBRIDGE_SETTINGS.chatCommandEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled,     checked(LOREBRIDGE_SETTINGS.journalQaEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled,      checked(LOREBRIDGE_SETTINGS.npcMentionEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled,   newCcEnabled),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled,          checked(LOREBRIDGE_SETTINGS.writesEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled,    checked(LOREBRIDGE_SETTINGS.combatWritesEnabled)),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled,      checked(LOREBRIDGE_SETTINGS.playerLoreEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.uiButtonsEnabled,              checked(LOREBRIDGE_SETTINGS.uiButtonsEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.chatCommandEnabled,             checked(LOREBRIDGE_SETTINGS.chatCommandEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.journalQaEnabled,               checked(LOREBRIDGE_SETTINGS.journalQaEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcMentionEnabled,              checked(LOREBRIDGE_SETTINGS.npcMentionEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.campaignCodexEnabled,           newCcEnabled),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.writesEnabled,                  checked(LOREBRIDGE_SETTINGS.writesEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatWritesEnabled,            checked(LOREBRIDGE_SETTINGS.combatWritesEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.playerLoreEnabled,              checked(LOREBRIDGE_SETTINGS.playerLoreEnabled)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfileVisible,           checked(LOREBRIDGE_SETTINGS.npcTabProfileVisible)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden,      checked(LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayVisible,          checked(LOREBRIDGE_SETTINGS.npcTabRoleplayVisible)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden,     checked(LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible,         checked(LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden,    checked(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)),
     ]);
     ui.notifications.info("LoreBridge: Feature settings saved.");
 

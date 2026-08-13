@@ -1632,6 +1632,43 @@ async function autoAddDossierWidgets(journal: CCJournalLike): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Render-time tab visibility
+// ---------------------------------------------------------------------------
+
+const LB_TAB_KEYS = [
+  "custom-info-lb-profile",
+  "custom-info-lb-roleplay",
+  "custom-info-lb-knowledge",
+] as const;
+
+type LbTabKey = (typeof LB_TAB_KEYS)[number];
+
+function getTabShouldHide(key: LbTabKey, isGM: boolean): boolean {
+  const settings = getLoreBridgeSettings();
+  const visibleKey = key === "custom-info-lb-profile"   ? "npcTabProfileVisible"
+                   : key === "custom-info-lb-roleplay"  ? "npcTabRoleplayVisible"
+                   : "npcTabKnowledgeVisible" as const;
+  const phKey     = key === "custom-info-lb-profile"   ? "npcTabProfilePlayerHidden"
+                   : key === "custom-info-lb-roleplay"  ? "npcTabRoleplayPlayerHidden"
+                   : "npcTabKnowledgePlayerHidden" as const;
+  const visible      = settings[visibleKey] as boolean;
+  const playerHidden = settings[phKey]     as boolean;
+  return !visible || (playerHidden && !isGM);
+}
+
+function applyNpcTabDefaults(frame: HTMLElement): void {
+  const isGM = Boolean(
+    (game as { user?: { isGM?: boolean } }).user?.isGM,
+  );
+  for (const key of LB_TAB_KEYS) {
+    if (!getTabShouldHide(key, isGM)) continue;
+    frame.querySelectorAll<HTMLElement>(`[data-tab="${key}"]`).forEach(el => {
+      el.style.display = "none";
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
 
@@ -1694,5 +1731,31 @@ export function registerCampaignCodexWidget(): void {
     const changedFlags = (change as Record<string, unknown>)?.["flags"];
     if (!(changedFlags as Record<string, unknown> | undefined)?.["campaign-codex"]) return;
     void autoAddDossierWidgets(document as CCJournalLike).catch(() => { /* silent */ });
+  });
+
+  // Apply global NPC tab visibility defaults at render time (ApplicationV2 path).
+  // CC's per-sheet "Configure Tabs" overrides take natural precedence because
+  // CC controls which tab elements appear in the DOM before this hook fires.
+  Hooks.on("renderApplicationV2", (app: unknown) => {
+    const appAny = app as { document?: CCJournalLike; element?: HTMLElement };
+    const journal = appAny.document;
+    const frame   = appAny.element;
+    if (!journal || !frame) return;
+    if (!isNpcCodexJournal(journal)) return;
+    // Defer one tick so CC finishes injecting tab elements after the base render.
+    setTimeout(() => applyNpcTabDefaults(frame), 0);
+  });
+
+  // Fallback for legacy Application journal sheets (e.g. older CC versions).
+  Hooks.on("renderJournalSheet", (...args: unknown[]) => {
+    const [app, rawHtml] = args as [{ document?: CCJournalLike }, unknown];
+    const journal = app.document;
+    if (!journal || !isNpcCodexJournal(journal)) return;
+    const frame =
+      rawHtml instanceof HTMLElement ? rawHtml
+      : (rawHtml as { get?(i: number): HTMLElement } | null)?.get?.(0)
+      ?? null;
+    if (!frame) return;
+    setTimeout(() => applyNpcTabDefaults(frame), 0);
   });
 }

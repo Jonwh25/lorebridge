@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 22);
+  assert.equal(registrations.size, 28);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -104,6 +104,21 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.historySaveImages)?.default, true);
+
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfileVisible)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfileVisible)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfileVisible)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabProfilePlayerHidden)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabRoleplayVisible)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabRoleplayVisible)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabRoleplayPlayerHidden)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgeVisible)?.default, true);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden)?.default, true);
 });
 
 test("reads and normalizes configured values", () => {
@@ -150,6 +165,12 @@ test("reads and normalizes configured values", () => {
     portraitSaveDirectory: "modules/lorebridge/images",
     playerLoreEnabled: false,
     campaignCodexEnabled: true,
+    npcTabProfileVisible: true,
+    npcTabProfilePlayerHidden: true,
+    npcTabRoleplayVisible: true,
+    npcTabRoleplayPlayerHidden: true,
+    npcTabKnowledgeVisible: true,
+    npcTabKnowledgePlayerHidden: true,
   });
 });
 
