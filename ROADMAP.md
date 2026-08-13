@@ -522,6 +522,7 @@ real-campaign use.
 1. ✅ [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
 2. [ ] [Session Log Reader — extend with unified read API and AI extraction utility](https://github.com/Jonwh25/lorebridge/issues/269) *(prerequisite for Milestone 27)*
 3. [ ] [NPC Dossier — add killedBy and killedInSession fields to reference section](https://github.com/Jonwh25/lorebridge/issues/275)
+4. [ ] [Global default visibility settings for LoreBridge custom NPC tabs](https://github.com/Jonwh25/lorebridge/issues/279)
 
 Success test: each issue merged and passing its individual live acceptance test.
 
