@@ -137,30 +137,18 @@ const DOSSIER_CSS = `
 }
 .lb-dos-nickname-label { color: #d6b35a; }
 
-/* Status badge (Info tab) */
+/* Status bar (Info tab) — mirrors .lb-dos-nickname-bar with status colour theming */
 .lb-dos-status-bar {
-  margin-bottom: 10px;
-  font-size: 13px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  font-size: 14px;
 }
-.lb-dos-status-label {
-  color: rgba(214,179,90,0.75);
-  margin-right: 6px;
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.lb-dos-status-badge {
-  display: inline-block;
-  padding: 1px 9px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.lb-dos-status-alive { background: rgba(70,160,80,0.12); color: #5aad68; border: 1px solid rgba(70,160,80,0.30); }
-.lb-dos-status-dead { background: rgba(180,50,50,0.15); color: #c45050; border: 1px solid rgba(180,50,50,0.35); }
-.lb-dos-status-unknown { background: rgba(140,140,140,0.12); color: #909090; border: 1px solid rgba(140,140,140,0.25); }
+.lb-dos-status-bar-alive   { border-left: 4px solid #5aad68; background: rgba(70,160,80,0.08); }
+.lb-dos-status-bar-dead    { border-left: 4px solid #c45050; background: rgba(180,50,50,0.08); }
+.lb-dos-status-bar-unknown { border-left: 4px solid #909090; background: rgba(140,140,140,0.08); }
+.lb-dos-status-key-alive   { color: #5aad68; }
+.lb-dos-status-key-dead    { color: #c45050; }
+.lb-dos-status-key-unknown { color: #909090; }
 
 /* Fact table */
 .lb-dos-fact-table {
@@ -703,10 +691,9 @@ function renderInfoReadView(data: NpcDossierData): string {
   const ov  = data.overview;
 
   const status = ref.status || "Alive";
-  const statusClass = status === "Dead" ? "lb-dos-status-dead"
-    : status === "Unknown" ? "lb-dos-status-unknown"
-    : "lb-dos-status-alive";
-  const statusHtml = `<div class="lb-dos-status-bar"><span class="lb-dos-status-label">Status</span><span class="lb-dos-status-badge ${statusClass}">${escHtml(status)}</span></div>`;
+  const sl = status.toLowerCase();
+  const statusIcon = status === "Dead" ? "☠️" : status === "Unknown" ? "❓" : "💚";
+  const statusHtml = `<div class="lb-dos-status-bar lb-dos-status-bar-${sl}"><span class="lb-dos-status-key-${sl}">Status:</span> ${statusIcon} ${escHtml(status)}</div>`;
 
   const nicknameHtml = ref.nicknames.trim()
     ? `<div class="lb-dos-nickname-bar"><span class="lb-dos-nickname-label">Nickname:</span> <em>"${escHtml(ref.nicknames)}"</em></div>`
@@ -756,7 +743,7 @@ function renderInfoReadView(data: NpcDossierData): string {
   if (!nicknameHtml && !identityHtml && !appearHtml && !discHtml && !pkHtml) {
     return `${statusHtml}<p class="lb-dos-empty">No additional info yet. Click Edit to begin.</p>`;
   }
-  return `${statusHtml}${nicknameHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
+  return `${nicknameHtml}${statusHtml}${identityHtml}${appearHtml}${discHtml}${pkHtml}`;
 }
 
 // ---------------------------------------------------------------------------
