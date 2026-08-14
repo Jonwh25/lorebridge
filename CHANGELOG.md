@@ -4,6 +4,16 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.26.4] - 2026-08-13
+
+### Added
+
+- **Session Log Reader unified API** (#269): new `session-log-reader.ts` module exposes `readAll()`, `readLatest()`, `readSince(n)`, and `readPage(n)` — each returns `{ sessionNumber, date?, content, pageId, pageName }` sourced from the journal named by the existing `lorebridge.sessionLogFolder` setting. The journal name match is case-insensitive and gracefully throws a typed `LoreBridgeCapabilityError` if the journal is not found.
+- **AI extraction from session logs** (#269): `extractFromSession(content, prompt, pageId)` sends session text to the backend `POST /v1/generate/extract` endpoint with a caller-supplied prompt; results are cached per `pageId+prompt` key so repeated calls for the same page are served from memory without re-calling the AI provider.
+- **Backend extract endpoint** (#269): `POST /v1/generate/extract { content, prompt }` → `{ result }` — authenticated with the pairing token, provider-gated (returns 503 when no provider is configured), wraps the existing `callAI` infrastructure with a session-aware system prompt. Content is capped at 40,000 characters.
+- **Name-matching utility** (#269): `src/utils/name-matching.ts` exports `normalizeName(name)` (lowercase, strip leading titles, convert hyphens to spaces, strip punctuation) and `matchName(candidate, targets[], threshold?)` (returns best match above threshold, default score ≥ 50). Scoring: 100 exact, 90 candidate-starts-with-target, 85 target-starts-with-candidate, 70 candidate-contains-target, 50 all target words present, 40 first+last word present. Title prefixes stripped: `sir`, `lady`, `baron`, `baroness`, `father`, `mother`, `lord`, `king`, `queen`, `the`, `mad`, `ghost of`, `spirit of`, `brother`, `sister`.
+- **LoreBridge Data Folder setting** (#269): new `lorebridge.lorefolderPath` world setting (default `"lorebridge"`) for the subfolder where LoreBridge writes tracking files. Configurable in the **Advanced** section of the LoreBridge Settings workspace.
+
 ## [0.26.3] - 2026-08-13
 
 ### Added
