@@ -412,6 +412,13 @@ function buildAdvancedHtml(): string {
     <div style="padding:20px 24px">
       ${sectionHeader("Advanced", "Low-level settings that rarely need to change.")}
       <div style="margin-bottom:14px">
+        <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">LoreBridge Data Folder</label>
+        <p style="margin:0 0 6px;font-size:0.78em;color:#888">Subfolder name used by LoreBridge for tracking files (relative to the Foundry Data directory). Default: lorebridge</p>
+        <input type="text" name="${LOREBRIDGE_SETTINGS.lorefolderPath}"
+          value="${esc(s.lorefolderPath)}"
+          style="width:300px;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
+      </div>
+      <div style="margin-bottom:14px">
         <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">Portrait Save Directory</label>
         <p style="margin:0 0 6px;font-size:0.78em;color:#888">Foundry Data-relative path where AI-generated portraits are saved (e.g. Artwork/Portraits/LoreBridge).</p>
         <input type="text" name="${LOREBRIDGE_SETTINGS.portraitSaveDirectory}"
@@ -897,6 +904,7 @@ export class LoreBridgeSettingsApp extends AppBase {
     const api = getFoundrySettingsApi();
     const el = this._self().element;
 
+    const lorefolderPath = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.lorefolderPath}']`)?.value.trim() ?? "lorebridge";
     const portraitDir = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.portraitSaveDirectory}']`)?.value.trim() ?? "";
     const maxLen = Number(el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.maxHistoryLength}']`)?.value ?? 10);
     const saveImages = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.historySaveImages}']`)?.checked ?? true;
@@ -904,6 +912,7 @@ export class LoreBridgeSettingsApp extends AppBase {
     const remoteEnabled = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.remoteIntegrationEnabled}']`)?.checked ?? false;
 
     await Promise.all([
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.lorefolderPath,          lorefolderPath || "lorebridge"),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.portraitSaveDirectory,   portraitDir),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.maxHistoryLength,        Math.max(1, maxLen)),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.historySaveImages,       saveImages),

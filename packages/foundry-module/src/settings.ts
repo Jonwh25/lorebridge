@@ -53,6 +53,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   npcTabRoleplayPlayerHidden: "npcTabRoleplayPlayerHidden",
   npcTabKnowledgeVisible: "npcTabKnowledgeVisible",
   npcTabKnowledgePlayerHidden: "npcTabKnowledgePlayerHidden",
+  lorefolderPath: "lorefolderPath",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -80,6 +81,7 @@ export type LoreBridgeSettings = {
   npcTabRoleplayPlayerHidden: boolean;
   npcTabKnowledgeVisible: boolean;
   npcTabKnowledgePlayerHidden: boolean;
+  lorefolderPath: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -361,6 +363,15 @@ export function registerLoreBridgeSettings(): void {
     type: Boolean,
     default: true,
   });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.lorefolderPath, {
+    name: "LoreBridge Data Folder",
+    hint: "Subfolder name used by LoreBridge for tracking files (e.g. session tracker output). Relative to the Foundry Data directory.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "lorebridge",
+  });
 }
 
 
@@ -434,6 +445,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     npcTabKnowledgePlayerHidden: Boolean(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.npcTabKnowledgePlayerHidden) ?? true,
     ),
+    lorefolderPath: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.lorefolderPath) ?? "lorebridge",
+    ).trim(),
   };
 }
 
