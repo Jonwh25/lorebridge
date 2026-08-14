@@ -513,14 +513,14 @@ When sufficient campaign sessions have confirmed stable behavior, a dedicated
 path validation, MCP contract stability documentation, and any issues surfaced
 from real use before the stable release.
 
-### Milestone 26 — Quality of Life & Small Enhancements 🔄 In Progress
+### Milestone 26 — Quality of Life & Small Enhancements ✅ Complete
 
 An open, rolling milestone for smaller enhancements and polish items that don't
 warrant a standalone milestone. Issues are collected here as they surface during
 real-campaign use.
 
 1. ✅ [NPC Dossier — Add Status field to Reference/Info tab](https://github.com/Jonwh25/lorebridge/issues/266)
-2. [ ] [Session Log Reader — extend with unified read API and AI extraction utility](https://github.com/Jonwh25/lorebridge/issues/269) *(prerequisite for Milestone 27)*
+2. ✅ [Session Log Reader — extend with unified read API and AI extraction utility](https://github.com/Jonwh25/lorebridge/issues/269) *(prerequisite for Milestone 27)*
 3. ✅ [NPC Dossier — add killedBy and killedInSession fields to reference section](https://github.com/Jonwh25/lorebridge/issues/275)
 4. ✅ [Global default visibility settings for LoreBridge custom NPC tabs](https://github.com/Jonwh25/lorebridge/issues/279)
 
