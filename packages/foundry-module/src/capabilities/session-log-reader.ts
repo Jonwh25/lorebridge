@@ -71,12 +71,13 @@ function getJournal(): FoundryJournalEntry {
   );
 }
 
-type RawPage = { id: string; name: string; type: string; sort?: number; text?: { content?: string } };
+type RawPage = { id: string; name: string; type: string; text?: { content?: string } };
 
-function buildPage(page: RawPage, fallbackSessionNumber?: number): SessionLogPage | null {
+function buildPage(page: RawPage, fallbackSessionNumber: number): SessionLogPage | null {
   if (page.type !== "text") return null;
-  const sessionNumber = parseSessionNumber(page.name) ?? fallbackSessionNumber ?? null;
-  if (sessionNumber === null) return null;
+  // Skip year-divider pages whose name is just a 4-digit year (e.g. "2021")
+  if (/^\s*\d{4}\s*$/.test(page.name)) return null;
+  const sessionNumber = parseSessionNumber(page.name) ?? fallbackSessionNumber;
   const content = plainText(page.text?.content ?? "").slice(0, CONTENT_MAX);
   const date = parseDate(content);
   return {
@@ -88,14 +89,17 @@ function buildPage(page: RawPage, fallbackSessionNumber?: number): SessionLogPag
   };
 }
 
-function sortedRawPages(journal: FoundryJournalEntry): RawPage[] {
-  return Array.from(journal.pages)
-    .map((p) => p as unknown as RawPage)
-    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+/** Returns pages in the same order the Foundry journal UI displays them. */
+function journalPages(journal: FoundryJournalEntry): RawPage[] {
+  const pages: RawPage[] = [];
+  for (const page of journal.pages) {
+    pages.push(page as unknown as RawPage);
+  }
+  return pages;
 }
 
 function allPages(journal: FoundryJournalEntry): SessionLogPage[] {
-  const raw = sortedRawPages(journal);
+  const raw = journalPages(journal);
   const pages: SessionLogPage[] = [];
   for (let i = 0; i < raw.length; i++) {
     const p = buildPage(raw[i]!, i + 1);
@@ -116,12 +120,11 @@ export function readAll(): SessionLogPage[] {
 export function readLatest(): SessionLogPage | null {
   requireFoundryGm("readLatest");
   const journal = getJournal();
-  const raw = sortedRawPages(journal);
-  const total = raw.length;
+  const raw = journalPages(journal);
   // Walk from the last page backward and return the first text page found.
-  // Using Foundry's sort order (same order as the journal UI) ensures we
-  // always get the most recently added page, regardless of naming convention.
-  for (let i = total - 1; i >= 0; i--) {
+  // journalPages() iterates journal.pages with for...of, which the Foundry
+  // Collection maintains in UI sort order — the last element is the newest page.
+  for (let i = raw.length - 1; i >= 0; i--) {
     const p = buildPage(raw[i]!, i + 1);
     if (p) return p;
   }
