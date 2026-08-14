@@ -71,9 +71,11 @@ function getJournal(): FoundryJournalEntry {
   );
 }
 
-function buildPage(journal: FoundryJournalEntry, page: { id: string; name: string; type: string; text?: { content?: string } }): SessionLogPage | null {
+type RawPage = { id: string; name: string; type: string; sort?: number; text?: { content?: string } };
+
+function buildPage(page: RawPage, fallbackSessionNumber?: number): SessionLogPage | null {
   if (page.type !== "text") return null;
-  const sessionNumber = parseSessionNumber(page.name);
+  const sessionNumber = parseSessionNumber(page.name) ?? fallbackSessionNumber ?? null;
   if (sessionNumber === null) return null;
   const content = plainText(page.text?.content ?? "").slice(0, CONTENT_MAX);
   const date = parseDate(content);
@@ -86,10 +88,17 @@ function buildPage(journal: FoundryJournalEntry, page: { id: string; name: strin
   };
 }
 
+function sortedRawPages(journal: FoundryJournalEntry): RawPage[] {
+  return Array.from(journal.pages)
+    .map((p) => p as unknown as RawPage)
+    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+}
+
 function allPages(journal: FoundryJournalEntry): SessionLogPage[] {
+  const raw = sortedRawPages(journal);
   const pages: SessionLogPage[] = [];
-  for (const page of journal.pages) {
-    const p = buildPage(journal, page as { id: string; name: string; type: string; text?: { content?: string } });
+  for (let i = 0; i < raw.length; i++) {
+    const p = buildPage(raw[i]!, i + 1);
     if (p) pages.push(p);
   }
   return pages.sort((a, b) => a.sessionNumber - b.sessionNumber);
@@ -106,9 +115,17 @@ export function readAll(): SessionLogPage[] {
 
 export function readLatest(): SessionLogPage | null {
   requireFoundryGm("readLatest");
-  const pages = allPages(getJournal());
-  if (!pages.length) return null;
-  return pages[pages.length - 1] ?? null;
+  const journal = getJournal();
+  const raw = sortedRawPages(journal);
+  const total = raw.length;
+  // Walk from the last page backward and return the first text page found.
+  // Using Foundry's sort order (same order as the journal UI) ensures we
+  // always get the most recently added page, regardless of naming convention.
+  for (let i = total - 1; i >= 0; i--) {
+    const p = buildPage(raw[i]!, i + 1);
+    if (p) return p;
+  }
+  return null;
 }
 
 export function readSince(sessionNumber: number): SessionLogPage[] {
