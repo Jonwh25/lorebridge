@@ -44,10 +44,10 @@ function todayFormatted(): string {
 type FoundryJournalDoc = {
   name: string;
   pages: unknown;
-  createEmbeddedDocument(
+  createEmbeddedDocuments(
     type: string,
-    data: Record<string, unknown>,
-  ): Promise<{ id: string; name: string }>;
+    data: Record<string, unknown>[],
+  ): Promise<{ id: string; name: string }[]>;
   sheet?: { render(opts?: Record<string, unknown>): void };
 };
 
@@ -158,14 +158,16 @@ export async function runCreateSessionLog(): Promise<void> {
 
   ui.notifications.info(`LoreBridge: Creating "${pageName}"…`);
 
-  const page = await journal.createEmbeddedDocument("JournalEntryPage", {
+  const pages = await journal.createEmbeddedDocuments("JournalEntryPage", [{
     name: pageName,
     type: "text",
     text: {
       content: SESSION_LOG_TEMPLATE,
       format: 1, // CONST.JOURNAL_ENTRY_PAGE_FORMATS.HTML
     },
-  });
+  }]);
+  const page = pages[0];
+  if (!page) throw new Error("Failed to create session log page.");
 
   // Open the journal and navigate to the new page
   journal.sheet?.render({ force: true, pageId: page.id });
