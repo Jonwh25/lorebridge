@@ -62,9 +62,18 @@ function getJournal(): FoundryJournalEntry {
     try { return getLoreBridgeSettings().sessionLogFolder || "Session Logs"; }
     catch { return "Session Logs"; }
   })();
+  const nameLower = folderName.trim().toLocaleLowerCase();
+  // If multiple journals share the same name, prefer the one with the most pages
+  // (avoids accidentally picking a small stub/index journal over the real session log).
+  let best: FoundryJournalEntry | undefined;
+  let bestSize = -1;
   for (const j of game.journal) {
-    if (j.name.trim().toLocaleLowerCase() === folderName.toLocaleLowerCase()) return j;
+    if (j.name.trim().toLocaleLowerCase() === nameLower) {
+      const size = (j.pages as unknown as { size?: number }).size ?? 0;
+      if (size > bestSize) { bestSize = size; best = j; }
+    }
   }
+  if (best) return best;
   throw new LoreBridgeCapabilityError(
     "NOT_FOUND",
     `No journal named "${folderName}" was found. Set the Session Log Journal name in LoreBridge world settings.`,
