@@ -23,6 +23,9 @@ import {
   backupRegionVisits,
 } from "./capabilities/tracker-region-visits.js";
 import { matchPortraits } from "./capabilities/portrait-matcher.js";
+import { syncPermissions } from "./capabilities/permissions-sync.js";
+import { runBackupAll } from "./capabilities/backup-all.js";
+import { runPostSessionChecklist } from "./capabilities/post-session-checklist.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -297,6 +300,15 @@ function _actionsHtml(scene: SceneInfo | null): string {
     `<button type="button" class="lb-scc__action-btn" data-action="match-portraits" title="Auto-match portrait images to NPC journals"><i class="fas fa-portrait"></i> Match Portraits</button>`,
   );
   buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="sync-permissions" title="Set Observer on all encountered NPCs, visited regions, and active quests"><i class="fas fa-eye"></i> Sync Permissions</button>`,
+  );
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-all" title="Commit all tracker JSON files and CC macros to GitHub"><i class="fas fa-cloud-upload-alt"></i> Backup All</button>`,
+  );
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--primary" data-action="end-of-session" title="Run all post-session updates in sequence"><i class="fas fa-flag-checkered"></i> End of Session</button>`,
+  );
+  buttons.push(
     `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--danger" data-action="remove-all-players" title="Delete all Player and Trusted Player accounts"><i class="fas fa-user-minus"></i> Remove All Players…</button>`,
   );
   return buttons.length > 0
@@ -479,6 +491,9 @@ class SessionCommandCenter extends _AppBase {
     if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
     if (action === "tracker-region-visits-backup") { void backupRegionVisits(); return; }
     if (action === "match-portraits") { void matchPortraits(); return; }
+    if (action === "sync-permissions") { void syncPermissions(); return; }
+    if (action === "backup-all") { void runBackupAll(); return; }
+    if (action === "end-of-session") { void runPostSessionChecklist(); return; }
   }
 
   // -------------------------------------------------------------------------
