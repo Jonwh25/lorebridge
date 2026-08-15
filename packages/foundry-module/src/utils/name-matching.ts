@@ -41,6 +41,23 @@ export function normalizeName(name: string): string {
   );
 }
 
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const prev: number[] = Array.from({ length: n + 1 }, (_, j) => j);
+  const curr: number[] = new Array(n + 1) as number[];
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      curr[j] = a[i - 1] === b[j - 1]
+        ? prev[j - 1]!
+        : 1 + Math.min(prev[j]!, curr[j - 1]!, prev[j - 1]!);
+    }
+    prev.splice(0, prev.length, ...curr);
+  }
+  return prev[n]!;
+}
+
 function scoreMatch(candidate: string, target: string): number {
   const normCandidate = normalizeName(candidate);
   const normTarget = normalizeName(target);
@@ -61,7 +78,11 @@ function scoreMatch(candidate: string, target: string): number {
     normCandidate.includes(lastWord)
   ) return 40;
 
-  return 0;
+  // Fallback: character-level edit-distance similarity.
+  // Handles misspellings and word-split variants like "Jenny Greenteeth" / "Ginny Green Teeth".
+  const maxLen = Math.max(normCandidate.length, normTarget.length);
+  if (maxLen === 0) return 100;
+  return Math.round(100 * (1 - levenshtein(normCandidate, normTarget) / maxLen));
 }
 
 const DEFAULT_THRESHOLD = 50;

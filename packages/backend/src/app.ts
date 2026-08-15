@@ -1339,6 +1339,60 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     return;
   }
 
+  if (method === "POST" && url.pathname === "/v1/backup/github/lore-files") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const files = body["files"];
+    const commitMessage = typeof body["commitMessage"] === "string" ? body["commitMessage"].trim() : "";
+    if (!Array.isArray(files) || files.length === 0) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "'files' must be a non-empty array." } });
+      return;
+    }
+    type LoreFile = { path: string; content: string };
+    const loreFiles: LoreFile[] = [];
+    for (const f of files as unknown[]) {
+      if (typeof f !== "object" || f === null || typeof (f as Record<string, unknown>)["path"] !== "string" || typeof (f as Record<string, unknown>)["content"] !== "string") {
+        sendJson(response, 400, { error: { code: "invalid_request", message: "Each file must have a string 'path' and string 'content'." } });
+        return;
+      }
+      const rec = f as Record<string, unknown>;
+      loreFiles.push({ path: rec["path"] as string, content: rec["content"] as string });
+    }
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    try {
+      for (const f of loreFiles) {
+        resolveCampaignPath(github.campaignRoot, f.path);
+      }
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        sendJson(response, 400, { error: { code: "invalid_path", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    try {
+      const message = commitMessage || `LoreBridge: lore file backup`;
+      const result = await github.createBackupCommit(message, loreFiles, []);
+      sendJson(response, 200, { commitSha: result.sha, commitUrl: result.url, files: loreFiles.map((f) => f.path) });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status =
+          error.code === "access_denied" ? 403
+          : error.code === "not_found" ? 404
+          : error.code === "conflict" ? 409
+          : error.code === "rate_limited" ? 429
+          : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   if (method === "GET" && url.pathname === "/v1/backup/github/restore/scenes") {
     if (!authenticate(pairing, request, response)) return;
     // Validate params before checking GitHub so clients get actionable 400s.

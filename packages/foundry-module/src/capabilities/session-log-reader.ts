@@ -62,19 +62,31 @@ function getJournal(): FoundryJournalEntry {
     try { return getLoreBridgeSettings().sessionLogFolder || "Session Logs"; }
     catch { return "Session Logs"; }
   })();
+  const nameLower = folderName.trim().toLocaleLowerCase();
+  // If multiple journals share the same name, prefer the one with the most pages
+  // (avoids accidentally picking a small stub/index journal over the real session log).
+  let best: FoundryJournalEntry | undefined;
+  let bestSize = -1;
   for (const j of game.journal) {
-    if (j.name.trim().toLocaleLowerCase() === folderName.toLocaleLowerCase()) return j;
+    if (j.name.trim().toLocaleLowerCase() === nameLower) {
+      const size = (j.pages as unknown as { size?: number }).size ?? 0;
+      if (size > bestSize) { bestSize = size; best = j; }
+    }
   }
+  if (best) return best;
   throw new LoreBridgeCapabilityError(
     "NOT_FOUND",
     `No journal named "${folderName}" was found. Set the Session Log Journal name in LoreBridge world settings.`,
   );
 }
 
-function buildPage(journal: FoundryJournalEntry, page: { id: string; name: string; type: string; text?: { content?: string } }): SessionLogPage | null {
+type RawPage = { id: string; name: string; type: string; text?: { content?: string } };
+
+function buildPage(page: RawPage, fallbackSessionNumber: number): SessionLogPage | null {
   if (page.type !== "text") return null;
-  const sessionNumber = parseSessionNumber(page.name);
-  if (sessionNumber === null) return null;
+  // Skip year-divider pages whose name is just a 4-digit year (e.g. "2021")
+  if (/^\s*\d{4}\s*$/.test(page.name)) return null;
+  const sessionNumber = parseSessionNumber(page.name) ?? fallbackSessionNumber;
   const content = plainText(page.text?.content ?? "").slice(0, CONTENT_MAX);
   const date = parseDate(content);
   return {
@@ -86,10 +98,20 @@ function buildPage(journal: FoundryJournalEntry, page: { id: string; name: strin
   };
 }
 
-function allPages(journal: FoundryJournalEntry): SessionLogPage[] {
-  const pages: SessionLogPage[] = [];
+/** Returns pages in the same order the Foundry journal UI displays them. */
+function journalPages(journal: FoundryJournalEntry): RawPage[] {
+  const pages: RawPage[] = [];
   for (const page of journal.pages) {
-    const p = buildPage(journal, page as { id: string; name: string; type: string; text?: { content?: string } });
+    pages.push(page as unknown as RawPage);
+  }
+  return pages;
+}
+
+function allPages(journal: FoundryJournalEntry): SessionLogPage[] {
+  const raw = journalPages(journal);
+  const pages: SessionLogPage[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const p = buildPage(raw[i]!, i + 1);
     if (p) pages.push(p);
   }
   return pages.sort((a, b) => a.sessionNumber - b.sessionNumber);
@@ -106,9 +128,16 @@ export function readAll(): SessionLogPage[] {
 
 export function readLatest(): SessionLogPage | null {
   requireFoundryGm("readLatest");
-  const pages = allPages(getJournal());
-  if (!pages.length) return null;
-  return pages[pages.length - 1] ?? null;
+  const journal = getJournal();
+  const raw = journalPages(journal);
+  // Walk from the last page backward and return the first text page found.
+  // journalPages() iterates journal.pages with for...of, which the Foundry
+  // Collection maintains in UI sort order — the last element is the newest page.
+  for (let i = raw.length - 1; i >= 0; i--) {
+    const p = buildPage(raw[i]!, i + 1);
+    if (p) return p;
+  }
+  return null;
 }
 
 export function readSince(sessionNumber: number): SessionLogPage[] {

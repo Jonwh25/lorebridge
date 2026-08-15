@@ -54,6 +54,8 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   npcTabKnowledgeVisible: "npcTabKnowledgeVisible",
   npcTabKnowledgePlayerHidden: "npcTabKnowledgePlayerHidden",
   lorefolderPath: "lorefolderPath",
+  portraitMatchRoot: "portraitMatchRoot",
+  playerCharacterNames: "playerCharacterNames",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -82,6 +84,8 @@ export type LoreBridgeSettings = {
   npcTabKnowledgeVisible: boolean;
   npcTabKnowledgePlayerHidden: boolean;
   lorefolderPath: string;
+  portraitMatchRoot: string;
+  playerCharacterNames: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -372,6 +376,24 @@ export function registerLoreBridgeSettings(): void {
     type: String,
     default: "lorebridge",
   });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.portraitMatchRoot, {
+    name: "Portrait Match Root",
+    hint: "Root folder to scan recursively for portrait images when matching portraits to NPC journals. Relative to the Foundry Data directory.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "Artwork/Portraits/NPCs",
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.playerCharacterNames, {
+    name: "Player Character Names",
+    hint: "Comma-separated list of player character names to exclude from NPC extraction (e.g. Jaylyn, Aldric, Mira).",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "",
+  });
 }
 
 
@@ -447,6 +469,12 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ),
     lorefolderPath: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.lorefolderPath) ?? "lorebridge",
+    ).trim(),
+    portraitMatchRoot: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.portraitMatchRoot) ?? "Artwork/Portraits/NPCs",
+    ).trim(),
+    playerCharacterNames: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.playerCharacterNames) ?? "",
     ).trim(),
   };
 }

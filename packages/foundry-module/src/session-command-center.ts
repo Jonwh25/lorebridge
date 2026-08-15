@@ -2,6 +2,27 @@ import { getLoreBridgeSettings } from "./settings.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { handleSessionCleanup } from "./capabilities/session-cleanup.js";
 import { removeNonGmUsers } from "./capabilities/session-tools.js";
+import {
+  initializeNpcStatusTracker,
+  updateNpcStatusFromLatest,
+  backupNpcStatus,
+} from "./capabilities/tracker-npc-status.js";
+import {
+  initializeNpcEncounterTracker,
+  updateNpcEncountersFromLatest,
+  backupNpcEncounters,
+} from "./capabilities/tracker-npc-encounters.js";
+import {
+  initializeQuestStatusTracker,
+  updateQuestStatusFromLatest,
+  backupQuestStatus,
+} from "./capabilities/tracker-quest-status.js";
+import {
+  initializeRegionVisitTracker,
+  updateRegionVisitsFromLatest,
+  backupRegionVisits,
+} from "./capabilities/tracker-region-visits.js";
+import { matchPortraits } from "./capabilities/portrait-matcher.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -221,6 +242,35 @@ function _sessionHtml(session: SessionInfo): string {
   return `<div class="lb-scc__row">${pageLink}</div>${excerptBlock}`;
 }
 
+function _trackersHtml(): string {
+  const trackers: Array<{ label: string; initAction: string; currentAction: string; backupAction: string }> = [
+    { label: "NPC Status", initAction: "tracker-npc-status-init", currentAction: "tracker-npc-status-current", backupAction: "tracker-npc-status-backup" },
+    { label: "NPC Encounters", initAction: "tracker-npc-encounters-init", currentAction: "tracker-npc-encounters-current", backupAction: "tracker-npc-encounters-backup" },
+    { label: "Quest Status", initAction: "tracker-quest-status-init", currentAction: "tracker-quest-status-current", backupAction: "tracker-quest-status-backup" },
+    { label: "Region Visits", initAction: "tracker-region-visits-init", currentAction: "tracker-region-visits-current", backupAction: "tracker-region-visits-backup" },
+  ];
+  const rows = trackers
+    .map(
+      (t) =>
+        `<tr>
+          <td style="padding:3px 6px;font-size:11px;font-weight:bold;white-space:nowrap">${_escHtml(t.label)}</td>
+          <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.initAction}" title="Process all sessions (full initialize)">All</button></td>
+          <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.currentAction}" title="Process only the latest session">Latest</button></td>
+          <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.backupAction}" title="Backup to GitHub">Backup</button></td>
+        </tr>`,
+    )
+    .join("");
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:rgba(255,255,255,0.45);font-size:10px">
+      <th style="padding:2px 6px;text-align:left">Tracker</th>
+      <th style="padding:2px">All</th>
+      <th style="padding:2px">Latest</th>
+      <th style="padding:2px">Backup</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 function _actionsHtml(scene: SceneInfo | null): string {
   const settings = getLoreBridgeSettings();
   const buttons: string[] = [];
@@ -243,6 +293,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
       `<button type="button" class="lb-scc__action-btn" data-action="session-cleanup" title="Detect new entities from the session log"><i class="fas fa-broom"></i> Session Cleanup</button>`,
     );
   }
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="match-portraits" title="Auto-match portrait images to NPC journals"><i class="fas fa-portrait"></i> Match Portraits</button>`,
+  );
   buttons.push(
     `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--danger" data-action="remove-all-players" title="Delete all Player and Trusted Player accounts"><i class="fas fa-user-minus"></i> Remove All Players…</button>`,
   );
@@ -354,6 +407,11 @@ class SessionCommandCenter extends _AppBase {
           ${_sessionHtml(session)}
         </details>
 
+        <details class="lb-scc__section">
+          <summary>📊 Session Trackers</summary>
+          ${_trackersHtml()}
+        </details>
+
         <details class="lb-scc__section" open>
           <summary>⚡ Quick Actions</summary>
           ${_actionsHtml(scene)}
@@ -407,6 +465,20 @@ class SessionCommandCenter extends _AppBase {
       });
       return;
     }
+    // Session tracker actions
+    if (action === "tracker-npc-status-init") { void initializeNpcStatusTracker(); return; }
+    if (action === "tracker-npc-status-current") { void updateNpcStatusFromLatest(); return; }
+    if (action === "tracker-npc-status-backup") { void backupNpcStatus(); return; }
+    if (action === "tracker-npc-encounters-init") { void initializeNpcEncounterTracker(); return; }
+    if (action === "tracker-npc-encounters-current") { void updateNpcEncountersFromLatest(); return; }
+    if (action === "tracker-npc-encounters-backup") { void backupNpcEncounters(); return; }
+    if (action === "tracker-quest-status-init") { void initializeQuestStatusTracker(); return; }
+    if (action === "tracker-quest-status-current") { void updateQuestStatusFromLatest(); return; }
+    if (action === "tracker-quest-status-backup") { void backupQuestStatus(); return; }
+    if (action === "tracker-region-visits-init") { void initializeRegionVisitTracker(); return; }
+    if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
+    if (action === "tracker-region-visits-backup") { void backupRegionVisits(); return; }
+    if (action === "match-portraits") { void matchPortraits(); return; }
   }
 
   // -------------------------------------------------------------------------

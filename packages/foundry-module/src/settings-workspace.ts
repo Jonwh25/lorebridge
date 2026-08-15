@@ -426,6 +426,20 @@ function buildAdvancedHtml(): string {
           style="width:100%;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
       </div>
       <div style="margin-bottom:14px">
+        <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">Portrait Match Root</label>
+        <p style="margin:0 0 6px;font-size:0.78em;color:#888">Root folder to scan recursively when auto-matching portraits to NPC journals (Data-relative). Default: Artwork/Portraits/NPCs</p>
+        <input type="text" name="${LOREBRIDGE_SETTINGS.portraitMatchRoot}"
+          value="${esc(s.portraitMatchRoot)}"
+          style="width:100%;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">Player Character Names</label>
+        <p style="margin:0 0 6px;font-size:0.78em;color:#888">Comma-separated list of PC names to exclude from NPC extraction (e.g. Jaylyn, Aldric, Mira).</p>
+        <input type="text" name="${LOREBRIDGE_SETTINGS.playerCharacterNames}"
+          value="${esc(s.playerCharacterNames)}"
+          style="width:100%;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
+      </div>
+      <div style="margin-bottom:14px">
         <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">Max Generation History Length</label>
         <p style="margin:0 0 6px;font-size:0.78em;color:#888">Oldest entries are pruned automatically when the limit is exceeded.</p>
         <input type="number" name="${LOREBRIDGE_SETTINGS.maxHistoryLength}"
@@ -906,6 +920,8 @@ export class LoreBridgeSettingsApp extends AppBase {
 
     const lorefolderPath = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.lorefolderPath}']`)?.value.trim() ?? "lorebridge";
     const portraitDir = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.portraitSaveDirectory}']`)?.value.trim() ?? "";
+    const portraitMatchRoot = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.portraitMatchRoot}']`)?.value.trim() ?? "Artwork/Portraits/NPCs";
+    const playerCharacterNames = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.playerCharacterNames}']`)?.value.trim() ?? "";
     const maxLen = Number(el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.maxHistoryLength}']`)?.value ?? 10);
     const saveImages = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.historySaveImages}']`)?.checked ?? true;
     const capEnabled = el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.capabilityApiEnabled}']`)?.checked ?? true;
@@ -914,6 +930,8 @@ export class LoreBridgeSettingsApp extends AppBase {
     await Promise.all([
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.lorefolderPath,          lorefolderPath || "lorebridge"),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.portraitSaveDirectory,   portraitDir),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.portraitMatchRoot,       portraitMatchRoot || "Artwork/Portraits/NPCs"),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.playerCharacterNames,    playerCharacterNames),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.maxHistoryLength,        Math.max(1, maxLen)),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.historySaveImages,       saveImages),
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.capabilityApiEnabled,    capEnabled),
