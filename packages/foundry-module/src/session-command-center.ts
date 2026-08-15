@@ -27,6 +27,7 @@ import { syncPermissions } from "./capabilities/permissions-sync.js";
 import { runBackupAll } from "./capabilities/backup-all.js";
 import { runPostSessionChecklist } from "./capabilities/post-session-checklist.js";
 import { runExportBaseline } from "./capabilities/cc-baseline.js";
+import { runCreateSessionLog } from "./capabilities/session-log-creator.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -285,6 +286,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
     );
   }
   buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="add-session" title="Create a new session log page with the standard template"><i class="fas fa-book-medical"></i> Add Session</button>`,
+  );
+  buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="health-check" title="Run campaign health check"><i class="fas fa-heartbeat"></i> Health Check</button>`,
   );
   if (settings.uiButtonsEnabled && scene) {
@@ -494,6 +498,7 @@ class SessionCommandCenter extends _AppBase {
     if (action === "tracker-region-visits-init") { void initializeRegionVisitTracker(); return; }
     if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
     if (action === "tracker-region-visits-backup") { void backupRegionVisits(); return; }
+    if (action === "add-session") { void runCreateSessionLog(); return; }
     if (action === "match-portraits") { void matchPortraits(); return; }
     if (action === "cc-baseline") { void runExportBaseline(); return; }
     if (action === "sync-permissions") { void syncPermissions(); return; }
