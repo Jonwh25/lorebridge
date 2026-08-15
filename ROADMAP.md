@@ -526,7 +526,7 @@ real-campaign use.
 
 Success test: each issue merged and passing its individual live acceptance test.
 
-### Milestone 27 — Campaign Intelligence & Session Tracking
+### Milestone 27 — Campaign Intelligence & Session Tracking ✅ Complete
 
 AI-powered session log analysis that automatically tracks NPC status, party
 encounters, quest progress, and region visits across the full campaign history.
@@ -540,10 +540,12 @@ existing artwork, and a one-click post-session workflow.
 2. ✅ [NPC Encounter Tracker — track which NPCs the party has met and set player permissions](https://github.com/Jonwh25/lorebridge/issues/271)
 3. ✅ [Quest Status Tracker — sync quest status from session logs to Campaign Codex](https://github.com/Jonwh25/lorebridge/issues/272)
 4. ✅ [Region Visit Tracker — track visited regions and set player permissions](https://github.com/Jonwh25/lorebridge/issues/273)
-5. [ ] [Player Permissions Sync — bulk set Observer on all encountered NPCs, visited regions, and active quests](https://github.com/Jonwh25/lorebridge/issues/274)
+5. ✅ [Player Permissions Sync — bulk set Observer on all encountered NPCs, visited regions, and active quests](https://github.com/Jonwh25/lorebridge/issues/274)
 6. ✅ [Portrait Auto-Match — match existing portrait images to NPC journals from LoreBridge panel](https://github.com/Jonwh25/lorebridge/issues/276)
-7. [ ] [Post-Session Checklist — single workflow button to process end-of-session updates](https://github.com/Jonwh25/lorebridge/issues/277)
-8. [ ] [GitHub Backup — backup LoreBridge JSON files and Foundry macros to GitHub](https://github.com/Jonwh25/lorebridge/issues/278)
+7. ✅ [Post-Session Checklist — single workflow button to process end-of-session updates](https://github.com/Jonwh25/lorebridge/issues/277)
+8. ✅ [GitHub Backup — backup LoreBridge JSON files and Foundry macros to GitHub](https://github.com/Jonwh25/lorebridge/issues/278)
+9. ✅ [CC Baseline — export Campaign Codex journal names and pre-populate tracker files](https://github.com/Jonwh25/lorebridge/issues/286)
+10. ✅ [Session Log Creator — Add Session button with template pre-fill](https://github.com/Jonwh25/lorebridge/issues/288)
 
 Issues #270–274 are independent trackers that can be built in parallel. #277
 and #278 depend on the tracker suite being complete. Portrait auto-match (#276)
