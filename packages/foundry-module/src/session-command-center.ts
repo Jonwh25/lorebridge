@@ -26,6 +26,8 @@ import { matchPortraits } from "./capabilities/portrait-matcher.js";
 import { syncPermissions } from "./capabilities/permissions-sync.js";
 import { runBackupAll } from "./capabilities/backup-all.js";
 import { runPostSessionChecklist } from "./capabilities/post-session-checklist.js";
+import { runExportBaseline } from "./capabilities/cc-baseline.js";
+import { runCreateSessionLog } from "./capabilities/session-log-creator.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -284,6 +286,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
     );
   }
   buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="add-session" title="Create a new session log page with the standard template"><i class="fas fa-book-medical"></i> Add Session</button>`,
+  );
+  buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="health-check" title="Run campaign health check"><i class="fas fa-heartbeat"></i> Health Check</button>`,
   );
   if (settings.uiButtonsEnabled && scene) {
@@ -298,6 +303,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
   }
   buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="match-portraits" title="Auto-match portrait images to NPC journals"><i class="fas fa-portrait"></i> Match Portraits</button>`,
+  );
+  buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="cc-baseline" title="Snapshot all Campaign Codex journal names to GitHub and pre-populate tracker files"><i class="fas fa-layer-group"></i> CC Baseline</button>`,
   );
   buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="sync-permissions" title="Set Observer on all encountered NPCs, visited regions, and active quests"><i class="fas fa-eye"></i> Sync Permissions</button>`,
@@ -490,7 +498,9 @@ class SessionCommandCenter extends _AppBase {
     if (action === "tracker-region-visits-init") { void initializeRegionVisitTracker(); return; }
     if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
     if (action === "tracker-region-visits-backup") { void backupRegionVisits(); return; }
+    if (action === "add-session") { void runCreateSessionLog(); return; }
     if (action === "match-portraits") { void matchPortraits(); return; }
+    if (action === "cc-baseline") { void runExportBaseline(); return; }
     if (action === "sync-permissions") { void syncPermissions(); return; }
     if (action === "backup-all") { void runBackupAll(); return; }
     if (action === "end-of-session") { void runPostSessionChecklist(); return; }
