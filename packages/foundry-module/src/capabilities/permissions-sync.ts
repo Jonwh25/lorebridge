@@ -22,6 +22,7 @@ const OBSERVER = 2;
 type NamedEntry = { name: string };
 type QuestEntry = { name: string; status: string };
 
+
 async function setObserver(journal: JournalWithOps): Promise<void> {
   await journal.update({ ownership: { default: OBSERVER } });
 }
@@ -64,12 +65,12 @@ export async function syncPermissionsCore(): Promise<PermissionsSyncResult> {
   const path = settings.lorefolderPath;
 
   const [npcs, regions, quests] = await Promise.all([
-    readLoreJson<NamedEntry[]>(path, "encountered_npcs.json"),
+    readLoreJson<string[]>(path, "encountered_npcs.json"),
     readLoreJson<NamedEntry[]>(path, "region_visits.json"),
     readLoreJson<QuestEntry[]>(path, "quest_status_summary.json"),
   ]);
 
-  const npcNames = (npcs ?? []).map((e) => e.name);
+  const npcNames = npcs ?? [];
   const regionNames = (regions ?? []).map((e) => e.name);
   const questNames = (quests ?? [])
     .filter((e) => e.status !== "available")
@@ -92,12 +93,12 @@ export async function syncPermissions(): Promise<void> {
   const path = settings.lorefolderPath;
 
   const [npcs, regions, quests] = await Promise.all([
-    readLoreJson<NamedEntry[]>(path, "encountered_npcs.json"),
+    readLoreJson<string[]>(path, "encountered_npcs.json"),
     readLoreJson<NamedEntry[]>(path, "region_visits.json"),
     readLoreJson<QuestEntry[]>(path, "quest_status_summary.json"),
   ]);
 
-  const npcNames = (npcs ?? []).map((e) => e.name);
+  const npcNames = npcs ?? [];
   const regionNames = (regions ?? []).map((e) => e.name);
   const questNames = (quests ?? [])
     .filter((e) => e.status !== "available")
