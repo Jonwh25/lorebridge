@@ -20,14 +20,14 @@ const SESSION_LOG_TEMPLATE = `<h1>[Session Title]</h1>
 <strong>NPCs:</strong> [NPC 1], [NPC 2], [NPC 3]<br>
 <strong>Quests:</strong> [Quest 1], [Quest 2]<br>
 <strong>Quest Updates:</strong> [Completed / Advanced / New — short description]</p>
-<hr>
+<div contenteditable="false"><hr></div>
 <h2>[Story Section]</h2>
 <p>Write the session recap normally.</p>
 <h2>[Story Section]</h2>
 <p>Continue the story.</p>
 <h2>[Story Section]</h2>
 <p>Continue as needed.</p>
-<hr>
+<div contenteditable="false"><hr></div>
 <h2>End of Session</h2>
 <p><strong>Current Location:</strong> [Where the party ended]<br>
 <strong>Next Objective:</strong> [What the party currently intends to do]</p>`;
