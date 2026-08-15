@@ -4,6 +4,25 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-08-15
+
+### Added
+
+- **NPC Status Tracker** (#270): reads session logs via AI extraction and updates `npc_status.json` with per-NPC alive/dead/ghost/undead state. Tracker runs against any session range and presents a GM confirmation dialog before writing; existing entries are preserved and only changed states are updated.
+- **NPC Encounter Tracker** (#271): reads session logs and updates `encountered_npcs.json` with every NPC the party has met. New names are appended; no existing entries are removed.
+- **Quest Status Tracker** (#272): reads session logs and updates `quest_status_summary.json` with per-quest status (`available`, `in_progress`, `completed`, `failed`) sourced from AI extraction of session log content. Existing entries are updated in place; status is never regressed by a later tracker run.
+- **Region Visit Tracker** (#273): reads session logs and updates `region_visits.json` with per-region visit state (`visited`, `sessions`, `firstSeen`). New regions are appended; existing visit state is never cleared.
+- **Player Permissions Sync** (#274): bulk sets Foundry Observer permission (`ownership.default = 2`) on all Campaign Codex journals matching entries in the three tracker files. NPCs and regions always sync; quests with `available` status are excluded. Missing-journal names are reported without failing the sync.
+- **Portrait Auto-Match** (#276): scans `Data/portraits/` (configurable) and sets the portrait field on each matched Campaign Codex NPC journal using fuzzy name matching. A preview dialog shows exact and close matches before any changes are applied; unmatched entries are listed for GM review.
+- **Post-Session Checklist** (#277): one-click Session Command Center button that runs all four tracker analyses (NPC Status, Encounters, Quest Status, Region Visits), Permissions Sync, and GitHub Backup All in sequence, showing a per-step progress and result summary in a single dialog.
+- **GitHub Backup All** (#278): backs up all LoreBridge tracker JSON files and every Foundry macro to the configured GitHub campaign repository in a single authenticated commit. File paths follow the `campaign/<lorefolderPath>/<filename>` convention.
+- **CC Baseline** (#286): new **CC Baseline** button in the Session Command Center reads all journals from the four Campaign Codex folders (NPCs, Locations, Quests, Regions), commits `cc_baseline.json` to GitHub as a versioned snapshot, and pre-populates empty tracker JSONs so session trackers start from the known CC state without requiring a full AI Initialize pass.
+- **Session Log Creator** (#288): new **Add Session** button in the Session Command Center shows a dialog pre-filled with the next session number (auto-detected from existing log pages) and today's date. Confirming creates a new journal page in the Session Logs journal with the standard structured HTML template (Region/Locations/NPCs/Quests header, story sections, End of Session footer) and opens the journal to the new page.
+
+### Fixed
+
+- **Permissions Sync NPC type mismatch**: `permissions-sync.ts` previously read `encountered_npcs.json` as `NamedEntry[]` and called `.name` on each entry, producing `undefined` for every NPC because the file stores plain `string[]`. Changed type to `string[]` and used the array directly.
+
 ## [0.26.4] - 2026-08-13
 
 ### Added
