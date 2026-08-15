@@ -536,12 +536,12 @@ existing artwork, and a one-click post-session workflow.
 
 **Depends on:** Milestone 26 #269 (Session Log Reader extension)
 
-1. [ ] [NPC Status Tracker — track NPC alive/dead/ghost/undead status from session logs](https://github.com/Jonwh25/lorebridge/issues/270)
-2. [ ] [NPC Encounter Tracker — track which NPCs the party has met and set player permissions](https://github.com/Jonwh25/lorebridge/issues/271)
-3. [ ] [Quest Status Tracker — sync quest status from session logs to Campaign Codex](https://github.com/Jonwh25/lorebridge/issues/272)
-4. [ ] [Region Visit Tracker — track visited regions and set player permissions](https://github.com/Jonwh25/lorebridge/issues/273)
+1. ✅ [NPC Status Tracker — track NPC alive/dead/ghost/undead status from session logs](https://github.com/Jonwh25/lorebridge/issues/270)
+2. ✅ [NPC Encounter Tracker — track which NPCs the party has met and set player permissions](https://github.com/Jonwh25/lorebridge/issues/271)
+3. ✅ [Quest Status Tracker — sync quest status from session logs to Campaign Codex](https://github.com/Jonwh25/lorebridge/issues/272)
+4. ✅ [Region Visit Tracker — track visited regions and set player permissions](https://github.com/Jonwh25/lorebridge/issues/273)
 5. [ ] [Player Permissions Sync — bulk set Observer on all encountered NPCs, visited regions, and active quests](https://github.com/Jonwh25/lorebridge/issues/274)
-6. [ ] [Portrait Auto-Match — match existing portrait images to NPC journals from LoreBridge panel](https://github.com/Jonwh25/lorebridge/issues/276)
+6. ✅ [Portrait Auto-Match — match existing portrait images to NPC journals from LoreBridge panel](https://github.com/Jonwh25/lorebridge/issues/276)
 7. [ ] [Post-Session Checklist — single workflow button to process end-of-session updates](https://github.com/Jonwh25/lorebridge/issues/277)
 8. [ ] [GitHub Backup — backup LoreBridge JSON files and Foundry macros to GitHub](https://github.com/Jonwh25/lorebridge/issues/278)
 
