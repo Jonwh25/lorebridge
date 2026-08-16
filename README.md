@@ -88,8 +88,8 @@ or rebuilding, native search and content scanners remain available.
 | Campaign Codex integration | Optional NPC Dossier widgets that register with Campaign Codex — four structured sidebar tabs (Info, Profile, Roleplaying, Knowledge) auto-added to NPC journals; GM Secrets in native Foundry secret blocks; dossier data consumed by LoreBridge generation and roleplay |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
-| Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, and portable GitHub backups |
-| Session tools | **AI NPC** and **Player Party** in the Create Actor dialog; **Distribute Hotbar to Players** in the Macros sidebar; **Remove All Players** in the Session Command Center; **Import from Backup** in the actor sheet header for player-owned characters |
+| Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, portable GitHub backups, and AI session log tracking (NPC status, encounters, quest progress, region visits) with automatic player permission sync |
+| Session tools | **AI NPC** and **Player Party** in the Create Actor dialog; **Distribute Hotbar to Players** in the Macros sidebar; **Remove All Players** in the Session Command Center; **Import from Backup** in the actor sheet header; **Post-Session Checklist** runs all trackers and GitHub backup in one step; **CC Journal Export** pushes all Campaign Codex journals to GitHub |
 | Extensibility | GM-authored macro tools exposed through an explicit declaration and feature gate |
 
 See the [user guide](https://github.com/Jonwh25/lorebridge/wiki/Using-LoreBridge)
