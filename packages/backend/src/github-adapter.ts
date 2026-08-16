@@ -356,18 +356,21 @@ export class GitHubAdapter {
     message: string,
     files: BackupFile[],
     deletePaths?: string[],
+    repoRoot?: string,
   ): Promise<BackupResult> {
     if (!files.length && !deletePaths?.length) {
       throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
     }
 
+    const root = repoRoot ?? this.config.campaignRoot;
+
     // Validate every path before touching GitHub.
     const resolvedFiles = files.map((f) => ({
-      fullPath: resolveCampaignPath(this.config.campaignRoot, f.path),
+      fullPath: resolveCampaignPath(root, f.path),
       content: f.content,
     }));
     const resolvedDeletes = (deletePaths ?? []).map((p) =>
-      resolveCampaignPath(this.config.campaignRoot, p),
+      resolveCampaignPath(root, p),
     );
 
     // Step 1: get current HEAD SHA (null when the repository is empty).
