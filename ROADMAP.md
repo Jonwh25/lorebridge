@@ -564,6 +564,7 @@ changes improve reliability and correctness of existing features.
 1. ✅ [Remove dead code: configuration-app, feature-settings-app, dossier-normalization](https://github.com/Jonwh25/lorebridge/issues/294)
 2. ✅ [Consolidate duplicated utilities: buildBackendUrl, plainText, escHtml, SESSION_NUMBER_RE](https://github.com/Jonwh25/lorebridge/issues/295)
 3. ✅ [CC Journal Export: write full content to GitHub and sync deletions](https://github.com/Jonwh25/lorebridge/issues/298)
+4. ✅ [CC Journal Export: section picker — export only selected folders](https://github.com/Jonwh25/lorebridge/issues/301)
 
 ## Deferred work
 
