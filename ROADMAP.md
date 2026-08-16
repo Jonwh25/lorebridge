@@ -546,6 +546,7 @@ existing artwork, and a one-click post-session workflow.
 8. ✅ [GitHub Backup — backup LoreBridge JSON files and Foundry macros to GitHub](https://github.com/Jonwh25/lorebridge/issues/278)
 9. ✅ [CC Baseline — export Campaign Codex journal names and pre-populate tracker files](https://github.com/Jonwh25/lorebridge/issues/286)
 10. ✅ [Session Log Creator — Add Session button with template pre-fill](https://github.com/Jonwh25/lorebridge/issues/288)
+11. ✅ [CC Journal Export — export all Campaign Codex journal folders and Session Logs to GitHub](https://github.com/Jonwh25/lorebridge/issues/291)
 
 Issues #270–274 are independent trackers that can be built in parallel. #277
 and #278 depend on the tracker suite being complete. Portrait auto-match (#276)
