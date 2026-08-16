@@ -1,16 +1,20 @@
 /**
  * CC Journal Export — issue #291
  *
- * Exports every journal inside each "Campaign Codex - *" folder, plus each
- * page of the Session Logs journal, to GitHub under
- * sources/campaign codex/<folder>/<name>.md.
+ * Exports every journal inside each "Campaign Codex - *" folder tree, plus
+ * each page of the Session Logs journal, to GitHub under
+ * sources/campaign codex/<folder>/<subfolders>/<name>.md.
  *
- * Each folder is committed separately so the UI can show per-folder progress.
+ * Subfolder structure is preserved (e.g. Quests/Available/, Quests/Completed/).
+ * Files are committed in chunks of CHUNK_SIZE so rate limits and proxy
+ * timeouts are never hit even for large folders like NPCs (100+) or
+ * Session Logs (60+).
  */
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend, escHtml, showResultDialog } from "./tracker-shared.js";
+import { buildFolderMap, collectSubtreeIds, type FoundryFolder } from "./backup-folders.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,14 +29,8 @@ type FoundryPage = {
 type FoundryJournal = {
   id: string;
   name: string;
-  folder?: { id: string; name?: string } | null;
+  folder?: { id: string } | null;
   pages: Iterable<FoundryPage>;
-};
-
-type FoundryFolderEntry = {
-  id: string;
-  name: string;
-  type?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -42,6 +40,7 @@ type FoundryFolderEntry = {
 const CC_FOLDER_PREFIX = "campaign codex - ";
 const REPO_ROOT = "sources";
 const EXPORT_BASE = "campaign codex";
+const CHUNK_SIZE = 25; // files per commit — keeps each request under ~10 s
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,6 +48,12 @@ const EXPORT_BASE = "campaign codex";
 
 function safeName(name: string): string {
   return name.replace(/[/\\:*?"<>|]/g, "-").trim();
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
 }
 
 function journalToMarkdown(journal: FoundryJournal): string {
@@ -68,42 +73,63 @@ function pageToMarkdown(page: FoundryPage): string {
   return lines.join("\n");
 }
 
-function getCCFolders(): FoundryFolderEntry[] {
-  const folders = (game as unknown as { folders?: { contents?: unknown[] } }).folders;
-  return (folders?.contents ?? []).filter((f): f is FoundryFolderEntry => {
-    const entry = f as FoundryFolderEntry;
-    return (
-      !!entry?.id &&
-      typeof entry.name === "string" &&
-      entry.name.toLowerCase().startsWith(CC_FOLDER_PREFIX) &&
-      entry.type === "JournalEntry"
-    );
-  });
+function getCCRootFolders(folderById: Map<string, FoundryFolder>): FoundryFolder[] {
+  return Array.from(folderById.values()).filter(
+    (f) =>
+      typeof f.name === "string" &&
+      f.name.toLowerCase().startsWith(CC_FOLDER_PREFIX) &&
+      f.type === "JournalEntry",
+  );
 }
 
-function getJournalsInFolder(folderId: string): FoundryJournal[] {
-  const results: FoundryJournal[] = [];
-  for (const j of game.journal as Iterable<FoundryJournal>) {
-    if (j.folder?.id === folderId) results.push(j);
+function relativePathSegments(
+  folderId: string,
+  rootFolderId: string,
+  folderById: Map<string, FoundryFolder>,
+): string[] {
+  const segments: string[] = [];
+  let current: string | undefined = folderId;
+  while (current && current !== rootFolderId) {
+    const f = folderById.get(current);
+    if (!f) break;
+    segments.unshift(safeName(f.name));
+    current = f.folder?.id;
   }
-  return results;
+  return segments;
 }
 
-function getJournalByName(name: string): FoundryJournal | undefined {
-  const lower = name.trim().toLowerCase();
+function journalsInSubtree(
+  rootFolder: FoundryFolder,
+  folderById: Map<string, FoundryFolder>,
+): Array<{ path: string; content: string }> {
+  const subtreeIds = collectSubtreeIds(rootFolder.id, folderById);
+  const files: Array<{ path: string; content: string }> = [];
+
   for (const j of game.journal as Iterable<FoundryJournal>) {
-    if ((j.name ?? "").trim().toLowerCase() === lower) return j;
+    const folderId = j.folder?.id;
+    if (!folderId || !subtreeIds.has(folderId)) continue;
+
+    const subSegments = relativePathSegments(folderId, rootFolder.id, folderById);
+    const filePath = [
+      EXPORT_BASE,
+      safeName(rootFolder.name),
+      ...subSegments,
+      `${safeName(j.name)}.md`,
+    ].join("/");
+
+    files.push({ path: filePath, content: journalToMarkdown(j) });
   }
-  return undefined;
+
+  return files;
 }
 
-async function commitFolder(
+async function commitChunk(
   files: { path: string; content: string }[],
-  folderName: string,
+  message: string,
 ): Promise<string> {
   const result = await postBackend<{ commitUrl?: string }>("v1/backup/github/lore-files", {
     files,
-    commitMessage: `LoreBridge: Export ${folderName}`,
+    commitMessage: message,
     repoRoot: REPO_ROOT,
   });
   return result.commitUrl ?? "";
@@ -116,66 +142,80 @@ async function commitFolder(
 export async function runExportCCJournals(): Promise<void> {
   requireFoundryGm("runExportCCJournals");
 
-  const ccFolders = getCCFolders();
+  const folderById = buildFolderMap([]);
+  const ccRootFolders = getCCRootFolders(folderById);
+
   const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
-  const sessionJournal = getJournalByName(sessionFolderName);
+  let sessionPages: { path: string; content: string }[] = [];
+  for (const j of game.journal as Iterable<FoundryJournal>) {
+    if ((j.name ?? "").trim().toLowerCase() !== sessionFolderName.trim().toLowerCase()) continue;
+    for (const page of j.pages) {
+      if (!page.name) continue;
+      sessionPages.push({
+        path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
+        content: pageToMarkdown(page),
+      });
+    }
+    break;
+  }
 
-  // Pre-calculate total steps so the counter is accurate from the start.
-  const activeCCFolders = ccFolders.filter((f) => getJournalsInFolder(f.id).length > 0);
-  const hasSessionLogs = !!sessionJournal && Array.from(sessionJournal.pages).some((p) => p.name);
-  const totalSteps = activeCCFolders.length + (hasSessionLogs ? 1 : 0);
+  // Pre-gather and chunk so the total step count is accurate up front.
+  type WorkItem = { label: string; commitLabel: string; files: { path: string; content: string }[] };
+  const work: WorkItem[] = [];
 
-  if (totalSteps === 0) {
-    ui.notifications.warn("LoreBridge CC Export: Nothing to export — no Campaign Codex journals or session log pages found.");
+  for (const folder of ccRootFolders) {
+    const files = journalsInSubtree(folder, folderById);
+    if (files.length === 0) continue;
+    const chunks = chunkArray(files, CHUNK_SIZE);
+    chunks.forEach((chunk, i) => {
+      const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
+      work.push({
+        label: `${folder.name}${partLabel}`,
+        commitLabel: `Export ${folder.name}${partLabel}`,
+        files: chunk,
+      });
+    });
+  }
+
+  if (sessionPages.length > 0) {
+    const chunks = chunkArray(sessionPages, CHUNK_SIZE);
+    chunks.forEach((chunk, i) => {
+      const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
+      work.push({
+        label: `${sessionFolderName}${partLabel}`,
+        commitLabel: `Export ${sessionFolderName}${partLabel}`,
+        files: chunk,
+      });
+    });
+  }
+
+  if (work.length === 0) {
+    ui.notifications.warn("LoreBridge CC Export: Nothing to export.");
     return;
   }
 
-  let step = 0;
   let totalFiles = 0;
-  const folderCounts: { name: string; count: number }[] = [];
   let lastCommitUrl = "";
 
+  // Track per-folder totals for the result dialog.
+  const folderTotals = new Map<string, number>();
+
   try {
-    // --- Campaign Codex folders ---
-    for (const folder of activeCCFolders) {
-      const journals = getJournalsInFolder(folder.id);
-      step++;
-      ui.notifications.info(`LoreBridge CC Export: ${folder.name} (${step}/${totalSteps})…`);
+    for (let i = 0; i < work.length; i++) {
+      const item = work[i]!;
+      ui.notifications.info(`LoreBridge CC Export: ${item.label} (${i + 1}/${work.length})…`);
+      lastCommitUrl = await commitChunk(item.files, item.commitLabel);
+      totalFiles += item.files.length;
 
-      const files = journals.map((j) => ({
-        path: `${EXPORT_BASE}/${safeName(folder.name)}/${safeName(j.name)}.md`,
-        content: journalToMarkdown(j),
-      }));
-
-      lastCommitUrl = await commitFolder(files, folder.name);
-      folderCounts.push({ name: folder.name, count: journals.length });
-      totalFiles += journals.length;
-    }
-
-    // --- Session Logs (one file per page) ---
-    if (hasSessionLogs && sessionJournal) {
-      const pages: { path: string; content: string }[] = [];
-      for (const page of sessionJournal.pages) {
-        if (!page.name) continue;
-        pages.push({
-          path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
-          content: pageToMarkdown(page),
-        });
-      }
-
-      if (pages.length > 0) {
-        step++;
-        ui.notifications.info(`LoreBridge CC Export: Session Logs (${step}/${totalSteps})…`);
-
-        lastCommitUrl = await commitFolder(pages, sessionFolderName);
-        folderCounts.push({ name: sessionFolderName, count: pages.length });
-        totalFiles += pages.length;
+      // Attribute files back to their CC root folder name for the summary.
+      for (const f of item.files) {
+        const seg = f.path.split("/")[1] ?? item.label;
+        folderTotals.set(seg, (folderTotals.get(seg) ?? 0) + 1);
       }
     }
 
-    // --- Result dialog ---
-    const rowsHtml = folderCounts
-      .map((f) => `<tr><td>${escHtml(f.name)}</td><td style="text-align:center">${f.count}</td></tr>`)
+    const rowsHtml = Array.from(folderTotals.entries())
+      .map(([name, count]) => `<tr><td>${escHtml(name)}</td><td style="text-align:center">${count}</td></tr>`)
       .join("");
 
     const linkHtml = lastCommitUrl
@@ -186,7 +226,7 @@ export async function runExportCCJournals(): Promise<void> {
       "Campaign Codex Export",
       `<p><strong>${totalFiles}</strong> file${totalFiles !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
-  <thead><tr><th style="text-align:left;padding:2px 6px">Folder / Journal</th><th style="padding:2px 6px">Files</th></tr></thead>
+  <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Files</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
 </table>${linkHtml}`,
     );
