@@ -4,6 +4,8 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-08-16
+
 ### Added
 
 - **CC Journal Export — section picker** (#301): clicking **Export CC** now opens a folder-selection dialog before uploading. Every Campaign Codex root folder and a Session Logs row are listed with checkboxes, all checked by default. The GM unchecks sections they don't need and clicks Export; only selected sections are uploaded and deletion sync is scoped to those prefixes so unselected folders are left untouched on GitHub. Cancelling aborts with no network activity.
