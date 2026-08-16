@@ -257,12 +257,14 @@ function resolveUuidName(uuid: string): string {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = globalThis as any;
-    // Try full UUID first ("JournalEntry.abc123" or "Actor.abc123")
-    const byUuid = g.fromUuidSync?.(uuid);
+    // CC stores unlocks as "JournalEntry.abc::pageId" — strip the page sub-ID
+    // to get the journal entry UUID, then resolve the journal name.
+    const journalUuid = uuid.split("::")[0]!;
+    const byUuid = g.fromUuidSync?.(journalUuid);
     if (byUuid?.name) return byUuid.name as string;
-    // Fall back: CC sometimes stores bare short IDs without the type prefix
-    const shortId = uuid.replace(/^[^.]+\./, "");
-    const byId = g.game?.journal?.get(shortId) ?? g.game?.journal?.get(uuid);
+    // Fallback: bare short ID without type prefix
+    const shortId = journalUuid.replace(/^[^.]+\./, "");
+    const byId = g.game?.journal?.get(shortId);
     if (byId?.name) return byId.name as string;
     return uuid;
   } catch {
