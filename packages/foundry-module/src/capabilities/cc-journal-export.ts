@@ -253,10 +253,18 @@ function npcToMarkdown(name: string, dossier: NpcDossier): string {
 }
 
 function resolveUuidName(uuid: string): string {
+  if (!uuid) return uuid;
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const doc = (globalThis as any).fromUuidSync?.(uuid);
-    return doc?.name ?? uuid;
+    const g = globalThis as any;
+    // Try full UUID first ("JournalEntry.abc123" or "Actor.abc123")
+    const byUuid = g.fromUuidSync?.(uuid);
+    if (byUuid?.name) return byUuid.name as string;
+    // Fall back: CC sometimes stores bare short IDs without the type prefix
+    const shortId = uuid.replace(/^[^.]+\./, "");
+    const byId = g.game?.journal?.get(shortId) ?? g.game?.journal?.get(uuid);
+    if (byId?.name) return byId.name as string;
+    return uuid;
   } catch {
     return uuid;
   }
