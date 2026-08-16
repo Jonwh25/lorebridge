@@ -2,6 +2,8 @@ import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
 import { type NpcMemoryEntry, getMemories, deleteMemory, clearMemories } from "./npc-mention.js";
 import { getActorDossierCache, getDossierSummaryText } from "./campaign-codex-widget.js";
+import { escHtml } from "../utils/html.js";
+import { postBackend } from "./tracker-shared.js";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the backend NpcProfileSections model
@@ -175,35 +177,6 @@ const _AppBase: typeof FoundryApplicationV2 = (
 ).foundry?.applications?.api?.ApplicationV2 ?? _TestSafeBase;
 
 // ---------------------------------------------------------------------------
-// Backend helper
-// ---------------------------------------------------------------------------
-
-function buildBackendUrl(base: string, path: string): string {
-  return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
-}
-
-async function postBackend<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const settings = getLoreBridgeSettings();
-  if (!settings.backendUrl || !settings.clientToken) {
-    throw new Error("LoreBridge backend is not configured or paired.");
-  }
-  const url = buildBackendUrl(settings.backendUrl, path);
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${settings.clientToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Backend error ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
-
-// ---------------------------------------------------------------------------
 // Status / escape helpers
 // ---------------------------------------------------------------------------
 
@@ -224,10 +197,6 @@ function statusIcon(status: "empty" | "partial" | "full"): string {
   if (status === "full") return "✅";
   if (status === "partial") return "⚠";
   return "❌";
-}
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ---------------------------------------------------------------------------

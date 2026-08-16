@@ -1,4 +1,6 @@
 import { getLoreBridgeSettings } from "./settings.js";
+import { escHtml } from "./utils/html.js";
+import { postBackend } from "./capabilities/tracker-shared.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { handleSessionCleanup } from "./capabilities/session-cleanup.js";
 import { removeNonGmUsers } from "./capabilities/session-tools.js";
@@ -55,33 +57,6 @@ const _AppBase: typeof FoundryApplicationV2 = (
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function _escHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-async function _postBackend<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const settings = getLoreBridgeSettings();
-  if (!settings.backendUrl || !settings.clientToken) {
-    throw new Error("LoreBridge backend is not configured or paired.");
-  }
-  const base = settings.backendUrl;
-  const url = base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { authorization: `Bearer ${settings.clientToken}`, "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Backend error ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
 
 // ---------------------------------------------------------------------------
 // Data gathering — synchronous reads from local Foundry state
@@ -189,16 +164,16 @@ function _sceneHtml(scene: SceneInfo | null): string {
   const actorRows = scene.tokenActors.length > 0
     ? scene.tokenActors
         .map((a) =>
-          `<span class="lb-scc__tag lb-scc__link" data-action="open-actor" data-id="${_escHtml(a.id)}" title="Open actor sheet">${_escHtml(a.name)}</span>`,
+          `<span class="lb-scc__tag lb-scc__link" data-action="open-actor" data-id="${escHtml(a.id)}" title="Open actor sheet">${escHtml(a.name)}</span>`,
         )
         .join(" ")
     : `<em style="color:rgba(255,255,255,0.5)">No tokens</em>`;
   const journalLink = scene.linkedJournalId
-    ? `<span class="lb-scc__link" data-action="open-journal" data-id="${_escHtml(scene.linkedJournalId)}" title="Open linked journal">${_escHtml(scene.linkedJournalName ?? "Linked Journal")}</span>`
+    ? `<span class="lb-scc__link" data-action="open-journal" data-id="${escHtml(scene.linkedJournalId)}" title="Open linked journal">${escHtml(scene.linkedJournalName ?? "Linked Journal")}</span>`
     : `<em style="color:rgba(255,255,255,0.5)">None</em>`;
   return `
     <div class="lb-scc__row">
-      <strong class="lb-scc__link" data-action="open-scene" title="Open scene sheet">${_escHtml(scene.name)}</strong>
+      <strong class="lb-scc__link" data-action="open-scene" title="Open scene sheet">${escHtml(scene.name)}</strong>
     </div>
     <div class="lb-scc__row"><span class="lb-scc__label">Tokens:</span> ${actorRows}</div>
     <div class="lb-scc__row"><span class="lb-scc__label">Journal:</span> ${journalLink}</div>`;
@@ -213,12 +188,12 @@ function _combatHtml(combat: CombatInfo): string {
       const cls = c.defeated ? "lb-scc__combatant--defeated" : "";
       const arrow = c.name === combat.currentName ? " ▶" : "";
       const init = c.initiative !== null ? String(c.initiative) : "—";
-      return `<li class="${cls}">${_escHtml(c.name)}${arrow} <span class="lb-scc__dim">(${init})</span></li>`;
+      return `<li class="${cls}">${escHtml(c.name)}${arrow} <span class="lb-scc__dim">(${init})</span></li>`;
     })
     .join("");
   return `
     <div class="lb-scc__row">
-      <span class="lb-scc__label">Round ${combat.round}</span> · Current: <strong>${_escHtml(combat.currentName)}</strong>
+      <span class="lb-scc__label">Round ${combat.round}</span> · Current: <strong>${escHtml(combat.currentName)}</strong>
     </div>
     <ul class="lb-scc__list">${rows}</ul>`;
 }
@@ -230,7 +205,7 @@ function _chatHtml(chat: ChatInfo): string {
   const rows = chat.messages
     .map((m) => {
       const whisper = m.isWhisper ? ` <span class="lb-scc__dim">[whisper]</span>` : "";
-      return `<li><strong>${_escHtml(m.speaker)}</strong>${whisper}: ${_escHtml(m.excerpt)}</li>`;
+      return `<li><strong>${escHtml(m.speaker)}</strong>${whisper}: ${escHtml(m.excerpt)}</li>`;
     })
     .join("");
   return `<ul class="lb-scc__list lb-scc__list--chat">${rows}</ul>`;
@@ -238,12 +213,12 @@ function _chatHtml(chat: ChatInfo): string {
 
 function _sessionHtml(session: SessionInfo): string {
   if (!session.journalId) {
-    return `<p class="lb-scc__empty">Journal "<em>${_escHtml(session.journalName)}</em>" not found.</p>`;
+    return `<p class="lb-scc__empty">Journal "<em>${escHtml(session.journalName)}</em>" not found.</p>`;
   }
   const label = session.latestPageName ?? session.journalName;
-  const pageLink = `<span class="lb-scc__link" data-action="open-journal" data-id="${_escHtml(session.journalId)}" title="Open session log">${_escHtml(label)}</span>`;
+  const pageLink = `<span class="lb-scc__link" data-action="open-journal" data-id="${escHtml(session.journalId)}" title="Open session log">${escHtml(label)}</span>`;
   const excerptBlock = session.excerpt
-    ? `<div class="lb-scc__excerpt">${_escHtml(session.excerpt)}…</div>`
+    ? `<div class="lb-scc__excerpt">${escHtml(session.excerpt)}…</div>`
     : "";
   return `<div class="lb-scc__row">${pageLink}</div>${excerptBlock}`;
 }
@@ -259,7 +234,7 @@ function _trackersHtml(): string {
     .map(
       (t) =>
         `<tr>
-          <td style="padding:3px 6px;font-size:11px;font-weight:bold;white-space:nowrap">${_escHtml(t.label)}</td>
+          <td style="padding:3px 6px;font-size:11px;font-weight:bold;white-space:nowrap">${escHtml(t.label)}</td>
           <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.initAction}" title="Process all sessions (full initialize)">All</button></td>
           <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.currentAction}" title="Process only the latest session">Latest</button></td>
           <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.backupAction}" title="Backup to GitHub">Backup</button></td>
@@ -408,7 +383,7 @@ class SessionCommandCenter extends _AppBase {
       <div class="lb-scc">
         <div class="lb-scc__toolbar">
           <button type="button" data-action="refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
-          <span class="lb-scc__ts">Updated ${_escHtml(now)}</span>
+          <span class="lb-scc__ts">Updated ${escHtml(now)}</span>
         </div>
 
         <details class="lb-scc__section" open>
@@ -524,7 +499,7 @@ class SessionCommandCenter extends _AppBase {
     ui.notifications.info("LoreBridge: Generating encounter suggestions…");
     try {
       const tokens = Array.from(scene.tokens).map((t) => t.name).filter(Boolean);
-      const result = await _postBackend<{ suggestions: string[] }>("v1/generate/encounter-suggestions", {
+      const result = await postBackend<{ suggestions: string[] }>("v1/generate/encounter-suggestions", {
         sceneName: scene.name,
         linkedJournal: scene.journal?.name,
         tokens,
@@ -554,9 +529,9 @@ class SessionCommandCenter extends _AppBase {
           (f) =>
             `<tr>
               <td style="padding:2px 6px">${sevIcon(f.severity)}</td>
-              <td style="padding:2px 6px;font-size:11px;color:#888">${_escHtml(f.category)}</td>
-              <td style="padding:2px 6px">${_escHtml(f.sourceName)}</td>
-              <td style="padding:2px 6px;color:#444">${_escHtml(f.detail)}</td>
+              <td style="padding:2px 6px;font-size:11px;color:#888">${escHtml(f.category)}</td>
+              <td style="padding:2px 6px">${escHtml(f.sourceName)}</td>
+              <td style="padding:2px 6px;color:#444">${escHtml(f.detail)}</td>
             </tr>`,
         )
         .join("");

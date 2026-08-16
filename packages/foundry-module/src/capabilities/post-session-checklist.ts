@@ -7,7 +7,7 @@
  */
 
 import { requireFoundryGm } from "./errors.js";
-import { readLatest as sessionReadLatest } from "./session-log-reader.js";
+import { readLatest as sessionReadLatest } from "./session-log-pipeline.js";
 import { updateNpcStatusFromLatest } from "./tracker-npc-status.js";
 import { updateNpcEncountersFromLatest } from "./tracker-npc-encounters.js";
 import { updateQuestStatusFromLatest } from "./tracker-quest-status.js";

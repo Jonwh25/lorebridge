@@ -12,6 +12,7 @@ import { RAVENS_EYE_SPEC_VERSION } from "@lorebridge/shared";
 import type { BackupFileEntry } from "@lorebridge/shared/capabilities";
 import { toYamlDoc } from "./backup-yaml.js";
 import { buildFolderMap, collectSubtreeIds, findRootFolder, type FoundryFolder } from "./backup-folders.js";
+import { plainText } from "../utils/html.js";
 
 const MODULE_ID = "lorebridge";
 const FLAG_RAVENS_EYE_ID = "ravensEyeId";
@@ -42,18 +43,7 @@ function slugify(name: string): string {
   return slug || "unnamed";
 }
 
-function plainText(html: string): string {
-  if (typeof DOMParser !== "undefined") {
-    return (
-      new DOMParser().parseFromString(html, "text/html").body.textContent ?? ""
-    );
-  }
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+
 
 function buildFrontmatter(id: string, name: string): string {
   const meta: Record<string, unknown> = {

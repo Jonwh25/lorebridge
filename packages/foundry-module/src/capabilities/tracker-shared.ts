@@ -28,15 +28,9 @@ type FoundryFolderDoc = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-export function escHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+export { escHtml } from "../utils/html.js";
 
-function buildBackendUrl(base: string, path: string): string {
+export function buildBackendUrl(base: string, path: string): string {
   return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
 }
 
