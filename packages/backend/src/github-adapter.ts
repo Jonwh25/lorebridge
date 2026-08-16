@@ -418,11 +418,15 @@ export class GitHubAdapter {
       baseTreeSha = (initCommit.tree as Record<string, unknown>).sha as string;
     }
 
-    // Step 3: create a blob for each file, in batches of 5 to avoid
-    // overwhelming the GitHub API with concurrent requests on large exports.
-    const BLOB_BATCH_SIZE = 5;
+    // Step 3: create a blob for each file, in small batches with a pause
+    // between each to avoid GitHub secondary rate limits on large exports.
+    const BLOB_BATCH_SIZE = 3;
+    const BLOB_BATCH_DELAY_MS = 1000;
     const treeEntries: Array<{ path: string; mode: string; type: string; sha: string | null }> = [];
     for (let i = 0; i < resolvedFiles.length; i += BLOB_BATCH_SIZE) {
+      if (i > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, BLOB_BATCH_DELAY_MS));
+      }
       const batch = resolvedFiles.slice(i, i + BLOB_BATCH_SIZE);
       const batchEntries = await Promise.all(
         batch.map(async ({ fullPath, content }) => {
