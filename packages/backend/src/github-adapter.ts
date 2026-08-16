@@ -138,7 +138,12 @@ async function callGitHub(
   });
 
   if (response.status === 401 || response.status === 403) {
-    throw new GitHubAdapterError("access_denied", safeErrorMessage(response.status, url));
+    let detail = "";
+    try {
+      const data = await response.json() as Record<string, unknown>;
+      detail = ` — ${String(data.message ?? JSON.stringify(data))}`;
+    } catch { /* ignore parse errors */ }
+    throw new GitHubAdapterError("access_denied", safeErrorMessage(response.status, url) + detail);
   }
   if (response.status === 404) {
     throw new GitHubAdapterError("not_found", safeErrorMessage(response.status, url));
@@ -356,18 +361,21 @@ export class GitHubAdapter {
     message: string,
     files: BackupFile[],
     deletePaths?: string[],
+    repoRoot?: string,
   ): Promise<BackupResult> {
     if (!files.length && !deletePaths?.length) {
       throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
     }
 
+    const root = repoRoot ?? this.config.campaignRoot;
+
     // Validate every path before touching GitHub.
     const resolvedFiles = files.map((f) => ({
-      fullPath: resolveCampaignPath(this.config.campaignRoot, f.path),
+      fullPath: resolveCampaignPath(root, f.path),
       content: f.content,
     }));
     const resolvedDeletes = (deletePaths ?? []).map((p) =>
-      resolveCampaignPath(this.config.campaignRoot, p),
+      resolveCampaignPath(root, p),
     );
 
     // Step 1: get current HEAD SHA (null when the repository is empty).
@@ -410,11 +418,15 @@ export class GitHubAdapter {
       baseTreeSha = (initCommit.tree as Record<string, unknown>).sha as string;
     }
 
-    // Step 3: create a blob for each file, in batches of 5 to avoid
-    // overwhelming the GitHub API with concurrent requests on large exports.
-    const BLOB_BATCH_SIZE = 5;
+    // Step 3: create a blob for each file, in small batches with a pause
+    // between each to avoid GitHub secondary rate limits on large exports.
+    const BLOB_BATCH_SIZE = 3;
+    const BLOB_BATCH_DELAY_MS = 1000;
     const treeEntries: Array<{ path: string; mode: string; type: string; sha: string | null }> = [];
     for (let i = 0; i < resolvedFiles.length; i += BLOB_BATCH_SIZE) {
+      if (i > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, BLOB_BATCH_DELAY_MS));
+      }
       const batch = resolvedFiles.slice(i, i + BLOB_BATCH_SIZE);
       const batchEntries = await Promise.all(
         batch.map(async ({ fullPath, content }) => {
@@ -440,39 +452,73 @@ export class GitHubAdapter {
       treeEntries.push({ path: fullPath, mode: "100644", type: "blob", sha: null });
     }
 
-    // Step 4: create a new tree (omit base_tree for the initial commit).
-    const treeData = await this.call(`${this.repoBase()}/git/trees`, {
-      method: "POST",
-      body: baseTreeSha
-        ? { base_tree: baseTreeSha, tree: treeEntries }
-        : { tree: treeEntries },
-    }) as Record<string, unknown>;
-    const newTreeSha = treeData.sha as string;
+    // Steps 4-6: create tree → commit → update ref.
+    // Retried up to 3 times when the ref update races with another commit
+    // (GitHub returns 422 on non-fast-forward; blobs are already written
+    // and content-addressed so they don't need to be recreated).
+    const MAX_REF_RETRIES = 3;
+    let currentHeadSha = headSha;
+    let currentBaseTreeSha = baseTreeSha;
+    let newCommitSha = "";
+    let commitUrl = "";
 
-    // Step 5: create the commit (omit parents for the initial commit).
-    const commitResult = await this.call(`${this.repoBase()}/git/commits`, {
-      method: "POST",
-      body: {
-        message,
-        tree: newTreeSha,
-        parents: headSha ? [headSha] : [],
-      },
-    }) as Record<string, unknown>;
-    const newCommitSha = commitResult.sha as string;
-    const commitUrl = String(commitResult.html_url ?? "");
+    for (let attempt = 0; attempt <= MAX_REF_RETRIES; attempt++) {
+      if (attempt > 0) {
+        // Re-fetch the HEAD that landed between our read and our PATCH.
+        await new Promise<void>((r) => setTimeout(r, 400 * attempt));
+        const refData = await this.call(refUrl) as Record<string, unknown>;
+        currentHeadSha = (refData.object as Record<string, unknown>).sha as string;
+        const commitData = await this.call(
+          `${this.repoBase()}/git/commits/${currentHeadSha}`,
+        ) as Record<string, unknown>;
+        currentBaseTreeSha = (commitData.tree as Record<string, unknown>).sha as string;
+      }
 
-    // Step 6: update existing ref (force:false → 422 on non-fast-forward),
-    // or create the ref for the first commit on an empty repository.
-    if (headSha) {
-      await this.call(refUrl, {
-        method: "PATCH",
-        body: { sha: newCommitSha, force: false },
-      });
-    } else {
-      await this.call(`${this.repoBase()}/git/refs`, {
+      // Step 4: create a new tree (omit base_tree for the initial commit).
+      const treeData = await this.call(`${this.repoBase()}/git/trees`, {
         method: "POST",
-        body: { ref: `refs/heads/${this.config.branch}`, sha: newCommitSha },
-      });
+        body: currentBaseTreeSha
+          ? { base_tree: currentBaseTreeSha, tree: treeEntries }
+          : { tree: treeEntries },
+      }) as Record<string, unknown>;
+      const newTreeSha = treeData.sha as string;
+
+      // Step 5: create the commit (omit parents for the initial commit).
+      const commitResult = await this.call(`${this.repoBase()}/git/commits`, {
+        method: "POST",
+        body: {
+          message,
+          tree: newTreeSha,
+          parents: currentHeadSha ? [currentHeadSha] : [],
+        },
+      }) as Record<string, unknown>;
+      newCommitSha = commitResult.sha as string;
+      commitUrl = String(commitResult.html_url ?? "");
+
+      // Step 6: update existing ref (force:false → 422 on non-fast-forward).
+      try {
+        if (currentHeadSha) {
+          await this.call(refUrl, {
+            method: "PATCH",
+            body: { sha: newCommitSha, force: false },
+          });
+        } else {
+          await this.call(`${this.repoBase()}/git/refs`, {
+            method: "POST",
+            body: { ref: `refs/heads/${this.config.branch}`, sha: newCommitSha },
+          });
+        }
+        break; // success
+      } catch (refError) {
+        if (
+          refError instanceof GitHubAdapterError &&
+          refError.code === "conflict" &&
+          attempt < MAX_REF_RETRIES
+        ) {
+          continue; // re-fetch HEAD and retry
+        }
+        throw refError;
+      }
     }
 
     return {

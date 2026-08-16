@@ -27,6 +27,7 @@ import { syncPermissions } from "./capabilities/permissions-sync.js";
 import { runBackupAll } from "./capabilities/backup-all.js";
 import { runPostSessionChecklist } from "./capabilities/post-session-checklist.js";
 import { runExportBaseline } from "./capabilities/cc-baseline.js";
+import { runExportCCJournals } from "./capabilities/cc-journal-export.js";
 import { runCreateSessionLog } from "./capabilities/session-log-creator.js";
 
 // ---------------------------------------------------------------------------
@@ -308,6 +309,9 @@ function _actionsHtml(scene: SceneInfo | null): string {
     `<button type="button" class="lb-scc__action-btn" data-action="cc-baseline" title="Snapshot all Campaign Codex journal names to GitHub and pre-populate tracker files"><i class="fas fa-layer-group"></i> CC Baseline</button>`,
   );
   buttons.push(
+    `<button type="button" class="lb-scc__action-btn" data-action="cc-export" title="Export all Campaign Codex journal pages to GitHub under sources/campaign codex/"><i class="fas fa-book-open"></i> Export CC</button>`,
+  );
+  buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="sync-permissions" title="Set Observer on all encountered NPCs, visited regions, and active quests"><i class="fas fa-eye"></i> Sync Permissions</button>`,
   );
   buttons.push(
@@ -501,6 +505,7 @@ class SessionCommandCenter extends _AppBase {
     if (action === "add-session") { void runCreateSessionLog(); return; }
     if (action === "match-portraits") { void matchPortraits(); return; }
     if (action === "cc-baseline") { void runExportBaseline(); return; }
+    if (action === "cc-export") { void runExportCCJournals(); return; }
     if (action === "sync-permissions") { void syncPermissions(); return; }
     if (action === "backup-all") { void runBackupAll(); return; }
     if (action === "end-of-session") { void runPostSessionChecklist(); return; }

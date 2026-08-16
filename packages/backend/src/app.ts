@@ -1344,6 +1344,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const body = await readJson(request);
     const files = body["files"];
     const commitMessage = typeof body["commitMessage"] === "string" ? body["commitMessage"].trim() : "";
+    const repoRootRaw = body["repoRoot"];
     if (!Array.isArray(files) || files.length === 0) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "'files' must be a non-empty array." } });
       return;
@@ -1358,13 +1359,23 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       const rec = f as Record<string, unknown>;
       loreFiles.push({ path: rec["path"] as string, content: rec["content"] as string });
     }
+    // Optional repoRoot override: must be a safe, non-empty, non-traversal string.
+    let repoRoot: string | undefined;
+    if (repoRootRaw !== undefined) {
+      if (typeof repoRootRaw !== "string" || !repoRootRaw.trim() || repoRootRaw.includes("..") || repoRootRaw.startsWith("/")) {
+        sendJson(response, 400, { error: { code: "invalid_request", message: "'repoRoot' must be a non-empty relative path without traversal." } });
+        return;
+      }
+      repoRoot = repoRootRaw.trim().replace(/\/+$/, "");
+    }
     if (!github) {
       sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
       return;
     }
+    const effectiveRoot = repoRoot ?? github.campaignRoot;
     try {
       for (const f of loreFiles) {
-        resolveCampaignPath(github.campaignRoot, f.path);
+        resolveCampaignPath(effectiveRoot, f.path);
       }
     } catch (error) {
       if (error instanceof GitHubAdapterError) {
@@ -1375,7 +1386,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const message = commitMessage || `LoreBridge: lore file backup`;
-      const result = await github.createBackupCommit(message, loreFiles, []);
+      const result = await github.createBackupCommit(message, loreFiles, [], repoRoot);
       sendJson(response, 200, { commitSha: result.sha, commitUrl: result.url, files: loreFiles.map((f) => f.path) });
     } catch (error) {
       if (error instanceof GitHubAdapterError) {

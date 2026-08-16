@@ -1,6 +1,7 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
 import { searchCampaign } from "./search-campaign.js";
+import { runCreateSessionLog } from "./session-log-creator.js";
 import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";
 
 const MODULE_ID = "lorebridge";
@@ -796,6 +797,10 @@ export function registerSheetButtons(): void {
         injectHeaderButton(frame, "party-recap", "fas fa-users", "Party Recap", "ui-buttons", () => runPartyRecap(doc, frame));
         injectHeaderButton(frame, "lazy-dm-prep", "fas fa-hat-wizard", "Lazy DM Prep", "ui-buttons", () => runLazyDmPrep(doc, frame));
       }
+      }
+      const sessionFolder = (settings.sessionLogFolder || "Session Logs").toLowerCase();
+      if (doc.name.toLowerCase() === sessionFolder) {
+        injectHeaderButton(frame, "add-session", "fas fa-book-medical", "Add Session", "session-tools", () => void runCreateSessionLog());
       }
       if (settings.journalQaEnabled) injectQAPanel(doc, frame);
     }
