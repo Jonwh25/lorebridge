@@ -4,6 +4,26 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-08-16
+
+### Added
+
+- **CC Journal Export — full structured content** (#298): the **Export CC** button now writes the real Campaign Codex data to GitHub instead of stub page HTML. NPC journals render a full markdown dossier (Reference, Identity, Overview, Roleplay, Knowledge sections) sourced from `flags.lorebridge.npcDossier`. Quest journals render status/urgency/visibility flags, a Quest Links section (Quest Giver, Depends On, Unlocks, Related — all resolved to human-readable names), nested `[x]`/`[ ]`/`[!]` objectives, Description, and Notes. All other CC journal types and non-CC journals fall back to page text content.
+- **CC Journal Export — deletion sync** (#298): before each export run, LoreBridge fetches the current file list from GitHub and computes which paths no longer exist in Foundry. Deleted journals are removed from GitHub in a final cleanup commit. The result dialog shows the deletion count alongside the per-folder file totals.
+- **Session log formatting** (#298): session log pages now export with full markdown structure — headings, paragraphs, bullet lists, bold/italic, and links — instead of all content collapsed to a single line. Powered by a new `htmlToMarkdown()` utility that walks the DOM tree element by element.
+
+### Changed
+
+- **Utility consolidation** (#295): `plainText`, `escHtml`, `buildBackendUrl`, and `postBackend` are now exported from single canonical locations (`utils/html.ts` and `capabilities/tracker-shared.ts`). All fourteen files that previously defined local copies have been updated to import from those sources. Net reduction of ~184 lines of duplicated code.
+
+### Fixed
+
+- **CC Journal Export — quest link UUID resolution** (#298): Campaign Codex stores quest `unlocks` and `dependencies` as `JournalEntry.id::pageId` references. The page sub-ID suffix caused `fromUuidSync` to return the page object rather than the journal entry, so names appeared as raw IDs. The resolver now strips the `::pageId` suffix before lookup, with a `game.journal.get()` fallback for bare short IDs.
+
+### Removed
+
+- **Dead code cleanup** (#294): `configuration-app.ts`, `feature-settings-app.ts`, and `dossier-normalization.ts` were unused code paths left over from an earlier implementation. Removed without replacement; no user-visible behavior changed.
+
 ## [0.27.0] - 2026-08-15
 
 ### Added

@@ -508,10 +508,15 @@ Findings from the review:
   code already fell back gracefully. Corrected to optional in [PR #264](https://github.com/Jonwh25/lorebridge/pull/264).
 - All five deferred features remain post-1.0.
 
-When sufficient campaign sessions have confirmed stable behavior, a dedicated
-**Milestone 28 — 1.0 Hardening** milestone will be opened to address upgrade
-path validation, MCP contract stability documentation, and any issues surfaced
-from real use before the stable release.
+### Milestone 28 — 1.0 Hardening ✅ Complete
+
+Internal code quality and bug-fix milestone addressing issues surfaced from real
+campaign use of Milestone 27 features. No new user-visible capabilities; all
+changes improve reliability and correctness of existing features.
+
+1. ✅ [Remove dead code: configuration-app, feature-settings-app, dossier-normalization](https://github.com/Jonwh25/lorebridge/issues/294)
+2. ✅ [Consolidate duplicated utilities: buildBackendUrl, plainText, escHtml, SESSION_NUMBER_RE](https://github.com/Jonwh25/lorebridge/issues/295)
+3. ✅ [CC Journal Export: write full content to GitHub and sync deletions](https://github.com/Jonwh25/lorebridge/issues/298)
 
 ### Milestone 26 — Quality of Life & Small Enhancements ✅ Complete
 
