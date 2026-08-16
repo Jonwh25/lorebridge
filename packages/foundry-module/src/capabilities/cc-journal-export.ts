@@ -15,7 +15,7 @@ import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend, buildBackendUrl, escHtml, showResultDialog } from "./tracker-shared.js";
 import { buildFolderMap, collectSubtreeIds, type FoundryFolder } from "./backup-folders.js";
-import { plainText } from "../utils/html.js";
+import { plainText, htmlToMarkdown } from "../utils/html.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -334,7 +334,7 @@ function journalToMarkdown(journal: FoundryJournal): string {
 
 function pageToMarkdown(page: FoundryPage): string {
   const lines: string[] = [`# ${page.name}`, ""];
-  const content = plainText(page.text?.content ?? "").trim();
+  const content = htmlToMarkdown(page.text?.content ?? "").trim();
   if (content) lines.push(content, "");
   return lines.join("\n");
 }
