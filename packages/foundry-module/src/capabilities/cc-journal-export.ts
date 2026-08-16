@@ -468,8 +468,8 @@ function promptExportSelection(
           label: "Export",
           icon: "fas fa-upload",
           default: true,
-          callback: (event, button, dialog) => {
-            const el = dialog.element as HTMLElement;
+          callback: (_event, button) => {
+            const el: HTMLElement = button.closest("dialog") ?? button.closest(".app") ?? button.ownerDocument.body;
             const checkedIds = new Set(
               Array.from(el.querySelectorAll<HTMLInputElement>("input[data-folder-id]:checked"))
                 .map((i) => i.dataset.folderId ?? ""),
