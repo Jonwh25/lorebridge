@@ -86,8 +86,13 @@ type CcQuestData = {
     completed?: boolean;
     failed?: boolean;
     inactive?: boolean;
+    visible?: boolean;
     urgency?: string;
     objectives?: QuestObjective[];
+    questGiverUuid?: string;
+    unlocks?: string[];
+    dependencies?: string[];
+    relatedUuids?: string[];
   }>;
 };
 
@@ -247,6 +252,21 @@ function npcToMarkdown(name: string, dossier: NpcDossier): string {
   return parts.join("\n");
 }
 
+function resolveUuidName(uuid: string): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doc = (globalThis as any).fromUuidSync?.(uuid);
+    return doc?.name ?? uuid;
+  } catch {
+    return uuid;
+  }
+}
+
+function resolveUuidNames(uuids: string[] | undefined): string {
+  if (!Array.isArray(uuids) || uuids.length === 0) return "";
+  return uuids.map(resolveUuidName).join(", ");
+}
+
 function questToMarkdown(name: string, data: CcQuestData): string {
   const parts: string[] = [`# ${name}`, ""];
 
@@ -254,8 +274,25 @@ function questToMarkdown(name: string, data: CcQuestData): string {
   if (quest) {
     const status = quest.failed ? "Failed" : quest.completed ? "Completed" : quest.inactive ? "Inactive" : "Active";
     const urgency = s(quest.urgency);
-    const urgencyLabel = urgency ? ` | **Urgency:** ${urgency.charAt(0).toUpperCase() + urgency.slice(1)}` : "";
-    parts.push(`**Status:** ${status}${urgencyLabel}`, "");
+    const urgencyLabel = urgency ? urgency.charAt(0).toUpperCase() + urgency.slice(1) : "";
+    const flags = [
+      `**Status:** ${status}`,
+      urgencyLabel ? `**Urgency:** ${urgencyLabel}` : "",
+      quest.visible !== undefined ? `**Visible:** ${quest.visible ? "Yes" : "No"}` : "",
+    ].filter(Boolean);
+    parts.push(flags.join(" | "), "");
+
+    const questGiver = quest.questGiverUuid ? resolveUuidName(quest.questGiverUuid) : "";
+    const unlocks = resolveUuidNames(quest.unlocks);
+    const dependsOn = resolveUuidNames(quest.dependencies);
+    const related = resolveUuidNames(quest.relatedUuids);
+    const linkLines = [
+      questGiver ? `**Quest Giver:** ${questGiver}` : "",
+      dependsOn ? `**Depends On:** ${dependsOn}` : "",
+      unlocks ? `**Unlocks:** ${unlocks}` : "",
+      related ? `**Related:** ${related}` : "",
+    ].filter(Boolean);
+    if (linkLines.length) parts.push("## Quest Links", "", ...linkLines, "");
   }
 
   const description = plainText(data.description ?? "").trim();
