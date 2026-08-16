@@ -138,7 +138,12 @@ async function callGitHub(
   });
 
   if (response.status === 401 || response.status === 403) {
-    throw new GitHubAdapterError("access_denied", safeErrorMessage(response.status, url));
+    let detail = "";
+    try {
+      const data = await response.json() as Record<string, unknown>;
+      detail = ` — ${String(data.message ?? JSON.stringify(data))}`;
+    } catch { /* ignore parse errors */ }
+    throw new GitHubAdapterError("access_denied", safeErrorMessage(response.status, url) + detail);
   }
   if (response.status === 404) {
     throw new GitHubAdapterError("not_found", safeErrorMessage(response.status, url));
