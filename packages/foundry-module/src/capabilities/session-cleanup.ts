@@ -1,4 +1,5 @@
 import { getLoreBridgeSettings } from "../settings.js";
+import { escHtml } from "../utils/html.js";
 
 const MODULE_ID = "lorebridge";
 
@@ -16,9 +17,6 @@ let _cleanupPanel: SessionCleanupPanel | null = null;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function _escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 function _escAttr(s: string): string {
   return s.replace(/"/g, "&quot;");
 }
@@ -48,13 +46,13 @@ function _buildPanelHtml(rows: EntityRow[]): string {
       <td class="lb-cleanup__cell lb-cleanup__cell--check">
         <input type="checkbox" data-action="toggle" data-index="${i}" ${r.selected ? "checked" : ""}>
       </td>
-      <td class="lb-cleanup__cell lb-cleanup__cell--name">${_escHtml(r.name)}</td>
+      <td class="lb-cleanup__cell lb-cleanup__cell--name">${escHtml(r.name)}</td>
       <td class="lb-cleanup__cell lb-cleanup__cell--type">
         <select data-action="set-type" data-index="${i}">
           ${typeOptions.map((t) => `<option value="${t}" ${r.type === t ? "selected" : ""}>${t}</option>`).join("")}
         </select>
       </td>
-      <td class="lb-cleanup__cell lb-cleanup__cell--context">${_escHtml(r.context)}</td>
+      <td class="lb-cleanup__cell lb-cleanup__cell--context">${escHtml(r.context)}</td>
     </tr>`,
     )
     .join("");
@@ -172,7 +170,7 @@ async function _doCreateStubs(panel: SessionCleanupPanel): Promise<void> {
     name: r.name,
     type: "text",
     text: {
-      content: `<p><strong>Type:</strong> ${_escHtml(r.type)}</p><p><strong>First seen:</strong> ${_escHtml(r.context)}</p><p><em>Stub created by LoreBridge session cleanup. Fill in details here.</em></p>`,
+      content: `<p><strong>Type:</strong> ${escHtml(r.type)}</p><p><strong>First seen:</strong> ${escHtml(r.context)}</p><p><em>Stub created by LoreBridge session cleanup. Fill in details here.</em></p>`,
       format: 1,
     },
     ownership: { default: 0 },

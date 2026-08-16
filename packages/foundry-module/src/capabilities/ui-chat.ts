@@ -13,6 +13,7 @@ import { auditCampaignConsistency } from "./consistency-audit.js";
 import { getContextProfiles, getActiveProfile, setActiveProfileId } from "./context-profile.js";
 import type { CampaignSearchMatch, BackupFileEntry, BackupDocumentType, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { getLoreBridgeSettings } from "../settings.js";
+import { buildBackendUrl } from "./tracker-shared.js";
 import { addHistoryEntry } from "../generation-history.js";
 
 const MODULE_ID = "lorebridge";
@@ -32,10 +33,6 @@ type RoleplayState = {
 };
 
 let activeRoleplay: RoleplayState | null = null;
-
-function buildBackendUrl(base: string, path: string): string {
-  return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
-}
 
 async function askBackend(
   question: string,

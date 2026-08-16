@@ -1,5 +1,6 @@
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { plainText } from "../utils/html.js";
 
 export type SessionLogPage = {
   sessionNumber: number;
@@ -9,7 +10,7 @@ export type SessionLogPage = {
   pageName: string;
 };
 
-const SESSION_NUMBER_RE = /\bsession\s+#?(\d+)\b/i;
+export const SESSION_NUMBER_RE = /\bsession\s+#?(\d+)\b/i;
 const DATE_RE = /\b(\d{4}-\d{2}-\d{2}|\w+ \d{1,2},?\s+\d{4})\b/;
 const CONTENT_MAX = 40_000;
 
@@ -26,17 +27,6 @@ function cacheKey(pageId: string, prompt: string): string {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function plainText(html: string): string {
-  if (typeof DOMParser !== "undefined") {
-    return (
-      new DOMParser().parseFromString(html, "text/html").body.textContent
-        ?.replace(/\s+/g, " ")
-        .trim() ?? ""
-    );
-  }
-  return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
-}
 
 function parseSessionNumber(name: string): number | null {
   const m = SESSION_NUMBER_RE.exec(name);

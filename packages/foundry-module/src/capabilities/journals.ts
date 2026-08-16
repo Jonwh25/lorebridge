@@ -16,6 +16,7 @@ import {
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { isPlayerVisible } from "./visibility.js";
 import { collectJournalCandidateUuids } from "./search-candidates.js";
+import { plainText } from "../utils/html.js";
 
 const DEFAULT_LIMIT = 10;
 const EXCERPT_LENGTH = 240;
@@ -28,13 +29,6 @@ function sourceId(): string {
 function sourceName(): string {
   if (!game.world) throw new LoreBridgeCapabilityError("ADAPTER_UNAVAILABLE", "The Foundry world is not fully initialized.", { retryable: true });
   return game.world.title;
-}
-
-function plainText(html: string): string {
-  if (typeof DOMParser !== "undefined") {
-    return new DOMParser().parseFromString(html, "text/html").body.textContent?.replace(/\s+/g, " ").trim() ?? "";
-  }
-  return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
 }
 
 function excerptAround(text: string, query: string): string {

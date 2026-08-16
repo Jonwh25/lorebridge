@@ -11,11 +11,12 @@ import {
 } from "@lorebridge/shared/capabilities";
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
+import { plainText } from "../utils/html.js";
+import { SESSION_NUMBER_RE } from "./session-log-pipeline.js";
 
 const DEFAULT_LIMIT = 20;
 const EXCERPT_LENGTH = 300;
 const CONTENT_LENGTH = 40_000;
-const SESSION_NUMBER_RE = /\bsession\s+#?(\d+)\b/i;
 
 function sourceId(): string {
   if (!game.world) {
@@ -37,17 +38,6 @@ function sourceName(): string {
     );
   }
   return game.world.title;
-}
-
-function plainText(html: string): string {
-  if (typeof DOMParser !== "undefined") {
-    return (
-      new DOMParser().parseFromString(html, "text/html").body.textContent
-        ?.replace(/\s+/g, " ")
-        .trim() ?? ""
-    );
-  }
-  return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
 }
 
 function excerptAround(text: string, query: string): string {

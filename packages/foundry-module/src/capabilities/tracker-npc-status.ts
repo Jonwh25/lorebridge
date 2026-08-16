@@ -12,7 +12,7 @@ import {
   readLatest as sessionReadLatest,
   extractFromSession,
   type SessionLogPage,
-} from "./session-log-reader.js";
+} from "./session-log-pipeline.js";
 import type { NpcDossierData } from "./campaign-codex-widget.js";
 import { makeDefaultDossierData } from "./campaign-codex-widget.js";
 import {

@@ -9,6 +9,7 @@ import {
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 import { getActiveProfile, getProfileFilter, hasStaleFolderRefs, type ProfileDocTypeFilter } from "./context-profile.js";
+import { buildBackendUrl } from "./tracker-shared.js";
 import { isPlayerVisible } from "./visibility.js";
 
 // ---------------------------------------------------------------------------
@@ -155,10 +156,6 @@ export function gatherDocuments(focus?: string, filter?: ProfileDocTypeFilter, i
 // ---------------------------------------------------------------------------
 // Backend call
 // ---------------------------------------------------------------------------
-
-function buildBackendUrl(base: string, path: string): string {
-  return base.endsWith("/") ? `${base}${path}` : `${base}/${path}`;
-}
 
 async function callConsistencyAudit(
   documents: ContentDocument[],

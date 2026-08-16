@@ -7,7 +7,7 @@
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { readLatest } from "./session-log-reader.js";
+import { readLatest } from "./session-log-pipeline.js";
 import { escHtml } from "./tracker-shared.js";
 
 // ---------------------------------------------------------------------------

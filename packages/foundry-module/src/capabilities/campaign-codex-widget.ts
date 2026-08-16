@@ -16,6 +16,7 @@ import type {
   NpcDossierSecret,
 } from "@lorebridge/shared";
 import { getLoreBridgeSettings, type LoreBridgeSettings } from "../settings.js";
+import { escHtml } from "../utils/html.js";
 
 export type { NpcDossierData };
 
@@ -556,14 +557,6 @@ function knowArr(v: unknown): NpcDossierKnowledge[] {
 // ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
-
-function escHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, "").trim();
