@@ -1,10 +1,12 @@
 /**
  * CC Journal Export — issue #291
  *
- * Exports every journal inside each "Campaign Codex - *" folder to
- * GitHub under sources/campaign codex/<folder>/<journal>.md.
+ * Exports every journal inside each "Campaign Codex - *" folder, plus each
+ * page of the Session Logs journal, to GitHub under
+ * sources/campaign codex/<folder>/<name>.md.
  */
 
+import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend, escHtml, showResultDialog } from "./tracker-shared.js";
 
@@ -78,33 +80,44 @@ function getJournalsInFolder(folderId: string): FoundryJournal[] {
   return results;
 }
 
+function getJournalByName(name: string): FoundryJournal | undefined {
+  const lower = name.trim().toLowerCase();
+  for (const j of game.journal as Iterable<FoundryJournal>) {
+    if ((j.name ?? "").trim().toLowerCase() === lower) return j;
+  }
+  return undefined;
+}
+
+function pageToMarkdown(page: FoundryPage): string {
+  const lines: string[] = [`# ${page.name}`, ""];
+  const content = page.text?.content?.trim() ?? "";
+  if (content) lines.push(content, "");
+  return lines.join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // Core export logic
 // ---------------------------------------------------------------------------
 
 type ExportResult = {
   folders: { name: string; count: number }[];
-  totalJournals: number;
+  totalFiles: number;
   commitUrl: string;
 };
 
 export async function exportCCJournalsCore(): Promise<ExportResult> {
-  const ccFolders = getCCFolders();
-  if (ccFolders.length === 0) {
-    throw new Error('No "Campaign Codex - *" folders found in your journal sidebar.');
-  }
-
   const files: { path: string; content: string }[] = [];
   const folderCounts: { name: string; count: number }[] = [];
 
+  // --- Campaign Codex folders (one file per journal) ---
+  const ccFolders = getCCFolders();
   for (const folder of ccFolders) {
     const journals = getJournalsInFolder(folder.id);
     let count = 0;
     for (const journal of journals) {
-      const content = journalToMarkdown(journal);
       files.push({
         path: `${EXPORT_BASE}/${safeName(folder.name)}/${safeName(journal.name)}.md`,
-        content,
+        content: journalToMarkdown(journal),
       });
       count++;
     }
@@ -113,20 +126,38 @@ export async function exportCCJournalsCore(): Promise<ExportResult> {
     }
   }
 
+  // --- Session Logs journal (one file per page) ---
+  const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
+  const sessionJournal = getJournalByName(sessionFolderName);
+  let sessionPageCount = 0;
+  if (sessionJournal) {
+    for (const page of sessionJournal.pages) {
+      if (!page.name) continue;
+      files.push({
+        path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
+        content: pageToMarkdown(page),
+      });
+      sessionPageCount++;
+    }
+    if (sessionPageCount > 0) {
+      folderCounts.push({ name: sessionFolderName, count: sessionPageCount });
+    }
+  }
+
   if (files.length === 0) {
-    throw new Error("All Campaign Codex folders are empty — nothing to export.");
+    throw new Error("Nothing to export: Campaign Codex folders are empty and no session log pages found.");
   }
 
   const today = new Date().toISOString().slice(0, 10);
   const result = await postBackend<{ commitUrl?: string }>("v1/backup/github/lore-files", {
     files,
-    commitMessage: `LoreBridge: Campaign Codex export — ${today}`,
+    commitMessage: `LoreBridge: Campaign Codex + Session Logs export — ${today}`,
     repoRoot: REPO_ROOT,
   });
 
   return {
     folders: folderCounts,
-    totalJournals: files.length,
+    totalFiles: files.length,
     commitUrl: result.commitUrl ?? "",
   };
 }
@@ -153,9 +184,9 @@ export async function runExportCCJournals(): Promise<void> {
 
     showResultDialog(
       "Campaign Codex Export",
-      `<p><strong>${result.totalJournals}</strong> journal${result.totalJournals !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
+      `<p><strong>${result.totalFiles}</strong> file${result.totalFiles !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
-  <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Journals</th></tr></thead>
+  <thead><tr><th style="text-align:left;padding:2px 6px">Folder / Journal</th><th style="padding:2px 6px">Files</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
 </table>${linkHtml}`,
     );
