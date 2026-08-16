@@ -4,6 +4,8 @@
  * Exports every journal inside each "Campaign Codex - *" folder, plus each
  * page of the Session Logs journal, to GitHub under
  * sources/campaign codex/<folder>/<name>.md.
+ *
+ * Each folder is committed separately so the UI can show per-folder progress.
  */
 
 import { getLoreBridgeSettings } from "../settings.js";
@@ -34,12 +36,16 @@ type FoundryFolderEntry = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Constants
 // ---------------------------------------------------------------------------
 
 const CC_FOLDER_PREFIX = "campaign codex - ";
 const REPO_ROOT = "sources";
 const EXPORT_BASE = "campaign codex";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function safeName(name: string): string {
   return name.replace(/[/\\:*?"<>|]/g, "-").trim();
@@ -48,14 +54,17 @@ function safeName(name: string): string {
 function journalToMarkdown(journal: FoundryJournal): string {
   const lines: string[] = [`# ${journal.name}`, ""];
   for (const page of journal.pages) {
-    if (page.name) {
-      lines.push(`## ${page.name}`, "");
-    }
+    if (page.name) lines.push(`## ${page.name}`, "");
     const content = page.text?.content?.trim() ?? "";
-    if (content) {
-      lines.push(content, "");
-    }
+    if (content) lines.push(content, "");
   }
+  return lines.join("\n");
+}
+
+function pageToMarkdown(page: FoundryPage): string {
+  const lines: string[] = [`# ${page.name}`, ""];
+  const content = page.text?.content?.trim() ?? "";
+  if (content) lines.push(content, "");
   return lines.join("\n");
 }
 
@@ -88,78 +97,16 @@ function getJournalByName(name: string): FoundryJournal | undefined {
   return undefined;
 }
 
-function pageToMarkdown(page: FoundryPage): string {
-  const lines: string[] = [`# ${page.name}`, ""];
-  const content = page.text?.content?.trim() ?? "";
-  if (content) lines.push(content, "");
-  return lines.join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Core export logic
-// ---------------------------------------------------------------------------
-
-type ExportResult = {
-  folders: { name: string; count: number }[];
-  totalFiles: number;
-  commitUrl: string;
-};
-
-export async function exportCCJournalsCore(): Promise<ExportResult> {
-  const files: { path: string; content: string }[] = [];
-  const folderCounts: { name: string; count: number }[] = [];
-
-  // --- Campaign Codex folders (one file per journal) ---
-  const ccFolders = getCCFolders();
-  for (const folder of ccFolders) {
-    const journals = getJournalsInFolder(folder.id);
-    let count = 0;
-    for (const journal of journals) {
-      files.push({
-        path: `${EXPORT_BASE}/${safeName(folder.name)}/${safeName(journal.name)}.md`,
-        content: journalToMarkdown(journal),
-      });
-      count++;
-    }
-    if (count > 0) {
-      folderCounts.push({ name: folder.name, count });
-    }
-  }
-
-  // --- Session Logs journal (one file per page) ---
-  const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
-  const sessionJournal = getJournalByName(sessionFolderName);
-  let sessionPageCount = 0;
-  if (sessionJournal) {
-    for (const page of sessionJournal.pages) {
-      if (!page.name) continue;
-      files.push({
-        path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
-        content: pageToMarkdown(page),
-      });
-      sessionPageCount++;
-    }
-    if (sessionPageCount > 0) {
-      folderCounts.push({ name: sessionFolderName, count: sessionPageCount });
-    }
-  }
-
-  if (files.length === 0) {
-    throw new Error("Nothing to export: Campaign Codex folders are empty and no session log pages found.");
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
+async function commitFolder(
+  files: { path: string; content: string }[],
+  folderName: string,
+): Promise<string> {
   const result = await postBackend<{ commitUrl?: string }>("v1/backup/github/lore-files", {
     files,
-    commitMessage: `LoreBridge: Campaign Codex + Session Logs export — ${today}`,
+    commitMessage: `LoreBridge: Export ${folderName}`,
     repoRoot: REPO_ROOT,
   });
-
-  return {
-    folders: folderCounts,
-    totalFiles: files.length,
-    commitUrl: result.commitUrl ?? "",
-  };
+  return result.commitUrl ?? "";
 }
 
 // ---------------------------------------------------------------------------
@@ -169,22 +116,75 @@ export async function exportCCJournalsCore(): Promise<ExportResult> {
 export async function runExportCCJournals(): Promise<void> {
   requireFoundryGm("runExportCCJournals");
 
-  ui.notifications.info("LoreBridge: Exporting Campaign Codex to GitHub…");
-  try {
-    const result = await exportCCJournalsCore();
+  const ccFolders = getCCFolders();
+  const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
+  const sessionJournal = getJournalByName(sessionFolderName);
 
-    const rowsHtml = result.folders
-      .sort((a, b) => a.name.localeCompare(b.name))
+  // Pre-calculate total steps so the counter is accurate from the start.
+  const activeCCFolders = ccFolders.filter((f) => getJournalsInFolder(f.id).length > 0);
+  const hasSessionLogs = !!sessionJournal && Array.from(sessionJournal.pages).some((p) => p.name);
+  const totalSteps = activeCCFolders.length + (hasSessionLogs ? 1 : 0);
+
+  if (totalSteps === 0) {
+    ui.notifications.warn("LoreBridge CC Export: Nothing to export — no Campaign Codex journals or session log pages found.");
+    return;
+  }
+
+  let step = 0;
+  let totalFiles = 0;
+  const folderCounts: { name: string; count: number }[] = [];
+  let lastCommitUrl = "";
+
+  try {
+    // --- Campaign Codex folders ---
+    for (const folder of activeCCFolders) {
+      const journals = getJournalsInFolder(folder.id);
+      step++;
+      ui.notifications.info(`LoreBridge CC Export: ${folder.name} (${step}/${totalSteps})…`);
+
+      const files = journals.map((j) => ({
+        path: `${EXPORT_BASE}/${safeName(folder.name)}/${safeName(j.name)}.md`,
+        content: journalToMarkdown(j),
+      }));
+
+      lastCommitUrl = await commitFolder(files, folder.name);
+      folderCounts.push({ name: folder.name, count: journals.length });
+      totalFiles += journals.length;
+    }
+
+    // --- Session Logs (one file per page) ---
+    if (hasSessionLogs && sessionJournal) {
+      const pages: { path: string; content: string }[] = [];
+      for (const page of sessionJournal.pages) {
+        if (!page.name) continue;
+        pages.push({
+          path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
+          content: pageToMarkdown(page),
+        });
+      }
+
+      if (pages.length > 0) {
+        step++;
+        ui.notifications.info(`LoreBridge CC Export: Session Logs (${step}/${totalSteps})…`);
+
+        lastCommitUrl = await commitFolder(pages, sessionFolderName);
+        folderCounts.push({ name: sessionFolderName, count: pages.length });
+        totalFiles += pages.length;
+      }
+    }
+
+    // --- Result dialog ---
+    const rowsHtml = folderCounts
       .map((f) => `<tr><td>${escHtml(f.name)}</td><td style="text-align:center">${f.count}</td></tr>`)
       .join("");
 
-    const linkHtml = result.commitUrl
-      ? `<p style="margin-top:0.5rem"><a href="${escHtml(result.commitUrl)}" target="_blank" rel="noopener noreferrer">View commit on GitHub</a></p>`
+    const linkHtml = lastCommitUrl
+      ? `<p style="margin-top:0.5rem"><a href="${escHtml(lastCommitUrl)}" target="_blank" rel="noopener noreferrer">View last commit on GitHub</a></p>`
       : "";
 
     showResultDialog(
       "Campaign Codex Export",
-      `<p><strong>${result.totalFiles}</strong> file${result.totalFiles !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
+      `<p><strong>${totalFiles}</strong> file${totalFiles !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
   <thead><tr><th style="text-align:left;padding:2px 6px">Folder / Journal</th><th style="padding:2px 6px">Files</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
