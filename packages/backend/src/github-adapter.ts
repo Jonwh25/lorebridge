@@ -353,6 +353,44 @@ export class GitHubAdapter {
   }
 
   // -------------------------------------------------------------------------
+  // listPathsUnder — recursively lists all file paths under {repoRoot}/{prefix}.
+  // Returns paths relative to repoRoot (same format accepted by createBackupCommit).
+  // Returns [] when the branch or repo is empty.
+  // -------------------------------------------------------------------------
+
+  async listPathsUnder(prefix: string, repoRoot?: string): Promise<string[]> {
+    const root = repoRoot ?? this.config.campaignRoot;
+    const fullPrefix = resolveCampaignPath(root, prefix);
+    const scanPrefix = `${fullPrefix}/`;
+    const rootPrefix = root ? `${root}/` : "";
+
+    const refUrl = `${this.repoBase()}/git/refs/heads/${encodeURIComponent(this.config.branch)}`;
+    let headSha: string;
+    try {
+      const refData = await this.call(refUrl) as Record<string, unknown>;
+      headSha = (refData.object as Record<string, unknown>).sha as string;
+    } catch {
+      return [];
+    }
+
+    let treeData: unknown;
+    try {
+      treeData = await this.call(`${this.repoBase()}/git/trees/${headSha}?recursive=1`);
+    } catch {
+      return [];
+    }
+
+    const tree = (treeData as Record<string, unknown>).tree;
+    if (!Array.isArray(tree)) return [];
+
+    return (tree as Array<Record<string, unknown>>)
+      .filter((entry) => entry["type"] === "blob" && typeof entry["path"] === "string")
+      .map((entry) => String(entry["path"]))
+      .filter((path) => path.startsWith(scanPrefix))
+      .map((path) => (rootPrefix ? path.slice(rootPrefix.length) : path));
+  }
+
+  // -------------------------------------------------------------------------
   // createBackupCommit — atomically commits one or more files.
   // Fails fast on non-fast-forward conflicts without overwriting remote work.
   // -------------------------------------------------------------------------

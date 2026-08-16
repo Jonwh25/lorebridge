@@ -13,8 +13,9 @@
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend, escHtml, showResultDialog } from "./tracker-shared.js";
+import { postBackend, buildBackendUrl, escHtml, showResultDialog } from "./tracker-shared.js";
 import { buildFolderMap, collectSubtreeIds, type FoundryFolder } from "./backup-folders.js";
+import { plainText } from "../utils/html.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +61,7 @@ function journalToMarkdown(journal: FoundryJournal): string {
   const lines: string[] = [`# ${journal.name}`, ""];
   for (const page of journal.pages) {
     if (page.name) lines.push(`## ${page.name}`, "");
-    const content = page.text?.content?.trim() ?? "";
+    const content = plainText(page.text?.content ?? "").trim();
     if (content) lines.push(content, "");
   }
   return lines.join("\n");
@@ -68,7 +69,7 @@ function journalToMarkdown(journal: FoundryJournal): string {
 
 function pageToMarkdown(page: FoundryPage): string {
   const lines: string[] = [`# ${page.name}`, ""];
-  const content = page.text?.content?.trim() ?? "";
+  const content = plainText(page.text?.content ?? "").trim();
   if (content) lines.push(content, "");
   return lines.join("\n");
 }
@@ -126,13 +127,27 @@ function journalsInSubtree(
 async function commitChunk(
   files: { path: string; content: string }[],
   message: string,
+  deletePaths?: string[],
 ): Promise<string> {
   const result = await postBackend<{ commitUrl?: string }>("v1/backup/github/lore-files", {
     files,
+    deletePaths: deletePaths ?? [],
     commitMessage: message,
     repoRoot: REPO_ROOT,
   });
   return result.commitUrl ?? "";
+}
+
+async function listGitHubPaths(prefix: string): Promise<string[]> {
+  const settings = getLoreBridgeSettings();
+  if (!settings.backendUrl || !settings.clientToken) return [];
+  const url = `${buildBackendUrl(settings.backendUrl, "v1/backup/github/list-paths")}?repoRoot=${encodeURIComponent(REPO_ROOT)}&prefix=${encodeURIComponent(prefix)}`;
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${settings.clientToken}` },
+  });
+  if (!response.ok) return [];
+  const data = await response.json() as { paths?: string[] };
+  return Array.isArray(data.paths) ? data.paths : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +209,12 @@ export async function runExportCCJournals(): Promise<void> {
     return;
   }
 
+  // Gather current GitHub paths before committing so we can compute deletions.
+  ui.notifications.info("LoreBridge CC Export: checking GitHub for stale files…");
+  const githubPaths = await listGitHubPaths(EXPORT_BASE).catch(() => [] as string[]);
+  const newPathSet = new Set(work.flatMap((w) => w.files.map((f) => f.path)));
+  const deletions = githubPaths.filter((p) => !newPathSet.has(p));
+
   let totalFiles = 0;
   let lastCommitUrl = "";
 
@@ -214,9 +235,19 @@ export async function runExportCCJournals(): Promise<void> {
       }
     }
 
+    // Cleanup commit: delete any files on GitHub that are no longer in Foundry.
+    if (deletions.length > 0) {
+      ui.notifications.info(`LoreBridge CC Export: removing ${deletions.length} deleted file${deletions.length !== 1 ? "s" : ""}…`);
+      lastCommitUrl = await commitChunk([], `Sync: remove ${deletions.length} deleted journal${deletions.length !== 1 ? "s" : ""}`, deletions);
+    }
+
     const rowsHtml = Array.from(folderTotals.entries())
       .map(([name, count]) => `<tr><td>${escHtml(name)}</td><td style="text-align:center">${count}</td></tr>`)
       .join("");
+
+    const deletionNote = deletions.length > 0
+      ? `<p style="margin-top:0.25rem;color:#888;font-size:0.9em">${deletions.length} deleted file${deletions.length !== 1 ? "s" : ""} removed from GitHub.</p>`
+      : "";
 
     const linkHtml = lastCommitUrl
       ? `<p style="margin-top:0.5rem"><a href="${escHtml(lastCommitUrl)}" target="_blank" rel="noopener noreferrer">View last commit on GitHub</a></p>`
@@ -228,7 +259,7 @@ export async function runExportCCJournals(): Promise<void> {
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
   <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Files</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
-</table>${linkHtml}`,
+</table>${deletionNote}${linkHtml}`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

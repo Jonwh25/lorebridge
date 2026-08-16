@@ -1343,10 +1343,11 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     if (!authenticate(pairing, request, response)) return;
     const body = await readJson(request);
     const files = body["files"];
+    const deletePathsRaw = body["deletePaths"];
     const commitMessage = typeof body["commitMessage"] === "string" ? body["commitMessage"].trim() : "";
     const repoRootRaw = body["repoRoot"];
-    if (!Array.isArray(files) || files.length === 0) {
-      sendJson(response, 400, { error: { code: "invalid_request", message: "'files' must be a non-empty array." } });
+    if (!Array.isArray(files)) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "'files' must be an array." } });
       return;
     }
     type LoreFile = { path: string; content: string };
@@ -1358,6 +1359,20 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
       const rec = f as Record<string, unknown>;
       loreFiles.push({ path: rec["path"] as string, content: rec["content"] as string });
+    }
+    const deletePaths: string[] = [];
+    if (Array.isArray(deletePathsRaw)) {
+      for (const p of deletePathsRaw as unknown[]) {
+        if (typeof p !== "string") {
+          sendJson(response, 400, { error: { code: "invalid_request", message: "'deletePaths' must be an array of strings." } });
+          return;
+        }
+        deletePaths.push(p);
+      }
+    }
+    if (loreFiles.length === 0 && deletePaths.length === 0) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "At least one file or deletion path is required." } });
+      return;
     }
     // Optional repoRoot override: must be a safe, non-empty, non-traversal string.
     let repoRoot: string | undefined;
@@ -1377,6 +1392,9 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       for (const f of loreFiles) {
         resolveCampaignPath(effectiveRoot, f.path);
       }
+      for (const p of deletePaths) {
+        resolveCampaignPath(effectiveRoot, p);
+      }
     } catch (error) {
       if (error instanceof GitHubAdapterError) {
         sendJson(response, 400, { error: { code: "invalid_path", message: error.message } });
@@ -1386,7 +1404,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const message = commitMessage || `LoreBridge: lore file backup`;
-      const result = await github.createBackupCommit(message, loreFiles, [], repoRoot);
+      const result = await github.createBackupCommit(message, loreFiles, deletePaths, repoRoot);
       sendJson(response, 200, { commitSha: result.sha, commitUrl: result.url, files: loreFiles.map((f) => f.path) });
     } catch (error) {
       if (error instanceof GitHubAdapterError) {
@@ -1396,6 +1414,39 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
           : error.code === "conflict" ? 409
           : error.code === "rate_limited" ? 429
           : 502;
+        sendJson(response, status, { error: { code: error.code, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/backup/github/list-paths") {
+    if (!authenticate(pairing, request, response)) return;
+    const prefix = url.searchParams.get("prefix")?.trim() ?? "";
+    const repoRootParam = url.searchParams.get("repoRoot")?.trim() ?? "";
+    if (!prefix) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "The 'prefix' query parameter is required." } });
+      return;
+    }
+    if (prefix.includes("..") || prefix.startsWith("/")) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "'prefix' must be a relative path without traversal." } });
+      return;
+    }
+    const repoRoot = repoRootParam && !repoRootParam.includes("..") && !repoRootParam.startsWith("/")
+      ? repoRootParam
+      : undefined;
+    if (!github) {
+      sendJson(response, 503, { error: { code: "not_configured", message: "GitHub backup is not configured on this backend." } });
+      return;
+    }
+    try {
+      const paths = await github.listPathsUnder(prefix, repoRoot);
+      sendJson(response, 200, { paths });
+    } catch (error) {
+      if (error instanceof GitHubAdapterError) {
+        const status = error.code === "access_denied" ? 403 : error.code === "not_found" ? 404 : 502;
         sendJson(response, status, { error: { code: error.code, message: error.message } });
         return;
       }
