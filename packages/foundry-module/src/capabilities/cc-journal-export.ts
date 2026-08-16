@@ -426,6 +426,73 @@ async function listGitHubPaths(prefix: string): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Section picker dialog
+// ---------------------------------------------------------------------------
+
+type ExportSelection = { folders: FoundryFolder[]; includeSession: boolean };
+
+function promptExportSelection(
+  ccFolders: FoundryFolder[],
+  sessionFolderName: string,
+): Promise<ExportSelection | null> {
+  return new Promise((resolve) => {
+    const folderRows = ccFolders
+      .map(
+        (f) =>
+          `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer">
+            <input type="checkbox" data-folder-id="${escHtml(f.id)}" checked>
+            ${escHtml(f.name)}
+          </label>`,
+      )
+      .join("");
+
+    const sessionRow = `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer">
+      <input type="checkbox" id="lb-export-session" checked>
+      Session Logs (${escHtml(sessionFolderName)})
+    </label>`;
+
+    const content = `<div style="padding:0.5rem">
+      <p style="margin:0 0 8px;font-weight:bold">Select sections to export:</p>
+      ${folderRows}
+      <hr style="margin:8px 0">
+      ${sessionRow}
+    </div>`;
+
+    new foundry.applications.api.DialogV2({
+      window: { title: "Export CC — Select Sections" },
+      position: { width: 360, height: "auto" },
+      content,
+      buttons: [
+        {
+          action: "export",
+          label: "Export",
+          icon: "fas fa-upload",
+          default: true,
+          callback: (event, button, dialog) => {
+            const el = dialog.element as HTMLElement;
+            const checkedIds = new Set(
+              Array.from(el.querySelectorAll<HTMLInputElement>("input[data-folder-id]:checked"))
+                .map((i) => i.dataset.folderId ?? ""),
+            );
+            const includeSession = (el.querySelector<HTMLInputElement>("#lb-export-session"))?.checked ?? true;
+            resolve({
+              folders: ccFolders.filter((f) => checkedIds.has(f.id)),
+              includeSession,
+            });
+          },
+        },
+        {
+          action: "cancel",
+          label: "Cancel",
+          icon: "fas fa-times",
+          callback: () => { resolve(null); },
+        },
+      ],
+    }).render({ force: true });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // UI entry point
 // ---------------------------------------------------------------------------
 
@@ -436,24 +503,36 @@ export async function runExportCCJournals(): Promise<void> {
   const ccRootFolders = getCCRootFolders(folderById);
 
   const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
+
+  const selection = await promptExportSelection(ccRootFolders, sessionFolderName);
+  if (!selection) return;
+  const { folders: selectedFolders, includeSession } = selection;
+
+  if (selectedFolders.length === 0 && !includeSession) {
+    ui.notifications.warn("LoreBridge CC Export: Nothing selected.");
+    return;
+  }
+
   let sessionPages: { path: string; content: string }[] = [];
-  for (const j of game.journal as Iterable<FoundryJournal>) {
-    if ((j.name ?? "").trim().toLowerCase() !== sessionFolderName.trim().toLowerCase()) continue;
-    for (const page of j.pages) {
-      if (!page.name) continue;
-      sessionPages.push({
-        path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
-        content: pageToMarkdown(page),
-      });
+  if (includeSession) {
+    for (const j of game.journal as Iterable<FoundryJournal>) {
+      if ((j.name ?? "").trim().toLowerCase() !== sessionFolderName.trim().toLowerCase()) continue;
+      for (const page of j.pages) {
+        if (!page.name) continue;
+        sessionPages.push({
+          path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
+          content: pageToMarkdown(page),
+        });
+      }
+      break;
     }
-    break;
   }
 
   // Pre-gather and chunk so the total step count is accurate up front.
   type WorkItem = { label: string; commitLabel: string; files: { path: string; content: string }[] };
   const work: WorkItem[] = [];
 
-  for (const folder of ccRootFolders) {
+  for (const folder of selectedFolders) {
     const files = journalsInSubtree(folder, folderById);
     if (files.length === 0) continue;
     const chunks = chunkArray(files, CHUNK_SIZE);
@@ -484,11 +563,19 @@ export async function runExportCCJournals(): Promise<void> {
     return;
   }
 
-  // Gather current GitHub paths before committing so we can compute deletions.
+  // Gather current GitHub paths and compute deletions scoped to selected sections.
   ui.notifications.info("LoreBridge CC Export: checking GitHub for stale files…");
   const githubPaths = await listGitHubPaths(EXPORT_BASE).catch(() => [] as string[]);
   const newPathSet = new Set(work.flatMap((w) => w.files.map((f) => f.path)));
-  const deletions = githubPaths.filter((p) => !newPathSet.has(p));
+  // Build the set of path prefixes that were selected so we only delete within
+  // those sections — not from unselected folders we simply didn't export.
+  const selectedPrefixes = [
+    ...selectedFolders.map((f) => `${EXPORT_BASE}/${safeName(f.name)}/`),
+    ...(includeSession ? [`${EXPORT_BASE}/${safeName(sessionFolderName)}/`] : []),
+  ];
+  const deletions = githubPaths.filter(
+    (p) => !newPathSet.has(p) && selectedPrefixes.some((prefix) => p.startsWith(prefix)),
+  );
 
   let totalFiles = 0;
   let lastCommitUrl = "";
