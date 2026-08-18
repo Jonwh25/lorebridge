@@ -112,8 +112,6 @@ type FoundryJournal = {
 // ---------------------------------------------------------------------------
 
 const CC_FOLDER_PREFIX = "campaign codex - ";
-const REPO_ROOT = "sources";
-const EXPORT_BASE = "campaign codex";
 const CHUNK_SIZE = 25; // files per commit — keeps each request under ~10 s
 
 // ---------------------------------------------------------------------------
@@ -122,6 +120,21 @@ const CHUNK_SIZE = 25; // files per commit — keeps each request under ~10 s
 
 function safeName(name: string): string {
   return name.replace(/[/\\:*?"<>|]/g, "-").trim();
+}
+
+function ccFolderPath(folderName: string): string {
+  const s = getLoreBridgeSettings();
+  const lower = folderName.toLowerCase();
+  if (lower === "campaign codex - entries")   return s.backupPathCcEntries;
+  if (lower === "campaign codex - factions")  return s.backupPathCcFactions;
+  if (lower === "campaign codex - groups")    return s.backupPathCcGroups;
+  if (lower === "campaign codex - locations") return s.backupPathCcLocations;
+  if (lower === "campaign codex - npcs")      return s.backupPathCcNpcs;
+  if (lower === "campaign codex - quests")    return s.backupPathCcQuests;
+  if (lower === "campaign codex - regions")   return s.backupPathCcRegions;
+  // Fallback: derive from folder name minus the prefix
+  const slug = folderName.replace(/^campaign codex - /i, "").toLowerCase().replace(/\s+/g, "-");
+  return `07-foundry/cc-${slug}`;
 }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -380,18 +393,14 @@ function journalsInSubtree(
 ): Array<{ path: string; content: string }> {
   const subtreeIds = collectSubtreeIds(rootFolder.id, folderById);
   const files: Array<{ path: string; content: string }> = [];
+  const basePath = ccFolderPath(rootFolder.name);
 
   for (const j of game.journal as Iterable<FoundryJournal>) {
     const folderId = j.folder?.id;
     if (!folderId || !subtreeIds.has(folderId)) continue;
 
     const subSegments = relativePathSegments(folderId, rootFolder.id, folderById);
-    const filePath = [
-      EXPORT_BASE,
-      safeName(rootFolder.name),
-      ...subSegments,
-      `${safeName(j.name)}.md`,
-    ].join("/");
+    const filePath = [basePath, ...subSegments, `${safeName(j.name)}.md`].join("/");
 
     files.push({ path: filePath, content: journalToMarkdown(j) });
   }
@@ -408,7 +417,7 @@ async function commitChunk(
     files,
     deletePaths: deletePaths ?? [],
     commitMessage: message,
-    repoRoot: REPO_ROOT,
+    repoRoot: "",
   });
   return result.commitUrl ?? "";
 }
@@ -416,7 +425,7 @@ async function commitChunk(
 async function listGitHubPaths(prefix: string): Promise<string[]> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) return [];
-  const url = `${buildBackendUrl(settings.backendUrl, "v1/backup/github/list-paths")}?repoRoot=${encodeURIComponent(REPO_ROOT)}&prefix=${encodeURIComponent(prefix)}`;
+  const url = `${buildBackendUrl(settings.backendUrl, "v1/backup/github/list-paths")}?repoRoot=&prefix=${encodeURIComponent(prefix)}`;
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${settings.clientToken}` },
   });
@@ -429,11 +438,10 @@ async function listGitHubPaths(prefix: string): Promise<string[]> {
 // Section picker dialog
 // ---------------------------------------------------------------------------
 
-type ExportSelection = { folders: FoundryFolder[]; includeSession: boolean };
+type ExportSelection = { folders: FoundryFolder[] };
 
 function promptExportSelection(
   ccFolders: FoundryFolder[],
-  sessionFolderName: string,
 ): Promise<ExportSelection | null> {
   return new Promise((resolve) => {
     const folderRows = ccFolders
@@ -446,16 +454,10 @@ function promptExportSelection(
       )
       .join("");
 
-    const sessionRow = `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer">
-      <input type="checkbox" id="lb-export-session" checked>
-      Session Logs (${escHtml(sessionFolderName)})
-    </label>`;
-
     const content = `<div style="padding:0.5rem">
-      <p style="margin:0 0 8px;font-weight:bold">Select sections to export:</p>
+      <p style="margin:0 0 8px;font-weight:bold">Select Campaign Codex sections to export:</p>
       ${folderRows}
-      <hr style="margin:8px 0">
-      ${sessionRow}
+      <p style="margin:8px 0 0;font-size:0.82em;color:#888">Session Logs are backed up separately via the Session Logs button.</p>
     </div>`;
 
     new foundry.applications.api.DialogV2({
@@ -474,11 +476,7 @@ function promptExportSelection(
               Array.from(el.querySelectorAll<HTMLInputElement>("input[data-folder-id]:checked"))
                 .map((i) => i.dataset.folderId ?? ""),
             );
-            const includeSession = (el.querySelector<HTMLInputElement>("#lb-export-session"))?.checked ?? true;
-            resolve({
-              folders: ccFolders.filter((f) => checkedIds.has(f.id)),
-              includeSession,
-            });
+            resolve({ folders: ccFolders.filter((f) => checkedIds.has(f.id)) });
           },
         },
         {
@@ -502,30 +500,13 @@ export async function runExportCCJournals(): Promise<void> {
   const folderById = buildFolderMap([]);
   const ccRootFolders = getCCRootFolders(folderById);
 
-  const sessionFolderName = getLoreBridgeSettings().sessionLogFolder || "Session Logs";
-
-  const selection = await promptExportSelection(ccRootFolders, sessionFolderName);
+  const selection = await promptExportSelection(ccRootFolders);
   if (!selection) return;
-  const { folders: selectedFolders, includeSession } = selection;
+  const { folders: selectedFolders } = selection;
 
-  if (selectedFolders.length === 0 && !includeSession) {
+  if (selectedFolders.length === 0) {
     ui.notifications.warn("LoreBridge CC Export: Nothing selected.");
     return;
-  }
-
-  let sessionPages: { path: string; content: string }[] = [];
-  if (includeSession) {
-    for (const j of game.journal as Iterable<FoundryJournal>) {
-      if ((j.name ?? "").trim().toLowerCase() !== sessionFolderName.trim().toLowerCase()) continue;
-      for (const page of j.pages) {
-        if (!page.name) continue;
-        sessionPages.push({
-          path: `${EXPORT_BASE}/${safeName(sessionFolderName)}/${safeName(page.name)}.md`,
-          content: pageToMarkdown(page),
-        });
-      }
-      break;
-    }
   }
 
   // Pre-gather and chunk so the total step count is accurate up front.
@@ -546,34 +527,22 @@ export async function runExportCCJournals(): Promise<void> {
     });
   }
 
-  if (sessionPages.length > 0) {
-    const chunks = chunkArray(sessionPages, CHUNK_SIZE);
-    chunks.forEach((chunk, i) => {
-      const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
-      work.push({
-        label: `${sessionFolderName}${partLabel}`,
-        commitLabel: `Export ${sessionFolderName}${partLabel}`,
-        files: chunk,
-      });
-    });
-  }
-
   if (work.length === 0) {
     ui.notifications.warn("LoreBridge CC Export: Nothing to export.");
     return;
   }
 
   // Gather current GitHub paths and compute deletions scoped to selected sections.
+  // List paths per-folder using the configured base paths.
   ui.notifications.info("LoreBridge CC Export: checking GitHub for stale files…");
-  const githubPaths = await listGitHubPaths(EXPORT_BASE).catch(() => [] as string[]);
+  const selectedPrefixes = selectedFolders.map((f) => `${ccFolderPath(f.name)}/`);
+  const allGitHubPaths: string[] = [];
+  for (const prefix of selectedPrefixes) {
+    const paths = await listGitHubPaths(prefix).catch(() => [] as string[]);
+    allGitHubPaths.push(...paths);
+  }
   const newPathSet = new Set(work.flatMap((w) => w.files.map((f) => f.path)));
-  // Build the set of path prefixes that were selected so we only delete within
-  // those sections — not from unselected folders we simply didn't export.
-  const selectedPrefixes = [
-    ...selectedFolders.map((f) => `${EXPORT_BASE}/${safeName(f.name)}/`),
-    ...(includeSession ? [`${EXPORT_BASE}/${safeName(sessionFolderName)}/`] : []),
-  ];
-  const deletions = githubPaths.filter(
+  const deletions = allGitHubPaths.filter(
     (p) => !newPathSet.has(p) && selectedPrefixes.some((prefix) => p.startsWith(prefix)),
   );
 
@@ -617,7 +586,7 @@ export async function runExportCCJournals(): Promise<void> {
 
     showResultDialog(
       "Campaign Codex Export",
-      `<p><strong>${totalFiles}</strong> file${totalFiles !== 1 ? "s" : ""} exported to <code>sources/campaign codex/</code>.</p>
+      `<p><strong>${totalFiles}</strong> file${totalFiles !== 1 ? "s" : ""} exported to GitHub.</p>
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
   <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Files</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
