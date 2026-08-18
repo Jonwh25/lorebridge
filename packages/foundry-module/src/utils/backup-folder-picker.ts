@@ -12,8 +12,6 @@ export function promptFolderSelection(
   folders: FolderOption[],
 ): Promise<Array<string | null> | null> {
   return new Promise((resolve) => {
-    const containerId = `lb-fp-${Math.random().toString(36).slice(2, 8)}`;
-
     const folderRows = folders
       .map(
         (f) =>
@@ -24,14 +22,14 @@ export function promptFolderSelection(
       )
       .join("");
 
-    const content = `<div id="${containerId}" style="padding:0.5rem 0.75rem;">
+    const content = `<div style="padding:0.5rem 0.75rem;">
       <div style="display:flex;gap:12px;margin-bottom:8px;font-size:0.85em;">
         <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
+          onclick="this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
           Select All
         </button>
         <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
+          onclick="this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
           Select None
         </button>
       </div>
