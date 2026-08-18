@@ -16,14 +16,12 @@ import {
 import {
   readLoreJson,
   writeLoreJson,
-  backupLoreFile,
   getJournalsInFolder,
   findMatchingJournal,
   parseJsonFromAi,
   confirmDialog,
   showResultDialog,
   escHtml,
-  latestSessionNumber,
   type JournalWithOps,
 } from "./tracker-shared.js";
 
@@ -243,22 +241,3 @@ export async function updateNpcEncountersFromLatest(): Promise<void> {
   );
 }
 
-/** Backup: commit encountered_npcs.json to GitHub. */
-export async function backupNpcEncounters(): Promise<void> {
-  if (!game.user?.isGM) return;
-  try {
-    ui.notifications.info("LoreBridge NPC Encounters: Backing up to GitHub…");
-    const settings = getLoreBridgeSettings();
-    const sessionNum = latestSessionNumber();
-    await backupLoreFile(
-      settings.lorefolderPath,
-      FILENAME,
-      `LoreBridge: Encountered NPCs backup — Session ${sessionNum}`,
-    );
-    ui.notifications.info("LoreBridge NPC Encounters: Backup complete.");
-  } catch (err) {
-    ui.notifications.error(
-      `LoreBridge NPC Encounters backup failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-}

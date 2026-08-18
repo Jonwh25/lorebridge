@@ -13,7 +13,6 @@ import { updateNpcEncountersFromLatest } from "./tracker-npc-encounters.js";
 import { updateQuestStatusFromLatest } from "./tracker-quest-status.js";
 import { updateRegionVisitsFromLatest } from "./tracker-region-visits.js";
 import { syncPermissionsCore, type PermissionsSyncResult } from "./permissions-sync.js";
-import { backupAllCore, type BackupAllResult } from "./backup-all.js";
 import { showResultDialog, escHtml } from "./tracker-shared.js";
 
 // ---------------------------------------------------------------------------
@@ -27,7 +26,6 @@ type ChecklistConfig = {
   runQuestStatus: boolean;
   runRegionVisits: boolean;
   runPermissionsSync: boolean;
-  runGitHubBackup: boolean;
 };
 
 async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig | null> {
@@ -40,7 +38,6 @@ async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig
       ["lb-quest-status", "Quest Status", true],
       ["lb-region-visits", "Region Visits", true],
       ["lb-perms-sync", "Permissions Sync", true],
-      ["lb-github-backup", "GitHub Backup", true],
     ];
 
     const checkboxRows = steps
@@ -64,7 +61,7 @@ async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig
         <p style="margin:0 0 0.4rem;color:#aaa">Steps to run:</p>
         ${checkboxRows}
         <p style="margin-top:0.5rem;color:#888;font-size:0.8em">
-          Skipped steps still appear in the final GitHub backup commit.
+          GitHub backups are now run separately via the SCC GitHub Backups section.
         </p>
       </div>`,
       buttons: [
@@ -89,7 +86,6 @@ async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig
               runQuestStatus: get("lb-quest-status"),
               runRegionVisits: get("lb-region-visits"),
               runPermissionsSync: get("lb-perms-sync"),
-              runGitHubBackup: get("lb-github-backup"),
             });
           },
         },
@@ -147,7 +143,6 @@ async function runStep(
 function buildSummary(
   steps: Array<{ label: string; result: StepResult }>,
   permsResult: PermissionsSyncResult | null,
-  backupResult: BackupAllResult | null,
 ): string {
   const rows = steps.map(({ label, result }) => {
     if (result.kind === "skipped") {
@@ -163,12 +158,6 @@ function buildSummary(
   if (permsResult) {
     const { npc, region, quest } = permsResult;
     extra += `<p style="margin:0.5rem 0 0.25rem;font-size:0.85em;color:#aaa">Observer set — NPCs: ${npc.applied}, Regions: ${region.applied}, Quests: ${quest.applied}</p>`;
-  }
-  if (backupResult) {
-    extra += `<p style="font-size:0.85em;color:#aaa">GitHub: ${backupResult.filesCommitted} file(s) + ${backupResult.macrosExported} macro(s) committed.</p>`;
-    if (backupResult.errors.length > 0) {
-      extra += `<p style="font-size:0.8em;color:#c88">Backup errors: ${backupResult.errors.map(escHtml).join("; ")}</p>`;
-    }
   }
 
   return `<table style="width:100%;border-collapse:collapse;font-size:0.9em">${rows.join("")}</table>${extra}`;
@@ -224,29 +213,9 @@ export async function runPostSessionChecklist(): Promise<void> {
     stepResults.push({ label: "Permissions Sync", result: { kind: "skipped" } });
   }
 
-  // GitHub backup — always commits all existing JSON regardless of which steps ran
-  let backupResult: BackupAllResult | null = null;
-  if (config.runGitHubBackup) {
-    ui.notifications.info("LoreBridge: Backing up to GitHub…");
-    try {
-      backupResult = await backupAllCore(
-        sessionNumber,
-        `LoreBridge: Post-session update — Session ${sessionNumber} (${new Date().toISOString().slice(0, 10)})`,
-      );
-      stepResults.push({ label: "GitHub Backup", result: { kind: "ok" } });
-    } catch (err) {
-      stepResults.push({
-        label: "GitHub Backup",
-        result: { kind: "error", message: err instanceof Error ? err.message : String(err) },
-      });
-    }
-  } else {
-    stepResults.push({ label: "GitHub Backup", result: { kind: "skipped" } });
-  }
-
   showResultDialog(
     `Post-Session Checklist — Session ${sessionNumber}`,
-    buildSummary(stepResults, permsResult, backupResult),
+    buildSummary(stepResults, permsResult),
     560,
   );
 }
