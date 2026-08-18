@@ -24,14 +24,8 @@ export function promptFolderSelection(
 
     const content = `<div style="padding:0.5rem 0.75rem;">
       <div style="display:flex;gap:12px;margin-bottom:8px;font-size:0.85em;">
-        <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
-          Select All
-        </button>
-        <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
-          Select None
-        </button>
+        <button type="button" class="lb-select-all" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);">Select All</button>
+        <button type="button" class="lb-select-none" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);">Select None</button>
       </div>
       <hr style="margin:0 0 8px;border:none;border-top:1px solid #666;">
       <div style="max-height:260px;overflow-y:auto;padding-right:4px;">
@@ -39,7 +33,7 @@ export function promptFolderSelection(
       </div>
     </div>`;
 
-    new foundry.applications.api.DialogV2({
+    const dlg = new foundry.applications.api.DialogV2({
       window: { title },
       position: { width: 380 },
       content,
@@ -65,6 +59,16 @@ export function promptFolderSelection(
           callback: () => { resolve(null); },
         },
       ],
-    }).render({ force: true });
+    });
+
+    dlg.render({ force: true }).then(() => {
+      const el = dlg.element;
+      el.querySelector(".lb-select-all")?.addEventListener("click", () => {
+        el.querySelectorAll<HTMLInputElement>(".lb-folder-cb").forEach((cb) => { cb.checked = true; });
+      });
+      el.querySelector(".lb-select-none")?.addEventListener("click", () => {
+        el.querySelectorAll<HTMLInputElement>(".lb-folder-cb").forEach((cb) => { cb.checked = false; });
+      });
+    });
   });
 }
