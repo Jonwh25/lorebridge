@@ -417,6 +417,7 @@ async function commitChunk(
     files,
     deletePaths: deletePaths ?? [],
     commitMessage: message,
+    repoRoot: "",
   });
   return result.commitUrl ?? "";
 }

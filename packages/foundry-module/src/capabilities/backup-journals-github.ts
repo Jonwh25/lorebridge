@@ -91,6 +91,7 @@ export async function runBackupJournals(): Promise<void> {
       await postBackend<unknown>("v1/backup/github/lore-files", {
         files: chunk,
         commitMessage: `LoreBridge: Backup journals${partLabel}`,
+        repoRoot: "",
       });
       done += chunk.length;
       progress.setProgress(done);

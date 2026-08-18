@@ -72,6 +72,7 @@ export async function runBackupSessionLogs(): Promise<void> {
       await postBackend<unknown>("v1/backup/github/lore-files", {
         files: chunk,
         commitMessage: `LoreBridge: Backup session logs${partLabel}`,
+        repoRoot: "",
       });
       done += chunk.length;
       progress.setProgress(done);

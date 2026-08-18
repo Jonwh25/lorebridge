@@ -71,6 +71,7 @@ export async function runBackupActorsNpcs(): Promise<void> {
       await postBackend<unknown>("v1/backup/github/lore-files", {
         files: chunk,
         commitMessage: `LoreBridge: Backup NPC actors${partLabel}`,
+        repoRoot: "",
       });
       done += chunk.length;
       progress.setProgress(done);
