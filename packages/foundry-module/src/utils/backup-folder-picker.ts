@@ -25,16 +25,18 @@ export function promptFolderSelection(
     const content = `<div style="padding:0.5rem 0.75rem;">
       <label style="display:flex;align-items:center;gap:6px;margin:0 0 8px;cursor:pointer;font-weight:600;">
         <input type="checkbox" id="lb-backup-all" checked
-          onchange="var cbs=this.closest('.app, dialog').querySelectorAll('.lb-folder-cb');cbs.forEach(function(cb){cb.disabled=document.getElementById('lb-backup-all').checked;});">
+          onchange="var checked=this.checked;this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.disabled=checked;});">
         Backup All
       </label>
       <hr style="margin:0 0 8px;border:none;border-top:1px solid #666;">
-      ${folderRows}
+      <div style="max-height:260px;overflow-y:auto;padding-right:4px;">
+        ${folderRows}
+      </div>
     </div>`;
 
     new foundry.applications.api.DialogV2({
       window: { title },
-      position: { width: 380, height: "auto" },
+      position: { width: 380 },
       content,
       buttons: [
         {
