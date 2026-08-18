@@ -69,7 +69,6 @@ export async function runBackupActorsPlayers(): Promise<void> {
       await postBackend<unknown>("v1/backup/github/lore-files", {
         files: chunk,
         commitMessage: `LoreBridge: Backup player actors${partLabel}`,
-        repoRoot: "",
       });
     }
     ui.notifications.info(`LoreBridge: ✅ Backed up ${pcs.length} player actors.`);
