@@ -1,7 +1,7 @@
 /**
  * Simple Markdown journal backup to GitHub (#307).
  * Distinct from backup-journals.ts (Raven's Eye fidelity backup).
- * Exports all journals not in "Campaign Codex - *" folders and not the
+ * Exports journals not in "Campaign Codex - *" folders and not the
  * Session Logs journal to the configured backupPathJournals path.
  */
 
@@ -10,6 +10,7 @@ import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
 import { plainText } from "../utils/html.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
+import { promptFolderSelection } from "../utils/backup-folder-picker.js";
 
 type FoundryPage = {
   name: string;
@@ -18,7 +19,7 @@ type FoundryPage = {
 
 type FoundryJournal = {
   name: string;
-  folder?: { name: string } | null;
+  folder?: { id: string; name: string } | null;
   pages: Iterable<FoundryPage>;
 };
 
@@ -73,9 +74,28 @@ export async function runBackupJournals(): Promise<void> {
     return;
   }
 
-  const allFiles = journals.flatMap((j) => journalToFiles(j, basePath));
+  const folderMap = new Map<string | null, string>();
+  for (const j of journals) {
+    const id = j.folder?.id ?? null;
+    if (!folderMap.has(id)) folderMap.set(id, j.folder?.name ?? "(No Folder)");
+  }
+  const folders = Array.from(folderMap.entries())
+    .sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? ""))
+    .map(([id, name]) => ({ id, name }));
+
+  const selected = await promptFolderSelection("Backup Journals — Select Folders", folders);
+  if (selected === null) return;
+
+  const selectedSet = new Set(selected);
+  const filtered = journals.filter((j) => selectedSet.has(j.folder?.id ?? null));
+  if (filtered.length === 0) {
+    ui.notifications.warn("LoreBridge: No journals in the selected folders.");
+    return;
+  }
+
+  const allFiles = filtered.flatMap((j) => journalToFiles(j, basePath));
   if (allFiles.length === 0) {
-    ui.notifications.warn("LoreBridge: Journals found but no pages to export.");
+    ui.notifications.warn("LoreBridge: Selected journals have no pages to export.");
     return;
   }
 
@@ -97,7 +117,7 @@ export async function runBackupJournals(): Promise<void> {
       progress.setProgress(done);
     }
     await progress.close();
-    ui.notifications.info(`LoreBridge: ✅ Backed up ${allFiles.length} journal page(s).`);
+    ui.notifications.info(`LoreBridge: ✅ Backed up ${allFiles.length} journal page(s) from ${filtered.length} journal(s).`);
   } catch (err) {
     await progress.close();
     ui.notifications.error(`LoreBridge journal backup failed: ${err instanceof Error ? err.message : String(err)}`);
