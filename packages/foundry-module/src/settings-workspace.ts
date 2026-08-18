@@ -64,6 +64,7 @@ type SectionId =
   | "ai-content"
   | "access-safety"
   | "history"
+  | "backup-config"
   | "advanced";
 
 const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
@@ -73,6 +74,7 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: "ai-content",    label: "AI & Content",    icon: "fas fa-magic" },
   { id: "access-safety", label: "Access & Safety", icon: "fas fa-shield-alt" },
   { id: "history",       label: "History",         icon: "fas fa-history" },
+  { id: "backup-config", label: "Backup Config",   icon: "fas fa-folder-open" },
   { id: "advanced",      label: "Advanced",        icon: "fas fa-cogs" },
 ];
 
@@ -159,6 +161,7 @@ function buildHomeHtml(): string {
           { id: "ai-content",    icon: "fas fa-magic",       label: "AI & Content",    desc: "Provider, session log, compendiums" },
           { id: "access-safety", icon: "fas fa-shield-alt",  label: "Access & Safety", desc: "Context profiles, player lore" },
           { id: "history",       icon: "fas fa-history",     label: "History",         desc: "Recent AI generations" },
+          { id: "backup-config", icon: "fas fa-folder-open", label: "Backup Config",   desc: "GitHub folder paths for each backup category" },
           { id: "advanced",      icon: "fas fa-cogs",        label: "Advanced",        desc: "Portrait directory, history length" },
         ].map(({ id, icon, label, desc }) => `
           <button data-action="nav" data-section="${id}"
@@ -399,6 +402,56 @@ function buildHistoryHtml(): string {
   </div>`;
 }
 
+function pathInput(key: string, value: string): string {
+  return `<input type="text" name="${esc(key)}" value="${esc(value)}"
+    style="width:100%;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">`;
+}
+
+function pathRow(label: string, key: string, value: string): string {
+  return `<div style="margin-bottom:10px">
+    <label style="font-size:0.82em;font-weight:bold;display:block;margin-bottom:3px">${esc(label)}</label>
+    ${pathInput(key, value)}
+  </div>`;
+}
+
+function buildBackupConfigHtml(): string {
+  const s = getLoreBridgeSettings();
+  return `
+    <div style="padding:20px 24px">
+      ${sectionHeader("Backup Config", "GitHub repo-root-relative folder paths for each backup category. No leading slash, no \"..\". Blank values fall back to defaults.")}
+
+      <details open style="margin-bottom:16px;border:1px solid rgba(0,0,0,.15);border-radius:4px">
+        <summary style="cursor:pointer;padding:8px 12px;font-weight:bold;font-size:0.88em;background:rgba(0,0,0,.04)">General Backups</summary>
+        <div style="padding:12px">
+          ${pathRow("Actors (NPCs) folder",     LOREBRIDGE_SETTINGS.backupPathNpcs,       s.backupPathNpcs)}
+          ${pathRow("Actors (Players) folder",  LOREBRIDGE_SETTINGS.backupPathPlayers,    s.backupPathPlayers)}
+          ${pathRow("Journals folder",          LOREBRIDGE_SETTINGS.backupPathJournals,   s.backupPathJournals)}
+          ${pathRow("Macros folder",            LOREBRIDGE_SETTINGS.backupPathMacros,     s.backupPathMacros)}
+          ${pathRow("Session Logs folder",      LOREBRIDGE_SETTINGS.backupPathSessionLogs, s.backupPathSessionLogs)}
+        </div>
+      </details>
+
+      <details style="margin-bottom:16px;border:1px solid rgba(0,0,0,.15);border-radius:4px">
+        <summary style="cursor:pointer;padding:8px 12px;font-weight:bold;font-size:0.88em;background:rgba(0,0,0,.04)">Campaign Codex Backups</summary>
+        <div style="padding:12px">
+          ${pathRow("CC Entries folder",   LOREBRIDGE_SETTINGS.backupPathCcEntries,   s.backupPathCcEntries)}
+          ${pathRow("CC Factions folder",  LOREBRIDGE_SETTINGS.backupPathCcFactions,  s.backupPathCcFactions)}
+          ${pathRow("CC Groups folder",    LOREBRIDGE_SETTINGS.backupPathCcGroups,    s.backupPathCcGroups)}
+          ${pathRow("CC Locations folder", LOREBRIDGE_SETTINGS.backupPathCcLocations, s.backupPathCcLocations)}
+          ${pathRow("CC NPCs folder",      LOREBRIDGE_SETTINGS.backupPathCcNpcs,      s.backupPathCcNpcs)}
+          ${pathRow("CC Quests folder",    LOREBRIDGE_SETTINGS.backupPathCcQuests,    s.backupPathCcQuests)}
+          ${pathRow("CC Regions folder",   LOREBRIDGE_SETTINGS.backupPathCcRegions,   s.backupPathCcRegions)}
+        </div>
+      </details>
+
+      <div style="margin-top:8px;text-align:right">
+        <button data-action="backup-config-save" style="padding:6px 16px">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </div>
+    </div>`;
+}
+
 function buildAdvancedHtml(): string {
   const s = getLoreBridgeSettings();
   const maxLen = Number(
@@ -489,6 +542,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       "history-delete": LoreBridgeSettingsApp._onHistoryDelete,
       "history-reopen": LoreBridgeSettingsApp._onHistoryReopen,
       "history-clear-all": LoreBridgeSettingsApp._onHistoryClearAll,
+      "backup-config-save": LoreBridgeSettingsApp._onBackupConfigSave,
       "advanced-save": LoreBridgeSettingsApp._onAdvancedSave,
     },
   };
@@ -553,6 +607,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "ai-content":    return buildAiContentHtml();
       case "access-safety": return buildAccessSafetyHtml();
       case "history":       return buildHistoryHtml();
+      case "backup-config": return buildBackupConfigHtml();
       case "advanced":      return buildAdvancedHtml();
     }
   }
@@ -903,6 +958,40 @@ export class LoreBridgeSettingsApp extends AppBase {
     _target: HTMLElement,
   ): Promise<void> {
     await clearHistory();
+    void this._self().render({ force: false });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Backup Config
+  // ---------------------------------------------------------------------------
+
+  static async _onBackupConfigSave(
+    this: LoreBridgeSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    const api = getFoundrySettingsApi();
+    const el = this._self().element;
+    const read = (name: string) =>
+      el.querySelector<HTMLInputElement>(`input[name='${name}']`)?.value.trim() ?? "";
+
+    const paths: Array<[string, string]> = [
+      [LOREBRIDGE_SETTINGS.backupPathNpcs,        read(LOREBRIDGE_SETTINGS.backupPathNpcs)],
+      [LOREBRIDGE_SETTINGS.backupPathPlayers,      read(LOREBRIDGE_SETTINGS.backupPathPlayers)],
+      [LOREBRIDGE_SETTINGS.backupPathJournals,     read(LOREBRIDGE_SETTINGS.backupPathJournals)],
+      [LOREBRIDGE_SETTINGS.backupPathMacros,       read(LOREBRIDGE_SETTINGS.backupPathMacros)],
+      [LOREBRIDGE_SETTINGS.backupPathSessionLogs,  read(LOREBRIDGE_SETTINGS.backupPathSessionLogs)],
+      [LOREBRIDGE_SETTINGS.backupPathCcEntries,    read(LOREBRIDGE_SETTINGS.backupPathCcEntries)],
+      [LOREBRIDGE_SETTINGS.backupPathCcFactions,   read(LOREBRIDGE_SETTINGS.backupPathCcFactions)],
+      [LOREBRIDGE_SETTINGS.backupPathCcGroups,     read(LOREBRIDGE_SETTINGS.backupPathCcGroups)],
+      [LOREBRIDGE_SETTINGS.backupPathCcLocations,  read(LOREBRIDGE_SETTINGS.backupPathCcLocations)],
+      [LOREBRIDGE_SETTINGS.backupPathCcNpcs,       read(LOREBRIDGE_SETTINGS.backupPathCcNpcs)],
+      [LOREBRIDGE_SETTINGS.backupPathCcQuests,     read(LOREBRIDGE_SETTINGS.backupPathCcQuests)],
+      [LOREBRIDGE_SETTINGS.backupPathCcRegions,    read(LOREBRIDGE_SETTINGS.backupPathCcRegions)],
+    ];
+
+    await Promise.all(paths.map(([key, val]) => api.set(MODULE_ID, key, val)));
+    ui.notifications.info("LoreBridge: Backup Config saved.");
     void this._self().render({ force: false });
   }
 

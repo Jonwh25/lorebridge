@@ -56,6 +56,20 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   lorefolderPath: "lorefolderPath",
   portraitMatchRoot: "portraitMatchRoot",
   playerCharacterNames: "playerCharacterNames",
+  // Backup config — general
+  backupPathNpcs: "backupPathNpcs",
+  backupPathPlayers: "backupPathPlayers",
+  backupPathJournals: "backupPathJournals",
+  backupPathMacros: "backupPathMacros",
+  backupPathSessionLogs: "backupPathSessionLogs",
+  // Backup config — Campaign Codex
+  backupPathCcEntries: "backupPathCcEntries",
+  backupPathCcFactions: "backupPathCcFactions",
+  backupPathCcGroups: "backupPathCcGroups",
+  backupPathCcLocations: "backupPathCcLocations",
+  backupPathCcNpcs: "backupPathCcNpcs",
+  backupPathCcQuests: "backupPathCcQuests",
+  backupPathCcRegions: "backupPathCcRegions",
 });
 
 export type LoreBridgeProvider = "none" | "anthropic" | "openai";
@@ -86,6 +100,18 @@ export type LoreBridgeSettings = {
   lorefolderPath: string;
   portraitMatchRoot: string;
   playerCharacterNames: string;
+  backupPathNpcs: string;
+  backupPathPlayers: string;
+  backupPathJournals: string;
+  backupPathMacros: string;
+  backupPathSessionLogs: string;
+  backupPathCcEntries: string;
+  backupPathCcFactions: string;
+  backupPathCcGroups: string;
+  backupPathCcLocations: string;
+  backupPathCcNpcs: string;
+  backupPathCcQuests: string;
+  backupPathCcRegions: string;
 };
 
 export function registerLoreBridgeSettings(): void {
@@ -394,6 +420,70 @@ export function registerLoreBridgeSettings(): void {
     type: String,
     default: "",
   });
+
+  // Backup config — general
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs, {
+    name: "Backup: Actors (NPCs) Folder",
+    hint: "GitHub repo-root-relative folder for NPC actor backups.",
+    scope: "world", config: false, type: String, default: "02-actors/npcs",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathPlayers, {
+    name: "Backup: Actors (Players) Folder",
+    hint: "GitHub repo-root-relative folder for player actor backups.",
+    scope: "world", config: false, type: String, default: "02-actors/players",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathJournals, {
+    name: "Backup: Journals Folder",
+    hint: "GitHub repo-root-relative folder for journal backups.",
+    scope: "world", config: false, type: String, default: "07-foundry/journals",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathMacros, {
+    name: "Backup: Macros Folder",
+    hint: "GitHub repo-root-relative folder for macro backups.",
+    scope: "world", config: false, type: String, default: "07-foundry/macros",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathSessionLogs, {
+    name: "Backup: Session Logs Folder",
+    hint: "GitHub repo-root-relative folder for session log backups.",
+    scope: "world", config: false, type: String, default: "01-sessions",
+  });
+
+  // Backup config — Campaign Codex
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcEntries, {
+    name: "Backup: CC Entries Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Entries backups.",
+    scope: "world", config: false, type: String, default: "07-foundry/cc-entries",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcFactions, {
+    name: "Backup: CC Factions Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Factions backups.",
+    scope: "world", config: false, type: String, default: "04-world/cc-factions",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcGroups, {
+    name: "Backup: CC Groups Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Groups backups.",
+    scope: "world", config: false, type: String, default: "04-world/cc-groups",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcLocations, {
+    name: "Backup: CC Locations Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Locations backups.",
+    scope: "world", config: false, type: String, default: "04-world/cc-locations",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcNpcs, {
+    name: "Backup: CC NPCs Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex NPCs backups.",
+    scope: "world", config: false, type: String, default: "02-actors/cc-npcs",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcQuests, {
+    name: "Backup: CC Quests Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Quests backups.",
+    scope: "world", config: false, type: String, default: "03-quests/cc-quests",
+  });
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcRegions, {
+    name: "Backup: CC Regions Folder",
+    hint: "GitHub repo-root-relative folder for Campaign Codex Regions backups.",
+    scope: "world", config: false, type: String, default: "04-world/cc-regions",
+  });
 }
 
 
@@ -476,6 +566,30 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     playerCharacterNames: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.playerCharacterNames) ?? "",
     ).trim(),
+    backupPathNpcs: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs), "02-actors/npcs"),
+    backupPathPlayers: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathPlayers), "02-actors/players"),
+    backupPathJournals: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathJournals), "07-foundry/journals"),
+    backupPathMacros: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathMacros), "07-foundry/macros"),
+    backupPathSessionLogs: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathSessionLogs), "01-sessions"),
+    backupPathCcEntries: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcEntries), "07-foundry/cc-entries"),
+    backupPathCcFactions: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcFactions), "04-world/cc-factions"),
+    backupPathCcGroups: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcGroups), "04-world/cc-groups"),
+    backupPathCcLocations: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcLocations), "04-world/cc-locations"),
+    backupPathCcNpcs: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcNpcs), "02-actors/cc-npcs"),
+    backupPathCcQuests: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcQuests), "03-quests/cc-quests"),
+    backupPathCcRegions: normalizeBackupPath(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathCcRegions), "04-world/cc-regions"),
   };
 }
 
@@ -483,4 +597,10 @@ function normalizeProvider(value: unknown): LoreBridgeProvider {
   if (value === "openai") return "openai";
   if (value === "anthropic") return "anthropic";
   return "none";
+}
+
+function normalizeBackupPath(value: unknown, defaultValue: string): string {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw.startsWith("/") || raw.includes("..")) return defaultValue;
+  return raw;
 }
