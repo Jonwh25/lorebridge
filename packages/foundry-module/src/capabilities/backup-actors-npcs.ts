@@ -2,8 +2,15 @@ import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
+import { promptFolderSelection } from "../utils/backup-folder-picker.js";
+import { buildFolderMap, buildPickerFolders, expandFolderIds, folderPath } from "../utils/folder-tree.js";
 
-type ActorDoc = { name: string; type: string; system?: Record<string, unknown> };
+type ActorDoc = {
+  name: string;
+  type: string;
+  folder?: { id: string; name: string } | null;
+  system?: Record<string, unknown>;
+};
 
 const CHUNK_SIZE = 25;
 
@@ -54,13 +61,29 @@ export async function runBackupActorsNpcs(): Promise<void> {
     return;
   }
 
-  const files = npcs.map((a) => ({
-    path: `${basePath}/${safeName(a.name)}.md`,
-    content: actorToMarkdown(a),
-  }));
+  const folderMap = buildFolderMap("Actor");
+
+  const directFolderIds = new Set<string | null>(npcs.map((a) => a.folder?.id ?? null));
+  const pickerFolders = buildPickerFolders(directFolderIds, folderMap);
+
+  const selected = await promptFolderSelection("Backup NPC Actors — Select Folders", pickerFolders);
+  if (selected === null) return;
+
+  const expandedIds = expandFolderIds(selected, folderMap);
+  const filtered = npcs.filter((a) => expandedIds.has(a.folder?.id ?? null));
+  if (filtered.length === 0) {
+    ui.notifications.warn("LoreBridge: No NPC actors in the selected folders.");
+    return;
+  }
+
+  const files = filtered.map((a) => {
+    const fp = folderPath(a.folder?.id ?? null, folderMap);
+    const dir = fp ? `${basePath}/${fp.split("/").map(safeName).join("/")}` : basePath;
+    return { path: `${dir}/${safeName(a.name)}.md`, content: actorToMarkdown(a) };
+  });
 
   const chunks = chunkArray(files, CHUNK_SIZE);
-  const progress = new BackupProgressDialog(`Backing up ${npcs.length} NPC actors to GitHub…`, files.length);
+  const progress = new BackupProgressDialog(`Backing up ${filtered.length} NPC actors to GitHub…`, files.length);
   await progress.render(true);
 
   try {
@@ -77,7 +100,7 @@ export async function runBackupActorsNpcs(): Promise<void> {
       progress.setProgress(done);
     }
     await progress.close();
-    ui.notifications.info(`LoreBridge: ✅ Backed up ${npcs.length} NPC actors.`);
+    ui.notifications.info(`LoreBridge: ✅ Backed up ${filtered.length} NPC actors.`);
   } catch (err) {
     await progress.close();
     ui.notifications.error(`LoreBridge NPC backup failed: ${err instanceof Error ? err.message : String(err)}`);

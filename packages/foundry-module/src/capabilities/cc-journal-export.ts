@@ -16,6 +16,7 @@ import { requireFoundryGm } from "./errors.js";
 import { postBackend, buildBackendUrl, escHtml, showResultDialog } from "./tracker-shared.js";
 import { buildFolderMap, collectSubtreeIds, type FoundryFolder } from "./backup-folders.js";
 import { plainText, htmlToMarkdown } from "../utils/html.js";
+import { BackupProgressDialog } from "../utils/backup-progress.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -552,12 +553,17 @@ export async function runExportCCJournals(): Promise<void> {
   // Track per-folder totals for the result dialog.
   const folderTotals = new Map<string, number>();
 
+  const fileCount = work.reduce((sum, w) => sum + w.files.length, 0);
+  const progress = new BackupProgressDialog("Exporting Campaign Codex to GitHub…", fileCount);
+  await progress.render(true);
+
   try {
     for (let i = 0; i < work.length; i++) {
       const item = work[i]!;
-      ui.notifications.info(`LoreBridge CC Export: ${item.label} (${i + 1}/${work.length})…`);
+      progress.setProgress(totalFiles, item.label);
       lastCommitUrl = await commitChunk(item.files, item.commitLabel);
       totalFiles += item.files.length;
+      progress.setProgress(totalFiles);
 
       // Attribute files back to their CC root folder name for the summary.
       for (const f of item.files) {
@@ -568,9 +574,11 @@ export async function runExportCCJournals(): Promise<void> {
 
     // Cleanup commit: delete any files on GitHub that are no longer in Foundry.
     if (deletions.length > 0) {
-      ui.notifications.info(`LoreBridge CC Export: removing ${deletions.length} deleted file${deletions.length !== 1 ? "s" : ""}…`);
+      progress.setProgress(totalFiles, `Removing ${deletions.length} stale file(s)…`);
       lastCommitUrl = await commitChunk([], `Sync: remove ${deletions.length} deleted journal${deletions.length !== 1 ? "s" : ""}`, deletions);
     }
+
+    await progress.close();
 
     const rowsHtml = Array.from(folderTotals.entries())
       .map(([name, count]) => `<tr><td>${escHtml(name)}</td><td style="text-align:center">${count}</td></tr>`)
@@ -593,6 +601,7 @@ export async function runExportCCJournals(): Promise<void> {
 </table>${deletionNote}${linkHtml}`,
     );
   } catch (err) {
+    await progress.close();
     const msg = err instanceof Error ? err.message : String(err);
     ui.notifications.error(`LoreBridge CC Export: ${msg}`);
   }

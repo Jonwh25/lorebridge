@@ -2,8 +2,15 @@ import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
+import { promptFolderSelection } from "../utils/backup-folder-picker.js";
+import { buildFolderMap, buildPickerFolders, expandFolderIds, folderPath } from "../utils/folder-tree.js";
 
-type ActorDoc = { name: string; type: string; system?: Record<string, unknown> };
+type ActorDoc = {
+  name: string;
+  type: string;
+  folder?: { id: string; name: string } | null;
+  system?: Record<string, unknown>;
+};
 
 const CHUNK_SIZE = 25;
 
@@ -55,13 +62,29 @@ export async function runBackupActorsPlayers(): Promise<void> {
     return;
   }
 
-  const files = pcs.map((a) => ({
-    path: `${basePath}/${safeName(a.name)}.md`,
-    content: actorToMarkdown(a),
-  }));
+  const folderMap = buildFolderMap("Actor");
+
+  const directFolderIds = new Set<string | null>(pcs.map((a) => a.folder?.id ?? null));
+  const pickerFolders = buildPickerFolders(directFolderIds, folderMap);
+
+  const selected = await promptFolderSelection("Backup Player Actors — Select Folders", pickerFolders);
+  if (selected === null) return;
+
+  const expandedIds = expandFolderIds(selected, folderMap);
+  const filtered = pcs.filter((a) => expandedIds.has(a.folder?.id ?? null));
+  if (filtered.length === 0) {
+    ui.notifications.warn("LoreBridge: No player actors in the selected folders.");
+    return;
+  }
+
+  const files = filtered.map((a) => {
+    const fp = folderPath(a.folder?.id ?? null, folderMap);
+    const dir = fp ? `${basePath}/${fp.split("/").map(safeName).join("/")}` : basePath;
+    return { path: `${dir}/${safeName(a.name)}.md`, content: actorToMarkdown(a) };
+  });
 
   const chunks = chunkArray(files, CHUNK_SIZE);
-  const progress = new BackupProgressDialog(`Backing up ${pcs.length} player actors to GitHub…`, files.length);
+  const progress = new BackupProgressDialog(`Backing up ${filtered.length} player actors to GitHub…`, files.length);
   await progress.render(true);
 
   try {
@@ -78,7 +101,7 @@ export async function runBackupActorsPlayers(): Promise<void> {
       progress.setProgress(done);
     }
     await progress.close();
-    ui.notifications.info(`LoreBridge: ✅ Backed up ${pcs.length} player actors.`);
+    ui.notifications.info(`LoreBridge: ✅ Backed up ${filtered.length} player actors.`);
   } catch (err) {
     await progress.close();
     ui.notifications.error(`LoreBridge player backup failed: ${err instanceof Error ? err.message : String(err)}`);
