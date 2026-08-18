@@ -46,7 +46,9 @@ function journalToFiles(
   basePath: string,
 ): Array<{ path: string; content: string }> {
   const files: Array<{ path: string; content: string }> = [];
-  const journalDir = `${basePath}/${safeName(journal.name)}`;
+  const journalDir = journal.folder
+    ? `${basePath}/${safeName(journal.folder.name)}/${safeName(journal.name)}`
+    : `${basePath}/${safeName(journal.name)}`;
   for (const page of journal.pages) {
     if (!page.name) continue;
     const content = plainText(page.text?.content ?? "").trim();

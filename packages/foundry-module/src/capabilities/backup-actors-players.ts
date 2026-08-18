@@ -81,7 +81,9 @@ export async function runBackupActorsPlayers(): Promise<void> {
   }
 
   const files = filtered.map((a) => ({
-    path: `${basePath}/${safeName(a.name)}.md`,
+    path: a.folder
+      ? `${basePath}/${safeName(a.folder.name)}/${safeName(a.name)}.md`
+      : `${basePath}/${safeName(a.name)}.md`,
     content: actorToMarkdown(a),
   }));
 
