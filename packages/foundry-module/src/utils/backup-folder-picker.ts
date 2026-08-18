@@ -1,6 +1,6 @@
 import { escHtml } from "./html.js";
 
-export type FolderOption = { id: string | null; name: string };
+export type FolderOption = { id: string | null; name: string; depth?: number };
 
 /**
  * Shows a DialogV2 letting the user pick which folders to include in a backup.
@@ -14,11 +14,14 @@ export function promptFolderSelection(
   return new Promise((resolve) => {
     const folderRows = folders
       .map(
-        (f) =>
-          `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer;">
+        (f) => {
+          const indent = (f.depth ?? 0) * 16;
+          const icon = (f.depth ?? 0) > 0 ? "└ " : "";
+          return `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer;padding-left:${indent}px;">
             <input type="checkbox" class="lb-folder-cb" data-folder-id="${escHtml(f.id ?? "__none__")}" checked>
-            ${escHtml(f.name)}
-          </label>`,
+            ${icon}${escHtml(f.name)}
+          </label>`;
+        },
       )
       .join("");
 

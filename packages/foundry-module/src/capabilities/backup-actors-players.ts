@@ -3,6 +3,7 @@ import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 import { promptFolderSelection } from "../utils/backup-folder-picker.js";
+import { buildFolderMap, buildPickerFolders, expandFolderIds, folderPath } from "../utils/folder-tree.js";
 
 type ActorDoc = {
   name: string;
@@ -61,31 +62,26 @@ export async function runBackupActorsPlayers(): Promise<void> {
     return;
   }
 
-  const folderMap = new Map<string | null, string>();
-  for (const a of pcs) {
-    const id = a.folder?.id ?? null;
-    if (!folderMap.has(id)) folderMap.set(id, a.folder?.name ?? "(No Folder)");
-  }
-  const folders = Array.from(folderMap.entries())
-    .sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? ""))
-    .map(([id, name]) => ({ id, name }));
+  const folderMap = buildFolderMap("Actor");
 
-  const selected = await promptFolderSelection("Backup Player Actors — Select Folders", folders);
+  const directFolderIds = new Set<string | null>(pcs.map((a) => a.folder?.id ?? null));
+  const pickerFolders = buildPickerFolders(directFolderIds, folderMap);
+
+  const selected = await promptFolderSelection("Backup Player Actors — Select Folders", pickerFolders);
   if (selected === null) return;
 
-  const selectedSet = new Set(selected);
-  const filtered = pcs.filter((a) => selectedSet.has(a.folder?.id ?? null));
+  const expandedIds = expandFolderIds(selected, folderMap);
+  const filtered = pcs.filter((a) => expandedIds.has(a.folder?.id ?? null));
   if (filtered.length === 0) {
     ui.notifications.warn("LoreBridge: No player actors in the selected folders.");
     return;
   }
 
-  const files = filtered.map((a) => ({
-    path: a.folder
-      ? `${basePath}/${safeName(a.folder.name)}/${safeName(a.name)}.md`
-      : `${basePath}/${safeName(a.name)}.md`,
-    content: actorToMarkdown(a),
-  }));
+  const files = filtered.map((a) => {
+    const fp = folderPath(a.folder?.id ?? null, folderMap);
+    const dir = fp ? `${basePath}/${fp.split("/").map(safeName).join("/")}` : basePath;
+    return { path: `${dir}/${safeName(a.name)}.md`, content: actorToMarkdown(a) };
+  });
 
   const chunks = chunkArray(files, CHUNK_SIZE);
   const progress = new BackupProgressDialog(`Backing up ${filtered.length} player actors to GitHub…`, files.length);

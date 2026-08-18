@@ -1,8 +1,6 @@
 /**
  * Simple Markdown journal backup to GitHub (#307).
  * Distinct from backup-journals.ts (Raven's Eye fidelity backup).
- * Exports journals not in "Campaign Codex - *" folders and not the
- * Session Logs journal to the configured backupPathJournals path.
  */
 
 import { getLoreBridgeSettings } from "../settings.js";
@@ -11,6 +9,7 @@ import { postBackend } from "./tracker-shared.js";
 import { plainText } from "../utils/html.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 import { promptFolderSelection } from "../utils/backup-folder-picker.js";
+import { buildFolderMap, buildPickerFolders, expandFolderIds, folderPath } from "../utils/folder-tree.js";
 
 type FoundryPage = {
   name: string;
@@ -37,17 +36,18 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 function isCcJournal(j: FoundryJournal): boolean {
-  const folderName = (j.folder?.name ?? "").toLowerCase();
-  return folderName.startsWith(CC_FOLDER_PREFIX);
+  return (j.folder?.name ?? "").toLowerCase().startsWith(CC_FOLDER_PREFIX);
 }
 
 function journalToFiles(
   journal: FoundryJournal,
   basePath: string,
+  fp: string,
 ): Array<{ path: string; content: string }> {
   const files: Array<{ path: string; content: string }> = [];
-  const journalDir = journal.folder
-    ? `${basePath}/${safeName(journal.folder.name)}/${safeName(journal.name)}`
+  const safePath = fp ? fp.split("/").map(safeName).join("/") : "";
+  const journalDir = safePath
+    ? `${basePath}/${safePath}/${safeName(journal.name)}`
     : `${basePath}/${safeName(journal.name)}`;
   for (const page of journal.pages) {
     if (!page.name) continue;
@@ -76,26 +76,24 @@ export async function runBackupJournals(): Promise<void> {
     return;
   }
 
-  const folderMap = new Map<string | null, string>();
-  for (const j of journals) {
-    const id = j.folder?.id ?? null;
-    if (!folderMap.has(id)) folderMap.set(id, j.folder?.name ?? "(No Folder)");
-  }
-  const folders = Array.from(folderMap.entries())
-    .sort((a, b) => (a[1] ?? "").localeCompare(b[1] ?? ""))
-    .map(([id, name]) => ({ id, name }));
+  const folderMap = buildFolderMap("JournalEntry");
 
-  const selected = await promptFolderSelection("Backup Journals — Select Folders", folders);
+  const directFolderIds = new Set<string | null>(journals.map((j) => j.folder?.id ?? null));
+  const pickerFolders = buildPickerFolders(directFolderIds, folderMap);
+
+  const selected = await promptFolderSelection("Backup Journals — Select Folders", pickerFolders);
   if (selected === null) return;
 
-  const selectedSet = new Set(selected);
-  const filtered = journals.filter((j) => selectedSet.has(j.folder?.id ?? null));
+  const expandedIds = expandFolderIds(selected, folderMap);
+  const filtered = journals.filter((j) => expandedIds.has(j.folder?.id ?? null));
   if (filtered.length === 0) {
     ui.notifications.warn("LoreBridge: No journals in the selected folders.");
     return;
   }
 
-  const allFiles = filtered.flatMap((j) => journalToFiles(j, basePath));
+  const allFiles = filtered.flatMap((j) =>
+    journalToFiles(j, basePath, folderPath(j.folder?.id ?? null, folderMap)),
+  );
   if (allFiles.length === 0) {
     ui.notifications.warn("LoreBridge: Selected journals have no pages to export.");
     return;
