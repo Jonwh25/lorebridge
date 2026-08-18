@@ -566,6 +566,33 @@ changes improve reliability and correctness of existing features.
 3. ✅ [CC Journal Export: write full content to GitHub and sync deletions](https://github.com/Jonwh25/lorebridge/issues/298)
 4. ✅ [CC Journal Export: section picker — export only selected folders](https://github.com/Jonwh25/lorebridge/issues/301)
 
+### Milestone 29 — Quality of Life & Efficiency
+
+Rolling milestone for smaller enhancements, performance improvements, and polish
+items surfacing from real-campaign use. No new major capabilities; each issue is
+independently mergeable.
+
+This milestone redesigns the GitHub backup system to be fully configurable and
+manual, replacing the old scattered backup buttons with a clean per-category
+workflow and removing infrastructure that no longer fits the campaign's folder
+structure.
+
+1. [Settings: Add Backup Config section with configurable folder paths](https://github.com/Jonwh25/lorebridge/issues/305)
+2. [SCC: Redesign Session Command Center — new GitHub Backups section](https://github.com/Jonwh25/lorebridge/issues/306)
+3. [Module: Implement general backup capability functions (actors, journals, macros, session logs)](https://github.com/Jonwh25/lorebridge/issues/307)
+4. [Module: Update Campaign Codex export to use configurable backup paths](https://github.com/Jonwh25/lorebridge/issues/308)
+5. [Cleanup: Remove deprecated backup infrastructure](https://github.com/Jonwh25/lorebridge/issues/309)
+
+Suggested merge order: #305 → #307 → #308 → #306 → #309. Settings must land
+first; cleanup is last so no window exists where buttons call deleted functions.
+
+Success test: a GM configures custom folder paths in LoreBridge Settings,
+manually triggers each backup category from the new GitHub Backups section in
+the Session Command Center, and verifies that each category commits Markdown
+files to the correct repo folder. No automated backup runs without a button
+press. Old backup buttons, tracker backup columns, and deprecated capability
+files are gone.
+
 ## Deferred work
 
 The following tracked features remain outside the current delivery milestones:
