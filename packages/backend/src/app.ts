@@ -1377,7 +1377,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     // Optional repoRoot override: must be a safe, non-empty, non-traversal string.
     let repoRoot: string | undefined;
     if (repoRootRaw !== undefined) {
-      if (typeof repoRootRaw !== "string" || !repoRootRaw.trim() || repoRootRaw.includes("..") || repoRootRaw.startsWith("/")) {
+      if (typeof repoRootRaw !== "string" || repoRootRaw.includes("..") || repoRootRaw.startsWith("/")) {
         sendJson(response, 400, { error: { code: "invalid_request", message: "'repoRoot' must be a non-empty relative path without traversal." } });
         return;
       }
@@ -1434,7 +1434,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 400, { error: { code: "invalid_request", message: "'prefix' must be a relative path without traversal." } });
       return;
     }
-    const repoRoot = repoRootParam && !repoRootParam.includes("..") && !repoRootParam.startsWith("/")
+    const repoRoot = (!repoRootParam.includes("..") && !repoRootParam.startsWith("/"))
       ? repoRootParam
       : undefined;
     if (!github) {

@@ -99,7 +99,7 @@ export function resolveCampaignPath(campaignRoot: string, relativePath: string):
     throw new GitHubAdapterError("not_found", "Path resolves to the campaign root itself; a file path is required.");
   }
 
-  return `${root}/${resolved.join("/")}`;
+  return root ? `${root}/${resolved.join("/")}` : resolved.join("/");
 }
 
 // ---------------------------------------------------------------------------

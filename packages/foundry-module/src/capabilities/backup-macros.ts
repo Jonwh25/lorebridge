@@ -64,6 +64,7 @@ export async function runBackupMacros(): Promise<void> {
       await postBackend<unknown>("v1/backup/github/lore-files", {
         files: chunk,
         commitMessage: `LoreBridge: Backup macros${partLabel}`,
+        repoRoot: "",
       });
     }
     ui.notifications.info(`LoreBridge: ✅ Backed up ${files.length} macro(s).`);
