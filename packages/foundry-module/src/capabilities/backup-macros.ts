@@ -1,6 +1,7 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
+import { BackupProgressDialog } from "../utils/backup-progress.js";
 
 type MacroDoc = { name: string; command: string; type: string; scope?: string };
 
@@ -55,9 +56,11 @@ export async function runBackupMacros(): Promise<void> {
   }
 
   const chunks = chunkArray(files, CHUNK_SIZE);
-  ui.notifications.info(`LoreBridge: Backing up ${files.length} macro(s) to GitHub…`);
+  const progress = new BackupProgressDialog(`Backing up ${files.length} macro(s) to GitHub…`, files.length);
+  await progress.render(true);
 
   try {
+    let done = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
       const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
@@ -66,9 +69,13 @@ export async function runBackupMacros(): Promise<void> {
         commitMessage: `LoreBridge: Backup macros${partLabel}`,
         repoRoot: "",
       });
+      done += chunk.length;
+      progress.setProgress(done);
     }
+    await progress.close();
     ui.notifications.info(`LoreBridge: ✅ Backed up ${files.length} macro(s).`);
   } catch (err) {
+    await progress.close();
     ui.notifications.error(`LoreBridge macro backup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

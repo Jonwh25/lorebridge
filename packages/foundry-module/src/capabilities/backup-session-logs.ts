@@ -2,6 +2,7 @@ import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
 import { postBackend } from "./tracker-shared.js";
 import { htmlToMarkdown } from "../utils/html.js";
+import { BackupProgressDialog } from "../utils/backup-progress.js";
 
 type FoundryPage = {
   name: string;
@@ -60,9 +61,11 @@ export async function runBackupSessionLogs(): Promise<void> {
   }));
 
   const chunks = chunkArray(files, CHUNK_SIZE);
-  ui.notifications.info(`LoreBridge: Backing up ${files.length} session log(s) to GitHub…`);
+  const progress = new BackupProgressDialog(`Backing up ${files.length} session log(s) to GitHub…`, files.length);
+  await progress.render(true);
 
   try {
+    let done = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
       const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
@@ -71,9 +74,13 @@ export async function runBackupSessionLogs(): Promise<void> {
         commitMessage: `LoreBridge: Backup session logs${partLabel}`,
         repoRoot: "",
       });
+      done += chunk.length;
+      progress.setProgress(done);
     }
+    await progress.close();
     ui.notifications.info(`LoreBridge: ✅ Backed up ${files.length} session log page(s).`);
   } catch (err) {
+    await progress.close();
     ui.notifications.error(`LoreBridge session log backup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

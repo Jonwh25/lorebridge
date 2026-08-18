@@ -232,6 +232,7 @@ type FoundryUser = {
 };
 
 declare class FoundryApplicationV2 {
+  constructor(options?: Record<string, unknown>);
   static DEFAULT_OPTIONS: Partial<{
     id: string;
     classes: string[];
