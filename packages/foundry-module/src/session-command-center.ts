@@ -7,30 +7,28 @@ import { removeNonGmUsers } from "./capabilities/session-tools.js";
 import {
   initializeNpcStatusTracker,
   updateNpcStatusFromLatest,
-  backupNpcStatus,
 } from "./capabilities/tracker-npc-status.js";
 import {
   initializeNpcEncounterTracker,
   updateNpcEncountersFromLatest,
-  backupNpcEncounters,
 } from "./capabilities/tracker-npc-encounters.js";
 import {
   initializeQuestStatusTracker,
   updateQuestStatusFromLatest,
-  backupQuestStatus,
 } from "./capabilities/tracker-quest-status.js";
 import {
   initializeRegionVisitTracker,
   updateRegionVisitsFromLatest,
-  backupRegionVisits,
 } from "./capabilities/tracker-region-visits.js";
 import { matchPortraits } from "./capabilities/portrait-matcher.js";
 import { syncPermissions } from "./capabilities/permissions-sync.js";
-import { runBackupAll } from "./capabilities/backup-all.js";
-import { runPostSessionChecklist } from "./capabilities/post-session-checklist.js";
-import { runExportBaseline } from "./capabilities/cc-baseline.js";
 import { runExportCCJournals } from "./capabilities/cc-journal-export.js";
 import { runCreateSessionLog } from "./capabilities/session-log-creator.js";
+import { runBackupActorsNpcs } from "./capabilities/backup-actors-npcs.js";
+import { runBackupActorsPlayers } from "./capabilities/backup-actors-players.js";
+import { runBackupJournals } from "./capabilities/backup-journals-github.js";
+import { runBackupMacros } from "./capabilities/backup-macros.js";
+import { runBackupSessionLogs } from "./capabilities/backup-session-logs.js";
 
 // ---------------------------------------------------------------------------
 // Test-safe ApplicationV2 base
@@ -224,11 +222,11 @@ function _sessionHtml(session: SessionInfo): string {
 }
 
 function _trackersHtml(): string {
-  const trackers: Array<{ label: string; initAction: string; currentAction: string; backupAction: string }> = [
-    { label: "NPC Status", initAction: "tracker-npc-status-init", currentAction: "tracker-npc-status-current", backupAction: "tracker-npc-status-backup" },
-    { label: "NPC Encounters", initAction: "tracker-npc-encounters-init", currentAction: "tracker-npc-encounters-current", backupAction: "tracker-npc-encounters-backup" },
-    { label: "Quest Status", initAction: "tracker-quest-status-init", currentAction: "tracker-quest-status-current", backupAction: "tracker-quest-status-backup" },
-    { label: "Region Visits", initAction: "tracker-region-visits-init", currentAction: "tracker-region-visits-current", backupAction: "tracker-region-visits-backup" },
+  const trackers: Array<{ label: string; initAction: string; currentAction: string }> = [
+    { label: "NPC Status", initAction: "tracker-npc-status-init", currentAction: "tracker-npc-status-current" },
+    { label: "NPC Encounters", initAction: "tracker-npc-encounters-init", currentAction: "tracker-npc-encounters-current" },
+    { label: "Quest Status", initAction: "tracker-quest-status-init", currentAction: "tracker-quest-status-current" },
+    { label: "Region Visits", initAction: "tracker-region-visits-init", currentAction: "tracker-region-visits-current" },
   ];
   const rows = trackers
     .map(
@@ -237,7 +235,6 @@ function _trackersHtml(): string {
           <td style="padding:3px 6px;font-size:11px;font-weight:bold;white-space:nowrap">${escHtml(t.label)}</td>
           <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.initAction}" title="Process all sessions (full initialize)">All</button></td>
           <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.currentAction}" title="Process only the latest session">Latest</button></td>
-          <td style="padding:3px 2px"><button type="button" class="lb-scc__action-btn" data-action="${t.backupAction}" title="Backup to GitHub">Backup</button></td>
         </tr>`,
     )
     .join("");
@@ -246,10 +243,21 @@ function _trackersHtml(): string {
       <th style="padding:2px 6px;text-align:left">Tracker</th>
       <th style="padding:2px">All</th>
       <th style="padding:2px">Latest</th>
-      <th style="padding:2px">Backup</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function _githubBackupsHtml(): string {
+  const buttons = [
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-npcs" title="Backup all NPC actors to GitHub as Markdown"><i class="fas fa-dragon"></i> Actors (NPCs)</button>`,
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-players" title="Backup all player character actors to GitHub as Markdown"><i class="fas fa-user-shield"></i> Actors (Players)</button>`,
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-journals" title="Backup all non-Campaign-Codex journals to GitHub as Markdown"><i class="fas fa-book"></i> Journals</button>`,
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-macros" title="Backup all macros to GitHub as Markdown"><i class="fas fa-scroll"></i> Macros</button>`,
+    `<button type="button" class="lb-scc__action-btn" data-action="backup-session-logs" title="Backup all Session Log pages to GitHub as Markdown"><i class="fas fa-clipboard-list"></i> Session Logs</button>`,
+    `<button type="button" class="lb-scc__action-btn" data-action="cc-export" title="Export all Campaign Codex journal pages to GitHub"><i class="fas fa-book-open"></i> Export CC</button>`,
+  ];
+  return `<div class="lb-scc__actions">${buttons.join("")}</div>`;
 }
 
 function _actionsHtml(scene: SceneInfo | null): string {
@@ -281,19 +289,7 @@ function _actionsHtml(scene: SceneInfo | null): string {
     `<button type="button" class="lb-scc__action-btn" data-action="match-portraits" title="Auto-match portrait images to NPC journals"><i class="fas fa-portrait"></i> Match Portraits</button>`,
   );
   buttons.push(
-    `<button type="button" class="lb-scc__action-btn" data-action="cc-baseline" title="Snapshot all Campaign Codex journal names to GitHub and pre-populate tracker files"><i class="fas fa-layer-group"></i> CC Baseline</button>`,
-  );
-  buttons.push(
-    `<button type="button" class="lb-scc__action-btn" data-action="cc-export" title="Export all Campaign Codex journal pages to GitHub under sources/campaign codex/"><i class="fas fa-book-open"></i> Export CC</button>`,
-  );
-  buttons.push(
     `<button type="button" class="lb-scc__action-btn" data-action="sync-permissions" title="Set Observer on all encountered NPCs, visited regions, and active quests"><i class="fas fa-eye"></i> Sync Permissions</button>`,
-  );
-  buttons.push(
-    `<button type="button" class="lb-scc__action-btn" data-action="backup-all" title="Commit all tracker JSON files and CC macros to GitHub"><i class="fas fa-cloud-upload-alt"></i> Backup All</button>`,
-  );
-  buttons.push(
-    `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--primary" data-action="end-of-session" title="Run all post-session updates in sequence"><i class="fas fa-flag-checkered"></i> End of Session</button>`,
   );
   buttons.push(
     `<button type="button" class="lb-scc__action-btn lb-scc__action-btn--danger" data-action="remove-all-players" title="Delete all Player and Trusted Player accounts"><i class="fas fa-user-minus"></i> Remove All Players…</button>`,
@@ -411,6 +407,11 @@ class SessionCommandCenter extends _AppBase {
           ${_trackersHtml()}
         </details>
 
+        <details class="lb-scc__section">
+          <summary>📦 GitHub Backups</summary>
+          ${_githubBackupsHtml()}
+        </details>
+
         <details class="lb-scc__section" open>
           <summary>⚡ Quick Actions</summary>
           ${_actionsHtml(scene)}
@@ -467,23 +468,22 @@ class SessionCommandCenter extends _AppBase {
     // Session tracker actions
     if (action === "tracker-npc-status-init") { void initializeNpcStatusTracker(); return; }
     if (action === "tracker-npc-status-current") { void updateNpcStatusFromLatest(); return; }
-    if (action === "tracker-npc-status-backup") { void backupNpcStatus(); return; }
     if (action === "tracker-npc-encounters-init") { void initializeNpcEncounterTracker(); return; }
     if (action === "tracker-npc-encounters-current") { void updateNpcEncountersFromLatest(); return; }
-    if (action === "tracker-npc-encounters-backup") { void backupNpcEncounters(); return; }
     if (action === "tracker-quest-status-init") { void initializeQuestStatusTracker(); return; }
     if (action === "tracker-quest-status-current") { void updateQuestStatusFromLatest(); return; }
-    if (action === "tracker-quest-status-backup") { void backupQuestStatus(); return; }
     if (action === "tracker-region-visits-init") { void initializeRegionVisitTracker(); return; }
     if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
-    if (action === "tracker-region-visits-backup") { void backupRegionVisits(); return; }
+    // GitHub backup actions
+    if (action === "backup-npcs") { void runBackupActorsNpcs(); return; }
+    if (action === "backup-players") { void runBackupActorsPlayers(); return; }
+    if (action === "backup-journals") { void runBackupJournals(); return; }
+    if (action === "backup-macros") { void runBackupMacros(); return; }
+    if (action === "backup-session-logs") { void runBackupSessionLogs(); return; }
+    if (action === "cc-export") { void runExportCCJournals(); return; }
     if (action === "add-session") { void runCreateSessionLog(); return; }
     if (action === "match-portraits") { void matchPortraits(); return; }
-    if (action === "cc-baseline") { void runExportBaseline(); return; }
-    if (action === "cc-export") { void runExportCCJournals(); return; }
     if (action === "sync-permissions") { void syncPermissions(); return; }
-    if (action === "backup-all") { void runBackupAll(); return; }
-    if (action === "end-of-session") { void runPostSessionChecklist(); return; }
   }
 
   // -------------------------------------------------------------------------
