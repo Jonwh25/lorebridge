@@ -17,18 +17,10 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
-function macroToMarkdown(macro: MacroDoc): string {
-  const lines = [
-    `# ${macro.name}`,
-    "",
-    `**Type:** ${macro.type}`,
-    macro.scope ? `**Scope:** ${macro.scope}` : "",
-    "",
-    "```javascript",
-    macro.command,
-    "```",
-  ].filter((l, i) => i !== 3 || l !== "");
-  return lines.join("\n");
+function macroToJs(macro: MacroDoc): string {
+  const header = [`// Macro: ${macro.name}`, `// Type: ${macro.type}`];
+  if (macro.scope) header.push(`// Scope: ${macro.scope}`);
+  return [...header, "", macro.command].join("\n");
 }
 
 export async function runBackupMacros(): Promise<void> {
@@ -46,8 +38,8 @@ export async function runBackupMacros(): Promise<void> {
   const files = macros
     .filter((m) => m.name && m.command)
     .map((m) => ({
-      path: `${basePath}/${safeName(m.name)}.md`,
-      content: macroToMarkdown(m),
+      path: `${basePath}/${safeName(m.name)}.js`,
+      content: macroToJs(m),
     }));
 
   if (files.length === 0) {
