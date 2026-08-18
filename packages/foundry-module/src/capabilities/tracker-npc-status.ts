@@ -18,14 +18,12 @@ import { makeDefaultDossierData } from "./campaign-codex-widget.js";
 import {
   readLoreJson,
   writeLoreJson,
-  backupLoreFile,
   getJournalsInFolder,
   findMatchingJournal,
   parseJsonFromAi,
   confirmDialog,
   showResultDialog,
   escHtml,
-  latestSessionNumber,
   type JournalWithOps,
 } from "./tracker-shared.js";
 
@@ -469,22 +467,3 @@ export async function updateNpcStatusFromLatest(): Promise<void> {
   );
 }
 
-/** Backup: commit npc_status.json to GitHub. */
-export async function backupNpcStatus(): Promise<void> {
-  if (!game.user?.isGM) return;
-  try {
-    ui.notifications.info("LoreBridge NPC Status: Backing up to GitHub…");
-    const settings = getLoreBridgeSettings();
-    const sessionNum = latestSessionNumber();
-    await backupLoreFile(
-      settings.lorefolderPath,
-      FILENAME,
-      `LoreBridge: NPC Status backup — Session ${sessionNum}`,
-    );
-    ui.notifications.info("LoreBridge NPC Status: Backup complete.");
-  } catch (err) {
-    ui.notifications.error(
-      `LoreBridge NPC Status backup failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-}

@@ -16,14 +16,12 @@ import {
 import {
   readLoreJson,
   writeLoreJson,
-  backupLoreFile,
   getJournalsInFolder,
   findMatchingJournal,
   parseJsonFromAi,
   confirmDialog,
   showResultDialog,
   escHtml,
-  latestSessionNumber,
   type JournalWithOps,
 } from "./tracker-shared.js";
 
@@ -244,22 +242,3 @@ export async function updateRegionVisitsFromLatest(): Promise<void> {
   );
 }
 
-/** Backup: commit region_visits.json to GitHub. */
-export async function backupRegionVisits(): Promise<void> {
-  if (!game.user?.isGM) return;
-  try {
-    ui.notifications.info("LoreBridge Region Visits: Backing up to GitHub…");
-    const settings = getLoreBridgeSettings();
-    const sessionNum = latestSessionNumber();
-    await backupLoreFile(
-      settings.lorefolderPath,
-      FILENAME,
-      `LoreBridge: Region Visits backup — Session ${sessionNum}`,
-    );
-    ui.notifications.info("LoreBridge Region Visits: Backup complete.");
-  } catch (err) {
-    ui.notifications.error(
-      `LoreBridge Region Visits backup failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-}

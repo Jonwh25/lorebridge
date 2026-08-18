@@ -15,7 +15,6 @@ import {
 import {
   readLoreJson,
   writeLoreJson,
-  backupLoreFile,
   getJournalsInFolder,
   findMatchingJournal,
   findSubfolderId,
@@ -23,7 +22,6 @@ import {
   confirmDialog,
   showResultDialog,
   escHtml,
-  latestSessionNumber,
   type JournalWithOps,
 } from "./tracker-shared.js";
 
@@ -333,22 +331,3 @@ export async function updateQuestStatusFromLatest(): Promise<void> {
   );
 }
 
-/** Backup: commit quest_status_summary.json to GitHub. */
-export async function backupQuestStatus(): Promise<void> {
-  if (!game.user?.isGM) return;
-  try {
-    ui.notifications.info("LoreBridge Quest Status: Backing up to GitHub…");
-    const settings = getLoreBridgeSettings();
-    const sessionNum = latestSessionNumber();
-    await backupLoreFile(
-      settings.lorefolderPath,
-      FILENAME,
-      `LoreBridge: Quest Status backup — Session ${sessionNum}`,
-    );
-    ui.notifications.info("LoreBridge Quest Status: Backup complete.");
-  } catch (err) {
-    ui.notifications.error(
-      `LoreBridge Quest Status backup failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-}
