@@ -4,30 +4,37 @@ export type FolderOption = { id: string | null; name: string };
 
 /**
  * Shows a DialogV2 letting the user pick which folders to include in a backup.
- * Returns the selected folder IDs (null = no-folder items), or null if cancelled.
- * "Backup All" is checked by default; unchecking it enables per-folder selection.
+ * All folders are selected by default. Returns selected folder IDs (null = no-folder
+ * items), or null if the user cancels.
  */
 export function promptFolderSelection(
   title: string,
   folders: FolderOption[],
 ): Promise<Array<string | null> | null> {
   return new Promise((resolve) => {
+    const containerId = `lb-fp-${Math.random().toString(36).slice(2, 8)}`;
+
     const folderRows = folders
       .map(
         (f) =>
           `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;cursor:pointer;">
-            <input type="checkbox" class="lb-folder-cb" data-folder-id="${escHtml(f.id ?? "__none__")}" checked disabled>
+            <input type="checkbox" class="lb-folder-cb" data-folder-id="${escHtml(f.id ?? "__none__")}" checked>
             ${escHtml(f.name)}
           </label>`,
       )
       .join("");
 
-    const content = `<div style="padding:0.5rem 0.75rem;">
-      <label style="display:flex;align-items:center;gap:6px;margin:0 0 8px;cursor:pointer;font-weight:600;">
-        <input type="checkbox" id="lb-backup-all" checked
-          onchange="var checked=this.checked;this.parentElement.parentElement.querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.disabled=checked;});">
-        Backup All
-      </label>
+    const content = `<div id="${containerId}" style="padding:0.5rem 0.75rem;">
+      <div style="display:flex;gap:12px;margin-bottom:8px;font-size:0.85em;">
+        <a href="#" style="color:var(--color-text-hyperlink,#4a90d9);"
+          onclick="event.preventDefault();document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
+          Select All
+        </a>
+        <a href="#" style="color:var(--color-text-hyperlink,#4a90d9);"
+          onclick="event.preventDefault();document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
+          Select None
+        </a>
+      </div>
       <hr style="margin:0 0 8px;border:none;border-top:1px solid #666;">
       <div style="max-height:260px;overflow-y:auto;padding-right:4px;">
         ${folderRows}
@@ -47,11 +54,6 @@ export function promptFolderSelection(
           callback: (_event, button) => {
             const el: HTMLElement =
               button.closest("dialog") ?? button.closest(".app") ?? button.ownerDocument.body;
-            const backupAll = el.querySelector<HTMLInputElement>("#lb-backup-all")?.checked ?? true;
-            if (backupAll) {
-              resolve(folders.map((f) => f.id));
-              return;
-            }
             const selected = Array.from(
               el.querySelectorAll<HTMLInputElement>(".lb-folder-cb:checked"),
             ).map((i) => (i.dataset.folderId === "__none__" ? null : (i.dataset.folderId ?? null)));
