@@ -26,14 +26,14 @@ export function promptFolderSelection(
 
     const content = `<div id="${containerId}" style="padding:0.5rem 0.75rem;">
       <div style="display:flex;gap:12px;margin-bottom:8px;font-size:0.85em;">
-        <a href="#" style="color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="event.preventDefault();document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
+        <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
+          onclick="document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=true;});">
           Select All
-        </a>
-        <a href="#" style="color:var(--color-text-hyperlink,#4a90d9);"
-          onclick="event.preventDefault();document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
+        </button>
+        <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--color-text-hyperlink,#4a90d9);"
+          onclick="document.getElementById('${containerId}').querySelectorAll('.lb-folder-cb').forEach(function(cb){cb.checked=false;});">
           Select None
-        </a>
+        </button>
       </div>
       <hr style="margin:0 0 8px;border:none;border-top:1px solid #666;">
       <div style="max-height:260px;overflow-y:auto;padding-right:4px;">
