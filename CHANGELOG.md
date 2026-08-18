@@ -4,6 +4,31 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-08-18
+
+### Added
+
+- **GitHub Backups: configurable folder paths** (#305): new **Backup Config** section in LoreBridge Settings exposes configurable GitHub destination paths for each backup category — NPC actors, player actors, journals, macros, and session logs. Paths are set once and used by every backup button.
+- **GitHub Backups: per-category backup buttons** (#306, #307): the Session Command Center's new **GitHub Backups** section has dedicated buttons for each content category — NPCs, Players, Journals, Macros, and Session Logs. Each runs independently; no automatic backup fires without a button press.
+- **NPC Actor backup** (#307): **Backup NPCs** exports all NPC actors as Markdown files. A scrollable folder-selection dialog appears first, with all folders checked by default and Select All / Select None shortcuts. Selecting a folder automatically includes all descendant subfolders (recursive expansion). The full Foundry folder hierarchy is preserved in GitHub paths (e.g. `04-world/Barovia/Strahd.md`).
+- **Player Actor backup** (#307): **Backup Players** exports all player character actors using the same folder-picker and recursive-expansion workflow as NPC backup.
+- **Journal backup** (#307): **Backup Journals** exports non-CC, non-session-log journals as Markdown. CC-managed journals and the Session Logs journal are excluded. Full folder hierarchy is preserved in GitHub paths.
+- **Macro backup** (#307): **Backup Macros** exports all world macros as `.js` files (matching their actual format) with a header comment block containing macro name, type, and scope.
+- **Session Log backup** (#307): **Backup Session Logs** exports all session log pages as Markdown files.
+- **Progress dialog for all backup operations** (#317): every backup button now opens a live-updating progress dialog showing file count, chunk progress, and current status label. Operations no longer run silently in the background.
+- **Folder picker for actor and journal backups** (#317): before starting, NPC, player, and journal backups open a scrollable folder-selection dialog. All folders are checked by default; Select All / Select None shortcuts are available. Cancelling aborts with no network activity.
+- **Recursive folder expansion** (#317): selecting a parent folder in the picker automatically includes all descendant subfolders, so selecting the top-level folder captures the entire tree.
+- **Full folder hierarchy in GitHub paths** (#317): backed-up files are placed under the complete Foundry folder path rather than flat in the configured root.
+- **CC Export configurable paths** (#308): the **Export CC** button now uses the same path configuration infrastructure as the other backup categories.
+
+### Fixed
+
+- **Backup repoRoot path resolution** (#317): files backed up with an empty `repoRoot` (to write directly to the repo root rather than under the `campaign/` prefix) now resolve to the correct path. The backend no longer prepended `GITHUB_CAMPAIGN_ROOT` when `repoRoot` was empty, causing files to land at `campaign/04-world/…` instead of `04-world/…`.
+
+### Removed
+
+- **Deprecated backup infrastructure** (#309): the old tracker-column backup buttons, the unified "Backup All" tracker action, and the associated deprecated capability files have been removed. All backup operations now use the new per-category workflow in the GitHub Backups section of the Session Command Center.
+
 ## [0.28.1] - 2026-08-16
 
 ### Added

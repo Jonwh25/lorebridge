@@ -566,7 +566,7 @@ changes improve reliability and correctness of existing features.
 3. ✅ [CC Journal Export: write full content to GitHub and sync deletions](https://github.com/Jonwh25/lorebridge/issues/298)
 4. ✅ [CC Journal Export: section picker — export only selected folders](https://github.com/Jonwh25/lorebridge/issues/301)
 
-### Milestone 29 — Quality of Life & Efficiency
+### Milestone 29 — Quality of Life & Efficiency ✅ Complete
 
 Rolling milestone for smaller enhancements, performance improvements, and polish
 items surfacing from real-campaign use. No new major capabilities; each issue is
@@ -577,21 +577,23 @@ manual, replacing the old scattered backup buttons with a clean per-category
 workflow and removing infrastructure that no longer fits the campaign's folder
 structure.
 
-1. [Settings: Add Backup Config section with configurable folder paths](https://github.com/Jonwh25/lorebridge/issues/305)
-2. [SCC: Redesign Session Command Center — new GitHub Backups section](https://github.com/Jonwh25/lorebridge/issues/306)
-3. [Module: Implement general backup capability functions (actors, journals, macros, session logs)](https://github.com/Jonwh25/lorebridge/issues/307)
-4. [Module: Update Campaign Codex export to use configurable backup paths](https://github.com/Jonwh25/lorebridge/issues/308)
-5. [Cleanup: Remove deprecated backup infrastructure](https://github.com/Jonwh25/lorebridge/issues/309)
+1. ✅ [Settings: Add Backup Config section with configurable folder paths](https://github.com/Jonwh25/lorebridge/issues/305)
+2. ✅ [SCC: Redesign Session Command Center — new GitHub Backups section](https://github.com/Jonwh25/lorebridge/issues/306)
+3. ✅ [Module: Implement general backup capability functions (actors, journals, macros, session logs)](https://github.com/Jonwh25/lorebridge/issues/307)
+4. ✅ [Module: Update Campaign Codex export to use configurable backup paths](https://github.com/Jonwh25/lorebridge/issues/308)
+5. ✅ [Cleanup: Remove deprecated backup infrastructure](https://github.com/Jonwh25/lorebridge/issues/309)
 
-Suggested merge order: #305 → #307 → #308 → #306 → #309. Settings must land
-first; cleanup is last so no window exists where buttons call deleted functions.
+Additional enhancements landed alongside this milestone:
+
+- ✅ [Folder picker, progress dialog, recursive expansion, and full path hierarchy for all backup categories](https://github.com/Jonwh25/lorebridge/issues/317)
 
 Success test: a GM configures custom folder paths in LoreBridge Settings,
 manually triggers each backup category from the new GitHub Backups section in
 the Session Command Center, and verifies that each category commits Markdown
-files to the correct repo folder. No automated backup runs without a button
-press. Old backup buttons, tracker backup columns, and deprecated capability
-files are gone.
+files to the correct repo folder with full folder hierarchy preserved. A
+folder-picker dialog appears before each actor and journal backup. No automated
+backup runs without a button press. Old backup buttons, tracker backup columns,
+and deprecated capability files are gone.
 
 ## Deferred work
 
