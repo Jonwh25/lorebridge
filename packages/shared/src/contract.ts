@@ -38,6 +38,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getCompendiumEntry: "getCompendiumEntry",
   listMacroTools: "listMacroTools",
   executeMacroTool: "executeMacroTool",
+  listMacros: "listMacros",
   checkCampaignHealth: "checkCampaignHealth",
   auditCampaignConsistency: "auditCampaignConsistency",
 } as const);
