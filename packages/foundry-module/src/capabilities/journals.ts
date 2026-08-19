@@ -69,12 +69,17 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
   const filterFolderId = validated.value.folderId;
+  const rawJournalId = validated.value.journalId;
+  const filterJournalId = rawJournalId?.startsWith("JournalEntry.")
+    ? rawJournalId.split(".")[1] ?? rawJournalId
+    : rawJournalId;
   const candidateUuids = collectJournalCandidateUuids(query, game.journal);
   const matches: Array<{ score: number; candidate: number; value: JournalSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const journal of game.journal) {
     if (playerMode && !isPlayerVisible(journal.ownership)) { hiddenCount++; continue; }
+    if (filterJournalId !== undefined && journal.id !== filterJournalId) continue;
     if (filterFolderId !== undefined && journal.folder?.id !== filterFolderId) continue;
     const pages = Array.from(journal.pages);
     let best: { score: number; value: JournalSearchMatch } | undefined;
