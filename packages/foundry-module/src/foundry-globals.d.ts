@@ -121,6 +121,7 @@ type FoundryMacro = {
   name: string;
   type: string;
   command: string;
+  folder?: { id: string; name: string } | null;
   execute(scope?: Record<string, unknown>): Promise<unknown>;
 };
 

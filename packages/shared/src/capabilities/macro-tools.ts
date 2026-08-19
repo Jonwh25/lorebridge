@@ -8,6 +8,12 @@ export interface MacroToolDefinition {
   description: string;
   parameters: Record<string, unknown>;
   macroName: string;
+  folderId?: string;
+  folderName?: string;
+}
+
+export interface ListMacroToolsInput {
+  folderId?: string;
 }
 
 export interface ListMacroToolsOutput {
@@ -46,12 +52,29 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const isNonEmptyString = (v: unknown): v is string =>
   typeof v === "string" && v.trim().length > 0;
 
+export function validateListMacroToolsInput(value: unknown): ValidationResult<ListMacroToolsInput> {
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) {
+    return { valid: false, errors: ["folderId must be a non-empty string"] };
+  }
+  return { valid: true, value: value as unknown as ListMacroToolsInput, errors: [] };
+}
+
 export function validateListMacroToolsOutput(value: unknown): ValidationResult<ListMacroToolsOutput> {
+  const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
-  if (!isNonEmptyString(value.sourceId)) return { valid: false, errors: ["sourceId is required"] };
-  if (!isNonEmptyString(value.sourceName)) return { valid: false, errors: ["sourceName is required"] };
-  if (!Array.isArray(value.tools)) return { valid: false, errors: ["tools must be an array"] };
-  return { valid: true, value: value as unknown as ListMacroToolsOutput, errors: [] };
+  if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isNonEmptyString(value.sourceName)) errors.push("sourceName is required");
+  if (!Array.isArray(value.tools)) {
+    errors.push("tools must be an array");
+  } else {
+    value.tools.forEach((tool, index) => {
+      if (!isRecord(tool)) { errors.push(`tools[${index}] must be an object`); return; }
+      if (tool.folderId !== undefined && typeof tool.folderId !== "string") errors.push(`tools[${index}].folderId must be a string`);
+      if (tool.folderName !== undefined && typeof tool.folderName !== "string") errors.push(`tools[${index}].folderName must be a string`);
+    });
+  }
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as ListMacroToolsOutput, errors: [] };
 }
 
 export function validateExecuteMacroToolInput(value: unknown): ValidationResult<ExecuteMacroToolInput> {
