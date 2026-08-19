@@ -5,7 +5,7 @@ export const SEARCH_JOURNALS_CAPABILITY = "searchJournals" as const;
 export const GET_JOURNAL_CAPABILITY = "getJournal" as const;
 export const GET_JOURNAL_PAGE_CAPABILITY = "getJournalPage" as const;
 
-export interface SearchJournalsInput { query: string; limit?: number; mode?: VisibilityMode; folderId?: string }
+export interface SearchJournalsInput { query: string; limit?: number; mode?: VisibilityMode; folderId?: string; journalId?: string }
 export interface JournalSearchMatch {
   journalId: string;
   journalUuid: string;
@@ -55,6 +55,7 @@ export function validateSearchJournalsInput(value: unknown): ValidationResult<Se
   if (value.limit !== undefined && (!Number.isInteger(value.limit) || (value.limit as number) < 1 || (value.limit as number) > 50)) errors.push("limit must be an integer between 1 and 50");
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
   if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
+  if (value.journalId !== undefined && !isNonEmptyString(value.journalId)) errors.push("journalId must be a non-empty string");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsInput, errors: [] };
 }
 

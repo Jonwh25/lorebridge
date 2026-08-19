@@ -313,6 +313,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to journals in that folder.",
         ),
+        journalId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry JournalEntry ID or UUID to restrict the search to entries within a single journal.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -324,13 +327,14 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, folderId, sourceId }) => {
+    async ({ query, limit, mode, folderId, journalId, sourceId }) => {
       try {
         const input = {
           query,
           ...(limit === undefined ? {} : { limit }),
           ...(mode === undefined ? {} : { mode }),
           ...(folderId === undefined ? {} : { folderId }),
+          ...(journalId === undefined ? {} : { journalId }),
         };
         const result = await adapterSessions.invoke(
           sourceId,
