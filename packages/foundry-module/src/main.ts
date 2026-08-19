@@ -226,6 +226,33 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
   }, true);
 }
 
+function _injectSceneControlButton(frame: HTMLElement): void {
+  if (frame.querySelector("[data-control='lorebridge']")) return;
+  const list = (
+    frame.querySelector(".main-controls") ??
+    frame.querySelector("ol.controls") ??
+    frame.querySelector("ol")
+  ) as HTMLElement | null;
+  if (!list) return;
+
+  const li = document.createElement("li");
+  li.classList.add("scene-control");
+  li.dataset.control = "lorebridge";
+  li.title = "LoreBridge Session Center";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.dataset.control = "lorebridge";
+  btn.dataset.action = "activateControl";
+  btn.classList.add("scene-control");
+  btn.title = "LoreBridge Session Center";
+  btn.setAttribute("aria-label", "LoreBridge Session Center");
+  btn.innerHTML = '<i class="fas fa-bridge"></i>';
+
+  li.appendChild(btn);
+  list.appendChild(li);
+}
+
 function _injectMacroSidebarButton(frame: HTMLElement): void {
   if (frame.querySelector(".lb-hotbar-distribute-btn")) return;
 
@@ -265,6 +292,12 @@ Hooks.once("init", () => {
     if (appName === "MacroDirectory" || appName === "Macros") {
       _injectMacroSidebarButton(frame);
     }
+    // SceneControls injection: injecting via DOM avoids adding LoreBridge to
+    // ui.controls.controls, which breaks Material Deck's getTools() iteration
+    // (its Helpers.sort returns undefined for empty arrays, crashing Material Deck init).
+    if (game.user?.isGM && appName === "SceneControls") {
+      _injectSceneControlButton(frame);
+    }
   });
   // Register renderMacroDirectory here (init) so we catch the initial
   // sidebar render, which fires before the ready hook runs.
@@ -282,36 +315,21 @@ Hooks.once("init", () => {
   registerNpcWorkspaceMenuHook();
   registerNpcProfileSheetSection();
 
-  // Add a standalone sidebar button. In v14 the controls arg is a keyed object.
-  // onChange is intentionally empty — the click is intercepted in the capture
-  // phase (same pattern as FXMaster) so Foundry's toggle logic never runs and
-  // the button fires openSessionCommandCenter() on every click.
-  let _sccClickRegistered = false;
-  Hooks.on("getSceneControlButtons", (controls: unknown) => {
+  // Register click listener for the LoreBridge scene controls button.
+  // The button is injected directly into the SceneControls DOM via renderApplicationV2
+  // rather than registered through getSceneControlButtons. Registering via
+  // getSceneControlButtons adds LoreBridge to ui.controls.controls with tools:{},
+  // which causes Material Deck's Helpers.sort([]) to return undefined and crash
+  // Material Deck's initialization.
+  document.addEventListener("click", (event) => {
     if (!game.user?.isGM) return;
-    (controls as Record<string, unknown>)["lorebridge"] = {
-      name: "lorebridge",
-      title: "LoreBridge Session Center",
-      icon: "fas fa-bridge",
-      visible: true,
-      order: 999,
-      button: true,
-      onChange: () => {},
-      tools: {},
-      layer: "controls",
-    };
-    if (_sccClickRegistered) return;
-    _sccClickRegistered = true;
-    document.addEventListener("click", (event) => {
-      if (!game.user?.isGM) return;
-      const btn = (event.target as Element | null)?.closest?.("[data-control='lorebridge']");
-      if (!btn) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      openSessionCommandCenter();
-    }, true);
-  });
+    const btn = (event.target as Element | null)?.closest?.("[data-control='lorebridge']");
+    if (!btn) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    openSessionCommandCenter();
+  }, true);
 
   console.info(
     `${MODULE_LABEL} | Initializing ${MODULE_LABEL} ${getModuleVersion()} (protocol ${LOREBRIDGE_PROTOCOL_VERSION})`
