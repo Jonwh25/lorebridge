@@ -619,6 +619,7 @@ and scoped-search parameters. Adds two new tools for roll tables and playlists.
 3. ✅ [MCP list_macro_tools: add folder context to results and optional folder filter](https://github.com/Jonwh25/lorebridge/issues/328)
 4. [MCP: add search_roll_tables tool](https://github.com/Jonwh25/lorebridge/issues/326)
 5. [MCP: add playlist support (list, search, playback state)](https://github.com/Jonwh25/lorebridge/issues/327)
+6. ✅ [MCP: add list_macros tool to list all world macros with isCallable flag and optional folderId filter](https://github.com/Jonwh25/lorebridge/issues/333)
 
 Issues #325 and #324 overlap on `search_journals` folder fields; #325 lands first
 to establish the pattern across all four primary search tools, then #324 adds only
