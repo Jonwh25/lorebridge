@@ -5,7 +5,7 @@ export const SEARCH_SCENES_CAPABILITY = "searchScenes" as const;
 export const GET_SCENE_CAPABILITY = "getScene" as const;
 export const GET_ACTIVE_SCENE_CAPABILITY = "getActiveScene" as const;
 
-export interface SearchScenesInput { query: string; limit?: number; mode?: VisibilityMode }
+export interface SearchScenesInput { query: string; limit?: number; mode?: VisibilityMode; folderId?: string }
 
 export interface SceneSearchMatch {
   sceneId: string;
@@ -15,6 +15,8 @@ export interface SceneSearchMatch {
   navigation: boolean;
   navName?: string;
   thumb?: string;
+  folderId?: string;
+  folderName?: string;
   matchedField: "sceneName";
 }
 
@@ -92,6 +94,7 @@ export function validateSearchScenesInput(value: unknown): ValidationResult<Sear
     errors.push("limit must be an integer between 1 and 50");
   }
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchScenesInput, errors: [] };
 }
 
@@ -109,6 +112,8 @@ export function validateSearchScenesOutput(value: unknown): ValidationResult<Sea
     if (!isNonEmptyString(result.sceneName)) errors.push(`results[${index}].sceneName is required`);
     if (typeof result.active !== "boolean") errors.push(`results[${index}].active must be a boolean`);
     if (typeof result.navigation !== "boolean") errors.push(`results[${index}].navigation must be a boolean`);
+    if (result.folderId !== undefined && typeof result.folderId !== "string") errors.push(`results[${index}].folderId must be a string`);
+    if (result.folderName !== undefined && typeof result.folderName !== "string") errors.push(`results[${index}].folderName must be a string`);
     if (result.matchedField !== "sceneName") errors.push(`results[${index}].matchedField is invalid`);
   });
   if (typeof value.hiddenCount !== "number" || !Number.isInteger(value.hiddenCount) || (value.hiddenCount as number) < 0) errors.push("hiddenCount must be a non-negative integer");

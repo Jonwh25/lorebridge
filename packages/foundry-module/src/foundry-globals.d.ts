@@ -59,6 +59,7 @@ type FoundryItem = {
   name: string;
   type: string;
   img?: string;
+  folder?: { id: string; name: string } | null;
   system: Record<string, unknown>;
   ownership?: Record<string, number>;
 };

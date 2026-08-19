@@ -102,6 +102,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
   const needle = query.toLocaleLowerCase();
   const types = validated.value.types?.map((type) => type.toLocaleLowerCase());
   const playerMode = validated.value.mode === "player";
+  const filterFolderId = validated.value.folderId;
   const candidateUuids = collectWorldCandidateUuids(query, "Actor", game.actors);
   const matches: Array<{ score: number; candidate: number; value: ActorSearchMatch }> = [];
   let hiddenCount = 0;
@@ -109,6 +110,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
   for (const actor of game.actors) {
     if (playerMode && !isPlayerVisible(actor.ownership)) { hiddenCount++; continue; }
     if (types && !types.includes(actor.type.toLocaleLowerCase())) continue;
+    if (filterFolderId !== undefined && actor.folder?.id !== filterFolderId) continue;
     const name = actor.name.toLocaleLowerCase();
     const description = actorDescription(actor);
     let match: { score: number; value: ActorSearchMatch } | undefined;
@@ -138,6 +140,7 @@ export function searchActors(input: SearchActorsInput): SearchActorsOutput {
     }
     if (match) {
       if (actor.img) match.value.img = actor.img;
+      if (actor.folder?.id) match.value.folderId = actor.folder.id;
       if (actor.folder?.name) match.value.folderName = actor.folder.name;
       matches.push({ ...match, candidate: candidateUuids.has(actor.uuid) ? 0 : 1 });
     }

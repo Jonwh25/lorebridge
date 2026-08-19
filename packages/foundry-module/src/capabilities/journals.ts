@@ -68,12 +68,14 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
+  const filterFolderId = validated.value.folderId;
   const candidateUuids = collectJournalCandidateUuids(query, game.journal);
   const matches: Array<{ score: number; candidate: number; value: JournalSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const journal of game.journal) {
     if (playerMode && !isPlayerVisible(journal.ownership)) { hiddenCount++; continue; }
+    if (filterFolderId !== undefined && journal.folder?.id !== filterFolderId) continue;
     const pages = Array.from(journal.pages);
     let best: { score: number; value: JournalSearchMatch } | undefined;
     const journalName = journal.name.toLocaleLowerCase();
@@ -99,7 +101,11 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
         };
       }
     }
-    if (best) matches.push({ ...best, candidate: candidateUuids.has(journal.uuid) ? 0 : 1 });
+    if (best) {
+      if (journal.folder?.id) best.value.folderId = journal.folder.id;
+      if (journal.folder?.name) best.value.folderName = journal.folder.name;
+      matches.push({ ...best, candidate: candidateUuids.has(journal.uuid) ? 0 : 1 });
+    }
   }
 
   const output: SearchJournalsOutput = {
