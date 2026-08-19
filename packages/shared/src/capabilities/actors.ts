@@ -9,6 +9,7 @@ export interface SearchActorsInput {
   limit?: number;
   types?: string[];
   mode?: VisibilityMode;
+  folderId?: string;
 }
 
 export interface ActorSearchMatch {
@@ -17,6 +18,7 @@ export interface ActorSearchMatch {
   actorName: string;
   actorType: string;
   img?: string;
+  folderId?: string;
   folderName?: string;
   matchedField: "actorName" | "description";
   excerpt?: string;
@@ -91,6 +93,7 @@ export function validateSearchActorsInput(
     }
   }
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
   return errors.length
     ? { valid: false, errors }
     : { valid: true, value: value as unknown as SearchActorsInput, errors: [] };
@@ -119,6 +122,12 @@ export function validateSearchActorsOutput(
       }
       if (result.img !== undefined && typeof result.img !== "string") {
         errors.push(`results[${index}].img must be a string`);
+      }
+      if (result.folderId !== undefined && typeof result.folderId !== "string") {
+        errors.push(`results[${index}].folderId must be a string`);
+      }
+      if (result.folderName !== undefined && typeof result.folderName !== "string") {
+        errors.push(`results[${index}].folderName must be a string`);
       }
       if (result.excerpt !== undefined && typeof result.excerpt !== "string") {
         errors.push(`results[${index}].excerpt must be a string`);

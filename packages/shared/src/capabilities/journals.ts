@@ -5,11 +5,13 @@ export const SEARCH_JOURNALS_CAPABILITY = "searchJournals" as const;
 export const GET_JOURNAL_CAPABILITY = "getJournal" as const;
 export const GET_JOURNAL_PAGE_CAPABILITY = "getJournalPage" as const;
 
-export interface SearchJournalsInput { query: string; limit?: number; mode?: VisibilityMode }
+export interface SearchJournalsInput { query: string; limit?: number; mode?: VisibilityMode; folderId?: string }
 export interface JournalSearchMatch {
   journalId: string;
   journalUuid: string;
   journalName: string;
+  folderId?: string;
+  folderName?: string;
   pageCount: number;
   matchedPageId?: string;
   matchedPageUuid?: string;
@@ -52,6 +54,7 @@ export function validateSearchJournalsInput(value: unknown): ValidationResult<Se
   if (!isNonEmptyString(value.query)) errors.push("query must be a non-empty string");
   if (value.limit !== undefined && (!Number.isInteger(value.limit) || (value.limit as number) < 1 || (value.limit as number) > 50)) errors.push("limit must be an integer between 1 and 50");
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchJournalsInput, errors: [] };
 }
 
@@ -65,6 +68,8 @@ export function validateSearchJournalsOutput(value: unknown): ValidationResult<S
   else value.results.forEach((result, index) => {
     if (!isRecord(result)) return errors.push(`results[${index}] must be an object`);
     for (const key of ["journalId", "journalUuid", "journalName"] as const) if (!isNonEmptyString(result[key])) errors.push(`results[${index}].${key} is required`);
+    if (result.folderId !== undefined && typeof result.folderId !== "string") errors.push(`results[${index}].folderId must be a string`);
+    if (result.folderName !== undefined && typeof result.folderName !== "string") errors.push(`results[${index}].folderName must be a string`);
     if (!Number.isInteger(result.pageCount) || (result.pageCount as number) < 0) errors.push(`results[${index}].pageCount must be a non-negative integer`);
     if (!["journalName", "pageName", "pageText"].includes(String(result.matchedField))) errors.push(`results[${index}].matchedField is invalid`);
     if (result.matchedPageUuid !== undefined && typeof result.matchedPageUuid !== "string") errors.push(`results[${index}].matchedPageUuid must be a string`);

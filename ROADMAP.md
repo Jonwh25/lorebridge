@@ -609,6 +609,27 @@ Deck initialization errors. The LoreBridge bridge icon still appears in the
 scene controls sidebar and opens the Session Command Center when clicked. Stream
 Deck integration works normally.
 
+### Milestone 31 — MCP Search & Filtering Improvements
+
+Extend MCP search tools with folder context in results, optional folder filters,
+and scoped-search parameters. Adds two new tools for roll tables and playlists.
+
+1. [MCP search tools: add folderId/folderName to results and folder filter (journals, items, scenes, actors)](https://github.com/Jonwh25/lorebridge/issues/325)
+2. [MCP search_journals: expose folder names in results and add journal ID filter parameter](https://github.com/Jonwh25/lorebridge/issues/324)
+3. [MCP list_macro_tools: add folder context to results and optional folder filter](https://github.com/Jonwh25/lorebridge/issues/328)
+4. [MCP: add search_roll_tables tool](https://github.com/Jonwh25/lorebridge/issues/326)
+5. [MCP: add playlist support (list, search, playback state)](https://github.com/Jonwh25/lorebridge/issues/327)
+
+Issues #325 and #324 overlap on `search_journals` folder fields; #325 lands first
+to establish the pattern across all four primary search tools, then #324 adds only
+the journal ID filter on top. #328 is independent. #326 and #327 are new tools
+that follow the same search shape and ship after the folder-filter work is proven.
+
+Success test: an AI caller can retrieve folder context alongside every search
+result, filter any search to a single folder by ID, scope a journal search to one
+journal, discover existing roll tables, and query playlist state — without any
+regression to existing search behavior when the new parameters are omitted.
+
 ## Deferred work
 
 The following tracked features remain outside the current delivery milestones:

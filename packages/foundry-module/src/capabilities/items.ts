@@ -156,6 +156,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
   const needle = query.toLocaleLowerCase();
   const types = validated.value.types?.map((t) => t.toLocaleLowerCase());
   const playerMode = validated.value.mode === "player";
+  const filterFolderId = validated.value.folderId;
   const candidateUuids = collectWorldCandidateUuids(query, "Item", game.items);
   const matches: Array<{ score: number; candidate: number; value: ItemSearchMatch }> = [];
   let hiddenCount = 0;
@@ -163,6 +164,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
   for (const item of game.items) {
     if (playerMode && !isPlayerVisible(item.ownership)) { hiddenCount++; continue; }
     if (types && !types.includes(item.type.toLocaleLowerCase())) continue;
+    if (filterFolderId !== undefined && item.folder?.id !== filterFolderId) continue;
     const name = item.name.toLocaleLowerCase();
     const description = itemDescription(item);
     let match: { score: number; value: ItemSearchMatch } | undefined;
@@ -192,6 +194,8 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
     }
     if (match) {
       if (item.img) match.value.img = item.img;
+      if (item.folder?.id) match.value.folderId = item.folder.id;
+      if (item.folder?.name) match.value.folderName = item.folder.name;
       matches.push({ ...match, candidate: candidateUuids.has(item.uuid) ? 0 : 1 });
     }
   }

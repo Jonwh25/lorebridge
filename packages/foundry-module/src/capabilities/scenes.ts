@@ -44,6 +44,8 @@ function sceneSearchMatch(scene: FoundryScene): SceneSearchMatch {
   };
   if (scene.navName) match.navName = scene.navName;
   if (scene.thumb) match.thumb = scene.thumb;
+  if (scene.folder?.id) match.folderId = scene.folder.id;
+  if (scene.folder?.name) match.folderName = scene.folder.name;
   return match;
 }
 
@@ -58,12 +60,14 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
   const query = validated.value.query.trim();
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
+  const filterFolderId = validated.value.folderId;
   const candidateUuids = collectWorldCandidateUuids(query, "Scene", game.scenes);
   const matches: Array<{ score: number; candidate: number; value: SceneSearchMatch }> = [];
   let hiddenCount = 0;
 
   for (const scene of game.scenes) {
     if (playerMode && !isPlayerVisible(scene.ownership)) { hiddenCount++; continue; }
+    if (filterFolderId !== undefined && scene.folder?.id !== filterFolderId) continue;
     const name = scene.name.toLocaleLowerCase();
     if (!name.includes(needle)) continue;
     matches.push({

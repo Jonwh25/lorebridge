@@ -310,6 +310,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         mode: z.enum(["gm", "player"]).optional().describe(
           "Visibility mode. 'gm' (default) returns all journals. 'player' filters to journals visible to players.",
         ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to journals in that folder.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -321,12 +324,13 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, sourceId }) => {
+    async ({ query, limit, mode, folderId, sourceId }) => {
       try {
         const input = {
           query,
           ...(limit === undefined ? {} : { limit }),
           ...(mode === undefined ? {} : { mode }),
+          ...(folderId === undefined ? {} : { folderId }),
         };
         const result = await adapterSessions.invoke(
           sourceId,
@@ -430,6 +434,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         mode: z.enum(["gm", "player"]).optional().describe(
           "Visibility mode. 'gm' (default) returns all actors. 'player' filters to actors visible to players.",
         ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to actors in that folder.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -441,7 +448,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, mode, sourceId }) => {
+    async ({ query, limit, types, mode, folderId, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -451,6 +458,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
             ...(mode === undefined ? {} : { mode }),
+            ...(folderId === undefined ? {} : { folderId }),
           },
         );
         const validation = validateSearchActorsOutput(result);
@@ -532,6 +540,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         mode: z.enum(["gm", "player"]).optional().describe(
           "Visibility mode. 'gm' (default) returns all scenes. 'player' filters to scenes visible to players.",
         ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to scenes in that folder.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -543,12 +554,17 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, sourceId }) => {
+    async ({ query, limit, mode, folderId, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           SEARCH_SCENES_CAPABILITY,
-          { query, ...(limit === undefined ? {} : { limit }), ...(mode === undefined ? {} : { mode }) },
+          {
+            query,
+            ...(limit === undefined ? {} : { limit }),
+            ...(mode === undefined ? {} : { mode }),
+            ...(folderId === undefined ? {} : { folderId }),
+          },
         );
         const validation = validateSearchScenesOutput(result);
         if (!validation.valid || !validation.value) {
@@ -827,6 +843,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         mode: z.enum(["gm", "player"]).optional().describe(
           "Visibility mode. 'gm' (default) returns all items. 'player' filters to items visible to players.",
         ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to items in that folder.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -838,7 +857,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, mode, sourceId }) => {
+    async ({ query, limit, types, mode, folderId, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -848,6 +867,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
             ...(mode === undefined ? {} : { mode }),
+            ...(folderId === undefined ? {} : { folderId }),
           },
         );
         const validation = validateSearchItemsOutput(result);
