@@ -52,6 +52,8 @@ import {
   LIST_MACRO_TOOLS_DECLARATION,
   EXECUTE_MACRO_TOOL_CAPABILITY,
   EXECUTE_MACRO_TOOL_DECLARATION,
+  LIST_MACROS_CAPABILITY,
+  LIST_MACROS_DECLARATION,
   CHECK_CAMPAIGN_HEALTH_CAPABILITY,
   CHECK_CAMPAIGN_HEALTH_DECLARATION,
   AUDIT_CAMPAIGN_CONSISTENCY_CAPABILITY,
@@ -77,7 +79,7 @@ import { searchSessionLogs, getSessionLog } from "./capabilities/session-logs.js
 import { listCompendiums, searchCompendium, getCompendiumEntry } from "./capabilities/compendium.js";
 import { approveWrite, rejectWrite, rollbackWrite, showWriteApprovalChat, showRollTableApprovalChat, showRollbackAvailableChat, registerRollbackChatHook, type WriteApprovalPayload, type RollTableApprovalPayload } from "./capabilities/writes.js";
 import type { RollbackAvailablePayload } from "@lorebridge/shared/capabilities";
-import { listMacroTools, executeMacroTool } from "./capabilities/macro-tools.js";
+import { listMacros, listMacroTools, executeMacroTool } from "./capabilities/macro-tools.js";
 import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
@@ -422,6 +424,7 @@ Hooks.once("ready", () => {
           GET_COMPENDIUM_ENTRY_DECLARATION,
           LIST_MACRO_TOOLS_DECLARATION,
           EXECUTE_MACRO_TOOL_DECLARATION,
+          LIST_MACROS_DECLARATION,
           CHECK_CAMPAIGN_HEALTH_DECLARATION,
           AUDIT_CAMPAIGN_CONSISTENCY_DECLARATION,
         ],
@@ -524,6 +527,14 @@ Hooks.once("ready", () => {
               tools,
             };
           }
+          if (request.capability === LIST_MACROS_CAPABILITY) {
+            const { macros } = listMacros(request.input as Parameters<typeof listMacros>[0]);
+            return {
+              sourceId: registration.sources[0]?.sourceId ?? "foundry:unknown",
+              sourceName: game.world?.title ?? "Unknown World",
+              macros,
+            };
+          }
           if (request.capability === EXECUTE_MACRO_TOOL_CAPABILITY) {
             const input = request.input as { toolName: string; args?: Record<string, unknown> };
             return executeMacroTool(input.toolName, input.args ?? {}).then(({ macroName, result }) => ({
@@ -592,7 +603,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]
   });
   console.info(`${MODULE_LABEL} | Ready for ${summary.world.title}.`);
 
@@ -603,7 +614,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,

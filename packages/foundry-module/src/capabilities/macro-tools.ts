@@ -1,4 +1,4 @@
-import type { ListMacroToolsInput, MacroToolDefinition } from "@lorebridge/shared/capabilities";
+import type { ListMacroToolsInput, ListMacrosInput, MacroEntry, MacroToolDefinition } from "@lorebridge/shared/capabilities";
 
 interface MacroToolInfo extends MacroToolDefinition {
   macroId: string;
@@ -66,6 +66,25 @@ function getAllMacroTools(): MacroToolInfo[] {
     tools.push(tool);
   }
   return tools;
+}
+
+export function listMacros(input?: ListMacrosInput): { macros: MacroEntry[] } {
+  const filterFolderId = input?.folderId;
+  const macros: MacroEntry[] = [];
+
+  for (const macro of game.macros) {
+    if (macro.type !== "script") continue;
+    const folderId = macro.folder?.id ?? undefined;
+    const folderName = macro.folder?.name ?? undefined;
+    if (filterFolderId !== undefined && folderId !== filterFolderId) continue;
+
+    const isCallable = extractLoreBridgeToolConfig(macro.command) !== null;
+    const entry: MacroEntry = { id: macro.id, name: macro.name, type: macro.type, isCallable };
+    if (folderId) entry.folderId = folderId;
+    if (folderName) entry.folderName = folderName;
+    macros.push(entry);
+  }
+  return { macros };
 }
 
 export function listMacroTools(input?: ListMacroToolsInput): { tools: MacroToolDefinition[] } {

@@ -33,7 +33,9 @@ import {
   GET_COMPENDIUM_ENTRY_CAPABILITY,
   LIST_MACRO_TOOLS_CAPABILITY,
   EXECUTE_MACRO_TOOL_CAPABILITY,
+  LIST_MACROS_CAPABILITY,
   validateListMacroToolsOutput,
+  validateListMacrosOutput,
   validateExecuteMacroToolOutput,
   validateCheckCampaignHealthOutput,
   CHECK_CAMPAIGN_HEALTH_CAPABILITY,
@@ -1389,6 +1391,48 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not list macro tools.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_macros",
+    {
+      title: "List all macros",
+      description: "List all script macros in the Foundry world, regardless of whether they have a loreBridgeTool config block. Each entry includes an isCallable flag indicating whether the macro can be invoked via call_macro_tool. Use this to discover macros that exist but are not yet registered as callable tools.",
+      inputSchema: z.object({
+        folderId: z.string().trim().min(1).optional().describe(
+          "Filter to macros inside a specific folder by folder ID.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ folderId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, LIST_MACROS_CAPABILITY, folderId ? { folderId } : {});
+        const validation = validateListMacrosOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid macro list.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list macros.");
       }
     },
   );

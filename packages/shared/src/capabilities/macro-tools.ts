@@ -2,6 +2,7 @@ import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 
 export const LIST_MACRO_TOOLS_CAPABILITY = "listMacroTools" as const;
 export const EXECUTE_MACRO_TOOL_CAPABILITY = "executeMacroTool" as const;
+export const LIST_MACROS_CAPABILITY = "listMacros" as const;
 
 export interface MacroToolDefinition {
   name: string;
@@ -14,6 +15,25 @@ export interface MacroToolDefinition {
 
 export interface ListMacroToolsInput {
   folderId?: string;
+}
+
+export interface MacroEntry {
+  id: string;
+  name: string;
+  type: string;
+  folderId?: string;
+  folderName?: string;
+  isCallable: boolean;
+}
+
+export interface ListMacrosInput {
+  folderId?: string;
+}
+
+export interface ListMacrosOutput {
+  sourceId: string;
+  sourceName: string;
+  macros: MacroEntry[];
 }
 
 export interface ListMacroToolsOutput {
@@ -41,6 +61,12 @@ export const LIST_MACRO_TOOLS_DECLARATION: CapabilityDeclaration = {
   version: "0.1",
 };
 
+export const LIST_MACROS_DECLARATION: CapabilityDeclaration = {
+  name: LIST_MACROS_CAPABILITY,
+  mode: "read",
+  version: "0.1",
+};
+
 export const EXECUTE_MACRO_TOOL_DECLARATION: CapabilityDeclaration = {
   name: EXECUTE_MACRO_TOOL_CAPABILITY,
   mode: "write",
@@ -58,6 +84,32 @@ export function validateListMacroToolsInput(value: unknown): ValidationResult<Li
     return { valid: false, errors: ["folderId must be a non-empty string"] };
   }
   return { valid: true, value: value as unknown as ListMacroToolsInput, errors: [] };
+}
+
+export function validateListMacrosInput(value: unknown): ValidationResult<ListMacrosInput> {
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) {
+    return { valid: false, errors: ["folderId must be a non-empty string"] };
+  }
+  return { valid: true, value: value as unknown as ListMacrosInput, errors: [] };
+}
+
+export function validateListMacrosOutput(value: unknown): ValidationResult<ListMacrosOutput> {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
+  if (!isNonEmptyString(value.sourceId)) errors.push("sourceId is required");
+  if (!isNonEmptyString(value.sourceName)) errors.push("sourceName is required");
+  if (!Array.isArray(value.macros)) {
+    errors.push("macros must be an array");
+  } else {
+    value.macros.forEach((macro, i) => {
+      if (!isRecord(macro)) { errors.push(`macros[${i}] must be an object`); return; }
+      if (!isNonEmptyString(macro.id)) errors.push(`macros[${i}].id is required`);
+      if (!isNonEmptyString(macro.name)) errors.push(`macros[${i}].name is required`);
+      if (typeof macro.isCallable !== "boolean") errors.push(`macros[${i}].isCallable must be a boolean`);
+    });
+  }
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as ListMacrosOutput, errors: [] };
 }
 
 export function validateListMacroToolsOutput(value: unknown): ValidationResult<ListMacroToolsOutput> {
