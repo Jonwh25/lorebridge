@@ -25,10 +25,12 @@ For Foundry UI work, follow the **Foundry ApplicationV2 UI standard** in
 `AGENTS.md`. Use the documented v14 `ApplicationV2` APIs and verify that windows,
 text areas, nested content, scrolling, and actions remain usable when resized.
 When the owner confirms a PR was merged and its branch deleted, immediately follow
-the **Post-merge completion work** policy in `AGENTS.md`. When that closes the last
-issue in a milestone, also complete the entire **Milestone closeout** policy,
-including README, roadmap, changelog, directly authorized wiki updates, synchronized
-version changes, release packaging, and the closeout/release-preparation PR. Do not
-wait for a separate documentation or release-preparation reminder. After the owner
-merges that PR, provide the exact version-specific tag commands required by the
-**Milestone release** policy in `AGENTS.md`; do not push the tag yourself.
+the **Post-merge completion work** policy in `AGENTS.md`. Use the `/post-merge`
+skill to execute this workflow. When that closes the last issue in a milestone, also
+complete the entire **Milestone closeout** policy, including README, roadmap,
+changelog, directly authorized wiki updates, synchronized version changes, release
+packaging, and the closeout/release-preparation PR. Use the `/milestone-closeout`
+skill to execute this workflow. Do not wait for a separate documentation or
+release-preparation reminder. After the owner merges that PR, provide the exact
+version-specific tag commands required by the **Milestone release** policy in
+`AGENTS.md`; do not push the tag yourself.
