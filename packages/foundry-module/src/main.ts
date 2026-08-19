@@ -517,7 +517,7 @@ Hooks.once("ready", () => {
             return getCompendiumEntry(request.input as Parameters<typeof getCompendiumEntry>[0]);
           }
           if (request.capability === LIST_MACRO_TOOLS_CAPABILITY) {
-            const { tools } = listMacroTools();
+            const { tools } = listMacroTools(request.input as Parameters<typeof listMacroTools>[0]);
             return {
               sourceId: registration.sources[0]?.sourceId ?? "foundry:unknown",
               sourceName: game.world?.title ?? "Unknown World",

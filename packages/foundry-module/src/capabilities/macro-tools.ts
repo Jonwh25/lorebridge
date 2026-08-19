@@ -1,4 +1,4 @@
-import type { MacroToolDefinition } from "@lorebridge/shared/capabilities";
+import type { ListMacroToolsInput, MacroToolDefinition } from "@lorebridge/shared/capabilities";
 
 interface MacroToolInfo extends MacroToolDefinition {
   macroId: string;
@@ -60,15 +60,21 @@ function getAllMacroTools(): MacroToolInfo[] {
     if (!config) continue;
     if (seen.has(config.name)) continue;
     seen.add(config.name);
-    tools.push({ ...config, macroName: macro.name, macroId: macro.id });
+    const tool: MacroToolInfo = { ...config, macroName: macro.name, macroId: macro.id };
+    if (macro.folder?.id) tool.folderId = macro.folder.id;
+    if (macro.folder?.name) tool.folderName = macro.folder.name;
+    tools.push(tool);
   }
   return tools;
 }
 
-export function listMacroTools(): { tools: MacroToolDefinition[] } {
+export function listMacroTools(input?: ListMacroToolsInput): { tools: MacroToolDefinition[] } {
   const all = getAllMacroTools();
+  const filtered = input?.folderId !== undefined
+    ? all.filter((t) => t.folderId === input.folderId)
+    : all;
   return {
-    tools: all.map(({ macroId: _id, ...rest }) => rest),
+    tools: filtered.map(({ macroId: _id, ...rest }) => rest),
   };
 }
 

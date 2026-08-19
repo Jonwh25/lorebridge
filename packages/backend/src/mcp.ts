@@ -1353,6 +1353,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       title: "List GM macro tools",
       description: "List custom MCP tools defined in GM-authored Foundry macros. Returns tool names, descriptions, and parameter schemas. Use call_macro_tool to invoke a discovered tool.",
       inputSchema: z.object({
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to macros in that folder.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
         ),
@@ -1364,9 +1367,13 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ sourceId }) => {
+    async ({ folderId, sourceId }) => {
       try {
-        const result = await adapterSessions.invoke(sourceId, LIST_MACRO_TOOLS_CAPABILITY, {});
+        const result = await adapterSessions.invoke(
+          sourceId,
+          LIST_MACRO_TOOLS_CAPABILITY,
+          { ...(folderId === undefined ? {} : { folderId }) },
+        );
         const validation = validateListMacroToolsOutput(result);
         if (!validation.valid || !validation.value) {
           throw new AdapterInvocationError(
