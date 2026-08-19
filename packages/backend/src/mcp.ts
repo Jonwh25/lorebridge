@@ -68,6 +68,8 @@ import {
   validateListCompendiumsOutput,
   validateSearchCompendiumOutput,
   validateGetCompendiumEntryOutput,
+  SEARCH_ROLL_TABLES_CAPABILITY,
+  validateSearchRollTablesOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -102,6 +104,7 @@ const endCombatToolName = "end_combat";
 const rollDiceToolName = "roll_dice";
 const chatMessagesToolName = "get_chat_messages";
 const searchAssetsToolName = "search_assets";
+const searchRollTablesToolName = "search_roll_tables";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -1345,6 +1348,62 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
         }
         return toolError(error, "LoreBridge could not generate the roll table.");
+      }
+    },
+  );
+
+  server.registerTool(
+    searchRollTablesToolName,
+    {
+      title: "Search Foundry roll tables",
+      description: "Search world-level roll tables in a connected Foundry VTT world by name or description. Returns lightweight matches including folder context.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Text to find in roll table names or descriptions."),
+        limit: z.number().int().min(1).max(50).optional(),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility mode. 'gm' (default) returns all roll tables. 'player' filters to roll tables visible to players.",
+        ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to roll tables in that folder.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ query, limit, mode, folderId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          SEARCH_ROLL_TABLES_CAPABILITY,
+          {
+            query,
+            ...(limit === undefined ? {} : { limit }),
+            ...(mode === undefined ? {} : { mode }),
+            ...(folderId === undefined ? {} : { folderId }),
+          },
+        );
+        const validation = validateSearchRollTablesOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid roll table search results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry roll tables.");
       }
     },
   );

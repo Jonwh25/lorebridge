@@ -1,4 +1,4 @@
-export type CandidateDocumentType = "Actor" | "Item" | "JournalEntry" | "JournalEntryPage" | "Scene";
+export type CandidateDocumentType = "Actor" | "Item" | "JournalEntry" | "JournalEntryPage" | "RollTable" | "Scene";
 
 type SearchableDocument = { id: string; uuid: string; name: string };
 type SearchableCollection<T extends SearchableDocument> = Iterable<T> & {
@@ -24,6 +24,7 @@ const ALLOWED_TYPES = new Set<CandidateDocumentType>([
   "Item",
   "JournalEntry",
   "JournalEntryPage",
+  "RollTable",
   "Scene",
 ]);
 

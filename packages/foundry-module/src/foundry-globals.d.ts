@@ -296,10 +296,12 @@ type FoundryRollTable = {
   id: string;
   uuid: string;
   name: string;
+  description?: string;
   formula: string;
   replacement: boolean;
   displayRoll: boolean;
   img?: string;
+  ownership?: Record<string, number>;
   folder?: { id: string; name: string } | null;
   results: Iterable<FoundryRollTableResult> & { size: number };
 };
