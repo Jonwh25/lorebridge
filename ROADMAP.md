@@ -595,6 +595,19 @@ folder-picker dialog appears before each actor and journal backup. No automated
 backup runs without a button press. Old backup buttons, tracker backup columns,
 and deprecated capability files are gone.
 
+### Milestone 30 — Third-Party Module Compatibility
+
+Compatibility fixes for popular Foundry modules that conflict with LoreBridge,
+identified through real-campaign use alongside other modules.
+
+1. ✅ [fix: Material Deck compatibility — scene control button breaks Material Deck init](https://github.com/Jonwh25/lorebridge/issues/320)
+
+Success test: a GM loads Foundry with both LoreBridge and Material Deck
+(materialdeck-premium) enabled, opens the browser console, and sees no Material
+Deck initialization errors. The LoreBridge bridge icon still appears in the
+scene controls sidebar and opens the Session Command Center when clicked. Stream
+Deck integration works normally.
+
 ## Deferred work
 
 The following tracked features remain outside the current delivery milestones:
