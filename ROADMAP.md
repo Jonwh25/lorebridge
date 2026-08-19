@@ -601,6 +601,7 @@ Compatibility fixes for popular Foundry modules that conflict with LoreBridge,
 identified through real-campaign use alongside other modules.
 
 1. ✅ [fix: Material Deck compatibility — scene control button breaks Material Deck init](https://github.com/Jonwh25/lorebridge/issues/320)
+2. [ ] [investigate: evaluate libWrapper integration for safe Foundry function patching](https://github.com/Jonwh25/lorebridge/issues/322)
 
 Success test: a GM loads Foundry with both LoreBridge and Material Deck
 (materialdeck-premium) enabled, opens the browser console, and sees no Material
