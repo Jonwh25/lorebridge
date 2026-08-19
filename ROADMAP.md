@@ -615,7 +615,7 @@ Extend MCP search tools with folder context in results, optional folder filters,
 and scoped-search parameters. Adds two new tools for roll tables and playlists.
 
 1. ✅ [MCP search tools: add folderId/folderName to results and folder filter (journals, items, scenes, actors)](https://github.com/Jonwh25/lorebridge/issues/325)
-2. [MCP search_journals: expose folder names in results and add journal ID filter parameter](https://github.com/Jonwh25/lorebridge/issues/324)
+2. ✅ [MCP search_journals: expose folder names in results and add journal ID filter parameter](https://github.com/Jonwh25/lorebridge/issues/324)
 3. [MCP list_macro_tools: add folder context to results and optional folder filter](https://github.com/Jonwh25/lorebridge/issues/328)
 4. [MCP: add search_roll_tables tool](https://github.com/Jonwh25/lorebridge/issues/326)
 5. [MCP: add playlist support (list, search, playback state)](https://github.com/Jonwh25/lorebridge/issues/327)
