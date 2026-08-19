@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-08-19
+
+### Fixed
+
+- **Material Deck compatibility** (#320): the LoreBridge scene control button no longer registers itself via `getSceneControlButtons`, which caused Material Deck to crash during initialization. The button is now injected directly into the DOM after the SceneControls application renders. The bridge icon and Session Command Center remain fully functional.
+
 ## [0.29.0] - 2026-08-18
 
 ### Added
