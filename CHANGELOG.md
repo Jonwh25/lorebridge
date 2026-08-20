@@ -4,6 +4,10 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **MCP playlist retrieval** (#327): new read-only `list_playlists` and `search_playlists` tools expose playlist names, folder context, current playback state, and track counts while respecting GM/player visibility mode. Playlist playback controls remain out of scope.
+
 ## [0.30.0] - 2026-08-19
 
 ### Fixed
