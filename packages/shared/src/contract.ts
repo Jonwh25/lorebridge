@@ -41,6 +41,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   listMacros: "listMacros",
   checkCampaignHealth: "checkCampaignHealth",
   auditCampaignConsistency: "auditCampaignConsistency",
+  searchRollTables: "searchRollTables",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
