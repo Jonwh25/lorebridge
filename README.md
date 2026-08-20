@@ -17,8 +17,9 @@ Foundry documents or provider credentials.
 
 ## What you can do
 
-- Ask questions grounded in journals, actors, scenes, items, compendiums,
-  session logs, combat, chat, and linked campaign sources.
+- Ask questions grounded in journals, actors, scenes, items, roll tables,
+  playlists, compendiums, session logs, combat, chat, and linked campaign
+  sources, with optional folder-scoped search.
 - Get source citations and stable Foundry identifiers with bounded results.
 - Let players ask questions through the optional GM-curated Player Lore
   Assistant without exposing hidden campaign material.
@@ -82,7 +83,7 @@ or rebuilding, native search and content scanners remain available.
 
 | Area | Highlights |
 | --- | --- |
-| Campaign retrieval | World summary; journal, actor, scene, item, compendium, asset, chat, combat, and session-log search and retrieval |
+| Campaign retrieval | World summary; folder-aware journal, actor, scene, item, macro, roll-table, and playlist discovery; compendium, asset, chat, combat, and session-log retrieval |
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
@@ -91,7 +92,7 @@ or rebuilding, native search and content scanners remain available.
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, configurable per-category GitHub backups with folder hierarchy, and AI session log tracking (NPC status, encounters, quest progress, region visits) with automatic player permission sync |
 | Session tools | **AI NPC** and **Player Party** in the Create Actor dialog; **Distribute Hotbar to Players** in the Macros sidebar; **Remove All Players** in the Session Command Center; **Import from Backup** in the actor sheet header; **Post-Session Checklist** runs all trackers and GitHub backup in one step; **CC Journal Export** pushes all Campaign Codex journals to GitHub; **GitHub Backups** section in the Session Command Center provides per-category backup buttons (NPCs, Players, Journals, Macros, Session Logs) each with folder-picker dialogs and live progress |
-| Extensibility | GM-authored macro tools exposed through an explicit declaration and feature gate |
+| Extensibility | Discover all world script macros with folder context and callable status; invoke only GM-authored macro tools exposed through an explicit declaration and feature gate |
 
 See the [user guide](https://github.com/Jonwh25/lorebridge/wiki/Using-LoreBridge)
 for workflows and examples, and the
