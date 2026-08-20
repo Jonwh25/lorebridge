@@ -70,6 +70,10 @@ import {
   validateGetCompendiumEntryOutput,
   SEARCH_ROLL_TABLES_CAPABILITY,
   validateSearchRollTablesOutput,
+  LIST_PLAYLISTS_CAPABILITY,
+  SEARCH_PLAYLISTS_CAPABILITY,
+  validateListPlaylistsOutput,
+  validateSearchPlaylistsOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -105,6 +109,8 @@ const rollDiceToolName = "roll_dice";
 const chatMessagesToolName = "get_chat_messages";
 const searchAssetsToolName = "search_assets";
 const searchRollTablesToolName = "search_roll_tables";
+const listPlaylistsToolName = "list_playlists";
+const searchPlaylistsToolName = "search_playlists";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -1404,6 +1410,55 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not search Foundry roll tables.");
+      }
+    },
+  );
+
+  server.registerTool(
+    listPlaylistsToolName,
+    {
+      title: "List Foundry playlists",
+      description: "List world playlists with their current playback state and track count.",
+      inputSchema: z.object({
+        mode: z.enum(["gm", "player"]).optional().describe("Visibility mode. 'gm' (default) returns all playlists; 'player' returns only player-visible playlists."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, LIST_PLAYLISTS_CAPABILITY, { ...(mode === undefined ? {} : { mode }) });
+        const validation = validateListPlaylistsOutput(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid playlist results.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list Foundry playlists.");
+      }
+    },
+  );
+
+  server.registerTool(
+    searchPlaylistsToolName,
+    {
+      title: "Search Foundry playlists",
+      description: "Search world playlists by name. Returns folder context, current playback state, and track count.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Text to find in playlist names."),
+        limit: z.number().int().min(1).max(50).optional(),
+        mode: z.enum(["gm", "player"]).optional().describe("Visibility mode. 'gm' (default) returns all matching playlists; 'player' filters to player-visible playlists."),
+        folderId: z.string().trim().min(1).optional().describe("Optional Foundry folder ID to restrict results to playlists in that folder."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ query, limit, mode, folderId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, SEARCH_PLAYLISTS_CAPABILITY, { query, ...(limit === undefined ? {} : { limit }), ...(mode === undefined ? {} : { mode }), ...(folderId === undefined ? {} : { folderId }) });
+        const validation = validateSearchPlaylistsOutput(result);
+        if (!validation.valid || !validation.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid playlist search results.", false, { validationErrors: validation.errors });
+        return { content: [{ type: "text", text: JSON.stringify(validation.value) }], structuredContent: validation.value };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not search Foundry playlists.");
       }
     },
   );

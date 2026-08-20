@@ -21,3 +21,4 @@ export * from "./capabilities/backup.js";
 export * from "./capabilities/health-check.js";
 export * from "./capabilities/consistency-audit.js";
 export * from "./capabilities/roll-tables.js";
+export * from "./capabilities/playlists.js";

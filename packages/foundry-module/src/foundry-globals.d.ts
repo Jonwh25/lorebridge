@@ -311,6 +311,21 @@ type FoundryRollTableCollection = Iterable<FoundryRollTable> & {
   get(id: string): FoundryRollTable | undefined;
 };
 
+type FoundryPlaylist = {
+  id: string;
+  uuid: string;
+  name: string;
+  playing: boolean;
+  ownership?: Record<string, number>;
+  folder?: { id: string; name: string } | null;
+  sounds: Iterable<unknown> & { size: number };
+};
+
+type FoundryPlaylistCollection = Iterable<FoundryPlaylist> & {
+  size: number;
+  get(id: string): FoundryPlaylist | undefined;
+};
+
 declare const Actor: {
   create(data: Record<string, unknown>): Promise<FoundryActor | undefined>;
 };
@@ -408,6 +423,7 @@ declare const game: {
   messages: FoundryChatCollection;
   journal: FoundryJournalCollection;
   tables: FoundryRollTableCollection;
+  playlists: FoundryPlaylistCollection;
   packs: FoundryCompendiumCollection;
   modules: Map<string, { active: boolean; version?: string }>;
   settings: {

@@ -168,6 +168,8 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
                 mode: "read",
                 version: "0.1",
               },
+              { name: "listPlaylists", mode: "read", version: "0.1" },
+              { name: "searchPlaylists", mode: "read", version: "0.1" },
             ],
           },
         }));
@@ -194,6 +196,10 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
         assert.deepEqual(message.input, { query: "Strahd", limit: 10, types: ["npc"] });
       } else if (message.capability === "getActor") {
         assert.deepEqual(message.input, { actorId: "actor_strahd" });
+      } else if (message.capability === "listPlaylists") {
+        assert.deepEqual(message.input, { mode: "player" });
+      } else if (message.capability === "searchPlaylists") {
+        assert.deepEqual(message.input, { query: "battle", limit: 5, folderId: "folder_combat" });
       } else if (message.capability === "rollDice") {
         assert.deepEqual(message.input, { formula: "4d6kh3", postToChat: false });
       } else if (message.capability === "proposeCombatWrite") {
@@ -265,6 +271,18 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
               name: "Strahd von Zarovich",
               type: "npc",
               description: { plainText: "The vampire lord of Barovia." },
+            }
+        : message.capability === "listPlaylists"
+          ? {
+              sourceId: "foundry:cos", sourceName: "Curse of Strahd",
+              playlists: [{ playlistId: "playlist_battle", playlistName: "Battle Music", folderId: "folder_combat", folderName: "Combat", playing: true, trackCount: 3 }],
+              hiddenCount: 1,
+            }
+        : message.capability === "searchPlaylists"
+          ? {
+              sourceId: "foundry:cos", sourceName: "Curse of Strahd", query: "battle",
+              results: [{ playlistId: "playlist_battle", playlistName: "Battle Music", folderId: "folder_combat", folderName: "Combat", playing: true, trackCount: 3 }],
+              hiddenCount: 0,
             }
         : message.capability === "rollDice"
           ? {
@@ -406,10 +424,18 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     const tools = await client.listTools();
     assert.deepEqual(
       tools.tools.map((tool) => tool.name),
-      ["end_combat", "next_turn", "set_initiative", "get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "search_roll_tables", "list_macro_tools", "list_macros", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
+      ["end_combat", "next_turn", "set_initiative", "get_world_summary", "search_campaign", "search_journals", "get_journal_page", "search_actors", "get_actor", "search_scenes", "get_scene", "get_combat_state", "roll_dice", "get_chat_messages", "search_assets", "get_active_scene", "resolve_uuid", "get_related_documents", "search_items", "get_actor_inventory", "search_session_logs", "get_session_log", "list_compendiums", "search_compendium", "get_compendium_entry", "propose_journal_update", "generate_roll_table", "search_roll_tables", "list_playlists", "search_playlists", "list_macro_tools", "list_macros", "call_macro_tool", "list_backup_commits", "check_campaign_health", "audit_campaign_consistency", "read_backup_file"],
     );
     const readOnlyTools = tools.tools.filter((t) => t.name !== "end_combat" && t.name !== "next_turn" && t.name !== "set_initiative" && t.name !== "propose_journal_update" && t.name !== "generate_roll_table" && t.name !== "roll_dice" && t.name !== "call_macro_tool");
     assert.ok(readOnlyTools.every((tool) => tool.annotations?.readOnlyHint));
+
+    const listPlaylistsResult = await client.callTool({ name: "list_playlists", arguments: { mode: "player", sourceId: "foundry:cos" } });
+    assert.equal(listPlaylistsResult.isError, undefined);
+    assert.equal((listPlaylistsResult.structuredContent as { playlists: Array<{ playing: boolean }> }).playlists[0]?.playing, true);
+
+    const searchPlaylistsResult = await client.callTool({ name: "search_playlists", arguments: { query: "battle", limit: 5, folderId: "folder_combat", sourceId: "foundry:cos" } });
+    assert.equal(searchPlaylistsResult.isError, undefined);
+    assert.equal((searchPlaylistsResult.structuredContent as { results: Array<{ folderName: string }> }).results[0]?.folderName, "Combat");
     const proposeToolAnnotations = tools.tools.find((t) => t.name === "propose_journal_update")?.annotations;
     assert.equal(proposeToolAnnotations?.readOnlyHint, false);
     const nextTurnAnnotations = tools.tools.find((t) => t.name === "next_turn")?.annotations;
