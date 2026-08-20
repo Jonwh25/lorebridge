@@ -4,7 +4,7 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
-## [0.31.0] - 2026-08-20
+## [0.31.1] - 2026-08-20
 
 ### Added
 
