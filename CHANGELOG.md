@@ -4,8 +4,15 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-08-20
+
 ### Added
 
+- **Folder-aware campaign search** (#325): `search_journals`, `search_actors`, `search_scenes`, and `search_items` now return `folderId` and `folderName` and accept an optional `folderId` filter without changing unfiltered behavior.
+- **Journal-scoped search** (#324): `search_journals` accepts an optional native or UUID-format `journalId`, which can be combined with `folderId` to search one journal within one folder.
+- **Folder-aware macro-tool discovery** (#328): `list_macro_tools` returns macro folder context and accepts an optional `folderId` filter while continuing to expose only explicitly configured tools.
+- **World macro inventory** (#333): new read-only `list_macros` tool lists every world script macro with folder context and an `isCallable` flag; arbitrary macro execution remains unavailable.
+- **Roll-table search** (#326): new read-only `search_roll_tables` tool searches world roll tables by name or description with folder, visibility, and result-limit filters.
 - **MCP playlist retrieval** (#327): new read-only `list_playlists` and `search_playlists` tools expose playlist names, folder context, current playback state, and track counts while respecting GM/player visibility mode. Playlist playback controls remain out of scope.
 
 ## [0.30.0] - 2026-08-19
