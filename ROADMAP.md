@@ -631,6 +631,33 @@ result, filter any search to a single folder by ID, scope a journal search to on
 journal, discover existing roll tables, and query playlist state — without any
 regression to existing search behavior when the new parameters are omitted.
 
+### Milestone 32 — Hardening & Adoption
+
+Pause major feature expansion and make the existing product easier to diagnose,
+adopt, and release safely. This milestone must not weaken authentication,
+visibility, approval, or secret-handling boundaries.
+
+1. [One-click diagnostics and secret-free support bundle](https://github.com/Jonwh25/lorebridge/issues/339)
+2. [Guided first-run setup and verified test query](https://github.com/Jonwh25/lorebridge/issues/340)
+3. [Pre-tag readiness guard for clean, current, version-matched releases](https://github.com/Jonwh25/lorebridge/issues/341)
+
+Success test: a new GM follows one guided path to a successful live-world query,
+an existing GM can diagnose a deliberately broken component without exposing
+secrets or campaign content, and the release guard rejects dirty, stale, or
+version-mismatched checkouts before any tag is created.
+
+### Planned work after Milestone 32
+
+Return to narrowly evidenced improvements in this order:
+
+1. [Skip unchanged Campaign Codex export files](https://github.com/Jonwh25/lorebridge/issues/304).
+2. [Provide a safe dossier export/migration path when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260).
+3. Scope one small, independently testable slice from [Campaign Memory Engine Phase 2](https://github.com/Jonwh25/lorebridge/issues/255), beginning with concise memory summaries or session tagging rather than graphs or NPC-to-NPC sharing.
+4. [Build a repeatable end-to-end smoke-test harness](https://github.com/Jonwh25/lorebridge/issues/342) using isolated fixtures and explicit production safeguards.
+
+Discord integration, persistent campaign indexing, and vector/semantic search
+remain deferred and demand-gated.
+
 ## Deferred work
 
 The following tracked features remain outside the current delivery milestones:
