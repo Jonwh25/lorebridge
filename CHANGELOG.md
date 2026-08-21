@@ -4,6 +4,12 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-08-21
+
+### Fixed
+
+- **Scene controls button (Session Command Center)** (#344): the LoreBridge bridge icon was missing from the scene controls bar after a Foundry v14 update changed the controls HTML structure from `<ol class="main-controls">` to `<menu data-application-part="layers">` and switched from Font Awesome 5 `<i>` icon tags to Font Awesome 6 classes on the button element itself. The injection logic now targets the `<menu>` element first and uses the correct button class pattern, with a `ready`-hook fallback so the button recovers even if the `renderApplicationV2` hook fires before the module is ready.
+
 ## [0.31.1] - 2026-08-20
 
 ### Added
