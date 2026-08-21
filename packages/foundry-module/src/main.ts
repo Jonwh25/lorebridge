@@ -368,6 +368,18 @@ Hooks.once("ready", () => {
     if (macrosEl) _injectMacroSidebarButton(macrosEl);
   }
 
+  // Inject the SceneControls button if renderApplicationV2 did not catch it
+  // (e.g. the SceneControls class name changed or the hook fired before the
+  // module was ready). Injecting directly via DOM keeps us out of
+  // ui.controls.controls so Material Deck is not affected.
+  if (game.user?.isGM && !document.querySelector("[data-control='lorebridge']")) {
+    const controlsFrame = (
+      (ui as unknown as { controls?: { element?: HTMLElement } }).controls?.element
+      ?? document.querySelector<HTMLElement>("#scene-controls, #controls, .controls-bar, nav.controls")
+    );
+    if (controlsFrame) _injectSceneControlButton(controlsFrame);
+  }
+
   // Register player actor import header button for non-GM actor owners (#228).
   registerPlayerActorImportSheetHook();
 
