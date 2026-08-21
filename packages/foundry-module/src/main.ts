@@ -238,26 +238,28 @@ function injectCreateActorTypeOptions(frame: HTMLElement): void {
 
 function _injectSceneControlButton(frame: HTMLElement): void {
   if (frame.querySelector("[data-control='lorebridge']")) return;
+  // Foundry v14 uses <menu data-application-part="layers">; older versions used
+  // <ol class="main-controls"> or <ol class="controls">.
   const list = (
+    frame.querySelector("menu[data-application-part='layers']") ??
     frame.querySelector(".main-controls") ??
     frame.querySelector("ol.controls") ??
+    frame.querySelector("menu") ??
     frame.querySelector("ol")
   ) as HTMLElement | null;
   if (!list) return;
 
   const li = document.createElement("li");
-  li.classList.add("scene-control");
-  li.dataset.control = "lorebridge";
-  li.title = "LoreBridge Session Center";
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset.control = "lorebridge";
   btn.dataset.action = "activateControl";
-  btn.classList.add("scene-control");
+  // v14: icon is expressed as classes on the button itself (no inner <i>).
+  // Older Foundry: scene-control class + inner <i> tag.
+  btn.classList.add("control", "ui-control", "layer", "icon", "fa-solid", "fa-bridge");
   btn.title = "LoreBridge Session Center";
   btn.setAttribute("aria-label", "LoreBridge Session Center");
-  btn.innerHTML = '<i class="fas fa-bridge"></i>';
 
   li.appendChild(btn);
   list.appendChild(li);
@@ -366,6 +368,18 @@ Hooks.once("ready", () => {
       ?? document.querySelector<HTMLElement>("#macros, .sidebar-tab.macros, section[data-tab='macros']")
     );
     if (macrosEl) _injectMacroSidebarButton(macrosEl);
+  }
+
+  // Inject the SceneControls button if renderApplicationV2 did not catch it
+  // (e.g. the SceneControls class name changed or the hook fired before the
+  // module was ready). Injecting directly via DOM keeps us out of
+  // ui.controls.controls so Material Deck is not affected.
+  if (game.user?.isGM && !document.querySelector("[data-control='lorebridge']")) {
+    const controlsFrame = (
+      (ui as unknown as { controls?: { element?: HTMLElement } }).controls?.element
+      ?? document.querySelector<HTMLElement>("#scene-controls, #controls, .controls-bar, nav.controls")
+    );
+    if (controlsFrame) _injectSceneControlButton(controlsFrame);
   }
 
   // Register player actor import header button for non-GM actor owners (#228).
