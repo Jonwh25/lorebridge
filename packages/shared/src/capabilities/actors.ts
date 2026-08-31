@@ -10,6 +10,7 @@ export interface SearchActorsInput {
   types?: string[];
   mode?: VisibilityMode;
   folderId?: string;
+  excludeFolderIds?: string[];
 }
 
 export interface ActorSearchMatch {
@@ -94,6 +95,9 @@ export function validateSearchActorsInput(
   }
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
   if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
+  if (value.excludeFolderIds !== undefined) {
+    if (!Array.isArray(value.excludeFolderIds) || value.excludeFolderIds.some((id) => !isNonEmptyString(id))) errors.push("excludeFolderIds must be an array of non-empty strings");
+  }
   return errors.length
     ? { valid: false, errors }
     : { valid: true, value: value as unknown as SearchActorsInput, errors: [] };

@@ -8,6 +8,7 @@ export interface SearchRollTablesInput {
   limit?: number;
   mode?: VisibilityMode;
   folderId?: string;
+  excludeFolderIds?: string[];
 }
 
 export interface RollTableSearchMatch {
@@ -58,6 +59,9 @@ export function validateSearchRollTablesInput(
   }
   if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) {
     errors.push("folderId must be a non-empty string");
+  }
+  if (value.excludeFolderIds !== undefined) {
+    if (!Array.isArray(value.excludeFolderIds) || value.excludeFolderIds.some((id) => !isNonEmptyString(id))) errors.push("excludeFolderIds must be an array of non-empty strings");
   }
   return errors.length
     ? { valid: false, errors }

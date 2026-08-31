@@ -15,6 +15,7 @@ export interface MacroToolDefinition {
 
 export interface ListMacroToolsInput {
   folderId?: string;
+  excludeFolderIds?: string[];
 }
 
 export interface MacroEntry {
@@ -28,6 +29,7 @@ export interface MacroEntry {
 
 export interface ListMacrosInput {
   folderId?: string;
+  excludeFolderIds?: string[];
 }
 
 export interface ListMacrosOutput {
@@ -79,19 +81,23 @@ const isNonEmptyString = (v: unknown): v is string =>
   typeof v === "string" && v.trim().length > 0;
 
 export function validateListMacroToolsInput(value: unknown): ValidationResult<ListMacroToolsInput> {
+  const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
-  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) {
-    return { valid: false, errors: ["folderId must be a non-empty string"] };
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
+  if (value.excludeFolderIds !== undefined) {
+    if (!Array.isArray(value.excludeFolderIds) || value.excludeFolderIds.some((id) => !isNonEmptyString(id))) errors.push("excludeFolderIds must be an array of non-empty strings");
   }
-  return { valid: true, value: value as unknown as ListMacroToolsInput, errors: [] };
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as ListMacroToolsInput, errors: [] };
 }
 
 export function validateListMacrosInput(value: unknown): ValidationResult<ListMacrosInput> {
+  const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
-  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) {
-    return { valid: false, errors: ["folderId must be a non-empty string"] };
+  if (value.folderId !== undefined && !isNonEmptyString(value.folderId)) errors.push("folderId must be a non-empty string");
+  if (value.excludeFolderIds !== undefined) {
+    if (!Array.isArray(value.excludeFolderIds) || value.excludeFolderIds.some((id) => !isNonEmptyString(id))) errors.push("excludeFolderIds must be an array of non-empty strings");
   }
-  return { valid: true, value: value as unknown as ListMacrosInput, errors: [] };
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as ListMacrosInput, errors: [] };
 }
 
 export function validateListMacrosOutput(value: unknown): ValidationResult<ListMacrosOutput> {

@@ -264,6 +264,12 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         mode: z.enum(["gm", "player"]).optional().describe(
           "Visibility mode. 'gm' (default) returns all documents. 'player' filters to documents visible to players (OBSERVER permission or higher).",
         ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Optional Foundry folder ID to restrict results to documents in that folder.",
+        ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -275,7 +281,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, mode, sourceId }) => {
+    async ({ query, limit, types, mode, folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -285,6 +291,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(limit === undefined ? {} : { limit }),
             ...(types === undefined ? {} : { types }),
             ...(mode === undefined ? {} : { mode }),
+            ...(folderId === undefined ? {} : { folderId }),
+            ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           },
         );
         const validation = validateSearchCampaignOutput(result);
@@ -324,6 +332,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to journals in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         journalId: z.string().trim().min(1).optional().describe(
           "Optional Foundry JournalEntry ID or UUID to restrict the search to entries within a single journal.",
         ),
@@ -338,13 +349,14 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, folderId, journalId, sourceId }) => {
+    async ({ query, limit, mode, folderId, excludeFolderIds, journalId, sourceId }) => {
       try {
         const input = {
           query,
           ...(limit === undefined ? {} : { limit }),
           ...(mode === undefined ? {} : { mode }),
           ...(folderId === undefined ? {} : { folderId }),
+          ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           ...(journalId === undefined ? {} : { journalId }),
         };
         const result = await adapterSessions.invoke(
@@ -452,6 +464,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to actors in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -463,7 +478,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, mode, folderId, sourceId }) => {
+    async ({ query, limit, types, mode, folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -474,6 +489,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(types === undefined ? {} : { types }),
             ...(mode === undefined ? {} : { mode }),
             ...(folderId === undefined ? {} : { folderId }),
+            ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           },
         );
         const validation = validateSearchActorsOutput(result);
@@ -558,6 +574,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to scenes in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -569,7 +588,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, folderId, sourceId }) => {
+    async ({ query, limit, mode, folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -579,6 +598,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(limit === undefined ? {} : { limit }),
             ...(mode === undefined ? {} : { mode }),
             ...(folderId === undefined ? {} : { folderId }),
+            ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           },
         );
         const validation = validateSearchScenesOutput(result);
@@ -861,6 +881,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to items in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -872,7 +895,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, types, mode, folderId, sourceId }) => {
+    async ({ query, limit, types, mode, folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -883,6 +906,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(types === undefined ? {} : { types }),
             ...(mode === undefined ? {} : { mode }),
             ...(folderId === undefined ? {} : { folderId }),
+            ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           },
         );
         const validation = validateSearchItemsOutput(result);
@@ -1372,6 +1396,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to roll tables in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit it when exactly one compatible Foundry world is connected.",
         ),
@@ -1383,7 +1410,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ query, limit, mode, folderId, sourceId }) => {
+    async ({ query, limit, mode, folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
@@ -1393,6 +1420,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             ...(limit === undefined ? {} : { limit }),
             ...(mode === undefined ? {} : { mode }),
             ...(folderId === undefined ? {} : { folderId }),
+            ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }),
           },
         );
         const validation = validateSearchRollTablesOutput(result);
@@ -1472,6 +1500,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Optional Foundry folder ID to restrict results to macros in that folder.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
         ),
@@ -1483,12 +1514,12 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ folderId, sourceId }) => {
+    async ({ folderId, excludeFolderIds, sourceId }) => {
       try {
         const result = await adapterSessions.invoke(
           sourceId,
           LIST_MACRO_TOOLS_CAPABILITY,
-          { ...(folderId === undefined ? {} : { folderId }) },
+          { ...(folderId === undefined ? {} : { folderId }), ...(excludeFolderIds === undefined ? {} : { excludeFolderIds }) },
         );
         const validation = validateListMacroToolsOutput(result);
         if (!validation.valid || !validation.value) {
@@ -1518,6 +1549,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         folderId: z.string().trim().min(1).optional().describe(
           "Filter to macros inside a specific folder by folder ID.",
         ),
+        excludeFolderIds: z.array(z.string().trim().min(1)).optional().describe(
+          "Optional list of Foundry folder IDs to exclude from results.",
+        ),
         sourceId: z.string().trim().min(1).optional().describe(
           "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
         ),
@@ -1529,9 +1563,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         openWorldHint: false,
       },
     },
-    async ({ folderId, sourceId }) => {
+    async ({ folderId, excludeFolderIds, sourceId }) => {
       try {
-        const result = await adapterSessions.invoke(sourceId, LIST_MACROS_CAPABILITY, folderId ? { folderId } : {});
+        const result = await adapterSessions.invoke(sourceId, LIST_MACROS_CAPABILITY, { ...(folderId ? { folderId } : {}), ...(excludeFolderIds ? { excludeFolderIds } : {}) });
         const validation = validateListMacrosOutput(result);
         if (!validation.valid || !validation.value) {
           throw new AdapterInvocationError(

@@ -72,6 +72,7 @@ export function searchRollTables(input: SearchRollTablesInput): SearchRollTables
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
   const filterFolderId = validated.value.folderId;
+  const excludeFolderIdSet = validated.value.excludeFolderIds && validated.value.excludeFolderIds.length > 0 ? new Set(validated.value.excludeFolderIds) : undefined;
   const candidateUuids = collectWorldCandidateUuids(query, "RollTable", game.tables);
   const matches: Array<{ score: number; candidate: number; value: RollTableSearchMatch }> = [];
   let hiddenCount = 0;
@@ -79,6 +80,7 @@ export function searchRollTables(input: SearchRollTablesInput): SearchRollTables
   for (const table of game.tables) {
     if (playerMode && !isPlayerVisible(table.ownership)) { hiddenCount++; continue; }
     if (filterFolderId !== undefined && table.folder?.id !== filterFolderId) continue;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(table.folder?.id ?? "")) continue;
     const name = table.name.toLocaleLowerCase();
     const description = tableDescription(table);
     let match: { score: number; value: RollTableSearchMatch } | undefined;
