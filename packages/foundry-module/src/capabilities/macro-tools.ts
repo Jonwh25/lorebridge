@@ -70,6 +70,7 @@ function getAllMacroTools(): MacroToolInfo[] {
 
 export function listMacros(input?: ListMacrosInput): { macros: MacroEntry[] } {
   const filterFolderId = input?.folderId;
+  const excludeFolderIdSet = input?.excludeFolderIds && input.excludeFolderIds.length > 0 ? new Set(input.excludeFolderIds) : undefined;
   const macros: MacroEntry[] = [];
 
   for (const macro of game.macros) {
@@ -77,6 +78,7 @@ export function listMacros(input?: ListMacrosInput): { macros: MacroEntry[] } {
     const folderId = macro.folder?.id ?? undefined;
     const folderName = macro.folder?.name ?? undefined;
     if (filterFolderId !== undefined && folderId !== filterFolderId) continue;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(folderId ?? "")) continue;
 
     const isCallable = extractLoreBridgeToolConfig(macro.command) !== null;
     const entry: MacroEntry = { id: macro.id, name: macro.name, type: macro.type, isCallable };
@@ -89,9 +91,12 @@ export function listMacros(input?: ListMacrosInput): { macros: MacroEntry[] } {
 
 export function listMacroTools(input?: ListMacroToolsInput): { tools: MacroToolDefinition[] } {
   const all = getAllMacroTools();
-  const filtered = input?.folderId !== undefined
-    ? all.filter((t) => t.folderId === input.folderId)
-    : all;
+  const excludeFolderIdSet = input?.excludeFolderIds && input.excludeFolderIds.length > 0 ? new Set(input.excludeFolderIds) : undefined;
+  const filtered = all.filter((t) => {
+    if (input?.folderId !== undefined && t.folderId !== input.folderId) return false;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(t.folderId ?? "")) return false;
+    return true;
+  });
   return {
     tools: filtered.map(({ macroId: _id, ...rest }) => rest),
   };

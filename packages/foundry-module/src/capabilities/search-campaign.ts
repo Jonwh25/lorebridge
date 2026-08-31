@@ -55,7 +55,10 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     limit: inputLimit = DEFAULT_LIMIT,
     types = allowedTypes.filter((t) => profileFilter[t === "journal" ? "journals" : t === "actor" ? "actors" : "scenes"]),
     mode: inputMode,
+    folderId: filterFolderId,
+    excludeFolderIds,
   } = validated.value;
+  const excludeFolderIdSet = excludeFolderIds && excludeFolderIds.length > 0 ? new Set(excludeFolderIds) : undefined;
   // Profile caps the limit and overrides the visibility mode when not explicitly supplied.
   // Player-safe profiles always force player visibility regardless of caller input.
   const limit = Math.min(inputLimit, profileFilter.maxDocs);
@@ -120,27 +123,31 @@ export function searchCampaign(input: SearchCampaignInput): SearchCampaignOutput
     }
   }
 
-  // Apply folder filter: re-resolve each matched document and check its current folder.
+  // Apply folder filters: re-resolve each matched document and check its current folder.
   // This is done after sub-search so Spotlight or native search candidates are rechecked
   // against live Foundry state before being ranked or returned.
-  const folderIds = profileFilter.folderIds;
-  const filteredScored = folderIds && folderIds.size > 0
+  const profileFolderIds = profileFilter.folderIds;
+  const filteredScored = (profileFolderIds && profileFolderIds.size > 0) || filterFolderId !== undefined || excludeFolderIdSet !== undefined
     ? scored.filter(({ match }) => {
+        let fid: string | undefined;
         if (match.documentType === "journal") {
           const journal = game.journal?.get(match.journalId);
           if (!journal) return false;
-          return folderIds.has(journal.folder?.id ?? "");
-        }
-        if (match.documentType === "actor") {
+          fid = journal.folder?.id;
+          if (profileFolderIds && profileFolderIds.size > 0 && !profileFolderIds.has(fid ?? "")) return false;
+        } else if (match.documentType === "actor") {
           const actor = game.actors?.get(match.actorId);
           if (!actor) return false;
-          return folderIds.has(actor.folder?.id ?? "");
-        }
-        if (match.documentType === "scene") {
+          fid = actor.folder?.id;
+          if (profileFolderIds && profileFolderIds.size > 0 && !profileFolderIds.has(fid ?? "")) return false;
+        } else if (match.documentType === "scene") {
           const scene = game.scenes?.get(match.sceneId);
           if (!scene) return false;
-          return folderIds.has(scene.folder?.id ?? "");
+          fid = scene.folder?.id;
+          if (profileFolderIds && profileFolderIds.size > 0 && !profileFolderIds.has(fid ?? "")) return false;
         }
+        if (filterFolderId !== undefined && fid !== filterFolderId) return false;
+        if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(fid ?? "")) return false;
         return true;
       })
     : scored;

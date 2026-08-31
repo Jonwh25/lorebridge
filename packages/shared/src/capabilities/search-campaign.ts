@@ -18,6 +18,8 @@ export interface SearchCampaignInput {
   limit?: number;
   types?: CampaignDocumentType[];
   mode?: VisibilityMode;
+  folderId?: string;
+  excludeFolderIds?: string[];
 }
 
 export interface SearchCampaignOutput {
@@ -52,6 +54,10 @@ export function validateSearchCampaignInput(value: unknown): ValidationResult<Se
     }
   }
   if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) errors.push("mode must be 'gm' or 'player'");
+  if (value.folderId !== undefined && (typeof value.folderId !== "string" || value.folderId.trim().length === 0)) errors.push("folderId must be a non-empty string");
+  if (value.excludeFolderIds !== undefined) {
+    if (!Array.isArray(value.excludeFolderIds) || value.excludeFolderIds.some((id) => typeof id !== "string" || id.trim().length === 0)) errors.push("excludeFolderIds must be an array of non-empty strings");
+  }
   return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as SearchCampaignInput, errors: [] };
 }
 

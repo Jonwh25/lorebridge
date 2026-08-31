@@ -61,6 +61,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
   const filterFolderId = validated.value.folderId;
+  const excludeFolderIdSet = validated.value.excludeFolderIds && validated.value.excludeFolderIds.length > 0 ? new Set(validated.value.excludeFolderIds) : undefined;
   const candidateUuids = collectWorldCandidateUuids(query, "Scene", game.scenes);
   const matches: Array<{ score: number; candidate: number; value: SceneSearchMatch }> = [];
   let hiddenCount = 0;
@@ -68,6 +69,7 @@ export function searchScenes(input: SearchScenesInput): SearchScenesOutput {
   for (const scene of game.scenes) {
     if (playerMode && !isPlayerVisible(scene.ownership)) { hiddenCount++; continue; }
     if (filterFolderId !== undefined && scene.folder?.id !== filterFolderId) continue;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(scene.folder?.id ?? "")) continue;
     const name = scene.name.toLocaleLowerCase();
     if (!name.includes(needle)) continue;
     matches.push({

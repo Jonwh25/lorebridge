@@ -69,6 +69,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
   const needle = query.toLocaleLowerCase();
   const playerMode = validated.value.mode === "player";
   const filterFolderId = validated.value.folderId;
+  const excludeFolderIdSet = validated.value.excludeFolderIds && validated.value.excludeFolderIds.length > 0 ? new Set(validated.value.excludeFolderIds) : undefined;
   const rawJournalId = validated.value.journalId;
   const filterJournalId = rawJournalId?.startsWith("JournalEntry.")
     ? rawJournalId.split(".")[1] ?? rawJournalId
@@ -81,6 +82,7 @@ export function searchJournals(input: SearchJournalsInput): SearchJournalsOutput
     if (playerMode && !isPlayerVisible(journal.ownership)) { hiddenCount++; continue; }
     if (filterJournalId !== undefined && journal.id !== filterJournalId) continue;
     if (filterFolderId !== undefined && journal.folder?.id !== filterFolderId) continue;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(journal.folder?.id ?? "")) continue;
     const pages = Array.from(journal.pages);
     let best: { score: number; value: JournalSearchMatch } | undefined;
     const journalName = journal.name.toLocaleLowerCase();

@@ -157,6 +157,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
   const types = validated.value.types?.map((t) => t.toLocaleLowerCase());
   const playerMode = validated.value.mode === "player";
   const filterFolderId = validated.value.folderId;
+  const excludeFolderIdSet = validated.value.excludeFolderIds && validated.value.excludeFolderIds.length > 0 ? new Set(validated.value.excludeFolderIds) : undefined;
   const candidateUuids = collectWorldCandidateUuids(query, "Item", game.items);
   const matches: Array<{ score: number; candidate: number; value: ItemSearchMatch }> = [];
   let hiddenCount = 0;
@@ -165,6 +166,7 @@ export function searchItems(input: SearchItemsInput): SearchItemsOutput {
     if (playerMode && !isPlayerVisible(item.ownership)) { hiddenCount++; continue; }
     if (types && !types.includes(item.type.toLocaleLowerCase())) continue;
     if (filterFolderId !== undefined && item.folder?.id !== filterFolderId) continue;
+    if (excludeFolderIdSet !== undefined && excludeFolderIdSet.has(item.folder?.id ?? "")) continue;
     const name = item.name.toLocaleLowerCase();
     const description = itemDescription(item);
     let match: { score: number; value: ItemSearchMatch } | undefined;
