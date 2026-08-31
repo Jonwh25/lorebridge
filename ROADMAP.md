@@ -701,7 +701,6 @@ The following tracked features remain outside the current delivery milestones:
 | Vector and semantic search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) | Spike #223 found no current need to replace bounded lexical retrieval. Advance only with a representative query corpus demonstrating material failures that local-first hybrid search cannot address. |
 | Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) | Secure identity linking, permission enforcement, bot hosting, and operational hardening require substantial work relative to the expected value. |
 | Campaign Memory Engine: Phase 2 — enrichment and management | [#255](https://github.com/Jonwh25/lorebridge/issues/255) | Depends on #198 proving the basic memory capture model in production. AI summarization, relationship categories, session tagging, NPC-to-NPC sharing, and a visualization graph are all additive enrichments; advance after the 1.0 readiness review if the core memory system demonstrates clear demand for richer structure. |
-| NPC dossier data migration macro | [#260](https://github.com/Jonwh25/lorebridge/issues/260) | Moved to Milestone 34. |
 
 Additional VTT adapters and multi-world federation were closed as not planned;
 LoreBridge remains focused on Foundry VTT and one connected world per backend.
