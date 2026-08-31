@@ -631,7 +631,33 @@ result, filter any search to a single folder by ID, scope a journal search to on
 journal, discover existing roll tables, and query playlist state — without any
 regression to existing search behavior when the new parameters are omitted.
 
-### Milestone 32 — Hardening & Adoption
+### Milestone 32 — External World Building
+
+Extend LoreBridge write capabilities so an AI client can generate complete NPCs,
+custom items, and balanced encounters from outside Foundry and push them into the
+world through the existing GM preview-and-approval flow. Includes a search filter
+improvement that lets AI tools scope precisely without scanning archive folders.
+
+1. [Add excludeFolderIds exclusion filter to all MCP search tools](https://github.com/Jonwh25/lorebridge/issues/343)
+2. [MCP tools: generate_npc, create_actor, and update_actor for external NPC creation and editing](https://github.com/Jonwh25/lorebridge/issues/347)
+3. [MCP tools: generate_item, create_item, and update_item for external item creation and editing](https://github.com/Jonwh25/lorebridge/issues/348)
+4. [MCP tools: generate_encounter, create_encounter, and update_scene for external encounter building and scene editing](https://github.com/Jonwh25/lorebridge/issues/349)
+
+Issue #343 lands first to establish precise folder scoping across all search
+tools before the generation tools rely on it. #347 (NPC creation) ships before
+#349 (encounter building) because placing a generated NPC as a token requires
+the actor to exist first. #348 (items) is independent and can ship in parallel
+with either. All generated content routes through the existing single-use,
+expiry-checked GM approval flow and is logged to the audit record.
+
+Success test: from an MCP client, a GM generates a complete D&D 5e NPC with a
+profile, approves it into Foundry, generates a custom magic item and places it
+in the NPC's inventory, then builds a balanced encounter placing tokens onto a
+scene and starting combat — all without opening the Foundry UI. An existing
+actor and item can each be updated via a targeted AI diff routed through the
+same approval card.
+
+### Milestone 33 — Hardening & Adoption
 
 Pause major feature expansion and make the existing product easier to diagnose,
 adopt, and release safely. This milestone must not weaken authentication,
@@ -640,20 +666,27 @@ visibility, approval, or secret-handling boundaries.
 1. [One-click diagnostics and secret-free support bundle](https://github.com/Jonwh25/lorebridge/issues/339)
 2. [Guided first-run setup and verified test query](https://github.com/Jonwh25/lorebridge/issues/340)
 3. [Pre-tag readiness guard for clean, current, version-matched releases](https://github.com/Jonwh25/lorebridge/issues/341)
+4. [Repeatable end-to-end LoreBridge smoke-test harness](https://github.com/Jonwh25/lorebridge/issues/342)
 
 Success test: a new GM follows one guided path to a successful live-world query,
 an existing GM can diagnose a deliberately broken component without exposing
-secrets or campaign content, and the release guard rejects dirty, stale, or
-version-mismatched checkouts before any tag is created.
+secrets or campaign content, the release guard rejects dirty, stale, or
+version-mismatched checkouts before any tag is created, and the smoke-test
+harness can validate the full MCP path against isolated fixtures.
 
-### Planned work after Milestone 32
+### Milestone 34 — Search & Codex Polish
 
-Return to narrowly evidenced improvements in this order:
+Quality-of-life improvements for Campaign Codex integration, search efficiency,
+and GM data management. Each issue is independently mergeable.
 
-1. [Skip unchanged Campaign Codex export files](https://github.com/Jonwh25/lorebridge/issues/304).
-2. [Provide a safe dossier export/migration path when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260).
-3. Scope one small, independently testable slice from [Campaign Memory Engine Phase 2](https://github.com/Jonwh25/lorebridge/issues/255), beginning with concise memory summaries or session tagging rather than graphs or NPC-to-NPC sharing.
-4. [Build a repeatable end-to-end smoke-test harness](https://github.com/Jonwh25/lorebridge/issues/342) using isolated fixtures and explicit production safeguards.
+1. [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
+2. [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
+3. [Dossier data migration macro when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260)
+
+Success test: a GM can manage quest objectives through AI assistance, Campaign
+Codex export skips unchanged files on incremental runs, and a GM who disables
+the Campaign Codex integration can migrate their dossier data to plain journal
+pages without data loss.
 
 Discord integration, persistent campaign indexing, and vector/semantic search
 remain deferred and demand-gated.
@@ -668,7 +701,7 @@ The following tracked features remain outside the current delivery milestones:
 | Vector and semantic search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) | Spike #223 found no current need to replace bounded lexical retrieval. Advance only with a representative query corpus demonstrating material failures that local-first hybrid search cannot address. |
 | Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) | Secure identity linking, permission enforcement, bot hosting, and operational hardening require substantial work relative to the expected value. |
 | Campaign Memory Engine: Phase 2 — enrichment and management | [#255](https://github.com/Jonwh25/lorebridge/issues/255) | Depends on #198 proving the basic memory capture model in production. AI summarization, relationship categories, session tagging, NPC-to-NPC sharing, and a visualization graph are all additive enrichments; advance after the 1.0 readiness review if the core memory system demonstrates clear demand for richer structure. |
-| NPC dossier data migration macro | [#260](https://github.com/Jonwh25/lorebridge/issues/260) | When the Campaign Codex integration is disabled, dossier flag data is inaccessible but not deleted. A migration macro and re-import path would let GMs export dossier content to plain journal pages and recover it without re-enabling the feature. Advance after Milestone 24 ships and demand is confirmed. |
+| NPC dossier data migration macro | [#260](https://github.com/Jonwh25/lorebridge/issues/260) | Moved to Milestone 34. |
 
 Additional VTT adapters and multi-world federation were closed as not planned;
 LoreBridge remains focused on Foundry VTT and one connected world per backend.
