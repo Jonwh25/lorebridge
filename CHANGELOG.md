@@ -4,6 +4,10 @@ All notable changes to LoreBridge are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- **excludeFolderIds exclusion filter for all MCP search tools** (#343): `search_journals`, `search_actors`, `search_scenes`, `search_items`, `search_roll_tables`, `list_macro_tools`, and `list_macros` now accept an optional `excludeFolderIds` array; documents whose folder ID appears in that list are omitted from results. `search_campaign` gains both `folderId` (include) and `excludeFolderIds` (exclude) — the only tool that previously had neither. Exclusion uses an O(1) Set lookup and takes priority when a folder ID appears in both the include and exclude filters.
+
 ## [0.31.2] - 2026-08-21
 
 ### Fixed
