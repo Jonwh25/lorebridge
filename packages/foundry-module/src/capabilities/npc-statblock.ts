@@ -21,7 +21,7 @@ type NpcStatBlockFeature = {
   description: string;
 };
 
-type NpcStatBlockResult = {
+export type NpcStatBlockResult = {
   name: string;
   size: string;
   creatureType: string;
@@ -111,7 +111,7 @@ function crToString(cr: number): string {
   return String(cr);
 }
 
-function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): Record<string, unknown> {
+export function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): Record<string, unknown> {
   // Build saving throw overrides
   const saves: Record<string, { proficient: number }> = {};
   for (const abbr of stat.savingThrows) {
@@ -189,7 +189,7 @@ function buildDnd5eActorData(stat: NpcStatBlockResult, edition: RulesEdition): R
 // Compendium item lookup
 // ---------------------------------------------------------------------------
 
-type RulesEdition = "modern" | "legacy";
+export type RulesEdition = "modern" | "legacy";
 
 /** Return all Item-type packs from the dnd5e system, monster packs first. */
 async function getDnd5eItemPacks(edition: RulesEdition): Promise<FoundryCompendiumPack[]> {
@@ -478,7 +478,7 @@ function makeSyntheticFeat(
 // Build embedded item list — compendium-first, synthetic fallback
 // ---------------------------------------------------------------------------
 
-async function buildEmbeddedItems(stat: NpcStatBlockResult, edition: RulesEdition): Promise<Record<string, unknown>[]> {
+export async function buildEmbeddedItems(stat: NpcStatBlockResult, edition: RulesEdition): Promise<Record<string, unknown>[]> {
   const items: Record<string, unknown>[] = [];
 
   for (const trait of stat.traits) {
@@ -521,7 +521,7 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function buildPreviewHtml(stat: NpcStatBlockResult): string {
+export function buildPreviewHtml(stat: NpcStatBlockResult): string {
   const mod = (n: number): string => {
     const m = abilityMod(n);
     return m >= 0 ? `+${m}` : String(m);

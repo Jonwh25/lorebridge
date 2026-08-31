@@ -84,6 +84,7 @@ type FoundryActor = {
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
   update(data: Record<string, unknown>): Promise<FoundryActor>;
   createEmbeddedDocuments(type: "Item", data: Record<string, unknown>[]): Promise<FoundryItem[]>;
+  deleteEmbeddedDocuments(type: "Item", ids: string[]): Promise<FoundryItem[]>;
 };
 
 type FoundryCompendiumIndexEntry = {
