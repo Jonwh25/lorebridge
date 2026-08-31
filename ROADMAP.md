@@ -657,7 +657,21 @@ scene and starting combat — all without opening the Foundry UI. An existing
 actor and item can each be updated via a targeted AI diff routed through the
 same approval card.
 
-### Milestone 33 — Hardening & Adoption
+### Milestone 33 — Search & Codex Polish
+
+Quality-of-life improvements for Campaign Codex integration, search efficiency,
+and GM data management. Each issue is independently mergeable.
+
+1. [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
+2. [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
+3. [Dossier data migration macro when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260)
+
+Success test: a GM can manage quest objectives through AI assistance, Campaign
+Codex export skips unchanged files on incremental runs, and a GM who disables
+the Campaign Codex integration can migrate their dossier data to plain journal
+pages without data loss.
+
+### Milestone 34 — Hardening & Adoption
 
 Pause major feature expansion and make the existing product easier to diagnose,
 adopt, and release safely. This milestone must not weaken authentication,
@@ -673,20 +687,6 @@ an existing GM can diagnose a deliberately broken component without exposing
 secrets or campaign content, the release guard rejects dirty, stale, or
 version-mismatched checkouts before any tag is created, and the smoke-test
 harness can validate the full MCP path against isolated fixtures.
-
-### Milestone 34 — Search & Codex Polish
-
-Quality-of-life improvements for Campaign Codex integration, search efficiency,
-and GM data management. Each issue is independently mergeable.
-
-1. [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
-2. [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
-3. [Dossier data migration macro when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260)
-
-Success test: a GM can manage quest objectives through AI assistance, Campaign
-Codex export skips unchanged files on incremental runs, and a GM who disables
-the Campaign Codex integration can migrate their dossier data to plain journal
-pages without data loss.
 
 Discord integration, persistent campaign indexing, and vector/semantic search
 remain deferred and demand-gated.
