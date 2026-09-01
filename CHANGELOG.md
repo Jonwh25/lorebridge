@@ -6,6 +6,8 @@ All notable changes to LoreBridge are documented here.
 
 ### Added
 
+- **generate_npc, create_actor, update_actor MCP tools** (#347): three new tools for external NPC creation and editing without opening the Foundry UI. `generate_npc` produces a complete 5e stat block (ability scores, AC, HP, speed, skills, traits, actions) from a natural-language description via the configured AI provider. `create_actor` writes a new actor document to the Foundry world using the stat block data — accepts folderId for placement. `update_actor` patches an existing actor by UUID, allowing targeted field edits (name, HP, abilities, items, biography, etc.). All three follow the standard GM preview-and-approval flow used by existing generation tools.
+
 - **excludeFolderIds exclusion filter for all MCP search tools** (#343): `search_journals`, `search_actors`, `search_scenes`, `search_items`, `search_roll_tables`, `list_macro_tools`, and `list_macros` now accept an optional `excludeFolderIds` array; documents whose folder ID appears in that list are omitted from results. `search_campaign` gains both `folderId` (include) and `excludeFolderIds` (exclude) — the only tool that previously had neither. Exclusion uses an O(1) Set lookup and takes priority when a folder ID appears in both the include and exclude filters.
 
 ## [0.31.2] - 2026-08-21
