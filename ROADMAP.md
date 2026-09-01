@@ -640,7 +640,7 @@ improvement that lets AI tools scope precisely without scanning archive folders.
 
 1. ✅ [Add excludeFolderIds exclusion filter to all MCP search tools](https://github.com/Jonwh25/lorebridge/issues/343)
 2. ✅ [MCP tools: generate_npc, create_actor, and update_actor for external NPC creation and editing](https://github.com/Jonwh25/lorebridge/issues/347)
-3. [MCP tools: generate_item, create_item, and update_item for external item creation and editing](https://github.com/Jonwh25/lorebridge/issues/348)
+3. ✅ [MCP tools: generate_item, create_item, and update_item for external item creation and editing](https://github.com/Jonwh25/lorebridge/issues/348)
 4. [MCP tools: generate_encounter, create_encounter, and update_scene for external encounter building and scene editing](https://github.com/Jonwh25/lorebridge/issues/349)
 
 Issue #343 lands first to establish precise folder scoping across all search
