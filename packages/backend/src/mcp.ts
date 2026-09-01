@@ -2010,7 +2010,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
   // Item generation and item create / update (#348)
   // ---------------------------------------------------------------------------
 
-  const ITEM_TYPES: [ItemType, ...ItemType[]] = ["weapon", "spell", "feat", "consumable", "equipment", "loot", "tool"];
+  const ITEM_TYPES: [ItemType, ...ItemType[]] = ["weapon", "spell", "feat", "consumable", "equipment", "loot", "tool", "background", "race", "container"];
 
   server.registerTool(
     "generate_item",
@@ -2018,7 +2018,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       title: "Generate a D&D item",
       description: [
         "Ask the AI to generate a complete D&D 5e item from a natural-language description.",
-        "Supports 7 item types: weapon, spell, feat (feature/feat), consumable, equipment (armor/shield), loot (treasure), tool.",
+        "Supports 10 item types: weapon, spell, feat (feature/feat), consumable, equipment (armor/shield), loot (treasure), tool, background, race (species), container.",
         "Returns a preview of the item data without creating anything in Foundry.",
         "Pass the result to create_item to propose creating the item.",
         "Edition: 'modern' = D&D 2024 (uses activities system). 'legacy' = D&D 2014 (flat damage.parts). Defaults to 'legacy'.",
@@ -2029,10 +2029,10 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           "Natural-language description of the item, e.g. 'A longsword +1 with a blue flame on its blade' or 'Fireball, 3rd level evocation spell'.",
         ),
         itemType: z.enum(ITEM_TYPES).describe(
-          "Item type: weapon, spell, feat (Feature/Feat), consumable, equipment (armor/shield/clothing), loot (treasure/gem/trade goods), tool (artisan tools, gaming sets, instruments).",
+          "Item type: weapon, spell, feat (Feature/Feat), consumable, equipment (armor/shield/clothing), loot (treasure/gem/trade goods), tool (artisan tools, gaming sets, instruments), background (character background with proficiencies and a unique feature), race (playable race/species with speeds, traits, and ASIs), container (bag, chest, quiver with capacity).",
         ),
         edition: z.enum(["modern", "legacy"]).optional().describe(
-          "Rules edition. 'modern' = D&D 2024. 'legacy' = D&D 2014. Defaults to 'legacy'.",
+          "Rules edition. 'modern' = D&D 2024. 'legacy' = D&D 2014. Defaults to 'legacy'. Affects background ASI grants and race ASI handling.",
         ),
         worldName: z.string().trim().min(1).optional().describe(
           "Campaign world name, used to flavour the description text.",
@@ -2145,7 +2145,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           "Current name of the item.",
         ),
         itemType: z.enum(ITEM_TYPES).describe(
-          "Item type: weapon, spell, feat, consumable, equipment, loot, tool.",
+          "Item type: weapon, spell, feat, consumable, equipment, loot, tool, background, race, container.",
         ),
         instruction: z.string().trim().min(1).describe(
           "Natural-language instruction describing the changes, e.g. 'increase the damage to 2d6, add the Heavy property, make it rare'.",

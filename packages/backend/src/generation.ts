@@ -1331,7 +1331,7 @@ export async function generateNpcStatBlock(
 // Item generation (#348)
 // ---------------------------------------------------------------------------
 
-export type ItemType = "weapon" | "spell" | "feat" | "consumable" | "equipment" | "loot" | "tool";
+export type ItemType = "weapon" | "spell" | "feat" | "consumable" | "equipment" | "loot" | "tool" | "background" | "race" | "container";
 
 export type ItemStatResult = {
   name: string;
@@ -1381,6 +1381,27 @@ export type ItemStatResult = {
   // Tool fields
   toolType: string | undefined;
   toolAbility: string | undefined;
+  // Container fields
+  capacityType: string | undefined;
+  capacityValue: number | undefined;
+  weightlessContents: boolean | undefined;
+  // Background fields
+  skillProficiencies: string[] | undefined;
+  toolProficiencies: string[] | undefined;
+  backgroundLanguages: string[] | undefined;
+  backgroundFeatureName: string | undefined;
+  backgroundFeatureDescription: string | undefined;
+  // Race fields
+  walkSpeed: number | undefined;
+  flySpeed: number | undefined;
+  swimSpeed: number | undefined;
+  burrowSpeed: number | undefined;
+  climbSpeed: number | undefined;
+  raceSize: string | undefined;
+  darkvisionRange: number | undefined;
+  damageResistances: string[] | undefined;
+  abilityScoreImprovements: Record<string, number> | undefined;
+  raceTraits: Array<{ name: string; description: string }> | undefined;
   // Common fields
   weight: number | undefined;
   price: number | undefined;
@@ -1406,6 +1427,9 @@ const ITEM_TYPE_LABELS: Record<ItemType, string> = {
   equipment: "Equipment (armor, clothing, shield)",
   loot: "Loot (treasure, gem, trade goods)",
   tool: "Tool (artisan, gaming set, musical instrument)",
+  background: "Background",
+  race: "Race/Species",
+  container: "Container (bag, chest, quiver)",
 };
 
 const ITEM_TYPE_PROMPTS: Record<ItemType, string> = {
@@ -1416,6 +1440,9 @@ const ITEM_TYPE_PROMPTS: Record<ItemType, string> = {
   equipment: `Fill equipment fields: armorType (light/medium/heavy/shield), acValue (base AC or shield bonus), stealthDisadvantage (bool), strengthRequirement if any.`,
   loot: `This is a loot item (treasure, gem, trade good). No special mechanical fields needed beyond weight, price, and denomination.`,
   tool: `Fill tool fields: toolType (art/game/music/thief/vehicle/navigator/poisoner), toolAbility (the primary ability used with this tool, e.g. "dex" for thieves' tools, "int" for alchemist supplies).`,
+  container: `Fill container fields: capacityType ("weight" for bags that hold lbs, "quantity" for containers that hold a count of items like quivers), capacityValue (max weight in lbs or item count), weightlessContents (true only for magical containers like bags of holding where contents weigh nothing).`,
+  background: `Fill background fields: skillProficiencies (array of exactly 2 dnd5e skill abbreviations: acr/ani/arc/ath/dec/his/ins/itm/inv/med/nat/prc/per/rel/slt/ste/sur), toolProficiencies (array of tool names, e.g. ["Thieves' Tools","Herbalism Kit"] — empty array if none), backgroundLanguages (array of language names, e.g. ["Elvish","Dwarvish"] or ["any"] for a player choice — empty array if none), backgroundFeatureName (name of the unique background feature), backgroundFeatureDescription (1-3 sentence description of the feature and what it grants the character). EDITION NOTE — D&D 2024 (modern): also fill abilityScoreImprovements with exactly 3 points to distribute among ability scores as the player chooses (e.g. {"str":2,"dex":1} or {"con":2,"wis":1}); D&D 2014 (legacy): set abilityScoreImprovements to {}.`,
+  race: `Fill race fields: walkSpeed (movement in feet, typically 25 or 30), flySpeed (if any, else 0), swimSpeed (if any, else 0), burrowSpeed (if any, else 0), climbSpeed (if any, else 0), raceSize ("tiny"/"sm"/"med"/"lg"), darkvisionRange (feet of darkvision, 0 if none), damageResistances (array of damage type strings the race resists, e.g. ["fire","cold"] — empty array if none), raceTraits (array of objects {name, description} for each racial trait — IMPORTANT: do NOT include a trait that merely restates a resistance already listed in damageResistances; instead list traits like Fey Ancestry, Trance, Gnome Cunning, Brave, etc. that grant non-resistance abilities). EDITION NOTE — D&D 2014 (legacy): also fill abilityScoreImprovements (object mapping ability to bonus, e.g. {"str":2,"con":1}); D&D 2024 (modern): set abilityScoreImprovements to {} because ASI is now granted by the Background, not the race.`,
 };
 
 export async function generateItem(
@@ -1495,6 +1522,22 @@ export async function generateItem(
     const strs = v.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
     return strs.length > 0 ? strs : undefined;
   };
+  const safeObjNumOpt = (v: unknown): Record<string, number> | undefined => {
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return undefined;
+    const result: Record<string, number> = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (typeof val === "number" && isFinite(val) && val !== 0) result[k] = Math.round(val);
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  };
+  const safeTraitsOpt = (v: unknown): Array<{ name: string; description: string }> | undefined => {
+    if (!Array.isArray(v)) return undefined;
+    const result = v
+      .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x))
+      .map(x => ({ name: safeString(x["name"], ""), description: safeString(x["description"], "") }))
+      .filter(t => t.name.length > 0);
+    return result.length > 0 ? result : undefined;
+  };
 
   return {
     name: safeString(obj["name"], "Generated Item"),
@@ -1544,6 +1587,27 @@ export async function generateItem(
     // Tool
     toolType: safeStrOpt(obj["toolType"]),
     toolAbility: safeStrOpt(obj["toolAbility"]),
+    // Container
+    capacityType: safeStrOpt(obj["capacityType"]),
+    capacityValue: typeof obj["capacityValue"] === "number" ? obj["capacityValue"] : undefined,
+    weightlessContents: typeof obj["weightlessContents"] === "boolean" ? obj["weightlessContents"] : undefined,
+    // Background
+    skillProficiencies: safeArrOpt(obj["skillProficiencies"]),
+    toolProficiencies: safeArrOpt(obj["toolProficiencies"]),
+    backgroundLanguages: safeArrOpt(obj["backgroundLanguages"]),
+    backgroundFeatureName: safeStrOpt(obj["backgroundFeatureName"]),
+    backgroundFeatureDescription: safeStrOpt(obj["backgroundFeatureDescription"]),
+    // Race
+    walkSpeed: typeof obj["walkSpeed"] === "number" ? Math.max(0, Math.round(obj["walkSpeed"])) : undefined,
+    flySpeed: typeof obj["flySpeed"] === "number" ? Math.max(0, Math.round(obj["flySpeed"])) : undefined,
+    swimSpeed: typeof obj["swimSpeed"] === "number" ? Math.max(0, Math.round(obj["swimSpeed"])) : undefined,
+    burrowSpeed: typeof obj["burrowSpeed"] === "number" ? Math.max(0, Math.round(obj["burrowSpeed"])) : undefined,
+    climbSpeed: typeof obj["climbSpeed"] === "number" ? Math.max(0, Math.round(obj["climbSpeed"])) : undefined,
+    raceSize: safeStrOpt(obj["raceSize"]),
+    darkvisionRange: typeof obj["darkvisionRange"] === "number" ? Math.max(0, Math.round(obj["darkvisionRange"])) : undefined,
+    damageResistances: safeArrOpt(obj["damageResistances"]),
+    abilityScoreImprovements: safeObjNumOpt(obj["abilityScoreImprovements"]),
+    raceTraits: safeTraitsOpt(obj["raceTraits"]),
     // Common
     weight: safeNum(obj["weight"]),
     price: safeNum(obj["price"]),
