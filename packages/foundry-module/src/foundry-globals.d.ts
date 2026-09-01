@@ -173,9 +173,11 @@ type FoundryScene = {
   journalEntryPage?: { id: string; uuid: string; name: string } | null;
   tokens: Iterable<FoundryTokenDocument> & { size: number };
   notes: Iterable<FoundryNoteDocument> & { size: number };
+  grid: { size: number; type: number; units: string };
   getFlag(scope: string, key: string): unknown;
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
   update(data: Record<string, unknown>): Promise<void>;
+  createEmbeddedDocuments(type: "Token", data: Record<string, unknown>[]): Promise<unknown[]>;
 };
 
 type FoundryFolderDocument = {

@@ -92,7 +92,8 @@ import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { searchRollTables } from "./capabilities/roll-tables.js";
 import { showActorCreateApprovalDialog, showActorUpdateApprovalDialog } from "./capabilities/actor-writes.js";
 import { showItemCreateApprovalDialog, showItemUpdateApprovalDialog } from "./capabilities/item-writes.js";
-import type { ActorCreateApprovalPayload, ActorUpdateApprovalPayload, ItemCreateApprovalPayload, ItemUpdateApprovalPayload } from "@lorebridge/shared/capabilities";
+import { showEncounterCreateApprovalDialog, showSceneUpdateApprovalDialog } from "./capabilities/encounter-writes.js";
+import type { ActorCreateApprovalPayload, ActorUpdateApprovalPayload, ItemCreateApprovalPayload, ItemUpdateApprovalPayload, EncounterCreateApprovalPayload, SceneUpdateApprovalPayload } from "@lorebridge/shared/capabilities";
 import { listPlaylists, searchPlaylists } from "./capabilities/playlists.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
@@ -618,6 +619,12 @@ Hooks.once("ready", () => {
           }
           if (event.event === LOREBRIDGE_EVENTS.itemUpdateApprovalRequired) {
             void showItemUpdateApprovalDialog(event.payload as ItemUpdateApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.encounterCreateApprovalRequired) {
+            void showEncounterCreateApprovalDialog(event.payload as EncounterCreateApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.sceneUpdateApprovalRequired) {
+            void showSceneUpdateApprovalDialog(event.payload as SceneUpdateApprovalPayload);
           }
         },
       );
