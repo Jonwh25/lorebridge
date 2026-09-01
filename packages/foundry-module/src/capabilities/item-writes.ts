@@ -48,6 +48,27 @@ type ItemStatResult = {
   strengthRequirement?: number;
   toolType?: string;
   toolAbility?: string;
+  // Container fields
+  capacityType?: string;
+  capacityValue?: number;
+  weightlessContents?: boolean;
+  // Background fields
+  skillProficiencies?: string[];
+  toolProficiencies?: string[];
+  backgroundLanguages?: string[];
+  backgroundFeatureName?: string;
+  backgroundFeatureDescription?: string;
+  // Race fields
+  walkSpeed?: number;
+  flySpeed?: number;
+  swimSpeed?: number;
+  burrowSpeed?: number;
+  climbSpeed?: number;
+  raceSize?: string;
+  darkvisionRange?: number;
+  damageResistances?: string[];
+  abilityScoreImprovements?: Record<string, number>;
+  raceTraits?: Array<{ name: string; description: string }>;
   weight?: number;
   price?: number;
   denomination?: string;
@@ -541,6 +562,226 @@ function buildTool(item: ItemStatResult, edition: RulesEdition): Record<string, 
   };
 }
 
+function makeAdvancementId(): string {
+  return foundry.utils.randomID(16);
+}
+
+function buildContainer(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
+  const slug = item.name.toLowerCase().replace(/\s+/g, "-");
+  const base = commonFields(item, edition, slug);
+  return {
+    name: item.name,
+    type: "container",
+    system: {
+      ...base,
+      capacity: {
+        type: item.capacityType ?? "weight",
+        value: item.capacityValue ?? 500,
+        weightless: item.weightlessContents ?? false,
+      },
+      currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+    },
+  };
+}
+
+function buildBackground(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
+  const slug = item.name.toLowerCase().replace(/\s+/g, "-");
+  const base = commonFields(item, edition, slug);
+  const advancement: unknown[] = [];
+
+  // Skill proficiency advancement
+  const skillGrants = (item.skillProficiencies ?? []).map(s => `skills:${s}`);
+  if (skillGrants.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 0,
+      title: "Skill Proficiencies",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        mode: "default",
+        allowReplacements: false,
+        grants: skillGrants,
+        choices: [],
+        hint: "",
+      },
+    });
+  }
+
+  // Tool proficiency advancement (stored as hint — tool keys vary significantly)
+  if (item.toolProficiencies && item.toolProficiencies.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 0,
+      title: "Tool Proficiencies",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        mode: "default",
+        allowReplacements: false,
+        grants: [],
+        choices: [],
+        hint: item.toolProficiencies.join(", "),
+      },
+    });
+  }
+
+  // Language advancement
+  const langGrants = (item.backgroundLanguages ?? [])
+    .filter(l => l.toLowerCase() !== "any")
+    .map(l => `languages:${l.toLowerCase()}`);
+  const langChoices = (item.backgroundLanguages ?? []).some(l => l.toLowerCase() === "any") ? 1 : 0;
+  if (langGrants.length > 0 || langChoices > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 0,
+      title: "Languages",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        mode: "default",
+        allowReplacements: false,
+        grants: langGrants,
+        choices: langChoices > 0 ? [{ count: langChoices, pool: ["languages:*"] }] : [],
+        hint: "",
+      },
+    });
+  }
+
+  // Modern edition: ability score improvement advancement (3 points, player-distributed)
+  if (edition === "modern") {
+    const fixed: Record<string, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+    for (const [k, v] of Object.entries(item.abilityScoreImprovements ?? {})) {
+      if (k in fixed) fixed[k] = v;
+    }
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "AbilityScoreImprovement",
+      level: 0,
+      title: "",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        points: 3,
+        cap: 2,
+        fixed,
+        locked: [],
+      },
+    });
+  }
+
+  // Feature description goes into item description
+  const featureHtml = item.backgroundFeatureName && item.backgroundFeatureDescription
+    ? `<h3>${item.backgroundFeatureName}</h3><p>${item.backgroundFeatureDescription}</p>`
+    : "";
+  const fullDescription = `${base["description"] ? (base["description"] as Record<string, unknown>)["value"] ?? "" : ""}${featureHtml}`;
+
+  return {
+    name: item.name,
+    type: "background",
+    system: {
+      ...base,
+      description: {
+        value: fullDescription,
+        chat: buildChatDescription(item.description),
+        unidentified: "",
+      },
+      advancement,
+    },
+  };
+}
+
+function buildRace(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
+  const slug = item.name.toLowerCase().replace(/\s+/g, "-");
+  const base = commonFields(item, edition, slug);
+  const advancement: unknown[] = [];
+
+  // Ability score improvements — legacy only; modern races don't include fixed ASIs
+  if (edition === "legacy" && item.abilityScoreImprovements && Object.keys(item.abilityScoreImprovements).length > 0) {
+    const fixed: Record<string, number> = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+    for (const [k, v] of Object.entries(item.abilityScoreImprovements)) {
+      if (k in fixed) fixed[k] = v;
+    }
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "AbilityScoreImprovement",
+      level: 0,
+      title: "",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        points: 0,
+        cap: 2,
+        fixed,
+        locked: Object.keys(fixed).filter(k => fixed[k] !== 0),
+      },
+    });
+  }
+
+  // Damage resistance advancement
+  if (item.damageResistances && item.damageResistances.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 0,
+      title: "Damage Resistances",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        mode: "default",
+        allowReplacements: false,
+        grants: item.damageResistances.map(r => `dr:${r.toLowerCase()}`),
+        choices: [],
+        hint: "",
+      },
+    });
+  }
+
+  // Build racial trait descriptions into main description
+  const traitsHtml = (item.raceTraits ?? [])
+    .map(t => `<h3>${t.name}</h3><p>${t.description}</p>`)
+    .join("");
+  const baseDesc = base["description"]
+    ? String((base["description"] as Record<string, unknown>)["value"] ?? "")
+    : "";
+  const fullDescription = `${baseDesc}${traitsHtml}`;
+
+  return {
+    name: item.name,
+    type: "race",
+    system: {
+      ...base,
+      description: {
+        value: fullDescription,
+        chat: buildChatDescription(item.description),
+        unidentified: "",
+      },
+      movement: {
+        burrow: item.burrowSpeed ?? 0,
+        climb: item.climbSpeed ?? 0,
+        fly: item.flySpeed ?? 0,
+        swim: item.swimSpeed ?? 0,
+        walk: item.walkSpeed ?? 30,
+        hover: false,
+        units: "ft",
+      },
+      senses: {
+        darkvision: item.darkvisionRange ?? 0,
+        blindsight: 0,
+        tremorsense: 0,
+        truesight: 0,
+        units: "ft",
+        special: "",
+      },
+      size: item.raceSize ?? "med",
+      advancement,
+    },
+  };
+}
+
 export function buildDnd5eItemData(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
   switch (item.itemType) {
     case "weapon": return buildWeapon(item, edition);
@@ -550,6 +791,9 @@ export function buildDnd5eItemData(item: ItemStatResult, edition: RulesEdition):
     case "equipment": return buildEquipment(item, edition);
     case "loot": return buildLoot(item, edition);
     case "tool": return buildTool(item, edition);
+    case "container": return buildContainer(item, edition);
+    case "background": return buildBackground(item, edition);
+    case "race": return buildRace(item, edition);
     default: return buildLoot(item, edition);
   }
 }
@@ -611,6 +855,30 @@ export function buildItemPreviewHtml(item: ItemStatResult): string {
   if (item.itemType === "tool") {
     row("Tool Type", item.toolType);
     row("Ability", item.toolAbility);
+  }
+  if (item.itemType === "container") {
+    row("Capacity Type", item.capacityType);
+    row("Capacity", item.capacityValue != null ? String(item.capacityValue) : undefined);
+    row("Weightless", item.weightlessContents);
+  }
+  if (item.itemType === "background") {
+    row("Skills", item.skillProficiencies?.join(", "));
+    row("Tool Proficiencies", item.toolProficiencies?.join(", "));
+    row("Languages", item.backgroundLanguages?.join(", "));
+    row("Feature", item.backgroundFeatureName);
+  }
+  if (item.itemType === "race") {
+    row("Size", item.raceSize);
+    row("Walk Speed", item.walkSpeed != null ? `${item.walkSpeed} ft` : undefined);
+    if (item.flySpeed) row("Fly Speed", `${item.flySpeed} ft`);
+    if (item.swimSpeed) row("Swim Speed", `${item.swimSpeed} ft`);
+    if (item.burrowSpeed) row("Burrow Speed", `${item.burrowSpeed} ft`);
+    if (item.climbSpeed) row("Climb Speed", `${item.climbSpeed} ft`);
+    if (item.darkvisionRange) row("Darkvision", `${item.darkvisionRange} ft`);
+    row("Resistances", item.damageResistances?.join(", "));
+    const asiStr = item.abilityScoreImprovements ? Object.entries(item.abilityScoreImprovements).map(([k, v]) => `${k}+${v}`).join(", ") : undefined;
+    row("ASIs", asiStr);
+    row("Traits", item.raceTraits?.map(t => t.name).join(", "));
   }
   row("Weight", item.weight != null ? `${item.weight} lb` : undefined);
   row("Price", item.price != null ? `${item.price} ${item.denomination ?? "gp"}` : undefined);
