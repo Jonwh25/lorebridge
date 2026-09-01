@@ -200,6 +200,14 @@ function makeHealActivity(
 // Common item base fields
 // ---------------------------------------------------------------------------
 
+const CHAT_DESCRIPTION_THRESHOLD = 200;
+
+function buildChatDescription(description: string | undefined): string {
+  if (!description || description.length <= CHAT_DESCRIPTION_THRESHOLD) return "";
+  const firstSentence = description.split(/(?<=[.!?])\s+/)[0] ?? description;
+  return `<p>${firstSentence}</p>`;
+}
+
 function commonFields(item: ItemStatResult, edition: RulesEdition, slug: string): Record<string, unknown> {
   return {
     source: makeSource(edition, slug),
@@ -211,7 +219,7 @@ function commonFields(item: ItemStatResult, edition: RulesEdition, slug: string)
     identified: true,
     description: {
       value: item.description ? `<p>${item.description}</p>` : "",
-      chat: item.description ? `<p>${item.description}</p>` : "",
+      chat: buildChatDescription(item.description),
       unidentified: "",
     },
   };
