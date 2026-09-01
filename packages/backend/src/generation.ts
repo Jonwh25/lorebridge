@@ -1328,6 +1328,233 @@ export async function generateNpcStatBlock(
 }
 
 // ---------------------------------------------------------------------------
+// Item generation (#348)
+// ---------------------------------------------------------------------------
+
+export type ItemType = "weapon" | "spell" | "feat" | "consumable" | "equipment" | "loot" | "tool";
+
+export type ItemStatResult = {
+  name: string;
+  itemType: ItemType;
+  description: string;
+  // Weapon fields
+  weaponType: string | undefined;
+  damage: string | undefined;
+  damageType: string | undefined;
+  versatileDamage: string | undefined;
+  properties: string[] | undefined;
+  range: string | undefined;
+  attackBonus: number | undefined;
+  // Spell fields
+  spellLevel: number | undefined;
+  spellSchool: string | undefined;
+  castingTime: string | undefined;
+  spellRange: string | undefined;
+  rangeUnits: string | undefined;
+  components: string[] | undefined;
+  materialComponent: string | undefined;
+  concentration: boolean | undefined;
+  ritual: boolean | undefined;
+  duration: string | undefined;
+  durationValue: string | undefined;
+  spellDamage: string | undefined;
+  spellDamageType: string | undefined;
+  saveAbility: string | undefined;
+  healAmount: string | undefined;
+  areaShape: string | undefined;
+  areaSize: string | undefined;
+  attackType: string | undefined;
+  // Feature/Feat fields
+  featureSubtype: string | undefined;
+  activationType: string | undefined;
+  uses: number | undefined;
+  recharge: string | undefined;
+  // Consumable fields
+  consumableType: string | undefined;
+  charges: number | undefined;
+  consumableEffect: string | undefined;
+  // Equipment fields
+  armorType: string | undefined;
+  acValue: number | undefined;
+  stealthDisadvantage: boolean | undefined;
+  strengthRequirement: number | undefined;
+  // Tool fields
+  toolType: string | undefined;
+  toolAbility: string | undefined;
+  // Common fields
+  weight: number | undefined;
+  price: number | undefined;
+  denomination: string | undefined;
+  rarity: string | undefined;
+  attunement: boolean | undefined;
+  provider: string;
+};
+
+export type ItemStatInput = {
+  description: string;
+  itemType: ItemType;
+  edition: "modern" | "legacy";
+  worldName: string | undefined;
+  tone: string | undefined;
+};
+
+const ITEM_TYPE_LABELS: Record<ItemType, string> = {
+  weapon: "Weapon",
+  spell: "Spell",
+  feat: "Feature/Feat",
+  consumable: "Consumable",
+  equipment: "Equipment (armor, clothing, shield)",
+  loot: "Loot (treasure, gem, trade goods)",
+  tool: "Tool (artisan, gaming set, musical instrument)",
+};
+
+const ITEM_TYPE_PROMPTS: Record<ItemType, string> = {
+  weapon: `Fill weapon fields: weaponType ("simpleM","simpleR","martialM","martialR"), damage (e.g. "1d8"), damageType (e.g. "slashing"), versatileDamage if versatile, properties (array of dnd5e abbreviations: fin,ver,thr,rch,lgt,hvy,two,amm,rel), range (e.g. "20/60" for ranged), attackBonus if magical.`,
+  spell: `Fill spell fields: spellLevel (0=cantrip), spellSchool (evo/con/div/ill/ech/nec/trs/abj), castingTime (action/bonus/reaction/minute/hour), spellRange (numeric), rangeUnits (ft/mi/self/touch), components (["V","S","M"]), materialComponent if M, concentration (bool), ritual (bool), duration (inst/min/hour/day), durationValue if not inst, spellDamage and spellDamageType if it deals damage, saveAbility if it requires a save, healAmount if it heals, areaShape and areaSize if it has an area, attackType (rsak or msak) if it requires a spell attack roll.`,
+  feat: `Fill feature fields: featureSubtype (class/race/feat/background/monster), activationType (action/bonus/reaction/passive), uses if limited-use, recharge if uses (sr=short rest/lr=long rest/day).`,
+  consumable: `Fill consumable fields: consumableType (potion/scroll/wand/rod/trinket/ammo/food/poison), charges (how many uses), consumableEffect (heal/damage/utility).`,
+  equipment: `Fill equipment fields: armorType (light/medium/heavy/shield), acValue (base AC or shield bonus), stealthDisadvantage (bool), strengthRequirement if any.`,
+  loot: `This is a loot item (treasure, gem, trade good). No special mechanical fields needed beyond weight, price, and denomination.`,
+  tool: `Fill tool fields: toolType (art/game/music/thief/vehicle/navigator/poisoner), toolAbility (the primary ability used with this tool, e.g. "dex" for thieves' tools, "int" for alchemist supplies).`,
+};
+
+export async function generateItem(
+  provider: ProviderService,
+  input: ItemStatInput,
+): Promise<ItemStatResult> {
+  const editionLabel = input.edition === "modern" ? "D&D 2024" : "D&D 2014";
+  const toneNote = TONE_DESCRIPTION[input.tone as BoxedTextTone] ?? "neutral and vivid";
+  const typeLabel = ITEM_TYPE_LABELS[input.itemType];
+  const typePrompt = ITEM_TYPE_PROMPTS[input.itemType];
+
+  const prompt = [
+    `You are a D&D 5e game master creating a ${typeLabel} item for a tabletop campaign (${editionLabel} rules).`,
+    "Return ONLY a valid JSON object. No markdown, no explanation, no surrounding text.",
+    "",
+    `World: ${input.worldName ?? "a D&D 5e world"}`,
+    `Item description: ${input.description}`,
+    `Tone: ${toneNote}`,
+    "",
+    `Required JSON structure (itemType must be "${input.itemType}"):`,
+    `{`,
+    `  "name": "Item Name",`,
+    `  "itemType": "${input.itemType}",`,
+    `  "description": "1-3 sentence flavor/mechanical description for the item.",`,
+    `  "weight": 1,`,
+    `  "price": 50,`,
+    `  "denomination": "gp",`,
+    `  "rarity": "common",`,
+    `  "attunement": false`,
+    `  <type-specific fields below>`,
+    `}`,
+    "",
+    `Type-specific fields to include: ${typePrompt}`,
+    "",
+    "Rules:",
+    `- rarity: one of "common","uncommon","rare","veryRare","legendary","artifact"`,
+    "- attunement: true only for magic items that require attunement",
+    "- Fill all relevant type-specific fields with accurate D&D 5e values",
+    "- Use 0 for price/weight if not applicable (e.g. spells)",
+    "- Description: plain prose, 1-3 sentences, no markdown",
+    "- Return only the JSON object, nothing else",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 1200);
+
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/im, "")
+    .replace(/\s*```\s*$/m, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new GenerationError(`AI did not return a JSON object for the item. Response: ${raw.slice(0, 200)}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new GenerationError(`AI returned malformed JSON for the item: ${cleaned.slice(0, 200)}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new GenerationError("AI item response is not a JSON object.");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  const safeNum = (v: unknown, fallback = 0): number =>
+    typeof v === "number" && isFinite(v) ? v : fallback;
+  const safeBool = (v: unknown, fallback = false): boolean =>
+    typeof v === "boolean" ? v : fallback;
+  const safeStrOpt = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v.trim() : undefined;
+  const safeArrOpt = (v: unknown): string[] | undefined => {
+    if (!Array.isArray(v)) return undefined;
+    const strs = v.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
+    return strs.length > 0 ? strs : undefined;
+  };
+
+  return {
+    name: safeString(obj["name"], "Generated Item"),
+    itemType: input.itemType,
+    description: safeString(obj["description"], ""),
+    // Weapon
+    weaponType: safeStrOpt(obj["weaponType"]),
+    damage: safeStrOpt(obj["damage"]),
+    damageType: safeStrOpt(obj["damageType"]),
+    versatileDamage: safeStrOpt(obj["versatileDamage"]),
+    properties: safeArrOpt(obj["properties"]),
+    range: safeStrOpt(obj["range"]),
+    attackBonus: typeof obj["attackBonus"] === "number" ? obj["attackBonus"] : undefined,
+    // Spell
+    spellLevel: typeof obj["spellLevel"] === "number" ? Math.max(0, Math.min(9, Math.round(obj["spellLevel"]))) : undefined,
+    spellSchool: safeStrOpt(obj["spellSchool"]),
+    castingTime: safeStrOpt(obj["castingTime"]) ?? (input.itemType === "spell" ? "action" : undefined),
+    spellRange: safeStrOpt(obj["spellRange"]),
+    rangeUnits: safeStrOpt(obj["rangeUnits"]),
+    components: safeArrOpt(obj["components"]),
+    materialComponent: safeStrOpt(obj["materialComponent"]),
+    concentration: typeof obj["concentration"] === "boolean" ? obj["concentration"] : undefined,
+    ritual: typeof obj["ritual"] === "boolean" ? obj["ritual"] : undefined,
+    duration: safeStrOpt(obj["duration"]) ?? (input.itemType === "spell" ? "inst" : undefined),
+    durationValue: safeStrOpt(obj["durationValue"]),
+    spellDamage: safeStrOpt(obj["spellDamage"]),
+    spellDamageType: safeStrOpt(obj["spellDamageType"]),
+    saveAbility: safeStrOpt(obj["saveAbility"]),
+    healAmount: safeStrOpt(obj["healAmount"]),
+    areaShape: safeStrOpt(obj["areaShape"]),
+    areaSize: safeStrOpt(obj["areaSize"]),
+    attackType: safeStrOpt(obj["attackType"]),
+    // Feature
+    featureSubtype: safeStrOpt(obj["featureSubtype"]),
+    activationType: safeStrOpt(obj["activationType"]),
+    uses: typeof obj["uses"] === "number" ? Math.max(1, Math.round(obj["uses"])) : undefined,
+    recharge: safeStrOpt(obj["recharge"]),
+    // Consumable
+    consumableType: safeStrOpt(obj["consumableType"]),
+    charges: typeof obj["charges"] === "number" ? Math.max(1, Math.round(obj["charges"])) : undefined,
+    consumableEffect: safeStrOpt(obj["consumableEffect"]),
+    // Equipment
+    armorType: safeStrOpt(obj["armorType"]),
+    acValue: typeof obj["acValue"] === "number" ? obj["acValue"] : undefined,
+    stealthDisadvantage: safeBool(obj["stealthDisadvantage"]),
+    strengthRequirement: typeof obj["strengthRequirement"] === "number" ? obj["strengthRequirement"] : undefined,
+    // Tool
+    toolType: safeStrOpt(obj["toolType"]),
+    toolAbility: safeStrOpt(obj["toolAbility"]),
+    // Common
+    weight: safeNum(obj["weight"]),
+    price: safeNum(obj["price"]),
+    denomination: safeStrOpt(obj["denomination"]) ?? "gp",
+    rarity: safeStrOpt(obj["rarity"]) ?? "common",
+    attunement: safeBool(obj["attunement"]),
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Campaign Consistency Audit (#167)
 // ---------------------------------------------------------------------------
 

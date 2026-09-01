@@ -54,6 +54,8 @@ export const LOREBRIDGE_EVENTS = Object.freeze({
   combatApprovalRequired: "combat.approval.required",
   actorCreateApprovalRequired: "actor.create.approval.required",
   actorUpdateApprovalRequired: "actor.update.approval.required",
+  itemCreateApprovalRequired: "item.create.approval.required",
+  itemUpdateApprovalRequired: "item.update.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 
