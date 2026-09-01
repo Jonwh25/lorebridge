@@ -23,3 +23,4 @@ export * from "./capabilities/consistency-audit.js";
 export * from "./capabilities/roll-tables.js";
 export * from "./capabilities/playlists.js";
 export * from "./capabilities/actor-writes.js";
+export * from "./capabilities/item-writes.js";

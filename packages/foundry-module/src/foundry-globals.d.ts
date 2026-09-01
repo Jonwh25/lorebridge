@@ -62,6 +62,7 @@ type FoundryItem = {
   folder?: { id: string; name: string } | null;
   system: Record<string, unknown>;
   ownership?: Record<string, number>;
+  update(data: Record<string, unknown>): Promise<FoundryItem>;
 };
 
 type FoundryItemCollection = Iterable<FoundryItem> & {
@@ -329,6 +330,10 @@ type FoundryPlaylistCollection = Iterable<FoundryPlaylist> & {
 
 declare const Actor: {
   create(data: Record<string, unknown>): Promise<FoundryActor | undefined>;
+};
+
+declare const Item: {
+  create(data: Record<string, unknown>): Promise<FoundryItem | undefined>;
 };
 
 declare const Scene: {

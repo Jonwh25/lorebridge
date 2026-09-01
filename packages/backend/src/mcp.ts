@@ -81,7 +81,8 @@ import {
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, generateNpcStatBlock, GenerationError } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, generateItem, GenerationError } from "./generation.js";
+import type { ItemType } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import { AssetSearchService } from "./asset-search.js";
 import { type GitHubAdapter } from "./github-adapter.js";
@@ -2001,6 +2002,210 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
         }
         return toolError(error, "LoreBridge could not propose the actor update.");
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Item generation and item create / update (#348)
+  // ---------------------------------------------------------------------------
+
+  const ITEM_TYPES: [ItemType, ...ItemType[]] = ["weapon", "spell", "feat", "consumable", "equipment", "loot", "tool"];
+
+  server.registerTool(
+    "generate_item",
+    {
+      title: "Generate a D&D item",
+      description: [
+        "Ask the AI to generate a complete D&D 5e item from a natural-language description.",
+        "Supports 7 item types: weapon, spell, feat (feature/feat), consumable, equipment (armor/shield), loot (treasure), tool.",
+        "Returns a preview of the item data without creating anything in Foundry.",
+        "Pass the result to create_item to propose creating the item.",
+        "Edition: 'modern' = D&D 2024 (uses activities system). 'legacy' = D&D 2014 (flat damage.parts). Defaults to 'legacy'.",
+        "Interpret '2024', 'modern', 'one D&D' as edition=modern; '2014', 'legacy', '5e' as edition=legacy.",
+      ].join(" "),
+      inputSchema: z.object({
+        description: z.string().trim().min(1).describe(
+          "Natural-language description of the item, e.g. 'A longsword +1 with a blue flame on its blade' or 'Fireball, 3rd level evocation spell'.",
+        ),
+        itemType: z.enum(ITEM_TYPES).describe(
+          "Item type: weapon, spell, feat (Feature/Feat), consumable, equipment (armor/shield/clothing), loot (treasure/gem/trade goods), tool (artisan tools, gaming sets, instruments).",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition. 'modern' = D&D 2024. 'legacy' = D&D 2014. Defaults to 'legacy'.",
+        ),
+        worldName: z.string().trim().min(1).optional().describe(
+          "Campaign world name, used to flavour the description text.",
+        ),
+        tone: z.enum(["gothic", "neutral", "heroic", "mysterious"]).optional().describe(
+          "Narrative tone for the generated description. Defaults to 'neutral'.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ description, itemType, edition, worldName, tone }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+        const item = await generateItem(provider, {
+          description,
+          itemType,
+          edition: edition ?? "legacy",
+          worldName: worldName,
+          tone: tone,
+        });
+        const preview = {
+          ...item,
+          edition: edition ?? "legacy",
+          instruction: "Item generated. Call create_item with this result to propose creating the item in Foundry (requires GM approval).",
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not generate the item.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_item",
+    {
+      title: "Propose creating a Foundry item",
+      description: "Propose creating a new item in Foundry VTT from item data returned by generate_item. Sends an approval request to the connected GM. The item is not created until the GM approves it in the LoreBridge dialog.",
+      inputSchema: z.object({
+        itemStatData: z.record(z.string(), z.unknown()).describe(
+          "The item data object returned by generate_item. Must include at minimum: name, itemType, description.",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition used to map the item to Foundry dnd5e system data. Defaults to 'legacy'.",
+        ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Foundry folder ID to place the new item in. Leave unset to create in the world root.",
+        ),
+        rationale: z.string().trim().min(1).optional().describe(
+          "Why this item is being created. Shown to the GM in the approval dialog.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ itemStatData, edition, folderId, rationale, sourceId }) => {
+      try {
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.itemCreateApprovalRequired, {
+          itemStatData,
+          edition: edition ?? "legacy",
+          ...(folderId !== undefined ? { folderId } : {}),
+          ...(rationale !== undefined ? { rationale } : {}),
+        });
+        const name = typeof itemStatData["name"] === "string" ? itemStatData["name"] : "New Item";
+        const preview = {
+          itemName: name,
+          itemType: itemStatData["itemType"] ?? "unknown",
+          edition: edition ?? "legacy",
+          instruction: `An item creation approval request for "${name}" has been sent to the connected Foundry GM. The item will be created once the GM approves it in the LoreBridge dialog.`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose the item creation.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_item",
+    {
+      title: "Propose updating a Foundry item",
+      description: "Generate an updated version of an existing world item based on a natural-language instruction, and propose the changes to the GM. The item is not modified until the GM approves the proposal. Use search_items to find the item ID first.",
+      inputSchema: z.object({
+        itemId: z.string().trim().min(1).describe(
+          "The Foundry Item ID. Use search_items to find it.",
+        ),
+        itemName: z.string().trim().min(1).describe(
+          "Current name of the item.",
+        ),
+        itemType: z.enum(ITEM_TYPES).describe(
+          "Item type: weapon, spell, feat, consumable, equipment, loot, tool.",
+        ),
+        instruction: z.string().trim().min(1).describe(
+          "Natural-language instruction describing the changes, e.g. 'increase the damage to 2d6, add the Heavy property, make it rare'.",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition. Defaults to 'legacy'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ itemId, itemName, itemType, instruction, edition, sourceId }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+
+        const worldSummaryResult = await adapterSessions.invoke(sourceId, GET_WORLD_SUMMARY_CAPABILITY, {}).catch(() => null);
+        const worldName = (worldSummaryResult as { world?: { title?: string } } | null)?.world?.title ?? undefined;
+
+        const item = await generateItem(provider, {
+          description: `${itemName} (${itemType}). Apply the following changes: ${instruction}`,
+          itemType,
+          edition: edition ?? "legacy",
+          worldName,
+          tone: undefined,
+        });
+
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.itemUpdateApprovalRequired, {
+          itemId,
+          itemName,
+          itemStatData: item,
+          edition: edition ?? "legacy",
+          rationale: instruction,
+        });
+
+        const preview = {
+          itemId,
+          itemName,
+          proposedName: item.name,
+          itemType,
+          edition: edition ?? "legacy",
+          instruction: `An update approval request for "${itemName}" has been sent to the connected Foundry GM. The item will be updated once the GM approves it in the LoreBridge dialog.`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not propose the item update.");
       }
     },
   );
