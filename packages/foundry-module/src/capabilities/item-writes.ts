@@ -209,7 +209,11 @@ function commonFields(item: ItemStatResult, edition: RulesEdition, slug: string)
     rarity: item.rarity ?? "common",
     attunement: { required: item.attunement ?? false },
     identified: true,
-    description: { value: item.description ? `<p>${item.description}</p>` : "" },
+    description: {
+      value: item.description ? `<p>${item.description}</p>` : "",
+      chat: item.description ? `<p>${item.description}</p>` : "",
+      unidentified: "",
+    },
   };
 }
 
