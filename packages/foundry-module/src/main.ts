@@ -90,6 +90,8 @@ import { generateBoxedText } from "./capabilities/generate-boxed-text.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { auditCampaignConsistency } from "./capabilities/consistency-audit.js";
 import { searchRollTables } from "./capabilities/roll-tables.js";
+import { showActorCreateApprovalDialog, showActorUpdateApprovalDialog } from "./capabilities/actor-writes.js";
+import type { ActorCreateApprovalPayload, ActorUpdateApprovalPayload } from "@lorebridge/shared/capabilities";
 import { listPlaylists, searchPlaylists } from "./capabilities/playlists.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
@@ -603,6 +605,12 @@ Hooks.once("ready", () => {
           }
           if (event.event === LOREBRIDGE_EVENTS.combatApprovalRequired) {
             void showCombatWriteApproval(event.payload as CombatWriteApprovalPayload & { approvalProof: string });
+          }
+          if (event.event === LOREBRIDGE_EVENTS.actorCreateApprovalRequired) {
+            void showActorCreateApprovalDialog(event.payload as ActorCreateApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.actorUpdateApprovalRequired) {
+            void showActorUpdateApprovalDialog(event.payload as ActorUpdateApprovalPayload);
           }
         },
       );

@@ -52,6 +52,8 @@ export const LOREBRIDGE_EVENTS = Object.freeze({
   rollTableApprovalRequired: "roll-table.approval.required",
   rollbackAvailable: "rollback.available",
   combatApprovalRequired: "combat.approval.required",
+  actorCreateApprovalRequired: "actor.create.approval.required",
+  actorUpdateApprovalRequired: "actor.update.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 

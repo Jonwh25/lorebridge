@@ -81,7 +81,7 @@ import {
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, GenerationError } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, GenerationError } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import { AssetSearchService } from "./asset-search.js";
 import { type GitHubAdapter } from "./github-adapter.js";
@@ -1808,6 +1808,199 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not read the backup file.");
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // NPC generation and actor create / update
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "generate_npc",
+    {
+      title: "Generate an NPC stat block",
+      description: "Ask the AI to generate a complete D&D 5e NPC stat block from a natural-language description. Returns a preview of the stat block without creating anything in Foundry. Pass the result to create_actor to propose creating the actor.",
+      inputSchema: z.object({
+        description: z.string().trim().min(1).describe(
+          "Natural-language description of the NPC, e.g. 'A scarred dwarf blacksmith who secretly worships Tiamat, CR 5'.",
+        ),
+        cr: z.number().min(0).max(30).optional().describe(
+          "Target challenge rating. Leave unset to let the AI decide based on the description.",
+        ),
+        tone: z.enum(["gothic", "neutral", "heroic", "mysterious"]).optional().describe(
+          "Narrative tone for the generated description and biography. Defaults to 'neutral'.",
+        ),
+        worldName: z.string().trim().min(1).optional().describe(
+          "Name of the campaign world, used to flavour the biography text.",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition. 'modern' = D&D 2024 (uses activities system). 'legacy' = D&D 2014. Defaults to 'legacy'.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ description, cr, tone, worldName, edition }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+        const stat = await generateNpcStatBlock(provider, {
+          description,
+          cr: cr ?? undefined,
+          tone: tone ?? undefined,
+          worldName: worldName ?? undefined,
+        });
+        const preview = {
+          ...stat,
+          edition: edition ?? "legacy",
+          instruction: "Stat block generated. Call create_actor with this result to propose creating the actor in Foundry (requires GM approval).",
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not generate the NPC stat block.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_actor",
+    {
+      title: "Propose creating a Foundry actor",
+      description: "Propose creating a new NPC actor in Foundry VTT from a stat block. Sends an approval request to the connected GM. The actor is not created until the GM approves it in the LoreBridge dialog. Use generate_npc first to create the stat block.",
+      inputSchema: z.object({
+        npcStatBlock: z.record(z.string(), z.unknown()).describe(
+          "The NPC stat block object returned by generate_npc. Must include at minimum: name, size, creatureType, cr, ac, hpMax, str, dex, con, int, wis, cha.",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition used to map the stat block to Foundry dnd5e system data. Defaults to 'legacy'.",
+        ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "Foundry folder ID to place the new actor in. Leave unset to create in the root or the default LoreBridge NPCs folder.",
+        ),
+        rationale: z.string().trim().min(1).optional().describe(
+          "Why this actor is being created. Shown to the GM in the approval dialog.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ npcStatBlock, edition, folderId, rationale, sourceId }) => {
+      try {
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.actorCreateApprovalRequired, {
+          npcStatBlock,
+          edition: edition ?? "legacy",
+          ...(folderId !== undefined ? { folderId } : {}),
+          ...(rationale !== undefined ? { rationale } : {}),
+        });
+        const name = typeof npcStatBlock["name"] === "string" ? npcStatBlock["name"] : "New NPC";
+        const preview = {
+          actorName: name,
+          edition: edition ?? "legacy",
+          ...(folderId !== undefined ? { folderId } : {}),
+          instruction: `An actor creation approval request for "${name}" has been sent to the connected Foundry GM. The actor will be created once the GM approves it in the LoreBridge dialog.`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose the actor creation.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_actor",
+    {
+      title: "Propose updating a Foundry actor",
+      description: "Fetch an existing actor's current data, generate an updated stat block based on a natural-language instruction, and propose the changes to the GM. The actor is not modified until the GM approves the proposal.",
+      inputSchema: z.object({
+        actorId: z.string().trim().min(1).describe(
+          "The Foundry Actor ID. Use search_actors or get_actor to find it.",
+        ),
+        instruction: z.string().trim().min(1).describe(
+          "Natural-language instruction describing the changes, e.g. 'increase HP to 120, add fire immunity, make it legendary'.",
+        ),
+        edition: z.enum(["modern", "legacy"]).optional().describe(
+          "Rules edition. Defaults to 'legacy'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ actorId, instruction, edition, sourceId }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+
+        const actorResult = await adapterSessions.invoke(sourceId, GET_ACTOR_CAPABILITY, { actorId });
+        const actorValidation = validateGetActorOutput(actorResult);
+        if (!actorValidation.valid || !actorValidation.value) {
+          throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid actor data.", false, { validationErrors: actorValidation.errors });
+        }
+        const actor = actorValidation.value;
+        const worldSummaryResult = await adapterSessions.invoke(sourceId, GET_WORLD_SUMMARY_CAPABILITY, {}).catch(() => null);
+        const worldName = (worldSummaryResult as { world?: { title?: string } } | null)?.world?.title ?? "Unknown World";
+
+        const descriptionForGeneration = `${actor.name} (${actor.type}). ${actor.description?.plainText ?? ""}. Instruction: ${instruction}`;
+        const stat = await generateNpcStatBlock(provider, {
+          description: descriptionForGeneration,
+          cr: undefined,
+          tone: undefined,
+          worldName,
+        });
+
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.actorUpdateApprovalRequired, {
+          actorId,
+          actorName: actor.name,
+          npcStatBlock: stat,
+          edition: edition ?? "legacy",
+          rationale: instruction,
+        });
+
+        const preview = {
+          actorId,
+          actorName: actor.name,
+          proposedName: stat.name,
+          edition: edition ?? "legacy",
+          instruction: `An update approval request for "${actor.name}" has been sent to the connected Foundry GM. The actor will be updated once the GM approves it in the LoreBridge dialog.`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not propose the actor update.");
       }
     },
   );
