@@ -663,7 +663,7 @@ Quality-of-life improvements for Campaign Codex integration, search efficiency,
 and GM data management. Each issue is independently mergeable.
 
 1. ✅ [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
-2. [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
+2. ✅ [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
 3. [Dossier data migration macro when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260)
 
 Success test: a GM can manage quest objectives through AI assistance, Campaign
