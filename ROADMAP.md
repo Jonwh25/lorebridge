@@ -642,7 +642,7 @@ improvement that lets AI tools scope precisely without scanning archive folders.
 2. ✅ [MCP tools: generate_npc, create_actor, and update_actor for external NPC creation and editing](https://github.com/Jonwh25/lorebridge/issues/347)
 3. ✅ [MCP tools: generate_item, create_item, and update_item for external item creation and editing](https://github.com/Jonwh25/lorebridge/issues/348)
 4. ✅ [Extend generate_item/create_item/update_item for Background, Race/Species, and Container item types](https://github.com/Jonwh25/lorebridge/issues/352)
-5. [MCP tools: generate_encounter, create_encounter, and update_scene for external encounter building and scene editing](https://github.com/Jonwh25/lorebridge/issues/349)
+5. ✅ [MCP tools: generate_encounter, create_encounter, and update_scene for external encounter building and scene editing](https://github.com/Jonwh25/lorebridge/issues/349)
 
 Issue #343 lands first to establish precise folder scoping across all search
 tools before the generation tools rely on it. #347 (NPC creation) ships before
