@@ -64,6 +64,8 @@ import {
   LIST_PLAYLISTS_DECLARATION,
   SEARCH_PLAYLISTS_CAPABILITY,
   SEARCH_PLAYLISTS_DECLARATION,
+  GET_QUEST_OBJECTIVES_CAPABILITY,
+  GET_QUEST_OBJECTIVES_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
@@ -95,6 +97,7 @@ import { showItemCreateApprovalDialog, showItemUpdateApprovalDialog } from "./ca
 import { showEncounterCreateApprovalDialog, showSceneUpdateApprovalDialog } from "./capabilities/encounter-writes.js";
 import type { ActorCreateApprovalPayload, ActorUpdateApprovalPayload, ItemCreateApprovalPayload, ItemUpdateApprovalPayload, EncounterCreateApprovalPayload, SceneUpdateApprovalPayload } from "@lorebridge/shared/capabilities";
 import { listPlaylists, searchPlaylists } from "./capabilities/playlists.js";
+import { getQuestObjectives, showQuestObjectivesApprovalChat, approveQuestObjectivesWrite, rejectQuestObjectivesWrite, type QuestObjectivesApprovalPayload } from "./capabilities/quest-objectives.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
 import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
@@ -589,6 +592,9 @@ Hooks.once("ready", () => {
           if (request.capability === SEARCH_PLAYLISTS_CAPABILITY) {
             return searchPlaylists(request.input as Parameters<typeof searchPlaylists>[0]);
           }
+          if (request.capability === GET_QUEST_OBJECTIVES_CAPABILITY) {
+            return getQuestObjectives(request.input as Parameters<typeof getQuestObjectives>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -626,6 +632,9 @@ Hooks.once("ready", () => {
           if (event.event === LOREBRIDGE_EVENTS.sceneUpdateApprovalRequired) {
             void showSceneUpdateApprovalDialog(event.payload as SceneUpdateApprovalPayload);
           }
+          if (event.event === LOREBRIDGE_EVENTS.questObjectivesApprovalRequired) {
+            void showQuestObjectivesApprovalChat(event.payload as QuestObjectivesApprovalPayload);
+          }
         },
       );
 
@@ -659,7 +668,7 @@ Hooks.once("ready", () => {
       paired: Boolean(settings.clientToken)
     },
     summary,
-    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION, SEARCH_ROLL_TABLES_DECLARATION, LIST_PLAYLISTS_DECLARATION, SEARCH_PLAYLISTS_DECLARATION]
+    capabilities: [GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION, SEARCH_ROLL_TABLES_DECLARATION, LIST_PLAYLISTS_DECLARATION, SEARCH_PLAYLISTS_DECLARATION, GET_QUEST_OBJECTIVES_DECLARATION]
   });
   console.info(`${MODULE_LABEL} | Ready for ${summary.world.title}.`);
 
@@ -670,7 +679,7 @@ Hooks.once("ready", () => {
       version: moduleVersion,
       moduleVersion,
       protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
-      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION, SEARCH_ROLL_TABLES_DECLARATION, LIST_PLAYLISTS_DECLARATION, SEARCH_PLAYLISTS_DECLARATION]),
+      capabilities: Object.freeze([GET_WORLD_SUMMARY_DECLARATION, SEARCH_JOURNALS_DECLARATION, GET_JOURNAL_DECLARATION, GET_JOURNAL_PAGE_DECLARATION, SEARCH_ACTORS_DECLARATION, GET_ACTOR_DECLARATION, SEARCH_SCENES_DECLARATION, GET_SCENE_DECLARATION, GET_ACTIVE_SCENE_DECLARATION, GET_COMBAT_STATE_DECLARATION, ...controlledCombatWriteDeclarations(settings.combatWritesEnabled), ROLL_DICE_DECLARATION, RESOLVE_UUID_DECLARATION, SEARCH_CAMPAIGN_DECLARATION, GET_RELATED_DOCUMENTS_DECLARATION, SEARCH_ITEMS_DECLARATION, GET_ACTOR_INVENTORY_DECLARATION, SEARCH_SESSION_LOGS_DECLARATION, GET_SESSION_LOG_DECLARATION, LIST_COMPENDIUMS_DECLARATION, SEARCH_COMPENDIUM_DECLARATION, GET_COMPENDIUM_ENTRY_DECLARATION, LIST_MACRO_TOOLS_DECLARATION, EXECUTE_MACRO_TOOL_DECLARATION, LIST_MACROS_DECLARATION, CHECK_CAMPAIGN_HEALTH_DECLARATION, SEARCH_ROLL_TABLES_DECLARATION, LIST_PLAYLISTS_DECLARATION, SEARCH_PLAYLISTS_DECLARATION, GET_QUEST_OBJECTIVES_DECLARATION]),
       settings: Object.freeze({
         capabilityApiEnabled: settings.capabilityApiEnabled,
         remoteIntegrationEnabled: settings.remoteIntegrationEnabled,
@@ -703,6 +712,9 @@ Hooks.once("ready", () => {
       [LIST_COMPENDIUMS_CAPABILITY]: listCompendiums,
       [SEARCH_COMPENDIUM_CAPABILITY]: searchCompendium,
       [GET_COMPENDIUM_ENTRY_CAPABILITY]: getCompendiumEntry,
+      [GET_QUEST_OBJECTIVES_CAPABILITY]: getQuestObjectives,
+      approveQuestObjectivesWrite,
+      rejectQuestObjectivesWrite,
       approveWrite,
       rejectWrite,
       rollbackWrite,

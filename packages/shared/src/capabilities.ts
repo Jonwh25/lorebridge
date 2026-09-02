@@ -25,3 +25,4 @@ export * from "./capabilities/playlists.js";
 export * from "./capabilities/actor-writes.js";
 export * from "./capabilities/item-writes.js";
 export * from "./capabilities/encounter-writes.js";
+export * from "./capabilities/quest-objectives.js";

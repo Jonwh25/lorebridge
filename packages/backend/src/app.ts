@@ -50,6 +50,7 @@ import {
 import { WriteRegistry, WriteTokenError } from "./write-registry.js";
 import { AuditRegistry, AuditTokenError } from "./audit-registry.js";
 import { CombatWriteRegistry, CombatWriteTokenError } from "./combat-write-registry.js";
+import { QuestObjectivesWriteRegistry, QuestObjectivesTokenError } from "./quest-objectives-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
@@ -98,7 +99,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -472,6 +473,54 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     } catch (error) {
       if (error instanceof GenerationError) {
         sendJson(response, 502, { error: { code: "generation_failed", message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/cc-quest/reject") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    if (!token) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } });
+      return;
+    }
+    try {
+      questObjectivesWrites.reject(token);
+      sendJson(response, 200, { rejected: true });
+    } catch (error) {
+      if (error instanceof QuestObjectivesTokenError) {
+        const status = error.reason === "not_found" ? 404 : 410;
+        sendJson(response, status, { error: { code: `quest_token_${error.reason}`, message: error.message } });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/cc-quest/approve") {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    if (!token) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } });
+      return;
+    }
+    try {
+      const entry = questObjectivesWrites.consume(token);
+      sendJson(response, 200, {
+        journalId: entry.journalId,
+        journalName: entry.journalName,
+        proposedObjectives: entry.proposedObjectives,
+      });
+    } catch (error) {
+      if (error instanceof QuestObjectivesTokenError) {
+        const status = error.reason === "not_found" ? 404 : 410;
+        sendJson(response, status, { error: { code: `quest_token_${error.reason}`, message: error.message } });
         return;
       }
       throw error;
@@ -1834,10 +1883,11 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const writes = new WriteRegistry();
   const audit = new AuditRegistry();
   const combatWrites = new CombatWriteRegistry();
+  const questObjectivesWrites = new QuestObjectivesWriteRegistry();
   const github = createGitHubAdapter(config.github);
-  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, provider, new AssetSearchService(config.foundryDataDir), github);
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, combatWrites, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

@@ -44,6 +44,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   searchRollTables: "searchRollTables",
   listPlaylists: "listPlaylists",
   searchPlaylists: "searchPlaylists",
+  getQuestObjectives: "getQuestObjectives",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
@@ -58,6 +59,7 @@ export const LOREBRIDGE_EVENTS = Object.freeze({
   itemUpdateApprovalRequired: "item.update.approval.required",
   encounterCreateApprovalRequired: "encounter.create.approval.required",
   sceneUpdateApprovalRequired: "scene.update.approval.required",
+  questObjectivesApprovalRequired: "quest.objectives.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 
