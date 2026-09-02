@@ -2,6 +2,12 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- Campaign Codex exports skip unchanged files using a persistent backend hash cache (#304). The result dialog reports committed and unchanged counts per folder, retains the last actual commit link, and supports stale-file cleanup even when a selected folder is empty. Deletions and other LoreBridge backup writes keep cached content current; a missing or malformed cache causes a full export.
+
 ## [0.32.0] - 2026-09-02
 
 ### Added

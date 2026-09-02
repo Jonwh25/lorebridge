@@ -36,6 +36,8 @@ Foundry documents or provider credentials.
 - Check campaign health, audit consistency, scope searches with Context
   Profiles, and back up campaign content to a private GitHub repository using
   per-category backup buttons with folder-selection dialogs and live progress.
+  [Campaign Codex exports](docs/CC_EXPORT_CACHE.md) skip unchanged files and
+  report committed and unchanged counts per folder.
 - Provision a new group for a session: create Foundry users and linked PC
   actors with random passwords from the **Player Party** option in the Create
   Actor dialog; distribute hotbar pages to connected players from the Macros
