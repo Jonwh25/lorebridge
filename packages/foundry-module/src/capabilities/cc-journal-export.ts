@@ -409,18 +409,21 @@ function journalsInSubtree(
   return files;
 }
 
+type ChunkResult = { commitUrl?: string; committed: number; skipped: number };
+
 async function commitChunk(
   files: { path: string; content: string }[],
   message: string,
   deletePaths?: string[],
-): Promise<string> {
-  const result = await postBackend<{ commitUrl?: string }>("v1/backup/github/lore-files", {
+): Promise<ChunkResult> {
+  const result = await postBackend<Partial<ChunkResult>>("v1/backup/github/lore-files", {
     files,
     deletePaths: deletePaths ?? [],
     commitMessage: message,
     repoRoot: "",
   });
-  return result.commitUrl ?? "";
+  // Preserve compatibility while the module and backend are upgraded separately.
+  return { ...result, committed: result.committed ?? files.length, skipped: result.skipped ?? 0 };
 }
 
 async function listGitHubPaths(prefix: string): Promise<string[]> {
@@ -511,7 +514,7 @@ export async function runExportCCJournals(): Promise<void> {
   }
 
   // Pre-gather and chunk so the total step count is accurate up front.
-  type WorkItem = { label: string; commitLabel: string; files: { path: string; content: string }[] };
+  type WorkItem = { folderName: string; label: string; commitLabel: string; files: { path: string; content: string }[] };
   const work: WorkItem[] = [];
 
   for (const folder of selectedFolders) {
@@ -521,16 +524,12 @@ export async function runExportCCJournals(): Promise<void> {
     chunks.forEach((chunk, i) => {
       const partLabel = chunks.length > 1 ? ` (${i + 1}/${chunks.length})` : "";
       work.push({
+        folderName: folder.name,
         label: `${folder.name}${partLabel}`,
         commitLabel: `Export ${folder.name}${partLabel}`,
         files: chunk,
       });
     });
-  }
-
-  if (work.length === 0) {
-    ui.notifications.warn("LoreBridge CC Export: Nothing to export.");
-    return;
   }
 
   // Gather current GitHub paths and compute deletions scoped to selected sections.
@@ -547,11 +546,18 @@ export async function runExportCCJournals(): Promise<void> {
     (p) => !newPathSet.has(p) && selectedPrefixes.some((prefix) => p.startsWith(prefix)),
   );
 
+  if (work.length === 0 && deletions.length === 0) {
+    ui.notifications.warn("LoreBridge CC Export: Nothing to export.");
+    return;
+  }
+
   let totalFiles = 0;
+  let totalCommitted = 0;
+  let totalSkipped = 0;
   let lastCommitUrl = "";
 
   // Track per-folder totals for the result dialog.
-  const folderTotals = new Map<string, number>();
+  const folderTotals = new Map<string, { committed: number; skipped: number }>();
 
   const fileCount = work.reduce((sum, w) => sum + w.files.length, 0);
   const progress = new BackupProgressDialog("Exporting Campaign Codex to GitHub…", fileCount);
@@ -561,27 +567,30 @@ export async function runExportCCJournals(): Promise<void> {
     for (let i = 0; i < work.length; i++) {
       const item = work[i]!;
       progress.setProgress(totalFiles, item.label);
-      lastCommitUrl = await commitChunk(item.files, item.commitLabel);
+      const result = await commitChunk(item.files, item.commitLabel);
+      if (result.commitUrl) lastCommitUrl = result.commitUrl;
+      totalCommitted += result.committed;
+      totalSkipped += result.skipped;
       totalFiles += item.files.length;
       progress.setProgress(totalFiles);
 
-      // Attribute files back to their CC root folder name for the summary.
-      for (const f of item.files) {
-        const seg = f.path.split("/")[1] ?? item.label;
-        folderTotals.set(seg, (folderTotals.get(seg) ?? 0) + 1);
-      }
+      const totals = folderTotals.get(item.folderName) ?? { committed: 0, skipped: 0 };
+      totals.committed += result.committed;
+      totals.skipped += result.skipped;
+      folderTotals.set(item.folderName, totals);
     }
 
     // Cleanup commit: delete any files on GitHub that are no longer in Foundry.
     if (deletions.length > 0) {
       progress.setProgress(totalFiles, `Removing ${deletions.length} stale file(s)…`);
-      lastCommitUrl = await commitChunk([], `Sync: remove ${deletions.length} deleted journal${deletions.length !== 1 ? "s" : ""}`, deletions);
+      const result = await commitChunk([], `Sync: remove ${deletions.length} deleted journal${deletions.length !== 1 ? "s" : ""}`, deletions);
+      if (result.commitUrl) lastCommitUrl = result.commitUrl;
     }
 
     await progress.close();
 
     const rowsHtml = Array.from(folderTotals.entries())
-      .map(([name, count]) => `<tr><td>${escHtml(name)}</td><td style="text-align:center">${count}</td></tr>`)
+      .map(([name, counts]) => `<tr><td>${escHtml(name)}</td><td style="text-align:center">${counts.committed}</td><td style="text-align:center">${counts.skipped}</td></tr>`)
       .join("");
 
     const deletionNote = deletions.length > 0
@@ -594,9 +603,9 @@ export async function runExportCCJournals(): Promise<void> {
 
     showResultDialog(
       "Campaign Codex Export",
-      `<p><strong>${totalFiles}</strong> file${totalFiles !== 1 ? "s" : ""} exported to GitHub.</p>
+      `<p><strong>${totalCommitted} committed, ${totalSkipped} unchanged</strong>.</p>
 <table style="width:100%;border-collapse:collapse;margin:0.5rem 0;font-size:0.9em">
-  <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Files</th></tr></thead>
+  <thead><tr><th style="text-align:left;padding:2px 6px">Folder</th><th style="padding:2px 6px">Committed</th><th style="padding:2px 6px">Unchanged</th></tr></thead>
   <tbody>${rowsHtml}</tbody>
 </table>${deletionNote}${linkHtml}`,
     );

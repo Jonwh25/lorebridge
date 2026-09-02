@@ -1,4 +1,5 @@
 import type { GitHubAdapterConfig } from "./config.js";
+import { LoreFileHashCache, type LoreFilesResult } from "./lore-file-hash-cache.js";
 
 // ---------------------------------------------------------------------------
 // Error type
@@ -171,10 +172,12 @@ const MAX_COMMITS = 20;
 export class GitHubAdapter {
   private readonly config: GitHubAdapterConfig;
   private readonly fetchFn: FetchFn;
+  private readonly hashCache: LoreFileHashCache | undefined;
 
-  constructor(config: GitHubAdapterConfig, fetchFn: FetchFn = globalThis.fetch) {
+  constructor(config: GitHubAdapterConfig, fetchFn: FetchFn = globalThis.fetch, dataDir?: string) {
     this.config = config;
     this.fetchFn = fetchFn;
+    this.hashCache = dataDir === undefined ? undefined : new LoreFileHashCache(dataDir);
   }
 
   get owner(): string { return this.config.owner; }
@@ -404,6 +407,56 @@ export class GitHubAdapter {
     if (!files.length && !deletePaths?.length) {
       throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
     }
+    const result = await this.commitWithHashes(message, files, deletePaths ?? [], repoRoot, false);
+    return result.commit!;
+  }
+
+  async createLoreFilesCommit(
+    message: string,
+    files: BackupFile[],
+    deletePaths: string[] = [],
+    repoRoot?: string,
+  ): Promise<LoreFilesResult> {
+    return this.commitWithHashes(message, files, deletePaths, repoRoot, true);
+  }
+
+  private async commitWithHashes(
+    message: string,
+    files: BackupFile[],
+    deletePaths: string[],
+    repoRoot: string | undefined,
+    skipUnchanged: boolean,
+  ): Promise<LoreFilesResult> {
+    const root = repoRoot ?? this.config.campaignRoot;
+    const resolvedFiles = files.map((file) => ({ ...file, path: resolveCampaignPath(root, file.path) }));
+    const resolvedDeletes = deletePaths.map((filePath) => resolveCampaignPath(root, filePath));
+    // Reject ambiguous duplicate writes before consulting the cache or GitHub.
+    if (new Set(resolvedFiles.map((file) => file.path)).size !== resolvedFiles.length) {
+      throw new GitHubAdapterError("conflict", "A backup cannot write the same resolved file path more than once.");
+    }
+    const commit = (changed: BackupFile[]): Promise<BackupResult> => this.performBackupCommit(message, changed, resolvedDeletes, "");
+    let result: LoreFilesResult;
+    if (this.hashCache) {
+      result = await this.hashCache.run([this.owner, this.repo, this.branch], resolvedFiles, resolvedDeletes, skipUnchanged, commit);
+    } else {
+      result = {
+        ...(files.length || deletePaths.length ? { commit: await commit(resolvedFiles) } : {}),
+        files: resolvedFiles.map((file) => file.path), committed: files.length, skipped: 0,
+      };
+    }
+    const changedPaths = new Set(result.files);
+    return { ...result, files: files.filter((_, index) => changedPaths.has(resolvedFiles[index]!.path)).map((file) => file.path) };
+  }
+
+  private async performBackupCommit(
+    message: string,
+    files: BackupFile[],
+    deletePaths?: string[],
+    repoRoot?: string,
+  ): Promise<BackupResult> {
+    if (!files.length && !deletePaths?.length) {
+      throw new GitHubAdapterError("api_error", "At least one file or deletion is required for a backup commit.");
+    }
 
     const root = repoRoot ?? this.config.campaignRoot;
 
@@ -583,7 +636,8 @@ function encodeURIPathSegments(path: string): string {
 export function createGitHubAdapter(
   config: GitHubAdapterConfig | undefined,
   fetchFn?: FetchFn,
+  dataDir?: string,
 ): GitHubAdapter | null {
   if (!config) return null;
-  return new GitHubAdapter(config, fetchFn);
+  return new GitHubAdapter(config, fetchFn, dataDir);
 }

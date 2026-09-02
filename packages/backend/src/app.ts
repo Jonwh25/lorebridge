@@ -1419,10 +1419,6 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
         deletePaths.push(p);
       }
     }
-    if (loreFiles.length === 0 && deletePaths.length === 0) {
-      sendJson(response, 400, { error: { code: "invalid_request", message: "At least one file or deletion path is required." } });
-      return;
-    }
     // Optional repoRoot override: must be a safe, non-empty, non-traversal string.
     let repoRoot: string | undefined;
     if (repoRootRaw !== undefined) {
@@ -1453,8 +1449,11 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     }
     try {
       const message = commitMessage || `LoreBridge: lore file backup`;
-      const result = await github.createBackupCommit(message, loreFiles, deletePaths, repoRoot);
-      sendJson(response, 200, { commitSha: result.sha, commitUrl: result.url, files: loreFiles.map((f) => f.path) });
+      const result = await github.createLoreFilesCommit(message, loreFiles, deletePaths, repoRoot);
+      sendJson(response, 200, {
+        ...(result.commit ? { commitSha: result.commit.sha, commitUrl: result.commit.url } : {}),
+        files: result.files, committed: result.committed, skipped: result.skipped,
+      });
     } catch (error) {
       if (error instanceof GitHubAdapterError) {
         const status =
@@ -1884,7 +1883,7 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const audit = new AuditRegistry();
   const combatWrites = new CombatWriteRegistry();
   const questObjectivesWrites = new QuestObjectivesWriteRegistry();
-  const github = createGitHubAdapter(config.github);
+  const github = createGitHubAdapter(config.github, undefined, config.dataDir);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
     void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, github, request, response).catch((error) => {
