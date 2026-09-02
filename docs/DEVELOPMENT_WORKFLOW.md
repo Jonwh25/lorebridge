@@ -289,9 +289,10 @@ Instead:
 5. Run the full release validation, package the module, inspect the archive, and
    monitor the pull request's GitHub Actions checks.
 6. Let the repository owner merge the closeout and release-preparation pull request.
-7. After confirming the merge, give the owner exact version-specific commands to
-   create and push the annotated tag from an up-to-date `/data/lorebridge` checkout.
-   Do not push the tag for the owner.
+7. After confirming the merge, have the owner run
+   `npm run release:check -- <version>` from an up-to-date `main` checkout. Give
+   the owner the exact version-specific commands printed by the passing guard to
+   create and push the annotated tag. Do not push the tag for the owner.
 8. After the owner confirms the tag was pushed, monitor the tag-triggered release
    workflow and verify the official artifacts.
 9. Update through Foundry and run a post-release smoke test.

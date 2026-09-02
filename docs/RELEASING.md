@@ -29,11 +29,14 @@ The manifest download URL must include the same version.
 2. Update all synchronized version fields.
 3. Run `npm install`.
 4. Run `npm run validate`.
-5. Run `npm run package:foundry` and inspect `release/lorebridge.zip`.
+5. Run `npm run package:foundry`, run
+   `node scripts/verify-release-archive.mjs`, and inspect
+   `release/lorebridge.zip`.
 6. Merge the milestone closeout and release-preparation pull request into `main`.
-7. After confirming the merge, the coding agent provides exact version-specific
-   commands for the repository owner to create and push the matching annotated tag
-   from the resulting `main` commit. The coding agent does not push the tag.
+7. After confirming the merge, run the pre-tag readiness guard from the resulting
+   `main` commit. The coding agent provides the exact version-specific guard
+   command; the owner runs the two annotated-tag commands printed by a passing
+   guard. The coding agent does not push the tag.
 8. Treat the pushed tag as the publication trigger. Do not manually create a
    duplicate GitHub release.
 9. Confirm the Release Foundry Module workflow publishes:
@@ -55,21 +58,35 @@ styles/lorebridge.css
 
 The archive must not wrap these files in an additional `lorebridge/` directory.
 
-## Creating the tag
+## Pre-tag readiness and creating the tag
+
+Run the guard from the merged release-preparation commit on `main`:
+
+```bash
+npm run release:check -- <version>
+```
+
+The guard is read-only with respect to the checkout and releases: it does not
+reset files, create a tag, or push. It ignores untracked files but rejects any
+tracked modification, fetches `origin`, requires `HEAD` to equal `origin/main`,
+rejects an existing local or remote version tag, validates all synchronized
+release metadata, and runs the validation and archive gates. It prints the two
+exact tag commands only after every check passes.
 
 The coding agent gives the repository owner this block with the real release
-version substituted for every `<version>` placeholder. The owner runs it from the
-live checkout:
+version substituted for `<version>`. The owner runs it from the live checkout:
 
 ```bash
 cd /data/lorebridge
-git stash
 git fetch origin
 git checkout main
 git pull --ff-only
-git tag -a v<version> -m "LoreBridge v<version>"
-git push origin v<version>
+npm run release:check -- <version>
 ```
+
+If the guard passes, it prints tag and push commands bound to the exact commit it
+validated. Run those printed commands without modifying the checkout. If the
+guard fails, stop and correct the reported condition; no tag commands are shown.
 
 The release workflow rejects a tag that does not match the version in `module.json`.
 The coding agent must not run these tag commands or manually create the GitHub
