@@ -208,12 +208,20 @@ async function placeEncounterTokens(
     return;
   }
 
-  await scene.createEmbeddedDocuments("Token", tokenData);
+  const placedTokens = (await scene.createEmbeddedDocuments("Token", tokenData)) as { id: string }[];
 
   if (payload.startCombat) {
     const combat = await Combat.create({ scene: scene.id, active: true });
-    if (combat) {
-      ui.notifications.info(`LoreBridge: Combat started (ID: ${combat.id}). Use set_initiative to assign initiative.`);
+    if (combat && placedTokens.length > 0) {
+      await (combat as unknown as {
+        createEmbeddedDocuments(type: "Combatant", data: Record<string, unknown>[]): Promise<unknown[]>;
+      }).createEmbeddedDocuments(
+        "Combatant",
+        placedTokens.map(t => ({ tokenId: t.id, sceneId: scene.id })),
+      );
+      ui.notifications.info(
+        `LoreBridge: Combat started with ${placedTokens.length} combatant(s). Use set_initiative to assign initiative.`,
+      );
     }
   }
 }
