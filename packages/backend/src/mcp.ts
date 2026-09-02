@@ -2010,7 +2010,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
   // Item generation and item create / update (#348)
   // ---------------------------------------------------------------------------
 
-  const ITEM_TYPES: [ItemType, ...ItemType[]] = ["weapon", "spell", "feat", "consumable", "equipment", "loot", "tool", "background", "race", "container"];
+  const ITEM_TYPES: [ItemType, ...ItemType[]] = ["weapon", "spell", "feat", "consumable", "equipment", "loot", "tool", "background", "race", "container", "class", "subclass"];
 
   server.registerTool(
     "generate_item",

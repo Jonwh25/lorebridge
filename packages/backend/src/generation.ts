@@ -1331,7 +1331,7 @@ export async function generateNpcStatBlock(
 // Item generation (#348)
 // ---------------------------------------------------------------------------
 
-export type ItemType = "weapon" | "spell" | "feat" | "consumable" | "equipment" | "loot" | "tool" | "background" | "race" | "container";
+export type ItemType = "weapon" | "spell" | "feat" | "consumable" | "equipment" | "loot" | "tool" | "background" | "race" | "container" | "class" | "subclass";
 
 export type ItemStatResult = {
   name: string;
@@ -1402,6 +1402,22 @@ export type ItemStatResult = {
   damageResistances: string[] | undefined;
   abilityScoreImprovements: Record<string, number> | undefined;
   raceTraits: Array<{ name: string; description: string }> | undefined;
+  // Class fields
+  classIdentifier: string | undefined;
+  hitDie: number | undefined;
+  savingThrows: string[] | undefined;
+  numSkillChoices: number | undefined;
+  skillChoices: string[] | undefined;
+  armorProficiencies: string[] | undefined;
+  weaponProficiencies: string[] | undefined;
+  classToolProficiencies: string[] | undefined;
+  spellcastingProgression: string | undefined;
+  spellcastingAbility: string | undefined;
+  classFeatures: Array<{ level: number; name: string; description: string }> | undefined;
+  // Subclass fields
+  subclassIdentifier: string | undefined;
+  subclassParent: string | undefined;
+  subclassFeatures: Array<{ level: number; name: string; description: string }> | undefined;
   // Common fields
   weight: number | undefined;
   price: number | undefined;
@@ -1430,6 +1446,8 @@ const ITEM_TYPE_LABELS: Record<ItemType, string> = {
   background: "Background",
   race: "Race/Species",
   container: "Container (bag, chest, quiver)",
+  class: "Class",
+  subclass: "Subclass",
 };
 
 const ITEM_TYPE_PROMPTS: Record<ItemType, string> = {
@@ -1443,6 +1461,8 @@ const ITEM_TYPE_PROMPTS: Record<ItemType, string> = {
   container: `Fill container fields: capacityType ("weight" for bags that hold lbs, "quantity" for containers that hold a count of items like quivers), capacityValue (max weight in lbs or item count), weightlessContents (true only for magical containers like bags of holding where contents weigh nothing).`,
   background: `Fill background fields: skillProficiencies (array of exactly 2 dnd5e skill abbreviations: acr/ani/arc/ath/dec/his/ins/itm/inv/med/nat/prc/per/rel/slt/ste/sur), toolProficiencies (array of tool names, e.g. ["Thieves' Tools","Herbalism Kit"] — empty array if none), backgroundLanguages (array of language names, e.g. ["Elvish","Dwarvish"] or ["any"] for a player choice — empty array if none), backgroundFeatureName (name of the unique background feature), backgroundFeatureDescription (1-3 sentence description of the feature and what it grants the character). EDITION NOTE — D&D 2024 (modern): also fill abilityScoreImprovements with exactly 3 points to distribute among ability scores as the player chooses (e.g. {"str":2,"dex":1} or {"con":2,"wis":1}); D&D 2014 (legacy): set abilityScoreImprovements to {}.`,
   race: `Fill race fields: walkSpeed (movement in feet, typically 25 or 30), flySpeed (if any, else 0), swimSpeed (if any, else 0), burrowSpeed (if any, else 0), climbSpeed (if any, else 0), raceSize ("tiny"/"sm"/"med"/"lg"), darkvisionRange (feet of darkvision, 0 if none), damageResistances (array of damage type strings the race resists, e.g. ["fire","cold"] — empty array if none), raceTraits (array of objects {name, description} for each racial trait — IMPORTANT: do NOT include a trait that merely restates a resistance already listed in damageResistances; instead list traits like Fey Ancestry, Trance, Gnome Cunning, Brave, etc. that grant non-resistance abilities). EDITION NOTE — D&D 2014 (legacy): also fill abilityScoreImprovements (object mapping ability to bonus, e.g. {"str":2,"con":1}); D&D 2024 (modern): set abilityScoreImprovements to {} because ASI is now granted by the Background, not the race.`,
+  class: `Fill class fields: classIdentifier (lowercase slug, e.g. "paladin"), hitDie (integer: 6, 8, 10, or 12), savingThrows (array of exactly 2 ability abbreviations: str/dex/con/int/wis/cha), numSkillChoices (number of skills to pick, typically 2-4), skillChoices (array of dnd5e skill abbreviations the player may choose from: acr/ani/arc/ath/dec/his/ins/itm/inv/med/nat/prc/per/rel/slt/ste/sur), armorProficiencies (subset of ["light","medium","heavy","shield"]), weaponProficiencies (subset of ["simple","martial"]), classToolProficiencies (array of tool names — empty array if none), spellcastingProgression ("none"/"third"/"half"/"full"/"pact"), spellcastingAbility ("int"/"wis"/"cha" or "" for non-casters), classFeatures (array of {level: 1-20, name: string, description: string} — include all key features across all 20 levels, one brief sentence each). NOTE: weight, price, rarity, and attunement are not applicable — set them to 0/"gp"/"common"/false.`,
+  subclass: `Fill subclass fields: subclassIdentifier (lowercase slug, e.g. "champion"), classIdentifier (parent class slug, e.g. "fighter"), spellcastingProgression ("none" unless this subclass grants spellcasting), spellcastingAbility ("" unless this subclass grants spellcasting), subclassFeatures (array of {level: integer, name: string, description: string} for each feature the subclass grants — typically 4-6 entries at levels like 3, 6, 10, 14 or 3, 7, 11, 15 depending on the parent class). NOTE: weight, price, rarity, and attunement are not applicable — set them to 0/"gp"/"common"/false.`,
 };
 
 export async function generateItem(
@@ -1486,7 +1506,8 @@ export async function generateItem(
     "- Return only the JSON object, nothing else",
   ].join("\n");
 
-  const raw = await callAI(provider, prompt, 1200);
+  const maxTokens = (input.itemType === "class" || input.itemType === "subclass") ? 2500 : 1200;
+  const raw = await callAI(provider, prompt, maxTokens);
 
   const cleaned = raw
     .replace(/^```(?:json)?\s*/im, "")
@@ -1529,6 +1550,18 @@ export async function generateItem(
       if (typeof val === "number" && isFinite(val) && val !== 0) result[k] = Math.round(val);
     }
     return Object.keys(result).length > 0 ? result : undefined;
+  };
+  const safeFeaturesOpt = (v: unknown): Array<{ level: number; name: string; description: string }> | undefined => {
+    if (!Array.isArray(v)) return undefined;
+    const result = v
+      .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x))
+      .map(x => ({
+        level: typeof x["level"] === "number" ? Math.max(1, Math.min(20, Math.round(x["level"]))) : 1,
+        name: safeString(x["name"], ""),
+        description: safeString(x["description"], ""),
+      }))
+      .filter(f => f.name.length > 0);
+    return result.length > 0 ? result : undefined;
   };
   const safeTraitsOpt = (v: unknown): Array<{ name: string; description: string }> | undefined => {
     if (!Array.isArray(v)) return undefined;
@@ -1608,6 +1641,22 @@ export async function generateItem(
     damageResistances: safeArrOpt(obj["damageResistances"]),
     abilityScoreImprovements: safeObjNumOpt(obj["abilityScoreImprovements"]),
     raceTraits: safeTraitsOpt(obj["raceTraits"]),
+    // Class
+    classIdentifier: safeStrOpt(obj["classIdentifier"]),
+    hitDie: typeof obj["hitDie"] === "number" ? Math.max(4, Math.min(12, Math.round(obj["hitDie"]))) : undefined,
+    savingThrows: safeArrOpt(obj["savingThrows"]),
+    numSkillChoices: typeof obj["numSkillChoices"] === "number" ? Math.max(1, Math.min(6, Math.round(obj["numSkillChoices"]))) : undefined,
+    skillChoices: safeArrOpt(obj["skillChoices"]),
+    armorProficiencies: safeArrOpt(obj["armorProficiencies"]),
+    weaponProficiencies: safeArrOpt(obj["weaponProficiencies"]),
+    classToolProficiencies: safeArrOpt(obj["classToolProficiencies"]),
+    spellcastingProgression: safeStrOpt(obj["spellcastingProgression"]),
+    spellcastingAbility: safeStrOpt(obj["spellcastingAbility"]),
+    classFeatures: safeFeaturesOpt(obj["classFeatures"]),
+    // Subclass
+    subclassIdentifier: safeStrOpt(obj["subclassIdentifier"]),
+    subclassParent: safeStrOpt(obj["classIdentifier"]),
+    subclassFeatures: safeFeaturesOpt(obj["subclassFeatures"]),
     // Common
     weight: safeNum(obj["weight"]),
     price: safeNum(obj["price"]),

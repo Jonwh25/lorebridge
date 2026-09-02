@@ -69,6 +69,22 @@ type ItemStatResult = {
   damageResistances?: string[];
   abilityScoreImprovements?: Record<string, number>;
   raceTraits?: Array<{ name: string; description: string }>;
+  // Class fields
+  classIdentifier?: string;
+  hitDie?: number;
+  savingThrows?: string[];
+  numSkillChoices?: number;
+  skillChoices?: string[];
+  armorProficiencies?: string[];
+  weaponProficiencies?: string[];
+  classToolProficiencies?: string[];
+  spellcastingProgression?: string;
+  spellcastingAbility?: string;
+  classFeatures?: Array<{ level: number; name: string; description: string }>;
+  // Subclass fields
+  subclassIdentifier?: string;
+  subclassParent?: string;
+  subclassFeatures?: Array<{ level: number; name: string; description: string }>;
   weight?: number;
   price?: number;
   denomination?: string;
@@ -782,6 +798,171 @@ function buildRace(item: ItemStatResult, edition: RulesEdition): Record<string, 
   };
 }
 
+function buildClass(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
+  const slug = item.classIdentifier ?? item.name.toLowerCase().replace(/\s+/g, "-");
+  const base = commonFields(item, edition, slug);
+  const advancement: unknown[] = [];
+
+  // Hit Points (level 0 = applies to all levels)
+  advancement.push({
+    _id: makeAdvancementId(),
+    type: "HitPoints",
+    level: 0,
+    title: "",
+    icon: null,
+    classRestriction: "",
+    configuration: {},
+  });
+
+  // Armor proficiencies (level 1)
+  const armorKeyMap: Record<string, string> = { light: "armor:lgt", medium: "armor:med", heavy: "armor:hvy", shield: "armor:shl" };
+  const armorGrants = (item.armorProficiencies ?? [])
+    .map(a => armorKeyMap[a.toLowerCase()])
+    .filter((x): x is string => !!x);
+  if (armorGrants.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 1,
+      title: "Armor Proficiencies",
+      icon: null,
+      classRestriction: "",
+      configuration: { mode: "default", allowReplacements: false, grants: armorGrants, choices: [], hint: "" },
+    });
+  }
+
+  // Weapon proficiencies (level 1)
+  const weaponKeyMap: Record<string, string> = { simple: "weapon:sim", martial: "weapon:mar" };
+  const weaponGrants = (item.weaponProficiencies ?? [])
+    .map(w => weaponKeyMap[w.toLowerCase()])
+    .filter((x): x is string => !!x);
+  if (weaponGrants.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 1,
+      title: "Weapon Proficiencies",
+      icon: null,
+      classRestriction: "",
+      configuration: { mode: "default", allowReplacements: false, grants: weaponGrants, choices: [], hint: "" },
+    });
+  }
+
+  // Tool proficiencies (level 1, stored as hint)
+  if (item.classToolProficiencies && item.classToolProficiencies.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 1,
+      title: "Tool Proficiencies",
+      icon: null,
+      classRestriction: "",
+      configuration: { mode: "default", allowReplacements: false, grants: [], choices: [], hint: item.classToolProficiencies.join(", ") },
+    });
+  }
+
+  // Skill choices (level 1)
+  const validSkillAbbrs = ["acr","ani","arc","ath","dec","his","ins","itm","inv","med","nat","prc","per","rel","slt","ste","sur"];
+  const skillPool = (item.skillChoices ?? []).filter(s => validSkillAbbrs.includes(s)).map(s => `skills:${s}`);
+  if (skillPool.length > 0) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "Trait",
+      level: 1,
+      title: "Skills",
+      icon: null,
+      classRestriction: "",
+      configuration: {
+        mode: "default",
+        allowReplacements: false,
+        grants: [],
+        choices: [{ count: item.numSkillChoices ?? 2, pool: skillPool }],
+        hint: "",
+      },
+    });
+  }
+
+  // ASI at levels 4, 8, 12, 16, 19
+  for (const level of [4, 8, 12, 16, 19]) {
+    advancement.push({
+      _id: makeAdvancementId(),
+      type: "AbilityScoreImprovement",
+      level,
+      title: "",
+      icon: null,
+      classRestriction: "",
+      configuration: { points: 2, cap: 2, fixed: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, locked: [] },
+    });
+  }
+
+  // Feature descriptions in item description HTML
+  const featuresHtml = (item.classFeatures ?? [])
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map(f => `<h3>Level ${f.level}: ${f.name}</h3><p>${f.description}</p>`)
+    .join("");
+  const baseDesc = String((base["description"] as Record<string, unknown>)?.["value"] ?? "");
+
+  return {
+    name: item.name,
+    type: "class",
+    system: {
+      ...base,
+      description: {
+        value: `${baseDesc}${featuresHtml}`,
+        chat: buildChatDescription(item.description),
+        unidentified: "",
+      },
+      identifier: slug,
+      hitDice: `d${item.hitDie ?? 8}`,
+      hitDiceUsed: 0,
+      saves: (item.savingThrows ?? []).filter(s => ["str","dex","con","int","wis","cha"].includes(s)),
+      skills: {
+        number: item.numSkillChoices ?? 2,
+        choices: item.skillChoices ?? [],
+        value: [],
+      },
+      spellcasting: {
+        progression: item.spellcastingProgression ?? "none",
+        ability: item.spellcastingAbility ?? "",
+      },
+      advancement,
+    },
+  };
+}
+
+function buildSubclass(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
+  const slug = item.subclassIdentifier ?? item.name.toLowerCase().replace(/\s+/g, "-");
+  const base = commonFields(item, edition, slug);
+
+  const featuresHtml = (item.subclassFeatures ?? [])
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map(f => `<h3>Level ${f.level}: ${f.name}</h3><p>${f.description}</p>`)
+    .join("");
+  const baseDesc = String((base["description"] as Record<string, unknown>)?.["value"] ?? "");
+
+  return {
+    name: item.name,
+    type: "subclass",
+    system: {
+      ...base,
+      description: {
+        value: `${baseDesc}${featuresHtml}`,
+        chat: buildChatDescription(item.description),
+        unidentified: "",
+      },
+      identifier: slug,
+      classIdentifier: item.subclassParent ?? "",
+      spellcasting: {
+        progression: item.spellcastingProgression ?? "none",
+        ability: item.spellcastingAbility ?? "",
+      },
+      advancement: [],
+    },
+  };
+}
+
 export function buildDnd5eItemData(item: ItemStatResult, edition: RulesEdition): Record<string, unknown> {
   switch (item.itemType) {
     case "weapon": return buildWeapon(item, edition);
@@ -794,6 +975,8 @@ export function buildDnd5eItemData(item: ItemStatResult, edition: RulesEdition):
     case "container": return buildContainer(item, edition);
     case "background": return buildBackground(item, edition);
     case "race": return buildRace(item, edition);
+    case "class": return buildClass(item, edition);
+    case "subclass": return buildSubclass(item, edition);
     default: return buildLoot(item, edition);
   }
 }
