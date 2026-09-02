@@ -433,9 +433,7 @@ identity established in Milestone 17 and lay groundwork for the memory engine:
 a background-aware NPC with enriched personality traits is a more useful
 subject for persistent memory than a bare stat block.
 
-This milestone may later integrate session recap data, relationship graphs,
-world-state changes, and campaign indexing, but it does not require semantic
-search as a prerequisite.
+This milestone does not require semantic search or persistent indexing as a prerequisite.
 
 Success test: after multiple recorded sessions, a recurring NPC retains a
 reviewable timeline of important interactions and relationship changes, and a
@@ -506,7 +504,7 @@ Findings from the review:
   player actor import) are less than a week old and need soak time in real games.
 - Spotlight Omnisearch was incorrectly listed as a required dependency; the
   code already fell back gracefully. Corrected to optional in [PR #264](https://github.com/Jonwh25/lorebridge/pull/264).
-- All five deferred features remain post-1.0.
+- Discord integration, persistent campaign indexing, vector/semantic search, and Campaign Memory Phase 2 were subsequently closed as not planned.
 
 ### Milestone 26 — Quality of Life & Small Enhancements ✅ Complete
 
@@ -690,22 +688,10 @@ secrets or campaign content, the release guard rejects dirty, stale, or
 version-mismatched checkouts before any tag is created, and the smoke-test
 harness can validate the full MCP path against isolated fixtures.
 
-Discord integration, persistent campaign indexing, and vector/semantic search
-remain deferred and demand-gated.
-
-## Deferred work
-
-The following tracked features remain outside the current delivery milestones:
-
-| Feature | Issue | Reason |
-|---------|-------|--------|
-| Persistent campaign content indexing | [#117](https://github.com/Jonwh25/lorebridge/issues/117) | Spotlight covers metadata discovery. Only content persistence, provenance, incremental fingerprints, synchronization, and permission partitions remain, and they should advance only after measured demand following #225. |
-| Vector and semantic search | [#98](https://github.com/Jonwh25/lorebridge/issues/98) | Spike #223 found no current need to replace bounded lexical retrieval. Advance only with a representative query corpus demonstrating material failures that local-first hybrid search cannot address. |
-| Discord adapter | [#120](https://github.com/Jonwh25/lorebridge/issues/120) | Secure identity linking, permission enforcement, bot hosting, and operational hardening require substantial work relative to the expected value. |
-| Campaign Memory Engine: Phase 2 — enrichment and management | [#255](https://github.com/Jonwh25/lorebridge/issues/255) | Depends on #198 proving the basic memory capture model in production. AI summarization, relationship categories, session tagging, NPC-to-NPC sharing, and a visualization graph are all additive enrichments; advance after the 1.0 readiness review if the core memory system demonstrates clear demand for richer structure. |
-
-Additional VTT adapters and multi-world federation were closed as not planned;
-LoreBridge remains focused on Foundry VTT and one connected world per backend.
+Additional VTT adapters, multi-world federation, Discord integration, persistent
+campaign indexing, vector/semantic search, and the Campaign Memory Phase 2
+enrichment features were closed as not planned; LoreBridge remains focused on
+Foundry VTT and one connected world per backend.
 
 ## Planning workflow
 
