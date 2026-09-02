@@ -682,11 +682,6 @@ Success test: a GM can diagnose a deliberately unavailable component without
 exposing secrets or campaign content, and the release guard rejects dirty,
 stale, or version-mismatched checkouts before any tag is created.
 
-Additional VTT adapters, multi-world federation, Discord integration, persistent
-campaign indexing, vector/semantic search, and the Campaign Memory Phase 2
-enrichment features were closed as not planned; LoreBridge remains focused on
-Foundry VTT and one connected world per backend.
-
 ## Planning workflow
 
 LoreBridge uses a lightweight workflow:
