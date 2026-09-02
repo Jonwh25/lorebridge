@@ -219,8 +219,10 @@ async function placeEncounterTokens(
         "Combatant",
         placedTokens.map(t => ({ tokenId: t.id, sceneId: scene.id })),
       );
+      await combat.rollAll();
+      await combat.startCombat();
       ui.notifications.info(
-        `LoreBridge: Combat started with ${placedTokens.length} combatant(s). Use set_initiative to assign initiative.`,
+        `LoreBridge: Combat started with ${placedTokens.length} combatant(s) — initiative rolled.`,
       );
     }
   }

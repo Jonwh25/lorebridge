@@ -224,6 +224,8 @@ type FoundryCombat = {
   turns: FoundryCombatant[];
   nextTurn(): Promise<FoundryCombat>;
   setInitiative(id: string, value: number): Promise<void>;
+  rollAll(options?: Record<string, unknown>): Promise<FoundryCombat>;
+  startCombat(): Promise<FoundryCombat>;
   endCombat(): Promise<FoundryCombat>;
 };
 
@@ -347,7 +349,7 @@ declare const Folder: {
 };
 
 declare const Combat: {
-  create(data: Record<string, unknown>): Promise<{ id: string } | undefined>;
+  create(data: Record<string, unknown>): Promise<FoundryCombat | undefined>;
 };
 
 declare const RollTable: {
