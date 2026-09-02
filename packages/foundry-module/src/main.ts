@@ -459,6 +459,7 @@ Hooks.once("ready", () => {
           SEARCH_ROLL_TABLES_DECLARATION,
           LIST_PLAYLISTS_DECLARATION,
           SEARCH_PLAYLISTS_DECLARATION,
+          GET_QUEST_OBJECTIVES_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
