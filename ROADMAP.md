@@ -682,6 +682,29 @@ Success test: a GM can diagnose a deliberately unavailable component without
 exposing secrets or campaign content, and the release guard rejects dirty,
 stale, or version-mismatched checkouts before any tag is created.
 
+### Milestone 35 — Deeper Foundry Retrieval
+
+Complete the practical read-only retrieval gaps that prevent an AI client from
+answering detailed questions after it locates a Foundry document. Responses
+remain bounded, normalized, source-attributed, and subject to existing
+permissions, Context Profiles, compendium exclusions, and visibility modes.
+
+1. [Focused world-item and content-complete compendium retrieval](https://github.com/Jonwh25/lorebridge/issues/363)
+2. [Bounded D&D 5e actor mechanical state in `get_actor`](https://github.com/Jonwh25/lorebridge/issues/362)
+3. [Bounded Foundry folder discovery and browsing](https://github.com/Jonwh25/lorebridge/issues/364)
+
+Issue #363 closes the largest focused-retrieval gap and establishes reusable
+normalized representations for world and compendium documents. Issue #362
+extends the actor representation with current D&D 5e mechanical state. Issue
+#364 then makes existing folder-aware search and focused retrieval practical
+without requiring the caller to know folder IDs in advance.
+
+Success test: from an MCP client, a GM can browse into a nested Foundry folder,
+retrieve a returned world item or supported compendium entry with useful
+bounded content, and inspect a character or NPC's current D&D 5e mechanical
+state without receiving raw system data or content outside the selected
+visibility boundary.
+
 ## Planning workflow
 
 LoreBridge uses a lightweight workflow:
