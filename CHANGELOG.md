@@ -2,11 +2,22 @@
 
 All notable changes to LoreBridge are documented here.
 
-## [Unreleased]
+## [0.33.0] - 2026-09-02
+
+### Added
+
+- **Campaign Codex quest objectives** (#346, PR #359): `get_quest_objectives` reads a quest's structured checklist, nested objectives, and overall status. `propose_quest_objectives_update` submits the full intended objectives list for GM approval through a checklist diff panel, with individual and batch approve/reject controls. Approval replaces the first quest's objectives while preserving its other fields and additional quest entries; rejection leaves the quest unchanged. Approval tokens expire after five minutes and can be used only once. The existing journal text proposal flow is unchanged.
 
 ### Changed
 
 - Campaign Codex exports skip unchanged files using a persistent backend hash cache (#304). The result dialog reports committed and unchanged counts per folder, retains the last actual commit link, and supports stale-file cleanup even when a selected folder is empty. Deletions and other LoreBridge backup writes keep cached content current; a missing or malformed cache causes a full export.
+
+### Upgrade notes
+
+- Update both the backend and Foundry module, then reload the Foundry browser tab. A tab still running the old module can report every submitted file as exported even when the updated backend skips unchanged files.
+- No new environment variables or dependencies are required. Export hashes are stored in `cc-export-hashes.json` under `LOREBRIDGE_DATA_DIR`; see [cache operation and recovery](docs/CC_EXPORT_CACHE.md). Use one backend process per data directory/destination. External repository edits or branch resets require resetting the cache before the next export.
+- Quest objective changes require a connected GM and the existing **Enable AI-Proposed Writes** setting. Proposals replace the full objective list, so include unchanged objectives and review the diff before approving. See [quest objectives](docs/CC_QUEST_OBJECTIVES.md).
+- Complete non-destructive dossier export (#260) is deferred backlog work, not included in this release. Disabling the dossier integration preserves its flags; re-enabling restores widget access. The existing Markdown export is not a lossless export of every dossier field.
 
 ## [0.32.0] - 2026-09-02
 

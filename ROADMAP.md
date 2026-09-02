@@ -657,19 +657,26 @@ scene and starting combat — all without opening the Foundry UI. An existing
 actor and item can each be updated via a targeted AI diff routed through the
 same approval card.
 
-### Milestone 33 — Search & Codex Polish
+### Milestone 33 — Search & Codex Polish ✅ Complete
 
-Quality-of-life improvements for Campaign Codex integration, search efficiency,
-and GM data management. Each issue is independently mergeable.
+Campaign Codex quest objectives management and incremental export optimization.
+Both delivered issues are merged, documented, and accepted. Release preparation
+targets v0.33.0; the GitHub milestone remains open until the closeout PR is merged.
 
 1. ✅ [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
 2. ✅ [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
-3. [Dossier data migration macro when Campaign Codex integration is disabled](https://github.com/Jonwh25/lorebridge/issues/260)
 
-Success test: a GM can manage quest objectives through AI assistance, Campaign
-Codex export skips unchanged files on incremental runs, and a GM who disables
-the Campaign Codex integration can migrate their dossier data to plain journal
-pages without data loss.
+Success test: a GM can manage quest objectives through AI assistance and explicit
+approval, and Campaign Codex export skips unchanged files on incremental runs.
+
+### Deferred backlog — dossier portability
+
+[Export complete NPC dossiers to GM-only journal pages without deleting flags](https://github.com/Jonwh25/lorebridge/issues/260)
+is optional backlog work, removed from milestone 33 by owner decision on
+2026-09-02. Disabling integration preserves dossier data; re-enabling restores
+widget access. Revisit when a campaign needs to leave the integration. The future
+scope preserves original flags and excludes deletion, re-import, and automatic
+migration on disable. It is not a milestone 33 release blocker.
 
 ### Milestone 34 — Hardening & Adoption
 
