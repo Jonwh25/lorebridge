@@ -660,8 +660,8 @@ same approval card.
 ### Milestone 33 — Search & Codex Polish ✅ Complete
 
 Campaign Codex quest objectives management and incremental export optimization.
-Both delivered issues are merged, documented, and accepted. Release preparation
-targets v0.33.0; the GitHub milestone remains open until the closeout PR is merged.
+Both delivered issues are merged, documented, and accepted. The v0.33.0 closeout
+and release-preparation change is merged in PR #361.
 
 1. ✅ [AI-driven Campaign Codex Quest objectives management](https://github.com/Jonwh25/lorebridge/issues/346)
 2. ✅ [CC Export: skip unchanged files using server-side hash cache](https://github.com/Jonwh25/lorebridge/issues/304)
