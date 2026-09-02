@@ -136,36 +136,38 @@ export async function showEncounterCreateApprovalDialog(payload: EncounterCreate
   const previewHtml = buildEncounterPreviewHtml(payload, resolved);
   const hasUnresolved = [...resolved.values()].some(v => v === null);
 
-  const dialog = new foundry.applications.api.DialogV2({
+  const approveButton = {
+    action: "approve",
+    label: "Approve & Place Tokens",
+    icon: "fas fa-map-marker-alt",
+    callback: () => {
+      void (async () => {
+        try {
+          await placeEncounterTokens(scene, payload, resolved);
+          ui.notifications.info(`LoreBridge: Encounter "${payload.encounterName}" placed on ${scene.name}.`);
+        } catch (err) {
+          ui.notifications.error(`LoreBridge: Failed to place tokens — ${String(err)}`);
+        }
+      })();
+    },
+  };
+
+  const cancelButton = {
+    action: "cancel",
+    label: "Cancel",
+    icon: "fas fa-times",
+    default: true,
+    callback: () => {
+      ui.notifications.info("LoreBridge: Encounter proposal cancelled.");
+    },
+  };
+
+  new foundry.applications.api.DialogV2({
     window: { title: `Encounter: ${payload.encounterName}`, resizable: true },
     position: { width: 560, height: "auto" },
     content: previewHtml,
-    buttons: hasUnresolved
-      ? [{ action: "cancel", label: "Cancel", icon: "fas fa-times", default: true }]
-      : [
-          { action: "approve", label: "Approve & Place Tokens", icon: "fas fa-map-marker-alt" },
-          { action: "cancel", label: "Cancel", icon: "fas fa-times", default: true },
-        ],
-  });
-
-  const result = await dialog.render({ force: true });
-  const btn = (result as unknown as { element: HTMLElement }).element;
-  if (!btn) return;
-
-  await new Promise<void>(resolve => {
-    btn.addEventListener("click", async (ev) => {
-      const action = (ev.target as HTMLElement).closest("[data-action]")?.getAttribute("data-action");
-      if (action !== "approve") { resolve(); return; }
-
-      try {
-        await placeEncounterTokens(scene, payload, resolved);
-        ui.notifications.info(`LoreBridge: Encounter "${payload.encounterName}" placed on ${scene.name}.`);
-      } catch (err) {
-        ui.notifications.error(`LoreBridge: Failed to place tokens — ${String(err)}`);
-      }
-      resolve();
-    }, { once: true });
-  });
+    buttons: hasUnresolved ? [cancelButton] : [approveButton, cancelButton],
+  }).render({ force: true });
 }
 
 async function placeEncounterTokens(
@@ -252,32 +254,35 @@ export async function showSceneUpdateApprovalDialog(payload: SceneUpdateApproval
     speaker: { alias: "LoreBridge" },
   });
 
-  const dialog = new foundry.applications.api.DialogV2({
+  new foundry.applications.api.DialogV2({
     window: { title: `Update Scene: ${payload.sceneName}`, resizable: true },
     position: { width: 520, height: "auto" },
     content: buildSceneUpdatePreviewHtml(payload),
     buttons: [
-      { action: "approve", label: "Approve & Apply", icon: "fas fa-check" },
-      { action: "cancel", label: "Cancel", icon: "fas fa-times", default: true },
+      {
+        action: "approve",
+        label: "Approve & Apply",
+        icon: "fas fa-check",
+        callback: () => {
+          void (async () => {
+            try {
+              await scene.update(payload.diff);
+              ui.notifications.info(`LoreBridge: Scene "${payload.sceneName}" updated.`);
+            } catch (err) {
+              ui.notifications.error(`LoreBridge: Failed to update scene — ${String(err)}`);
+            }
+          })();
+        },
+      },
+      {
+        action: "cancel",
+        label: "Cancel",
+        icon: "fas fa-times",
+        default: true,
+        callback: () => {
+          ui.notifications.info("LoreBridge: Scene update cancelled.");
+        },
+      },
     ],
-  });
-
-  const result = await dialog.render({ force: true });
-  const btn = (result as unknown as { element: HTMLElement }).element;
-  if (!btn) return;
-
-  await new Promise<void>(resolve => {
-    btn.addEventListener("click", async (ev) => {
-      const action = (ev.target as HTMLElement).closest("[data-action]")?.getAttribute("data-action");
-      if (action !== "approve") { resolve(); return; }
-
-      try {
-        await scene.update(payload.diff);
-        ui.notifications.info(`LoreBridge: Scene "${payload.sceneName}" updated.`);
-      } catch (err) {
-        ui.notifications.error(`LoreBridge: Failed to update scene — ${String(err)}`);
-      }
-      resolve();
-    }, { once: true });
-  });
+  }).render({ force: true });
 }
