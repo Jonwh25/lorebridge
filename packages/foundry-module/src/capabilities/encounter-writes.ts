@@ -211,9 +211,10 @@ async function placeEncounterTokens(
   await scene.createEmbeddedDocuments("Token", tokenData);
 
   if (payload.startCombat) {
-    const combat = await (game.combats as unknown as { create(data: Record<string, unknown>): Promise<{ id: string }> })
-      .create({ scene: scene.id, active: true });
-    ui.notifications.info(`LoreBridge: Combat started (ID: ${combat.id}). Use set_initiative to assign initiative.`);
+    const combat = await Combat.create({ scene: scene.id, active: true });
+    if (combat) {
+      ui.notifications.info(`LoreBridge: Combat started (ID: ${combat.id}). Use set_initiative to assign initiative.`);
+    }
   }
 }
 

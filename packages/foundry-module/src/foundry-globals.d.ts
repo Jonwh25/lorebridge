@@ -346,6 +346,10 @@ declare const Folder: {
   create(data: Record<string, unknown>): Promise<FoundryFolderDocument | undefined>;
 };
 
+declare const Combat: {
+  create(data: Record<string, unknown>): Promise<{ id: string } | undefined>;
+};
+
 declare const RollTable: {
   create(data: {
     name: string;
