@@ -669,15 +669,6 @@ targets v0.33.0; the GitHub milestone remains open until the closeout PR is merg
 Success test: a GM can manage quest objectives through AI assistance and explicit
 approval, and Campaign Codex export skips unchanged files on incremental runs.
 
-### Deferred backlog — dossier portability
-
-[Export complete NPC dossiers to GM-only journal pages without deleting flags](https://github.com/Jonwh25/lorebridge/issues/260)
-is optional backlog work, removed from milestone 33 by owner decision on
-2026-09-02. Disabling integration preserves dossier data; re-enabling restores
-widget access. Revisit when a campaign needs to leave the integration. The future
-scope preserves original flags and excludes deletion, re-import, and automatic
-migration on disable. It is not a milestone 33 release blocker.
-
 ### Milestone 34 — Hardening & Adoption
 
 Pause major feature expansion and make the existing product easier to diagnose,
