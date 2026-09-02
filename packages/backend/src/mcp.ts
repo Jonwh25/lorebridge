@@ -74,12 +74,15 @@ import {
   SEARCH_PLAYLISTS_CAPABILITY,
   validateListPlaylistsOutput,
   validateSearchPlaylistsOutput,
+  GET_QUEST_OBJECTIVES_CAPABILITY,
+  validateGetQuestObjectivesOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
   type AdapterSessionRegistry,
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
+import { type QuestObjectivesWriteRegistry } from "./quest-objectives-registry.js";
 import { type ProviderService } from "./provider.js";
 import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, GenerationError } from "./generation.js";
 import type { ItemType } from "./generation.js";
@@ -123,7 +126,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.2.0",
@@ -1321,6 +1324,133 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  // ---------------------------------------------------------------------------
+  // Quest objective tools
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "get_quest_objectives",
+    {
+      title: "Get Campaign Codex quest objectives",
+      description: "Read the current objectives list for a Campaign Codex Quest journal. Returns structured objective entries (text, completion status, nested sub-objectives) and the quest's overall status. Use this before calling propose_quest_objectives_update to know the current state. Requires Campaign Codex to be installed and active.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe(
+          "The Foundry journal ID of the Campaign Codex Quest journal. Use search_journals or search_campaign to find it.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ journalId, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(sourceId, GET_QUEST_OBJECTIVES_CAPABILITY, { journalId });
+        const validation = validateGetQuestObjectivesOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid quest objectives data.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve quest objectives.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "propose_quest_objectives_update",
+    {
+      title: "Propose changes to Campaign Codex quest objectives",
+      description: "Propose adding, completing, updating, or removing objectives on a Campaign Codex Quest journal. Sends a GM approval request to Foundry — no change is made until the GM explicitly approves. Call get_quest_objectives first to read the current state, then supply the full intended objectives array as proposedObjectives. Requires 'Enable AI-Proposed Writes' to be on.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe(
+          "The Foundry journal ID of the Campaign Codex Quest journal.",
+        ),
+        proposedObjectives: z.array(
+          z.lazy((): z.ZodTypeAny =>
+            z.object({
+              text: z.string().optional().describe("Objective description text."),
+              completed: z.boolean().optional().describe("True when the objective has been completed."),
+              failed: z.boolean().optional().describe("True when the objective has been failed."),
+              objectives: z.array(z.lazy((): z.ZodTypeAny => z.object({
+                text: z.string().optional(),
+                completed: z.boolean().optional(),
+                failed: z.boolean().optional(),
+                objectives: z.array(z.unknown()).optional(),
+              }))).optional().describe("Nested sub-objectives."),
+            }),
+          ),
+        ).describe(
+          "The complete intended objectives list. This replaces the current objectives array on the quest. Include all objectives — existing ones you want to keep plus any additions or modifications.",
+        ),
+        rationale: z.string().min(1).describe(
+          "Why this change is being proposed. Shown to the GM so they can make an informed decision.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected.",
+        ),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ journalId, proposedObjectives: rawProposedObjectives, rationale, sourceId }) => {
+      try {
+        const proposedObjectives = rawProposedObjectives as import("@lorebridge/shared/capabilities").QuestObjective[];
+        const currentResult = await adapterSessions.invoke(sourceId, GET_QUEST_OBJECTIVES_CAPABILITY, { journalId });
+        const currentValidation = validateGetQuestObjectivesOutput(currentResult);
+        if (!currentValidation.valid || !currentValidation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid quest objectives data.",
+            false,
+            { validationErrors: currentValidation.errors },
+          );
+        }
+        const { journalName, objectives: currentObjectives } = currentValidation.value;
+        const entry = questObjectivesWrites.register({
+          journalId,
+          journalName,
+          currentObjectives,
+          proposedObjectives,
+          rationale,
+          sourceId,
+        });
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.questObjectivesApprovalRequired, {
+          token: entry.token,
+          journalId,
+          journalName,
+          currentObjectives,
+          proposedObjectives,
+          rationale,
+          expiresAt: entry.expiresAt.toISOString(),
+        });
+        const preview = {
+          token: entry.token,
+          journalId,
+          journalName,
+          currentObjectives,
+          proposedObjectives,
+          rationale,
+          expiresAt: entry.expiresAt.toISOString(),
+          instruction: `A quest objectives approval request has been sent to Foundry. If you don't see the dialog, you can approve manually:\nawait LoreBridge.approveQuestObjectivesWrite("${entry.token}")`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(preview) }],
+          structuredContent: preview,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not propose the quest objectives update.");
+      }
+    },
+  );
+
   server.registerTool(
     "generate_roll_table",
     {
@@ -2411,12 +2541,13 @@ export interface McpRequestHandler {
 export function createLoreBridgeMcpHandler(
   adapterSessions: AdapterSessionRegistry,
   writes: WriteRegistry,
+  questObjectivesWrites: QuestObjectivesWriteRegistry,
   provider: ProviderService,
   assets = new AssetSearchService(),
   github: GitHubAdapter | null = null,
 ): McpRequestHandler {
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, provider, assets, github),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
