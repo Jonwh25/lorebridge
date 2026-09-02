@@ -8,6 +8,7 @@ import {
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 import { ApprovalQueuePanel } from "../approval-queue-panel.js";
+import { type JournalWithOps } from "./tracker-shared.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,7 +55,7 @@ export function getQuestObjectives(input: GetQuestObjectivesInput): GetQuestObje
     throw new LoreBridgeCapabilityError("NOT_FOUND", `Journal '${journalId}' not found in the loaded world.`);
   }
 
-  const ccData = journal.getFlag("campaign-codex", "data") as CcQuestData | undefined;
+  const ccData = (journal as JournalWithOps).getFlag("campaign-codex", "data") as CcQuestData | undefined;
   if (!ccData || !Array.isArray(ccData.quests) || ccData.quests.length === 0) {
     throw new LoreBridgeCapabilityError(
       "CAPABILITY_UNAVAILABLE",
@@ -395,12 +396,13 @@ export async function approveQuestObjectivesWrite(token: string): Promise<void> 
     throw new LoreBridgeCapabilityError("NOT_FOUND", `Journal '${journalId}' not found in the loaded world.`);
   }
 
-  const ccData = (journal.getFlag("campaign-codex", "data") as CcQuestData | undefined) ?? {};
+  const journalWithOps = journal as JournalWithOps;
+  const ccData = (journalWithOps.getFlag("campaign-codex", "data") as CcQuestData | undefined) ?? {};
   const existingQuests = (ccData["quests"] as unknown[]) ?? [{}];
   const q0 = (existingQuests[0] as Record<string, unknown>) ?? {};
   const updatedQuest = { ...q0, objectives: proposedObjectives };
 
-  await journal.setFlag("campaign-codex", "data", {
+  await journalWithOps.setFlag("campaign-codex", "data", {
     ...ccData,
     quests: [updatedQuest, ...existingQuests.slice(1)],
   });
