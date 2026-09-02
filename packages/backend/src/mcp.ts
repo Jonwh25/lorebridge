@@ -81,7 +81,7 @@ import {
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, generateNpcStatBlock, generateItem, GenerationError } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, GenerationError } from "./generation.js";
 import type { ItemType } from "./generation.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import { AssetSearchService } from "./asset-search.js";
@@ -2206,6 +2206,196 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
         }
         return toolError(error, "LoreBridge could not propose the item update.");
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Encounter generation and scene update (#349)
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "generate_encounter",
+    {
+      title: "Generate a D&D encounter",
+      description: [
+        "Ask the AI to design a balanced D&D 5e encounter from a natural-language prompt.",
+        "Returns an encounter preview with a combatant list, difficulty rating, XP estimate, hook text, and tactical notes.",
+        "Nothing is written to Foundry — pass the result to create_encounter to place tokens and optionally start combat.",
+        "Accepts optional party size/level, environment, and scene context to tailor the encounter.",
+      ].join(" "),
+      inputSchema: z.object({
+        prompt: z.string().trim().min(1).describe(
+          "Natural-language encounter description, e.g. 'A CR 8 ambush in a forest clearing with bandits and a bandit captain' or 'Three goblin scouts that retreat to warn a larger warband'.",
+        ),
+        partySize: z.number().int().min(1).max(10).optional().describe("Number of players in the party. Defaults to 4."),
+        partyLevel: z.number().int().min(1).max(20).optional().describe("Average party level. Defaults to 1."),
+        environment: z.string().trim().optional().describe("Scene environment, e.g. forest, dungeon, city street, cave. Informs monster placement and tactical notes."),
+        targetDifficulty: z.enum(["easy", "medium", "hard", "deadly"]).optional().describe("Target encounter difficulty. AI will aim for this difficulty given the party."),
+        sceneContext: z.string().trim().optional().describe("Brief description of the Foundry scene where this encounter will be set, e.g. the scene name and environment."),
+        worldName: z.string().trim().min(1).optional().describe("Campaign world name for flavouring the generated text."),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ prompt, partySize, partyLevel, environment, targetDifficulty, sceneContext, worldName }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+        const encounter = await generateEncounter(provider, {
+          prompt,
+          partySize: partySize ?? 4,
+          partyLevel: partyLevel ?? 1,
+          environment,
+          targetDifficulty,
+          sceneContext,
+          worldName,
+        });
+        const preview = {
+          ...encounter,
+          instruction: "Encounter generated. Call create_encounter with sceneId and the combatants list to place tokens (requires GM approval).",
+        };
+        return { content: [{ type: "text", text: JSON.stringify(preview) }] };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not generate the encounter.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_encounter",
+    {
+      title: "Place encounter tokens on a Foundry scene",
+      description: [
+        "Proposes placing combatant tokens on a Foundry scene and optionally starting combat, subject to GM approval.",
+        "For each combatant, searches world actors by name (case-insensitive). Unresolved names are listed in the approval dialog so the GM can create them first.",
+        "Requires a scene ID — use search_scenes or get_active_scene to find one.",
+        "Combatants must exist as world actors before this tool is called; use generate_npc + create_actor first for newly generated NPCs.",
+      ].join(" "),
+      inputSchema: z.object({
+        sceneId: z.string().trim().min(1).describe("The Foundry scene ID where tokens will be placed."),
+        encounterName: z.string().trim().min(1).describe("Name for this encounter, shown in the approval dialog."),
+        combatants: z.array(z.object({
+          name: z.string().trim().min(1).describe("Actor name to search for in world actors (case-insensitive)."),
+          quantity: z.number().int().min(1).max(20).describe("Number of tokens to place for this actor."),
+          actorId: z.string().trim().optional().describe("Exact Foundry actor ID if known. Bypasses name search."),
+          initiativeModifier: z.number().int().describe("Initiative modifier (DEX mod + proficiency if applicable)."),
+          positionZone: z.enum(["north", "south", "east", "west", "center", "northeast", "northwest", "southeast", "southwest", "random"]).describe("Zone on the scene canvas where this combatant group is placed."),
+          disposition: z.number().int().min(-1).max(1).describe("Token disposition: -1=hostile, 0=neutral, 1=friendly."),
+        })).min(1).max(20).describe("List of combatants to place. Use the combatants array from generate_encounter."),
+        startCombat: z.boolean().optional().describe("Whether to start a new combat encounter after placing tokens. Defaults to false."),
+        hookText: z.string().trim().optional().describe("Read-aloud text to display in the GM approval dialog."),
+        rationale: z.string().trim().optional().describe("Why this encounter is being created."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ sceneId, encounterName, combatants, startCombat, hookText, rationale, sourceId }) => {
+      try {
+        const payload = {
+          encounterName,
+          sceneId,
+          combatants: combatants.map(c => ({
+            name: c.name,
+            quantity: c.quantity,
+            actorId: c.actorId ?? undefined,
+            initiativeModifier: c.initiativeModifier,
+            positionZone: c.positionZone,
+            disposition: c.disposition,
+          })),
+          startCombat: startCombat ?? false,
+          hookText: hookText ?? undefined,
+          rationale: rationale ?? undefined,
+        };
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.encounterCreateApprovalRequired, payload);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              status: "approval_requested",
+              message: `Encounter approval dialog sent to GM. ${combatants.length} combatant group(s) will be placed on scene ${sceneId}.`,
+              encounterName,
+              sceneId,
+            }),
+          }],
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not send the encounter creation request.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_scene",
+    {
+      title: "Update Foundry scene properties",
+      description: [
+        "Asks the AI to generate a targeted diff for scene properties from a natural-language instruction, then routes it through GM approval.",
+        "Supported changes: scene name, nav name, nav visibility, grid type/size/units, fog exploration, global illumination, GM description/notes.",
+        "Use get_scene or search_scenes to find the scene ID first.",
+        "Token manipulation, background image changes, and drawing edits are out of scope.",
+      ].join(" "),
+      inputSchema: z.object({
+        sceneId: z.string().trim().min(1).describe("The Foundry scene ID to update."),
+        sceneName: z.string().trim().min(1).describe("Current scene name, shown in the approval dialog."),
+        instruction: z.string().trim().min(1).describe(
+          "Natural-language description of the scene changes, e.g. 'Disable global illumination and enable fog of war' or 'Rename to The Sunken Cathedral and hide it from navigation'.",
+        ),
+        worldName: z.string().trim().min(1).optional().describe("Campaign world name, used to flavour the generated text."),
+        rationale: z.string().trim().optional().describe("Why this scene update is being made."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ sceneId, sceneName, instruction, worldName, rationale, sourceId }) => {
+      try {
+        if (!provider.enabled) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "No AI provider is configured on this backend." }) }], isError: true };
+        }
+        const update = await generateSceneUpdate(provider, { instruction, worldName });
+        const payload = {
+          sceneId,
+          sceneName,
+          diff: update.diff,
+          instruction,
+          rationale: rationale ?? undefined,
+        };
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.sceneUpdateApprovalRequired, payload);
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              status: "approval_requested",
+              message: `Scene update approval dialog sent to GM.`,
+              sceneName,
+              summary: update.summary,
+              diff: update.diff,
+            }),
+          }],
+        };
+      } catch (error) {
+        if (error instanceof GenerationError) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+        }
+        return toolError(error, "LoreBridge could not propose the scene update.");
       }
     },
   );

@@ -1619,6 +1619,227 @@ export async function generateItem(
 }
 
 // ---------------------------------------------------------------------------
+// Encounter generation (#349)
+// ---------------------------------------------------------------------------
+
+export type EncounterCombatantResult = {
+  name: string;
+  quantity: number;
+  initiativeModifier: number;
+  disposition: number;
+  positionZone: string;
+  cr: string | undefined;
+};
+
+export type EncounterResult = {
+  encounterName: string;
+  hookText: string;
+  settingDescription: string;
+  tacticalNotes: string;
+  difficulty: string;
+  estimatedXP: number;
+  estimatedCR: string;
+  combatants: EncounterCombatantResult[];
+  suggestedLoot: string[] | undefined;
+  provider: string;
+};
+
+export type EncounterInput = {
+  prompt: string;
+  partySize: number;
+  partyLevel: number;
+  environment: string | undefined;
+  targetDifficulty: string | undefined;
+  sceneContext: string | undefined;
+  worldName: string | undefined;
+};
+
+export async function generateEncounter(
+  provider: ProviderService,
+  input: EncounterInput,
+): Promise<EncounterResult> {
+  const difficultyNote = input.targetDifficulty ? `Target difficulty: ${input.targetDifficulty}.` : "";
+  const environmentNote = input.environment ? `Environment: ${input.environment}.` : "";
+  const sceneNote = input.sceneContext ? `Scene context: ${input.sceneContext}.` : "";
+
+  const prompt = [
+    `You are a D&D 5e dungeon master designing a balanced encounter.`,
+    "Return ONLY a valid JSON object. No markdown, no explanation, no surrounding text.",
+    "",
+    `World: ${input.worldName ?? "a D&D 5e world"}`,
+    `Party: ${input.partySize} players at level ${input.partyLevel}`,
+    difficultyNote,
+    environmentNote,
+    sceneNote,
+    `Encounter request: ${input.prompt}`,
+    "",
+    "Required JSON structure:",
+    `{`,
+    `  "encounterName": "Short evocative encounter name",`,
+    `  "hookText": "1-3 sentence read-aloud text describing what players see/hear",`,
+    `  "settingDescription": "1-2 sentences of DM context about the location",`,
+    `  "tacticalNotes": "1-2 sentences of DM tactics or environmental hazards",`,
+    `  "difficulty": "easy|medium|hard|deadly",`,
+    `  "estimatedXP": 500,`,
+    `  "estimatedCR": "3",`,
+    `  "combatants": [`,
+    `    {`,
+    `      "name": "Exact monster name as it would appear in a Foundry world actor list",`,
+    `      "quantity": 2,`,
+    `      "cr": "1/4",`,
+    `      "initiativeModifier": 2,`,
+    `      "disposition": -1,`,
+    `      "positionZone": "north"`,
+    `    }`,
+    `  ],`,
+    `  "suggestedLoot": ["A potion of healing", "12 gold pieces"]`,
+    `}`,
+    "",
+    "Rules:",
+    "- disposition: -1=hostile, 0=neutral, 1=friendly",
+    `- positionZone: one of north/south/east/west/center/northeast/northwest/southeast/southwest/random`,
+    `- Spread combatants across different zones for tactical interest`,
+    `- estimatedXP: total XP budget for the encounter (sum of all monster XP values)`,
+    `- Size the encounter appropriately for ${input.partySize} level-${input.partyLevel} players`,
+    "- Return only the JSON object, nothing else",
+  ].filter(Boolean).join("\n");
+
+  const raw = await callAI(provider, prompt, 1200);
+  const cleaned = raw.replace(/^```(?:json)?\s*/im, "").replace(/\s*```\s*$/m, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new GenerationError(`AI did not return a JSON object for the encounter. Response: ${raw.slice(0, 200)}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new GenerationError(`AI returned malformed JSON for the encounter: ${cleaned.slice(0, 200)}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new GenerationError("AI encounter response is not a JSON object.");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  const rawCombatants: EncounterCombatantResult[] = [];
+  if (Array.isArray(obj["combatants"])) {
+    for (const c of obj["combatants"]) {
+      if (typeof c !== "object" || c === null) continue;
+      const cb = c as Record<string, unknown>;
+      const name = typeof cb["name"] === "string" ? cb["name"].trim() : "";
+      if (!name) continue;
+      rawCombatants.push({
+        name,
+        quantity: typeof cb["quantity"] === "number" ? Math.max(1, Math.round(cb["quantity"])) : 1,
+        initiativeModifier: typeof cb["initiativeModifier"] === "number" ? Math.round(cb["initiativeModifier"]) : 0,
+        disposition: typeof cb["disposition"] === "number" ? Math.round(cb["disposition"]) : -1,
+        positionZone: typeof cb["positionZone"] === "string" ? cb["positionZone"] : "random",
+        cr: typeof cb["cr"] === "string" ? cb["cr"] : undefined,
+      });
+    }
+  }
+
+  const suggestedLoot = Array.isArray(obj["suggestedLoot"])
+    ? (obj["suggestedLoot"] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 10)
+    : undefined;
+
+  return {
+    encounterName: safeString(obj["encounterName"], "Generated Encounter"),
+    hookText: safeString(obj["hookText"], ""),
+    settingDescription: safeString(obj["settingDescription"], ""),
+    tacticalNotes: safeString(obj["tacticalNotes"], ""),
+    difficulty: safeString(obj["difficulty"], "medium"),
+    estimatedXP: typeof obj["estimatedXP"] === "number" ? Math.max(0, Math.round(obj["estimatedXP"])) : 0,
+    estimatedCR: safeString(obj["estimatedCR"], "—"),
+    combatants: rawCombatants,
+    suggestedLoot: suggestedLoot && suggestedLoot.length > 0 ? suggestedLoot : undefined,
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Scene update generation (#349)
+// ---------------------------------------------------------------------------
+
+export type SceneUpdateInput = {
+  instruction: string;
+  worldName: string | undefined;
+};
+
+export type SceneUpdateResult = {
+  diff: Record<string, unknown>;
+  summary: string;
+  provider: string;
+};
+
+const SCENE_UPDATE_FIELDS = [
+  "name — scene name (string)",
+  "navName — navigation bar label (string)",
+  "navigation — whether scene appears in the nav bar (boolean)",
+  "grid.type — grid type: 0=gridless, 1=square, 2=hex-rows, 3=hex-columns (number)",
+  "grid.size — pixels per grid square (number, typically 50–200)",
+  "grid.units — distance units label, e.g. 'ft' or 'm' (string)",
+  "fog.exploration — enable fog-of-war exploration (boolean)",
+  "environment.globalLight.enabled — enable global scene illumination (boolean)",
+  "description — GM notes / scene description visible only to GM (string)",
+].join("; ");
+
+export async function generateSceneUpdate(
+  provider: ProviderService,
+  input: SceneUpdateInput,
+): Promise<SceneUpdateResult> {
+  const prompt = [
+    `You are a Foundry VTT scene editor. Produce a JSON diff object for the requested scene change.`,
+    "Return ONLY a valid JSON object. No markdown, no explanation, no surrounding text.",
+    "",
+    `World: ${input.worldName ?? "a D&D 5e world"}`,
+    `Instruction: ${input.instruction}`,
+    "",
+    `Supported fields (use only these exact field paths, nested with dots becoming nested objects in the JSON):`,
+    SCENE_UPDATE_FIELDS,
+    "",
+    "Return a flat or nested JSON object containing only the fields that need to change.",
+    "Example for 'disable global light and enable fog': { \"environment\": { \"globalLight\": { \"enabled\": false } }, \"fog\": { \"exploration\": true } }",
+    "Also include a 'summary' field (string) briefly describing what the diff changes in plain English.",
+    "Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 600);
+  const cleaned = raw.replace(/^```(?:json)?\s*/im, "").replace(/\s*```\s*$/m, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new GenerationError(`AI did not return a JSON object for the scene update. Response: ${raw.slice(0, 200)}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    throw new GenerationError(`AI returned malformed JSON for the scene update: ${cleaned.slice(0, 200)}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new GenerationError("AI scene update response is not a JSON object.");
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  const summary = typeof obj["summary"] === "string" ? obj["summary"] : input.instruction;
+  const { summary: _s, ...diff } = obj;
+  void _s;
+
+  return {
+    diff: diff as Record<string, unknown>,
+    summary,
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Campaign Consistency Audit (#167)
 // ---------------------------------------------------------------------------
 

@@ -173,9 +173,11 @@ type FoundryScene = {
   journalEntryPage?: { id: string; uuid: string; name: string } | null;
   tokens: Iterable<FoundryTokenDocument> & { size: number };
   notes: Iterable<FoundryNoteDocument> & { size: number };
+  grid: { size: number; type: number; units: string };
   getFlag(scope: string, key: string): unknown;
   setFlag(scope: string, key: string, value: unknown): Promise<void>;
   update(data: Record<string, unknown>): Promise<void>;
+  createEmbeddedDocuments(type: "Token", data: Record<string, unknown>[]): Promise<unknown[]>;
 };
 
 type FoundryFolderDocument = {
@@ -222,6 +224,8 @@ type FoundryCombat = {
   turns: FoundryCombatant[];
   nextTurn(): Promise<FoundryCombat>;
   setInitiative(id: string, value: number): Promise<void>;
+  rollAll(options?: Record<string, unknown>): Promise<FoundryCombat>;
+  startCombat(): Promise<FoundryCombat>;
   endCombat(): Promise<FoundryCombat>;
 };
 
@@ -342,6 +346,10 @@ declare const Scene: {
 
 declare const Folder: {
   create(data: Record<string, unknown>): Promise<FoundryFolderDocument | undefined>;
+};
+
+declare const Combat: {
+  create(data: Record<string, unknown>): Promise<FoundryCombat | undefined>;
 };
 
 declare const RollTable: {
