@@ -631,7 +631,7 @@ result, filter any search to a single folder by ID, scope a journal search to on
 journal, discover existing roll tables, and query playlist state — without any
 regression to existing search behavior when the new parameters are omitted.
 
-### Milestone 32 — External World Building
+### Milestone 32 — External World Building ✅ Complete
 
 Extend LoreBridge write capabilities so an AI client can generate complete NPCs,
 custom items, and balanced encounters from outside Foundry and push them into the
