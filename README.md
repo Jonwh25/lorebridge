@@ -25,6 +25,10 @@ Foundry documents or provider credentials.
   Assistant without exposing hidden campaign material.
 - Generate session preparation, boxed text, roll tables, NPC profiles, D&D 5e
   stat blocks, portraits, and in-character dialogue inside Foundry.
+- From any MCP client, generate a complete D&D 5e NPC, a custom item (weapon,
+  spell, feat, consumable, equipment, background, race, class, subclass, and
+  more), or a balanced encounter and push it into Foundry through GM approval
+  without opening the Foundry UI.
 - Review AI-proposed journal changes with a diff, explicit GM approval, and
   rollback support.
 - With a separate opt-in, ask the GM to approve advancing one combat turn,
@@ -87,6 +91,7 @@ or rebuilding, native search and content scanners remain available.
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
+| External world building | `generate_npc`/`create_actor`/`update_actor` for NPC creation and editing; `generate_item`/`create_item`/`update_item` for 12 D&D 5e item types (weapon, spell, feat, consumable, equipment, loot, tool, background, race, container, class, subclass); `generate_encounter`/`create_encounter` for balanced encounter building with token placement; `update_scene` for scene property edits — all from an MCP client without opening Foundry |
 | Campaign Codex integration | Optional NPC Dossier widgets that register with Campaign Codex — four structured sidebar tabs (Info, Profile, Roleplaying, Knowledge) auto-added to NPC journals; GM Secrets in native Foundry secret blocks; dossier data consumed by LoreBridge generation and roleplay |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
