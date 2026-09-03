@@ -18,6 +18,15 @@ export interface PairingStatus {
   clientName?: string;
 }
 
+export interface BackendServiceInfo {
+  service: string;
+  version: string;
+  protocolVersion: string;
+  capabilities: string[];
+  providerEnabled: boolean;
+  imageProviderEnabled: boolean;
+}
+
 interface ErrorBody {
   error?: {
     code?: string;
@@ -44,6 +53,10 @@ export class LoreBridgeBackendClient {
 
   async identity(): Promise<BackendIdentity> {
     return this.request("/v1/identity");
+  }
+
+  async serviceInfo(): Promise<BackendServiceInfo> {
+    return this.request("/v1");
   }
 
   async startPairing(): Promise<{ code: string; expiresAt: string }> {

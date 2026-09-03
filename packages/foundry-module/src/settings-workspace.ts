@@ -1,5 +1,11 @@
 import { LoreBridgeBackendClient } from "./backend-client.js";
 import {
+  formatDiagnosticsSummary,
+  runDiagnostics,
+  type DiagnosticsReport,
+} from "./diagnostics.js";
+import type { AdapterConnectionState } from "./adapter-transport.js";
+import {
   LOREBRIDGE_SETTINGS,
   getFoundrySettingsApi,
   getLoreBridgeSettings,
@@ -65,6 +71,7 @@ type SectionId =
   | "access-safety"
   | "history"
   | "backup-config"
+  | "diagnostics"
   | "advanced";
 
 const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
@@ -75,6 +82,7 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: "access-safety", label: "Access & Safety", icon: "fas fa-shield-alt" },
   { id: "history",       label: "History",         icon: "fas fa-history" },
   { id: "backup-config", label: "Backup Config",   icon: "fas fa-folder-open" },
+  { id: "diagnostics",   label: "Diagnostics",     icon: "fas fa-stethoscope" },
   { id: "advanced",      label: "Advanced",        icon: "fas fa-cogs" },
 ];
 
@@ -162,6 +170,7 @@ function buildHomeHtml(): string {
           { id: "access-safety", icon: "fas fa-shield-alt",  label: "Access & Safety", desc: "Context profiles, player lore" },
           { id: "history",       icon: "fas fa-history",     label: "History",         desc: "Recent AI generations" },
           { id: "backup-config", icon: "fas fa-folder-open", label: "Backup Config",   desc: "GitHub folder paths for each backup category" },
+          { id: "diagnostics",   icon: "fas fa-stethoscope", label: "Diagnostics",     desc: "Check system status and copy a safe summary" },
           { id: "advanced",      icon: "fas fa-cogs",        label: "Advanced",        desc: "Portrait directory, history length" },
         ].map(({ id, icon, label, desc }) => `
           <button data-action="nav" data-section="${id}"
@@ -174,6 +183,38 @@ function buildHomeHtml(): string {
           </button>`).join("")}
       </div>
     </div>`;
+}
+
+function buildDiagnosticsHtml(report?: DiagnosticsReport): string {
+  const stateStyle: Record<string, { icon: string; color: string; label: string }> = {
+    passed: { icon: "fas fa-check-circle", color: "#4a4", label: "Passed" },
+    failed: { icon: "fas fa-times-circle", color: "#c55", label: "Failed" },
+    disabled: { icon: "fas fa-pause-circle", color: "#999", label: "Disabled" },
+    "not-configured": { icon: "fas fa-minus-circle", color: "#c98b2e", label: "Not configured" },
+  };
+  const checks = report?.checks.map((check) => {
+    const style = stateStyle[check.state] ?? stateStyle["failed"]!;
+    return `<li style="display:grid;grid-template-columns:minmax(120px,1fr) minmax(180px,2fr);gap:8px 16px;padding:12px 0;border-bottom:1px solid rgba(0,0,0,.1)">
+      <div style="min-width:0;font-weight:bold"><i class="${style.icon}" style="color:${style.color};margin-right:6px"></i>${esc(check.label)}</div>
+      <div style="min-width:0">
+        <div><strong style="color:${style.color}">${style.label}</strong> — ${esc(check.detail)}</div>
+        ${check.nextAction ? `<div style="margin-top:4px;font-size:.82em;color:#aaa">Next: ${esc(check.nextAction)}</div>` : ""}
+      </div>
+    </li>`;
+  }).join("") ?? "";
+
+  return `<div style="padding:20px 24px;min-width:0">
+    ${sectionHeader("Diagnostics", "Run read-only checks using LoreBridge's current configuration and connection state.")}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      <button data-action="diagnostics-run" style="padding:7px 14px"><i class="fas fa-play"></i> Run diagnostics</button>
+      ${report ? `<button data-action="diagnostics-copy" style="padding:7px 14px"><i class="fas fa-copy"></i> Copy diagnostics</button>` : ""}
+    </div>
+    ${report ? `
+      <div style="font-size:.8em;color:#999;margin-bottom:8px">Checked ${esc(new Date(report.generatedAt).toLocaleString())}</div>
+      <ul style="list-style:none;margin:0;padding:0">${checks}</ul>
+      <p style="font-size:.78em;color:#999;margin-top:14px">The copied summary contains only versions, the check time, states, and safe error codes. It excludes credentials, backend identifiers, repository details, and campaign content.</p>
+    ` : `<p style="color:#999">No diagnostics have been run in this window.</p>`}
+  </div>`;
 }
 
 async function buildConnectionHtml(): Promise<string> {
@@ -543,11 +584,14 @@ export class LoreBridgeSettingsApp extends AppBase {
       "history-reopen": LoreBridgeSettingsApp._onHistoryReopen,
       "history-clear-all": LoreBridgeSettingsApp._onHistoryClearAll,
       "backup-config-save": LoreBridgeSettingsApp._onBackupConfigSave,
+      "diagnostics-run": LoreBridgeSettingsApp._onDiagnosticsRun,
+      "diagnostics-copy": LoreBridgeSettingsApp._onDiagnosticsCopy,
       "advanced-save": LoreBridgeSettingsApp._onAdvancedSave,
     },
   };
 
   private _activeSection: SectionId = "home";
+  private _diagnostics?: DiagnosticsReport;
 
   private static _instance: LoreBridgeSettingsApp | null = null;
 
@@ -608,7 +652,55 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "access-safety": return buildAccessSafetyHtml();
       case "history":       return buildHistoryHtml();
       case "backup-config": return buildBackupConfigHtml();
+      case "diagnostics":   return buildDiagnosticsHtml(this._diagnostics);
       case "advanced":      return buildAdvancedHtml();
+    }
+  }
+
+  static async _onDiagnosticsRun(
+    this: LoreBridgeSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    const s = getLoreBridgeSettings();
+    const client = new LoreBridgeBackendClient(s.backendUrl, s.clientToken);
+    const loreBridge = (globalThis as unknown as {
+      LoreBridge?: {
+        moduleVersion?: string;
+        getConnectionStatus?: () => AdapterConnectionState;
+      };
+    }).LoreBridge;
+    const gameState = game as unknown as {
+      version?: string;
+      user?: { isGM?: boolean };
+      modules?: { get(id: string): { version?: string } | undefined };
+    };
+    this._diagnostics = await runDiagnostics({
+      isGm: gameState.user?.isGM === true,
+      moduleVersion: loreBridge?.moduleVersion ?? gameState.modules?.get(MODULE_ID)?.version ?? "",
+      foundryVersion: gameState.version ?? "",
+      backendUrl: s.backendUrl,
+      clientToken: s.clientToken,
+      remoteIntegrationEnabled: s.remoteIntegrationEnabled,
+      adapterState: loreBridge?.getConnectionStatus?.() ?? { state: "disconnected" },
+      health: () => client.health(),
+      serviceInfo: () => client.serviceInfo(),
+      pairingStatus: () => client.pairingStatus(),
+    });
+    void this._self().render({ force: false });
+  }
+
+  static async _onDiagnosticsCopy(
+    this: LoreBridgeSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    if (!this._diagnostics) return;
+    try {
+      await navigator.clipboard.writeText(formatDiagnosticsSummary(this._diagnostics));
+      ui.notifications.info("LoreBridge: Diagnostics copied without credentials or campaign content.");
+    } catch {
+      ui.notifications.error("LoreBridge: Could not copy diagnostics to the clipboard.");
     }
   }
 
