@@ -675,7 +675,7 @@ Pause major feature expansion and make the existing product easier to diagnose
 and release safely. This milestone must not weaken authentication, visibility,
 approval, or secret-handling boundaries.
 
-1. [Practical system diagnostics and sanitized copy summary](https://github.com/Jonwh25/lorebridge/issues/339)
+1. ✅ [Practical system diagnostics and sanitized copy summary](https://github.com/Jonwh25/lorebridge/issues/339)
 2. [Pre-tag readiness guard for clean, current, version-matched releases](https://github.com/Jonwh25/lorebridge/issues/341)
 
 Success test: a GM can diagnose a deliberately unavailable component without
