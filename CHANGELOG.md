@@ -2,6 +2,40 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.34.0] - 2026-09-03
+
+### Added
+
+- **Practical system diagnostics** (#339, PR #366): the GM-only LoreBridge
+  Settings workspace now includes a Diagnostics section for module and Foundry
+  versions, GM authorization, backend reachability and version, browser pairing,
+  Foundry adapter connection, AI provider configuration, and GitHub backup
+  configuration. Results distinguish passed, failed, disabled, and
+  not-configured states with concise recovery guidance. The copy action emits a
+  bounded allowlisted summary without credentials, URLs, runtime error text,
+  backend or adapter identifiers, repository details, or campaign content.
+  Provider and GitHub results use existing backend discovery state and do not
+  introduce external-service probes.
+
+### Changed
+
+- **Pre-tag release readiness guard** (#341, PR #365): releases now use
+  `npm run release:check -- <version>` from the final merged `main` commit. The
+  guard rejects wrong-branch, dirty, stale, version-mismatched, invalid-archive,
+  and already-tagged states before printing tag commands. It runs the complete
+  validation and package gates, rechecks repository state afterward, and prints
+  owner-only tag commands bound to the exact validated commit. It never resets
+  work, creates a tag, or pushes automatically.
+
+### Upgrade notes
+
+- Update the Foundry module and reload the Foundry browser tab to add the
+  Diagnostics section. No new environment variables or dependencies are
+  required.
+- Maintainers must merge release preparation before running the version-specific
+  pre-tag guard from a clean, current `main` checkout. Use only the exact tag
+  commands printed by a passing guard.
+
 ## [0.33.0] - 2026-09-02
 
 ### Added
