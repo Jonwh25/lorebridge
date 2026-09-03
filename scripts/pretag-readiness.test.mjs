@@ -1,26 +1,38 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import test, { after } from "node:test";
 import { PreTagReadinessError, runPreTagReadiness } from "./pretag-readiness.mjs";
 
 const VERSION = "1.2.3";
+const temporaryRoots = [];
+
+after(async () => {
+  for (const root of temporaryRoots) {
+    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert.ok(path.basename(root).startsWith("lorebridge-pretag-"));
+    await rm(root, { recursive: true, force: true, maxRetries: 3 });
+  }
+});
 
 async function fixture(overrides = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "lorebridge-pretag-"));
+  temporaryRoots.push(root);
   const moduleRoot = path.join(root, "packages", "foundry-module");
   await mkdir(moduleRoot, { recursive: true });
   const versions = {
     root: VERSION,
     lock: VERSION,
     lockRoot: VERSION,
+    lockFoundry: VERSION,
     foundry: VERSION,
     manifest: VERSION,
     ...overrides.versions,
   };
   await writeFile(path.join(root, "package.json"), JSON.stringify({ version: versions.root }));
-  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({ version: versions.lock, packages: { "": { version: versions.lockRoot } } }));
+  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({ version: versions.lock, packages: { "": { version: versions.lockRoot }, "packages/foundry-module": { version: versions.lockFoundry } } }));
   await writeFile(path.join(moduleRoot, "package.json"), JSON.stringify({ version: versions.foundry }));
   await writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({
     version: versions.manifest,
@@ -103,7 +115,7 @@ for (const scenario of [
 }
 
 test("rejects every synchronized version source independently", async () => {
-  for (const key of ["root", "lock", "lockRoot", "foundry", "manifest"]) {
+  for (const key of ["root", "lock", "lockRoot", "lockFoundry", "foundry", "manifest"]) {
     const root = await fixture({ versions: { [key]: "9.9.9" } });
     const fake = fakeRunner();
     await assert.rejects(
@@ -131,10 +143,58 @@ test("rechecks the checkout after validation before printing tag commands", asyn
 
 test("requires an explicit unprefixed semantic version", async () => {
   const root = await fixture();
-  for (const version of [undefined, "v1.2.3", "1.2", "next"]) {
+  for (const version of [undefined, "v1.2.3", "1.2", "next", "01.2.3"]) {
     await assert.rejects(
       runPreTagReadiness({ version, cwd: root, runCommand: fakeRunner().runner, write: () => {} }),
       /explicit semantic version/,
     );
   }
+});
+
+test("real local Git origin accepts current main and safely rejects dirty and stale checkouts", async () => {
+  const root = await fixture();
+  const remote = await fixture();
+  const git = (cwd, args, allowExitCodes = []) => {
+    const result = spawnSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: path.join(root, "absent-global-config") },
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0 && !allowExitCodes.includes(result.status)) throw new Error(result.stderr);
+    return { code: result.status, stdout: result.stdout.trim() };
+  };
+  git(remote, ["init", "--bare"]);
+  git(root, ["init", "--initial-branch=main"]);
+  git(root, ["config", "user.name", "Readiness Test"]);
+  git(root, ["config", "user.email", "readiness@example.invalid"]);
+  git(root, ["add", "."]);
+  git(root, ["-c", "commit.gpgsign=false", "commit", "-m", "Fixture release"]);
+  git(root, ["remote", "add", "origin", remote]);
+  git(root, ["push", "origin", "main"]);
+  const checkedHead = git(root, ["rev-parse", "HEAD"]).stdout;
+  const output = [];
+  const runCommand = (command, args, options) => command === "git"
+    ? git(root, args, options.allowExitCodes)
+    : { code: 0, stdout: "" }; // Expensive package gates are covered separately.
+  const check = () => runPreTagReadiness({ version: VERSION, cwd: root, runCommand, write: (line) => output.push(line) });
+  await check();
+  assert.ok(output.some((line) => line.includes(`v${VERSION} ${checkedHead} -m`)));
+  assert.equal(git(root, ["tag", "--list"]).stdout, "");
+
+  const packagePath = path.join(root, "package.json");
+  const original = await readFile(packagePath, "utf8");
+  await writeFile(packagePath, `${original}\n`);
+  output.length = 0;
+  await assert.rejects(check(), /Tracked files/);
+  assert.deepEqual(output, []);
+  assert.equal(await readFile(packagePath, "utf8"), `${original}\n`);
+  await writeFile(packagePath, original);
+
+  // Advance only the local bare origin, leaving this checkout behind it.
+  const next = git(root, ["-c", "user.name=Readiness Test", "-c", "user.email=readiness@example.invalid", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "New remote release commit"]).stdout;
+  git(root, ["push", "origin", `${next}:refs/heads/main`]);
+  await assert.rejects(check(), /does not match origin\/main/);
+  assert.deepEqual(output, []);
+  assert.equal(git(root, ["rev-parse", "HEAD"]).stdout, checkedHead);
 });

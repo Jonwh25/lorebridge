@@ -4,7 +4,7 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const VERSION_RE = /^\d+\.\d+\.\d+$/;
+const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 export class PreTagReadinessError extends Error {
   constructor(message) {
@@ -18,17 +18,18 @@ function defaultRun(command, args, options = {}) {
     const stdout = execFileSync(command, args, {
       cwd: options.cwd,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: options.inheritOutput ? ["ignore", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
+      maxBuffer: 16 * 1024 * 1024,
     });
-    return { code: 0, stdout: stdout.trim() };
+    return { code: 0, stdout: (stdout ?? "").trim() };
   } catch (error) {
     const code = typeof error.status === "number" ? error.status : 1;
-    if (options.allowExitCodes?.includes(code)) {
+    if (typeof error.status === "number" && options.allowExitCodes?.includes(code)) {
       return { code, stdout: String(error.stdout ?? "").trim() };
     }
     const detail = String(error.stderr ?? error.message ?? "command failed").trim();
     throw new PreTagReadinessError(
-      `Command failed: ${command} ${args.join(" ")}\n${detail}`,
+      `Command failed: ${command} ${args.join(" ")}\n${detail}\nResolve the command failure and rerun release:check before tagging.`,
     );
   }
 }
@@ -121,6 +122,7 @@ export async function validateReleaseFiles(root, version) {
   assertVersion(rootPackage.version, version, "Root package.json");
   assertVersion(lockfile.version, version, "Package-lock root");
   assertVersion(lockfile.packages?.[""]?.version, version, "Package-lock workspace root");
+  assertVersion(lockfile.packages?.["packages/foundry-module"]?.version, version, "Package-lock Foundry workspace");
   assertVersion(foundryPackage.version, version, "Foundry package.json");
   assertVersion(manifest.version, version, "Foundry module.json");
 
@@ -131,7 +133,12 @@ export async function validateReleaseFiles(root, version) {
     );
   }
 
-  const changelog = await readFile(path.join(root, "CHANGELOG.md"), "utf8");
+  let changelog;
+  try {
+    changelog = await readFile(path.join(root, "CHANGELOG.md"), "utf8");
+  } catch {
+    throw new PreTagReadinessError("Cannot read CHANGELOG.md. Restore the dated release notes before tagging.");
+  }
   const escapedVersion = version.replaceAll(".", "\\.");
   const heading = new RegExp(`^## \\[${escapedVersion}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m");
   if (!heading.test(changelog)) {
@@ -162,15 +169,15 @@ export async function runPreTagReadiness({
 
   const npmExecPath = process.env.npm_execpath;
   const runNpm = (args) => {
-    if (npmExecPath) return run(process.execPath, [npmExecPath, ...args]);
+    if (npmExecPath) return run(process.execPath, [npmExecPath, ...args], { inheritOutput: true });
     if (process.platform === "win32") {
-      return run(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm.cmd", ...args]);
+      return run(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm.cmd", ...args], { inheritOutput: true });
     }
-    return run("npm", args);
+    return run("npm", args, { inheritOutput: true });
   };
   runNpm(["run", "validate"]);
   runNpm(["run", "package:foundry"]);
-  run(process.execPath, ["scripts/verify-release-archive.mjs"]);
+  run(process.execPath, ["scripts/verify-release-archive.mjs"], { inheritOutput: true });
 
   checkCheckout(run, checkedHead);
   checkTagAvailability(run, tag);

@@ -17,6 +17,7 @@ LoreBridge uses semantic versioning:
 The following versions must match before a release:
 
 - root `package.json`
+- root and Foundry workspace entries in `package-lock.json`
 - `packages/foundry-module/package.json`
 - `packages/foundry-module/module.json`
 - Git tag, prefixed with `v`
@@ -66,8 +67,9 @@ Run the guard from the merged release-preparation commit on `main`:
 npm run release:check -- <version>
 ```
 
-The guard is read-only with respect to the checkout and releases: it does not
-reset files, create a tag, or push. It ignores untracked files but rejects any
+The guard fetches Git metadata and rebuilds generated output, including replacing
+the generated `release/` directory. It does not reset source files, create a tag,
+or push. It ignores untracked files but rejects any
 tracked modification, fetches `origin`, requires `HEAD` to equal `origin/main`,
 rejects an existing local or remote version tag, validates all synchronized
 release metadata, and runs the validation and archive gates. It prints the two
