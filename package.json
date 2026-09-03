@@ -14,8 +14,10 @@
     "test": "npm run test --workspaces --if-present",
     "verify:foundry": "node scripts/verify-foundry-module.mjs",
     "package:foundry": "npm run build:foundry && node scripts/package-foundry.mjs",
+    "release:check": "node scripts/pretag-readiness.mjs",
+    "test:release": "node --test scripts/pretag-readiness.test.mjs",
     "start:backend": "npm run start --workspace=@lorebridge/backend",
-    "validate": "npm run typecheck && npm run build && npm run test && npm run verify:foundry"
+    "validate": "npm run typecheck && npm run build && npm run test && npm run test:release && npm run verify:foundry"
   },
   "engines": {
     "node": ">=20",

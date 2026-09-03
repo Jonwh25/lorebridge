@@ -238,20 +238,21 @@ After confirming the milestone closeout and release-preparation PR is merged:
 
 1. Resolve the exact released version from the synchronized files on `main`.
 2. Tell the repository owner that the release is ready to tag and provide this
-   copyable command block with `<version>` replaced everywhere by the exact version;
-   never leave placeholders in the handoff:
+   copyable guard block with `<version>` replaced by the exact version; never
+   leave placeholders in the handoff:
 
    ```sh
    cd /data/lorebridge
    git fetch origin
    git checkout main
    git pull --ff-only
-   git tag -a v<version> -m "LoreBridge v<version>"
-   git push origin v<version>
+   npm run release:check -- <version>
    ```
 
-3. Do not run the tag commands for the owner and do not create the GitHub release
-   manually. Wait for the owner to confirm the tag was pushed.
+3. Tell the owner to run the two exact tag commands printed by the passing guard.
+   Do not run the tag commands for the owner and do not create the GitHub release
+   manually. If the guard fails, resolve the reported condition and rerun it; do
+   not provide tag commands. Wait for the owner to confirm the tag was pushed.
 4. After confirmation, treat the pushed tag as the release trigger. Monitor the
    tag-triggered release workflow through completion.
 5. Verify the GitHub release, module archive, manifest URLs, checksums, and
