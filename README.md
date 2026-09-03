@@ -41,6 +41,10 @@ Foundry documents or provider credentials.
   per-category backup buttons with folder-selection dialogs and live progress.
   [Campaign Codex exports](docs/CC_EXPORT_CACHE.md) skip unchanged files and
   report committed and unchanged counts per folder.
+- Run GM-only system diagnostics from LoreBridge Settings to check the module,
+  backend, pairing, Foundry adapter, AI provider, and GitHub backup state. Copy a
+  bounded support summary without credentials, repository details, identifiers,
+  or campaign content.
 - Provision a new group for a session: create Foundry users and linked PC
   actors with random passwords from the **Player Party** option in the Create
   Actor dialog; distribute hotbar pages to connected players from the Macros

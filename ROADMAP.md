@@ -669,14 +669,14 @@ and release-preparation change is merged in PR #361.
 Success test: a GM can manage quest objectives through AI assistance and explicit
 approval, and Campaign Codex export skips unchanged files on incremental runs.
 
-### Milestone 34 — Diagnostics & Release Safety
+### ✅ Milestone 34 — Diagnostics & Release Safety
 
 Pause major feature expansion and make the existing product easier to diagnose
 and release safely. This milestone must not weaken authentication, visibility,
 approval, or secret-handling boundaries.
 
 1. ✅ [Practical system diagnostics and sanitized copy summary](https://github.com/Jonwh25/lorebridge/issues/339)
-2. [Pre-tag readiness guard for clean, current, version-matched releases](https://github.com/Jonwh25/lorebridge/issues/341)
+2. ✅ [Pre-tag readiness guard for clean, current, version-matched releases](https://github.com/Jonwh25/lorebridge/issues/341)
 
 Success test: a GM can diagnose a deliberately unavailable component without
 exposing secrets or campaign content, and the release guard rejects dirty,
