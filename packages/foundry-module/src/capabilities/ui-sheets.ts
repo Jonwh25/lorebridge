@@ -275,7 +275,7 @@ function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
           const titleMatch = lines[0]?.match(/^#+\s+(.+)/);
           const title = titleMatch?.[1]?.trim() ?? null;
           const body = (title ? lines.slice(1).join("\n") : result.preview).trim();
-          const html = `${title ? `<h3>${title}</h3>` : ""}<blockquote class="lb-read-aloud"><p>${body.replace(/\n/g, "<br>")}</p></blockquote>`;
+          const html = `${title ? `<h3>${title}</h3>` : ""}<blockquote class="read-aloud"><p><span class="read-aloud-label">📜 Read Aloud</span><br>${body.replace(/\n/g, "<br>")}</p></blockquote>`;
           if (page) {
             void page.update({ "text.content": `${rawHtml}\n${html}` });
           } else if (journalEntry) {

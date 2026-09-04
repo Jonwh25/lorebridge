@@ -848,7 +848,7 @@ export async function generateSessionPrep(
     "",
     "## Strong Start",
     "One specific, vivid opening scene or event that launches the session with momentum.",
-    "If this is read-aloud narration, wrap it in: <blockquote class=\"lb-read-aloud\"><p>{{text}}</p></blockquote>",
+    "If this is read-aloud narration, wrap it in: <blockquote class=\"read-aloud\"><p><span class=\"read-aloud-label\">📜 Read Aloud</span><br>{{text}}</p></blockquote>",
     "",
     "## Potential Scenes",
     "3-5 scenes or encounters the party might experience this session. Each is one sentence.",
