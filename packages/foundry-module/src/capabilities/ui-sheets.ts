@@ -275,7 +275,7 @@ function runGenerateDescription(doc: AppDoc, frame: HTMLElement): void {
           const titleMatch = lines[0]?.match(/^#+\s+(.+)/);
           const title = titleMatch?.[1]?.trim() ?? null;
           const body = (title ? lines.slice(1).join("\n") : result.preview).trim();
-          const html = `${title ? `<h3>${title}</h3>` : ""}<p><strong><em>Read-Aloud:</em></strong></p><blockquote><em>${body.replace(/\n/g, "<br>")}</em></blockquote>`;
+          const html = `${title ? `<h3>${title}</h3>` : ""}<blockquote class="lb-read-aloud"><p><span class="lb-label">📜 Read Aloud</span><br>${body.replace(/\n/g, "<br>")}</p></blockquote>`;
           if (page) {
             void page.update({ "text.content": `${rawHtml}\n${html}` });
           } else if (journalEntry) {
@@ -321,7 +321,7 @@ function runSessionRecap(doc: AppDoc, frame: HTMLElement): void {
         });
 
         showPreviewDialog(`Session Recap — ${pageName}`, result.recap, () => {
-          const html = `<h3>Session Recap</h3><p>${result.recap.replace(/\n/g, "<br>")}</p>`;
+          const html = `<!-- lb:page type="session" id="${pageName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}" generated="${new Date().toISOString().split("T")[0]}" -->\n<h3>Session Recap</h3><blockquote class="lb-flavor"><p><span class="lb-label">✨ Flavor</span><br>${result.recap.replace(/\n/g, "<br>")}</p></blockquote>`;
           if (page) {
             void page.update({ "text.content": `${rawHtml}\n${html}` });
           } else if (journalEntry) {
@@ -426,7 +426,7 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
           context,
         });
 
-        // Render prep as structured HTML
+        // Render prep as structured HTML, passing lb- block elements through unchanged
         const html = result.prep
           .split("\n")
           .map((line) => {
@@ -434,6 +434,7 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
             if (/^-\s+/.test(line)) return `<li>${line.replace(/^-\s+/, "")}</li>`;
             if (/^\d+\.\s+/.test(line)) return `<li>${line.replace(/^\d+\.\s+/, "")}</li>`;
             if (line.trim() === "") return "";
+            if (/^<blockquote|^<\/blockquote|^<p>|^<\/p>/.test(line.trim())) return line;
             return `<p>${line}</p>`;
           })
           .join("\n");
@@ -463,7 +464,7 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
               icon: "fas fa-save",
               callback: () => {
                 void (async () => {
-                  const saveHtml = `<h3>${nextPageName}</h3>\n${html}`;
+                  const saveHtml = `<!-- lb:page type="session" id="${nextPageName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}" generated="${new Date().toISOString().split("T")[0]}" -->\n<h3>${nextPageName}</h3>\n${html}`;
                   let prepJournal = Array.from(game.journal as Iterable<FoundryJournalEntry>).find((j) => j.name === "Lazy DM Prep");
                   if (!prepJournal) {
                     // GM-only ownership: 3 = OWNER

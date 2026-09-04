@@ -1,0 +1,108 @@
+/* LoreBridge Journal Block Taxonomy
+ * Defines visual styles for all structured block types used in AI-generated
+ * journal pages. All blocks use <blockquote class="lb-{type}"> — the one
+ * block-level element ProseMirror's schema preserves reliably on save.
+ *
+ * Scoped to both .journal-entry-page (read view) and .editor-content (edit
+ * view) to beat Foundry core blockquote specificity in both contexts.
+ */
+
+/* ── Shared base for all LoreBridge journal blocks ─────────────────── */
+.journal-entry-page blockquote[class^="lb-"],
+.editor-content       blockquote[class^="lb-"] {
+  border-top:    1px solid rgba(255,255,255,0.08);
+  border-right:  1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+  margin: 1em 0;
+  padding: 0.75em 1em;
+}
+
+.journal-entry-page blockquote[class^="lb-"] .lb-label,
+.editor-content       blockquote[class^="lb-"] .lb-label {
+  display: block;
+  font-style: normal;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 0.25em;
+  margin-bottom: 0.5em;
+}
+
+/* ── Read Aloud — Antique Gold ──────────────────────────────────────── */
+.journal-entry-page blockquote.lb-read-aloud,
+.editor-content       blockquote.lb-read-aloud {
+  border-left: 4px solid #c8963e;
+  background: rgba(212,168,75,0.05);
+  font-family: Georgia, serif;
+  font-style: italic;
+  color: #f5eedb;
+}
+.journal-entry-page blockquote.lb-read-aloud .lb-label,
+.editor-content       blockquote.lb-read-aloud .lb-label {
+  color: #e5b85c;
+  border-bottom: 1px solid rgba(229,184,92,0.25);
+}
+
+/* ── Flavor — Muted Silver ──────────────────────────────────────────── */
+.journal-entry-page blockquote.lb-flavor,
+.editor-content       blockquote.lb-flavor {
+  border-left: 4px solid #8a9bb0;
+  background: rgba(138,155,176,0.05);
+  font-style: italic;
+}
+.journal-entry-page blockquote.lb-flavor .lb-label,
+.editor-content       blockquote.lb-flavor .lb-label {
+  color: #a8bcd0;
+  border-bottom: 1px solid rgba(168,188,208,0.25);
+}
+
+/* ── Lore — Deep Teal ───────────────────────────────────────────────── */
+.journal-entry-page blockquote.lb-lore,
+.editor-content       blockquote.lb-lore {
+  border-left: 4px solid #3a8a7a;
+  background: rgba(58,138,122,0.05);
+  font-family: Georgia, serif;
+}
+.journal-entry-page blockquote.lb-lore .lb-label,
+.editor-content       blockquote.lb-lore .lb-label {
+  color: #5abaa8;
+  border-bottom: 1px solid rgba(90,186,168,0.25);
+}
+
+/* ── Mechanics — Muted Red ──────────────────────────────────────────── */
+.journal-entry-page blockquote.lb-stat-callout,
+.editor-content       blockquote.lb-stat-callout {
+  border-left: 4px solid #a04040;
+  background: rgba(160,64,64,0.05);
+  font-family: monospace;
+}
+.journal-entry-page blockquote.lb-stat-callout .lb-label,
+.editor-content       blockquote.lb-stat-callout .lb-label {
+  color: #c86060;
+  border-bottom: 1px solid rgba(200,96,96,0.25);
+}
+
+/* ── Treasure — Warm Green ──────────────────────────────────────────── */
+.journal-entry-page blockquote.lb-treasure,
+.editor-content       blockquote.lb-treasure {
+  border-left: 4px solid #5a8a3a;
+  background: rgba(90,138,58,0.05);
+}
+.journal-entry-page blockquote.lb-treasure .lb-label,
+.editor-content       blockquote.lb-treasure .lb-label {
+  color: #7ab858;
+  border-bottom: 1px solid rgba(122,184,88,0.25);
+}
+
+/* ── Encounter — Deep Purple ────────────────────────────────────────── */
+.journal-entry-page blockquote.lb-encounter,
+.editor-content       blockquote.lb-encounter {
+  border-left: 4px solid #6a3a8a;
+  background: rgba(106,58,138,0.05);
+}
+.journal-entry-page blockquote.lb-encounter .lb-label,
+.editor-content       blockquote.lb-encounter .lb-label {
+  color: #9a68c8;
+  border-bottom: 1px solid rgba(154,104,200,0.25);
+}
