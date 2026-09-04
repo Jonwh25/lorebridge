@@ -156,8 +156,13 @@ function extractDnd5eMechanics(actor: FoundryActor): Dnd5eActorMechanics | undef
   const sensesData = (attrs.senses ?? {}) as Record<string, unknown>;
   const senseFields = ["darkvision", "blindsight", "truesight", "tremorsense"];
   const senses: Record<string, number | string> = {};
+  // dnd5e 5.3+ moved sense ranges to senses.ranges.*; fall back to senses.* for older versions
+  const sensesRangesRaw = sensesData.ranges;
+  const sensesRanges = (typeof sensesRangesRaw === "object" && sensesRangesRaw !== null && !Array.isArray(sensesRangesRaw))
+    ? sensesRangesRaw as Record<string, unknown>
+    : sensesData;
   for (const field of senseFields) {
-    const v = numField(sensesData, field);
+    const v = numField(sensesRanges, field);
     if (v !== undefined && v > 0) senses[field] = v;
   }
   const sensesUnits = typeof sensesData.units === "string" ? sensesData.units : undefined;

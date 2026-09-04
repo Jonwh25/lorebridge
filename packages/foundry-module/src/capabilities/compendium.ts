@@ -442,16 +442,17 @@ export async function getCompendiumEntry(input: GetCompendiumEntryInput): Promis
     );
   }
 
-  const documentType = entry.type ?? pack.metadata.type;
+  const packType = pack.metadata.type;
+  const entrySubtype = entry.type ?? packType;
   const supported = new Set<string>(SUPPORTED_COMPENDIUM_CONTENT_TYPES);
-  if (!supported.has(documentType)) {
+  if (!supported.has(packType)) {
     throw new LoreBridgeCapabilityError(
       "INVALID_REQUEST",
-      `Compendium entry content is not supported for document type "${documentType}". Supported types: ${SUPPORTED_COMPENDIUM_CONTENT_TYPES.join(", ")}.`,
+      `Compendium entry content is not supported for document type "${packType}". Supported types: ${SUPPORTED_COMPENDIUM_CONTENT_TYPES.join(", ")}.`,
     );
   }
 
-  const content = await extractEntryContent(pack, entryId, documentType);
+  const content = await extractEntryContent(pack, entryId, packType);
 
   const output: GetCompendiumEntryOutput = {
     sourceId: sourceId(),
@@ -461,7 +462,7 @@ export async function getCompendiumEntry(input: GetCompendiumEntryInput): Promis
     entryId: entry._id,
     entryUuid: entryUuid(packId, pack.metadata.type, entry._id),
     entryName: entry.name,
-    documentType,
+    documentType: entrySubtype,
     ...(entry.img ? { img: entry.img } : {}),
     ...(content ? { content } : {}),
   };
