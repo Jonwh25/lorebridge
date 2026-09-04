@@ -45,6 +45,9 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   listPlaylists: "listPlaylists",
   searchPlaylists: "searchPlaylists",
   getQuestObjectives: "getQuestObjectives",
+  getItem: "getItem",
+  listFolders: "listFolders",
+  browseFolder: "browseFolder",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({

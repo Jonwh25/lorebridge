@@ -38,6 +38,38 @@ export interface GetActorInput {
   mode?: VisibilityMode;
 }
 
+export interface Dnd5eAbility {
+  score: number;
+  modifier: number;
+  savingThrow?: number;
+}
+
+export interface Dnd5eSpellSlot {
+  level: number;
+  current: number;
+  max: number;
+}
+
+export interface Dnd5eResource {
+  label: string;
+  current?: number;
+  max?: number;
+}
+
+export interface Dnd5eActorMechanics {
+  armorClass?: number;
+  hitPoints?: { current: number; max: number; temp?: number };
+  proficiencyBonus?: number;
+  exhaustion?: number;
+  conditions?: string[];
+  abilities?: Record<string, Dnd5eAbility>;
+  movement?: Record<string, number | boolean | string>;
+  senses?: Record<string, number | string>;
+  spellcasting?: { ability?: string; saveDc?: number; attackBonus?: number };
+  spellSlots?: Dnd5eSpellSlot[];
+  resources?: Dnd5eResource[];
+}
+
 export interface ActorDocument {
   sourceId: string;
   sourceName: string;
@@ -49,6 +81,7 @@ export interface ActorDocument {
   img?: string;
   folder?: { id: string; name: string };
   description?: { plainText: string };
+  mechanics?: Dnd5eActorMechanics;
 }
 
 export type GetActorOutput = ActorDocument;
@@ -170,6 +203,9 @@ export function validateGetActorOutput(value: unknown): ValidationResult<GetActo
     if (!isRecord(value.description) || typeof value.description.plainText !== "string") {
       errors.push("description.plainText must be a string");
     }
+  }
+  if (value.mechanics !== undefined && !isRecord(value.mechanics)) {
+    errors.push("mechanics must be an object");
   }
   return errors.length
     ? { valid: false, errors }
