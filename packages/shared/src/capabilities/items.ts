@@ -2,6 +2,7 @@ import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 import type { VisibilityMode } from "./visibility.js";
 
 export const SEARCH_ITEMS_CAPABILITY = "searchItems" as const;
+export const GET_ITEM_CAPABILITY = "getItem" as const;
 export const GET_ACTOR_INVENTORY_CAPABILITY = "getActorInventory" as const;
 
 export interface SearchItemsInput {
@@ -61,8 +62,45 @@ export interface GetActorInventoryOutput {
   items: InventoryItem[];
 }
 
+export interface GetItemInput {
+  itemId: string;
+  mode?: VisibilityMode;
+}
+
+export interface GetItemOutput {
+  sourceId: string;
+  sourceName: string;
+  systemId: string;
+  id: string;
+  uuid: string;
+  name: string;
+  type: string;
+  img?: string;
+  folder?: { id: string; name: string };
+  description?: string;
+  quantity?: number;
+  weight?: number;
+  price?: string;
+  rarity?: string;
+  identified?: boolean;
+  activation?: { type?: string; cost?: number; condition?: string };
+  target?: { value?: number; units?: string; type?: string };
+  range?: { value?: number; long?: number; units?: string };
+  duration?: { value?: number; units?: string };
+  uses?: { value?: number; max?: number; per?: string };
+  damageFormulas?: string[];
+  save?: { ability?: string; dc?: number };
+  properties?: string[];
+}
+
 export const SEARCH_ITEMS_DECLARATION: CapabilityDeclaration = {
   name: SEARCH_ITEMS_CAPABILITY,
+  mode: "read",
+  version: "0.1",
+};
+
+export const GET_ITEM_DECLARATION: CapabilityDeclaration = {
+  name: GET_ITEM_CAPABILITY,
   mode: "read",
   version: "0.1",
 };
@@ -218,4 +256,45 @@ export function validateGetActorInventoryOutput(
   return errors.length
     ? { valid: false, errors }
     : { valid: true, value: value as unknown as GetActorInventoryOutput, errors: [] };
+}
+
+export function validateGetItemInput(value: unknown): ValidationResult<GetItemInput> {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
+  if (!isNonEmptyString(value.itemId)) errors.push("itemId must be a non-empty string");
+  if (value.mode !== undefined && !VISIBILITY_MODES.includes(value.mode as VisibilityMode)) {
+    errors.push("mode must be 'gm' or 'player'");
+  }
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetItemInput, errors: [] };
+}
+
+export function validateGetItemOutput(value: unknown): ValidationResult<GetItemOutput> {
+  const errors: string[] = [];
+  if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
+  for (const key of ["sourceId", "sourceName", "systemId", "id", "uuid", "name", "type"] as const) {
+    if (!isNonEmptyString(value[key])) errors.push(`${key} is required`);
+  }
+  if (value.img !== undefined && typeof value.img !== "string") errors.push("img must be a string");
+  if (value.folder !== undefined) {
+    if (!isRecord(value.folder)) errors.push("folder must be an object");
+    else {
+      if (!isNonEmptyString(value.folder.id)) errors.push("folder.id is required");
+      if (!isNonEmptyString(value.folder.name)) errors.push("folder.name is required");
+    }
+  }
+  if (value.description !== undefined && typeof value.description !== "string") errors.push("description must be a string");
+  if (value.quantity !== undefined && (typeof value.quantity !== "number" || !Number.isFinite(value.quantity))) errors.push("quantity must be a number");
+  if (value.weight !== undefined && (typeof value.weight !== "number" || !Number.isFinite(value.weight))) errors.push("weight must be a number");
+  if (value.price !== undefined && typeof value.price !== "string") errors.push("price must be a string");
+  if (value.rarity !== undefined && typeof value.rarity !== "string") errors.push("rarity must be a string");
+  if (value.identified !== undefined && typeof value.identified !== "boolean") errors.push("identified must be a boolean");
+  if (value.activation !== undefined && !isRecord(value.activation)) errors.push("activation must be an object");
+  if (value.target !== undefined && !isRecord(value.target)) errors.push("target must be an object");
+  if (value.range !== undefined && !isRecord(value.range)) errors.push("range must be an object");
+  if (value.duration !== undefined && !isRecord(value.duration)) errors.push("duration must be an object");
+  if (value.uses !== undefined && !isRecord(value.uses)) errors.push("uses must be an object");
+  if (value.damageFormulas !== undefined && (!Array.isArray(value.damageFormulas) || value.damageFormulas.some((f) => typeof f !== "string"))) errors.push("damageFormulas must be an array of strings");
+  if (value.save !== undefined && !isRecord(value.save)) errors.push("save must be an object");
+  if (value.properties !== undefined && (!Array.isArray(value.properties) || value.properties.some((p) => typeof p !== "string"))) errors.push("properties must be an array of strings");
+  return errors.length ? { valid: false, errors } : { valid: true, value: value as unknown as GetItemOutput, errors: [] };
 }

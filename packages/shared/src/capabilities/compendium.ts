@@ -50,6 +50,49 @@ export interface GetCompendiumEntryInput {
   entryId: string;
 }
 
+export interface CompendiumItemContent {
+  contentType: "item";
+  description?: string;
+  quantity?: number;
+  weight?: number;
+  price?: string;
+  rarity?: string;
+  identified?: boolean;
+  activation?: { type?: string; cost?: number; condition?: string };
+  target?: { value?: number; units?: string; type?: string };
+  range?: { value?: number; long?: number; units?: string };
+  duration?: { value?: number; units?: string };
+  uses?: { value?: number; max?: number; per?: string };
+  damageFormulas?: string[];
+  save?: { ability?: string; dc?: number };
+  properties?: string[];
+}
+
+export interface CompendiumActorContent {
+  contentType: "actor";
+  actorType: string;
+  description?: string;
+}
+
+export interface CompendiumJournalEntryContent {
+  contentType: "journalEntry";
+  pages: Array<{ name: string; type: string; text?: string }>;
+}
+
+export interface CompendiumJournalPageContent {
+  contentType: "journalEntryPage";
+  pageType: string;
+  text?: string;
+}
+
+export type CompendiumEntryContent =
+  | CompendiumItemContent
+  | CompendiumActorContent
+  | CompendiumJournalEntryContent
+  | CompendiumJournalPageContent;
+
+export const SUPPORTED_COMPENDIUM_CONTENT_TYPES = ["Item", "Actor", "JournalEntry", "JournalEntryPage"] as const;
+
 export interface GetCompendiumEntryOutput {
   sourceId: string;
   sourceName: string;
@@ -60,6 +103,7 @@ export interface GetCompendiumEntryOutput {
   entryName: string;
   documentType: string;
   img?: string;
+  content?: CompendiumEntryContent;
 }
 
 export const LIST_COMPENDIUMS_DECLARATION: CapabilityDeclaration = {
@@ -198,6 +242,13 @@ export function validateGetCompendiumEntryOutput(
   }
   if (value.img !== undefined && typeof value.img !== "string") {
     errors.push("img must be a string");
+  }
+  if (value.content !== undefined) {
+    if (!isRecord(value.content)) {
+      errors.push("content must be an object");
+    } else if (!isNonEmptyString(value.content.contentType)) {
+      errors.push("content.contentType is required");
+    }
   }
   return errors.length
     ? { valid: false, errors }

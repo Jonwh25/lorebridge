@@ -76,6 +76,13 @@ import {
   validateSearchPlaylistsOutput,
   GET_QUEST_OBJECTIVES_CAPABILITY,
   validateGetQuestObjectivesOutput,
+  GET_ITEM_CAPABILITY,
+  validateGetItemOutput,
+  LIST_FOLDERS_CAPABILITY,
+  BROWSE_FOLDER_CAPABILITY,
+  validateListFoldersOutput,
+  validateBrowseFolderOutput,
+  FOLDER_SUPPORTED_TYPES,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -1189,7 +1196,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     "get_compendium_entry",
     {
       title: "Get a Foundry compendium entry",
-      description: "Retrieve a specific compendium entry by pack ID and entry ID. Returns the entry's name, type, UUID, and image. Use packId and entryId from search_compendium results.",
+      description: "Retrieve a specific compendium entry by pack ID and entry ID. Returns the entry's name, type, UUID, image, and full normalized content (description, stats, and structure for Item, Actor, JournalEntry, and JournalEntryPage types). Use packId and entryId from search_compendium results.",
       inputSchema: z.object({
         packId: z.string().trim().min(1).describe(
           "The compendium pack ID returned by list_compendiums or search_compendium (e.g. 'dnd5e.spells').",
@@ -1230,6 +1237,156 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         };
       } catch (error) {
         return toolError(error, "LoreBridge could not retrieve the compendium entry.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_item",
+    {
+      title: "Get a Foundry world item",
+      description: "Retrieve a specific item from the Foundry world by its item ID. Returns name, type, description, and D&D 5e stats (quantity, weight, price, activation, range, damage, save, uses). Use search_items to find item IDs.",
+      inputSchema: z.object({
+        itemId: z.string().trim().min(1).describe(
+          "The Foundry item ID or UUID (Actor.uuid format also accepted).",
+        ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility filter. 'player' omits items not visible to players. Defaults to 'gm'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ itemId, mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          GET_ITEM_CAPABILITY,
+          { itemId, ...(mode ? { mode } : {}) },
+        );
+        const validation = validateGetItemOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned an invalid item.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not retrieve the item.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_folders",
+    {
+      title: "List Foundry folders",
+      description: "List all folders of a given document type in the connected Foundry world, with depth, parent, and document count information. Use to discover the folder structure before calling browse_folder.",
+      inputSchema: z.object({
+        documentType: z.enum([...FOLDER_SUPPORTED_TYPES] as ["Actor", "Item", "JournalEntry", "Scene", "RollTable", "Playlist", "Macro"]).describe(
+          "The Foundry document type to list folders for.",
+        ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility filter. 'player' omits folders with no player-visible documents. Defaults to 'gm'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ documentType, mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          LIST_FOLDERS_CAPABILITY,
+          { documentType, ...(mode ? { mode } : {}) },
+        );
+        const validation = validateListFoldersOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid folder data.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not list folders.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "browse_folder",
+    {
+      title: "Browse a Foundry folder",
+      description: "List the child folders and documents inside a specific Foundry folder (or the root level if no folderId is given). Returns document summaries with IDs and UUIDs. Use list_folders first to discover folder IDs.",
+      inputSchema: z.object({
+        documentType: z.enum([...FOLDER_SUPPORTED_TYPES] as ["Actor", "Item", "JournalEntry", "Scene", "RollTable", "Playlist", "Macro"]).describe(
+          "The Foundry document type to browse.",
+        ),
+        folderId: z.string().trim().min(1).optional().describe(
+          "The folder ID to browse. Omit to browse root-level documents (not in any folder).",
+        ),
+        mode: z.enum(["gm", "player"]).optional().describe(
+          "Visibility filter. 'player' omits documents not visible to players. Defaults to 'gm'.",
+        ),
+        sourceId: z.string().trim().min(1).optional().describe(
+          "LoreBridge source identifier. Omit when exactly one Foundry world is connected.",
+        ),
+      }),
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ documentType, folderId, mode, sourceId }) => {
+      try {
+        const result = await adapterSessions.invoke(
+          sourceId,
+          BROWSE_FOLDER_CAPABILITY,
+          { documentType, ...(folderId ? { folderId } : {}), ...(mode ? { mode } : {}) },
+        );
+        const validation = validateBrowseFolderOutput(result);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid browse folder data.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        return {
+          content: [{ type: "text", text: JSON.stringify(validation.value) }],
+          structuredContent: validation.value,
+        };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not browse the folder.");
       }
     },
   );
