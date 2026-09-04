@@ -689,9 +689,9 @@ answering detailed questions after it locates a Foundry document. Responses
 remain bounded, normalized, source-attributed, and subject to existing
 permissions, Context Profiles, compendium exclusions, and visibility modes.
 
-1. [Focused world-item and content-complete compendium retrieval](https://github.com/Jonwh25/lorebridge/issues/363)
-2. [Bounded D&D 5e actor mechanical state in `get_actor`](https://github.com/Jonwh25/lorebridge/issues/362)
-3. [Bounded Foundry folder discovery and browsing](https://github.com/Jonwh25/lorebridge/issues/364)
+1. [x] [Focused world-item and content-complete compendium retrieval](https://github.com/Jonwh25/lorebridge/issues/363)
+2. [x] [Bounded D&D 5e actor mechanical state in `get_actor`](https://github.com/Jonwh25/lorebridge/issues/362)
+3. [x] [Bounded Foundry folder discovery and browsing](https://github.com/Jonwh25/lorebridge/issues/364)
 
 Issue #363 closes the largest focused-retrieval gap and establishes reusable
 normalized representations for world and compendium documents. Issue #362
