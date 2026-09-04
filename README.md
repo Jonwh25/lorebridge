@@ -19,8 +19,13 @@ Foundry documents or provider credentials.
 
 - Ask questions grounded in journals, actors, scenes, items, roll tables,
   playlists, compendiums, session logs, combat, chat, and linked campaign
-  sources, with optional folder-scoped search.
+  sources, with optional folder-scoped search and step-by-step folder navigation
+  via `list_folders` and `browse_folder`.
 - Get source citations and stable Foundry identifiers with bounded results.
+  Retrieve a world item's full D&D 5e mechanical data — weapon, spell, feat,
+  consumable, equipment, and more — with `get_item`. Inspect a character or
+  NPC's current mechanical state (AC, HP, abilities, movement, senses, spell
+  slots, resources, conditions, exhaustion) via `get_actor`.
 - Let players ask questions through the optional GM-curated Player Lore
   Assistant without exposing hidden campaign material.
 - Generate session preparation, boxed text, roll tables, NPC profiles, D&D 5e
@@ -96,7 +101,7 @@ or rebuilding, native search and content scanners remain available.
 
 | Area | Highlights |
 | --- | --- |
-| Campaign retrieval | World summary; folder-aware journal, actor, scene, item, macro, roll-table, and playlist discovery; compendium, asset, chat, combat, and session-log retrieval |
+| Campaign retrieval | World summary; folder-aware journal, actor, scene, item, macro, roll-table, and playlist discovery; compendium, asset, chat, combat, and session-log retrieval; `list_folders` and `browse_folder` for navigating nested folder trees; `get_item` for bounded D&D 5e item stats; full content loading for compendium entries (Item, Actor, JournalEntry, JournalEntryPage) |
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
