@@ -708,6 +708,16 @@ visibility boundary.
 All three delivered issues are merged, documented, and accepted. The v0.35.0
 closeout and release-preparation change is merged in PR #368.
 
+### Milestone 36 — Journal Block Taxonomy & Read-Aloud Styling
+
+Define and implement a complete LoreBridge journal block taxonomy so that AI-generated journal pages have consistent, visually distinct styling for every structured block type (read-aloud narration, flavor asides, in-world documents, mechanical call-outs, treasure summaries, and encounter notes).
+
+1. [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
+
+All blocks use `<blockquote class="lb-{type}">` — the one block-level element ProseMirror's schema preserves reliably on save. A shared stylesheet registered in `module.json` provides accent colors, badge labels, and typography for each type. Generation prompts are updated to document the heading hierarchy (`## Scene / ### Area / #### Feature`) and the `<!-- lb:page -->` metadata comment standard, and key journal write paths (boxed text, session recap, session prep) adopt the new markup on save.
+
+Success test: a GM saves AI-generated boxed text, a session recap, and a session prep page into Foundry; each block renders with its correct accent color and badge label; opening and saving those pages in ProseMirror does not strip or corrupt the `blockquote` tags; plain `<blockquote>` elements without `lb-` classes are visually unaffected.
+
 ## Planning workflow
 
 LoreBridge uses a lightweight workflow:

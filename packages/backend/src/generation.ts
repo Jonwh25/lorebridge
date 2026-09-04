@@ -848,6 +848,7 @@ export async function generateSessionPrep(
     "",
     "## Strong Start",
     "One specific, vivid opening scene or event that launches the session with momentum.",
+    "If this is read-aloud narration, wrap it in: <blockquote class=\"read-aloud\"><p><span class=\"read-aloud-label\">📜 Read Aloud</span><br>{{text}}</p></blockquote>",
     "",
     "## Potential Scenes",
     "3-5 scenes or encounters the party might experience this session. Each is one sentence.",
@@ -863,15 +864,18 @@ export async function generateSessionPrep(
     "",
     "## Monsters",
     "2-4 monsters or enemy types appropriate for this session. One sentence each.",
+    "Wrap any stat block call-outs (DCs, checks, initiative triggers) in: <blockquote class=\"lb-stat-callout\"><p>{{text}}</p></blockquote>",
     "",
     "## Treasure",
     "2-3 specific rewards, magic items, or valuables the party might find.",
+    "Optionally wrap the treasure list in: <blockquote class=\"lb-treasure\"><p>{{text}}</p></blockquote>",
     "",
     "Output rules:",
     "- Use the exact section headers above (## Strong Start, etc.)",
     "- Plain prose and bullet points only. No | characters.",
     "- Reference actual NPC names, location names, and lore from the campaign context.",
     "- Never invent content that contradicts the provided campaign context.",
+    "- Use LoreBridge block classes only where noted above — do not add them to every paragraph.",
   ].join("\n");
 
   const prep = await callAI(provider, prompt, 1500);
