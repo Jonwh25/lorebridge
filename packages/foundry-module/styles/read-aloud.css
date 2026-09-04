@@ -3,6 +3,9 @@
  * journal pages. All blocks use <blockquote class="lb-{type}"> — the one
  * block-level element ProseMirror's schema preserves reliably on save.
  *
+ * Labels are injected via ::before pseudo-elements so no inner <span> class
+ * needs to survive ProseMirror's schema sanitization.
+ *
  * Scoped to both .journal-entry-page (read view) and .editor-content (edit
  * view) to beat Foundry core blockquote specificity in both contexts.
  */
@@ -16,17 +19,6 @@
   box-shadow: 0 3px 8px rgba(0,0,0,0.5);
   margin: 1em 0;
   padding: 0.75em 1em;
-}
-
-.journal-entry-page blockquote[class^="lb-"] .lb-label,
-.editor-content       blockquote[class^="lb-"] .lb-label {
-  display: block;
-  font-style: normal;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-bottom: 0.25em;
-  margin-bottom: 0.5em;
 }
 
 /* ── Read Aloud — Antique Gold ──────────────────────────────────────── */
@@ -48,16 +40,15 @@
   line-height: 1.55 !important;
   box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important;
 }
-.journal-entry-page blockquote.lb-read-aloud .lb-label,
-.editor-content       blockquote.lb-read-aloud .lb-label {
+.journal-entry-page blockquote.lb-read-aloud::before,
+.editor-content       blockquote.lb-read-aloud::before {
+  content: "📜 READ ALOUD";
   display: block !important;
-  width: 100% !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-style: normal !important;
   font-size: 0.72rem !important;
   font-weight: 800 !important;
   letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
   color: #e5b85c !important;
   margin-bottom: 8px !important;
   padding-bottom: 4px !important;
@@ -71,9 +62,17 @@
   background: rgba(138,155,176,0.05);
   font-style: italic;
 }
-.journal-entry-page blockquote.lb-flavor .lb-label,
-.editor-content       blockquote.lb-flavor .lb-label {
+.journal-entry-page blockquote.lb-flavor::before,
+.editor-content       blockquote.lb-flavor::before {
+  content: "✨ FLAVOR";
+  display: block;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   color: #a8bcd0;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid rgba(168,188,208,0.25);
 }
 
@@ -84,9 +83,17 @@
   background: rgba(58,138,122,0.05);
   font-family: Georgia, serif;
 }
-.journal-entry-page blockquote.lb-lore .lb-label,
-.editor-content       blockquote.lb-lore .lb-label {
+.journal-entry-page blockquote.lb-lore::before,
+.editor-content       blockquote.lb-lore::before {
+  content: "📖 LORE";
+  display: block;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   color: #5abaa8;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid rgba(90,186,168,0.25);
 }
 
@@ -97,9 +104,18 @@
   background: rgba(160,64,64,0.05);
   font-family: monospace;
 }
-.journal-entry-page blockquote.lb-stat-callout .lb-label,
-.editor-content       blockquote.lb-stat-callout .lb-label {
+.journal-entry-page blockquote.lb-stat-callout::before,
+.editor-content       blockquote.lb-stat-callout::before {
+  content: "⚔️ MECHANICS";
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   color: #c86060;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid rgba(200,96,96,0.25);
 }
 
@@ -109,9 +125,17 @@
   border-left: 4px solid #5a8a3a;
   background: rgba(90,138,58,0.05);
 }
-.journal-entry-page blockquote.lb-treasure .lb-label,
-.editor-content       blockquote.lb-treasure .lb-label {
+.journal-entry-page blockquote.lb-treasure::before,
+.editor-content       blockquote.lb-treasure::before {
+  content: "💰 TREASURE";
+  display: block;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   color: #7ab858;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid rgba(122,184,88,0.25);
 }
 
@@ -121,8 +145,16 @@
   border-left: 4px solid #6a3a8a;
   background: rgba(106,58,138,0.05);
 }
-.journal-entry-page blockquote.lb-encounter .lb-label,
-.editor-content       blockquote.lb-encounter .lb-label {
+.journal-entry-page blockquote.lb-encounter::before,
+.editor-content       blockquote.lb-encounter::before {
+  content: "⚡ ENCOUNTER";
+  display: block;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   color: #9a68c8;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid rgba(154,104,200,0.25);
 }
