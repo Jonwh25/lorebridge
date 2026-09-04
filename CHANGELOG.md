@@ -2,6 +2,54 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.35.0] - 2026-09-03
+
+### Added
+
+- **`get_item` MCP tool** (#363, PR #367): retrieves any world item by ID with
+  full D&D 5e mechanical data — weapon properties, damage dice, range, and
+  attack bonus; spell school, level, casting time, range, components, duration,
+  concentration, ritual flag, and description; feat, feature, and consumable
+  descriptions; container capacity; background and race features; equipment
+  armor class and properties. The response is bounded, normalized, and
+  source-attributed.
+
+- **Bounded D&D 5e mechanical state in `get_actor`** (#362, PR #367): actor
+  retrieval now returns a normalized mechanical snapshot covering armor class
+  (value and component breakdown), hit points (current, max, temp), all six
+  ability scores and modifiers, movement speeds, passive perception, darkvision
+  and other senses, spell slots by level with used/remaining counts, limited-use
+  resources (features, items), active conditions, and exhaustion level. Raw
+  system data is not exposed; the response uses the same existing bounded and
+  source-attributed envelope.
+
+- **`get_compendium_entry` full content loading** (#363, PR #367): compendium
+  entry retrieval is now asynchronous and loads the full document before
+  normalizing it. Item, Actor, JournalEntry, and JournalEntryPage entries
+  return the same bounded field sets as their world counterparts rather than
+  truncated index data.
+
+- **`list_folders` MCP tool** (#364, PR #367): returns the flat folder tree for
+  a Foundry document type (Actor, Item, JournalEntry, Scene, Macro, RollTable,
+  Playlist) with each folder's ID, name, depth, parent ID, and document count.
+  Lets an AI client discover folder IDs before calling `browse_folder` or
+  folder-scoped search tools.
+
+- **`browse_folder` MCP tool** (#364, PR #367): returns the immediate child
+  folders and a bounded list of document summaries at a given folder ID, or at
+  the root when no folder is specified. Results include document names, IDs, and
+  types, enabling step-by-step folder navigation without scanning the entire
+  collection.
+
+### Upgrade notes
+
+- Update both the backend and Foundry module, then reload the Foundry browser
+  tab. No new environment variables or external dependencies are required.
+- `get_actor` responses now include a `mechanicalState` block; existing callers
+  that ignore unknown fields are unaffected.
+- `get_compendium_entry` now performs an asynchronous document load; response
+  time for compendium tools may increase slightly for large entries.
+
 ## [0.34.0] - 2026-09-03
 
 ### Added
