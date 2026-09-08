@@ -57,11 +57,11 @@ function sectionToHtml(rawText: string, block: BlockType): string {
     if (bullet) {
       if (listKind === "ol") flushList();
       listKind = "ul";
-      listBuf.push(inlineMd(bullet[1]));
+      listBuf.push(inlineMd(bullet[1] ?? ""));
     } else if (numbered) {
       if (listKind === "ul") flushList();
       listKind = "ol";
-      listBuf.push(inlineMd(numbered[1]));
+      listBuf.push(inlineMd(numbered[1] ?? ""));
     } else {
       flushList();
       parts.push(`<p>${inlineMd(t)}</p>`);
