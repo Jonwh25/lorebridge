@@ -9,35 +9,6 @@ GitHub Issues are the source of truth for planned work. This file tracks active
 and upcoming milestones. Completed milestone details live in
 [CHANGELOG.md](CHANGELOG.md), newest first.
 
-## Current state
-
-The first complete read-only integration is working:
-
-```text
-Codex
-  → authenticated HTTPS/MCP
-  → LoreBridge backend
-  → authenticated WebSocket adapter session
-  → LoreBridge Foundry v14 module
-  → loaded GM world
-```
-
-Completed foundations include:
-
-- Foundry v14 module packaging and automatic releases
-- GM-only capability exposure and world settings
-- Backend identity, pairing, and client authentication
-- Caddy HTTPS reverse-proxy deployment
-- Persistent authenticated Foundry adapter sessions
-- Automatic adapter startup retry and reconnection
-- Shared protocol envelopes and runtime validation
-- MCP discovery and authenticated tool invocation
-- `get_world_summary`
-- `search_journals`
-- `get_journal_page`
-- End-to-end retrieval from Codex against the live Curse of Strahd world
-- Installation, operation, upgrade, and troubleshooting documentation
-
 ## Active
 
 ### Milestone 36 — Journal Block Taxonomy & Read-Aloud Styling
