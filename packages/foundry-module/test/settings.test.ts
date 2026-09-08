@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 43);
+  assert.equal(registrations.size, 49);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -132,6 +132,16 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerCharacterNames)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.playerCharacterNames)?.default, "");
 
+  // Journal block colors
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorReadAloud)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorReadAloud)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorReadAloud)?.default, "#c8963e");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorFlavor)?.default, "#5a7fa8");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorLore)?.default, "#2e8a78");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorMechanics)?.default, "#9a3535");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorTreasure)?.default, "#3a8a50");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.blockColorEncounter)?.default, "#6a3a9a");
+
   // Backup config — general
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backupPathNpcs)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backupPathNpcs)?.config, false);
@@ -204,6 +214,12 @@ test("reads and normalizes configured values", () => {
     lorefolderPath: "lorebridge",
     portraitMatchRoot: "Artwork/Portraits/NPCs",
     playerCharacterNames: "",
+    blockColorReadAloud: "#c8963e",
+    blockColorFlavor: "#5a7fa8",
+    blockColorLore: "#2e8a78",
+    blockColorMechanics: "#9a3535",
+    blockColorTreasure: "#3a8a50",
+    blockColorEncounter: "#6a3a9a",
     backupPathNpcs: "02-actors/npcs",
     backupPathPlayers: "02-actors/players",
     backupPathJournals: "07-foundry/journals",

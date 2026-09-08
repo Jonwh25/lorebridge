@@ -426,15 +426,18 @@ function runLazyDmPrep(doc: AppDoc, frame: HTMLElement): void {
           context,
         });
 
-        // Render prep as structured HTML, passing lb- block elements through unchanged
+        // Backend returns structured HTML from formatSessionPrep(); pass all HTML
+        // tags through unchanged so tables and blockquotes are not corrupted.
+        // Fall back to light markdown conversion for any raw-text lines the AI
+        // may still emit (headings, bullets) so legacy content still renders.
         const html = result.prep
           .split("\n")
           .map((line) => {
+            if (/^<\/?[a-z]/i.test(line.trim())) return line;
             if (/^##\s+/.test(line)) return `<h3>${line.replace(/^##\s+/, "")}</h3>`;
             if (/^-\s+/.test(line)) return `<li>${line.replace(/^-\s+/, "")}</li>`;
             if (/^\d+\.\s+/.test(line)) return `<li>${line.replace(/^\d+\.\s+/, "")}</li>`;
             if (line.trim() === "") return "";
-            if (/^<blockquote|^<\/blockquote|^<p>|^<\/p>/.test(line.trim())) return line;
             return `<p>${line}</p>`;
           })
           .join("\n");

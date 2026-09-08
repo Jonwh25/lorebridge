@@ -68,6 +68,7 @@ type SectionId =
   | "connection"
   | "features"
   | "ai-content"
+  | "journal-colors"
   | "access-safety"
   | "history"
   | "backup-config"
@@ -75,15 +76,16 @@ type SectionId =
   | "advanced";
 
 const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
-  { id: "home",          label: "Home",           icon: "fas fa-house" },
-  { id: "connection",    label: "Connection",      icon: "fas fa-plug" },
-  { id: "features",      label: "Features",        icon: "fas fa-sliders-h" },
-  { id: "ai-content",    label: "AI & Content",    icon: "fas fa-magic" },
-  { id: "access-safety", label: "Access & Safety", icon: "fas fa-shield-alt" },
-  { id: "history",       label: "History",         icon: "fas fa-history" },
-  { id: "backup-config", label: "Backup Config",   icon: "fas fa-folder-open" },
-  { id: "diagnostics",   label: "Diagnostics",     icon: "fas fa-stethoscope" },
-  { id: "advanced",      label: "Advanced",        icon: "fas fa-cogs" },
+  { id: "home",           label: "Home",            icon: "fas fa-house" },
+  { id: "connection",     label: "Connection",       icon: "fas fa-plug" },
+  { id: "features",       label: "Features",         icon: "fas fa-sliders-h" },
+  { id: "ai-content",     label: "AI & Content",     icon: "fas fa-magic" },
+  { id: "journal-colors", label: "Journal Colors",   icon: "fas fa-palette" },
+  { id: "access-safety",  label: "Access & Safety",  icon: "fas fa-shield-alt" },
+  { id: "history",        label: "History",          icon: "fas fa-history" },
+  { id: "backup-config",  label: "Backup Config",    icon: "fas fa-folder-open" },
+  { id: "diagnostics",    label: "Diagnostics",      icon: "fas fa-stethoscope" },
+  { id: "advanced",       label: "Advanced",         icon: "fas fa-cogs" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -164,14 +166,15 @@ function buildHomeHtml(): string {
       </p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         ${[
-          { id: "connection",    icon: "fas fa-plug",        label: "Connection",      desc: "Backend URL, pairing status" },
-          { id: "features",      icon: "fas fa-sliders-h",   label: "Features",        desc: "Enable / disable capabilities" },
-          { id: "ai-content",    icon: "fas fa-magic",       label: "AI & Content",    desc: "Provider, session log, compendiums" },
-          { id: "access-safety", icon: "fas fa-shield-alt",  label: "Access & Safety", desc: "Context profiles, player lore" },
-          { id: "history",       icon: "fas fa-history",     label: "History",         desc: "Recent AI generations" },
-          { id: "backup-config", icon: "fas fa-folder-open", label: "Backup Config",   desc: "GitHub folder paths for each backup category" },
-          { id: "diagnostics",   icon: "fas fa-stethoscope", label: "Diagnostics",     desc: "Check system status and copy a safe summary" },
-          { id: "advanced",      icon: "fas fa-cogs",        label: "Advanced",        desc: "Portrait directory, history length" },
+          { id: "connection",     icon: "fas fa-plug",        label: "Connection",       desc: "Backend URL, pairing status" },
+          { id: "features",       icon: "fas fa-sliders-h",  label: "Features",         desc: "Enable / disable capabilities" },
+          { id: "ai-content",     icon: "fas fa-magic",      label: "AI & Content",     desc: "Provider, session log, compendiums" },
+          { id: "journal-colors", icon: "fas fa-palette",    label: "Journal Colors",   desc: "Accent colors for each journal block type" },
+          { id: "access-safety",  icon: "fas fa-shield-alt", label: "Access & Safety",  desc: "Context profiles, player lore" },
+          { id: "history",        icon: "fas fa-history",    label: "History",          desc: "Recent AI generations" },
+          { id: "backup-config",  icon: "fas fa-folder-open",label: "Backup Config",    desc: "GitHub folder paths for each backup category" },
+          { id: "diagnostics",    icon: "fas fa-stethoscope",label: "Diagnostics",      desc: "Check system status and copy a safe summary" },
+          { id: "advanced",       icon: "fas fa-cogs",       label: "Advanced",         desc: "Portrait directory, history length" },
         ].map(({ id, icon, label, desc }) => `
           <button data-action="nav" data-section="${id}"
             style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.12);border-radius:6px;cursor:pointer;text-align:left">
@@ -354,6 +357,58 @@ function buildAiContentHtml(): string {
       <div style="margin-top:16px;text-align:right">
         <button data-action="ai-content-save" style="padding:6px 16px">
           <i class="fas fa-save"></i> Save
+        </button>
+      </div>
+    </div>`;
+}
+
+const PALETTE: { name: string; hex: string }[] = [
+  { name: "Antique Gold",  hex: "#c8963e" },
+  { name: "Steel Blue",    hex: "#5a7fa8" },
+  { name: "Forest Teal",   hex: "#2e8a78" },
+  { name: "Crimson",       hex: "#9a3535" },
+  { name: "Emerald",       hex: "#3a8a50" },
+  { name: "Deep Purple",   hex: "#6a3a9a" },
+  { name: "Slate Grey",    hex: "#5a6472" },
+  { name: "Rust Orange",   hex: "#b05a2a" },
+  { name: "Dusty Rose",    hex: "#a05070" },
+  { name: "Amber",         hex: "#b08020" },
+  { name: "Midnight Blue", hex: "#2a4a80" },
+  { name: "Sage Green",    hex: "#608050" },
+  { name: "Warm Brown",    hex: "#80502a" },
+  { name: "Lavender",      hex: "#8870b8" },
+];
+
+function colorSelect(key: string, current: string): string {
+  const options = PALETTE.map(({ name, hex }) =>
+    `<option value="${hex}" ${current === hex ? "selected" : ""}>${esc(name)} (${hex})</option>`,
+  ).join("");
+  return `<select name="${esc(key)}" style="width:220px;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">${options}</select>`;
+}
+
+function swatchRow(label: string, key: string, current: string): string {
+  return `
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08)">
+      <div style="width:16px;height:16px;border-radius:3px;flex-shrink:0;background:${esc(current)}"></div>
+      <div style="flex:1;font-size:0.88em;font-weight:bold">${esc(label)}</div>
+      ${colorSelect(key, current)}
+    </div>`;
+}
+
+function buildJournalColorsHtml(): string {
+  const s = getLoreBridgeSettings();
+  return `
+    <div style="padding:20px 24px">
+      ${sectionHeader("Journal Block Colors", "Choose an accent color for each journal block type. Changes apply immediately after saving — no Foundry reload needed.")}
+      ${swatchRow("Read Aloud",   LOREBRIDGE_SETTINGS.blockColorReadAloud, s.blockColorReadAloud)}
+      ${swatchRow("Flavor",       LOREBRIDGE_SETTINGS.blockColorFlavor,    s.blockColorFlavor)}
+      ${swatchRow("Lore",         LOREBRIDGE_SETTINGS.blockColorLore,      s.blockColorLore)}
+      ${swatchRow("Mechanics",    LOREBRIDGE_SETTINGS.blockColorMechanics, s.blockColorMechanics)}
+      ${swatchRow("Treasure",     LOREBRIDGE_SETTINGS.blockColorTreasure,  s.blockColorTreasure)}
+      ${swatchRow("Encounter",    LOREBRIDGE_SETTINGS.blockColorEncounter, s.blockColorEncounter)}
+      <div style="margin-top:16px;text-align:right">
+        <button data-action="journal-colors-save" style="padding:6px 16px">
+          <i class="fas fa-save"></i> Save Colors
         </button>
       </div>
     </div>`;
@@ -574,6 +629,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       "conn-unpair": LoreBridgeSettingsApp._onConnUnpair,
       "features-save": LoreBridgeSettingsApp._onFeaturesSave,
       "ai-content-save": LoreBridgeSettingsApp._onAiContentSave,
+      "journal-colors-save": LoreBridgeSettingsApp._onJournalColorsSave,
       "profile-new": LoreBridgeSettingsApp._onProfileNew,
       "profile-activate": LoreBridgeSettingsApp._onProfileActivate,
       "profile-clear-active": LoreBridgeSettingsApp._onProfileClearActive,
@@ -648,8 +704,9 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "home":          return buildHomeHtml();
       case "connection":    return buildConnectionHtml();
       case "features":      return buildFeaturesHtml();
-      case "ai-content":    return buildAiContentHtml();
-      case "access-safety": return buildAccessSafetyHtml();
+      case "ai-content":     return buildAiContentHtml();
+      case "journal-colors": return buildJournalColorsHtml();
+      case "access-safety":  return buildAccessSafetyHtml();
       case "history":       return buildHistoryHtml();
       case "backup-config": return buildBackupConfigHtml();
       case "diagnostics":   return buildDiagnosticsHtml(this._diagnostics);
@@ -903,6 +960,33 @@ export class LoreBridgeSettingsApp extends AppBase {
       api.set(MODULE_ID, LOREBRIDGE_SETTINGS.excludedCompendiums,  excluded),
     ]);
     ui.notifications.info("LoreBridge: AI & Content settings saved.");
+    void this._self().render({ force: false });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Journal Block Colors
+  // ---------------------------------------------------------------------------
+
+  static async _onJournalColorsSave(
+    this: LoreBridgeSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    const api = getFoundrySettingsApi();
+    const el = this._self().element;
+    const val = (key: string) =>
+      el.querySelector<HTMLSelectElement>(`select[name='${key}']`)?.value ?? "";
+
+    await Promise.all([
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorReadAloud, val(LOREBRIDGE_SETTINGS.blockColorReadAloud)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorFlavor,    val(LOREBRIDGE_SETTINGS.blockColorFlavor)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorLore,      val(LOREBRIDGE_SETTINGS.blockColorLore)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorMechanics, val(LOREBRIDGE_SETTINGS.blockColorMechanics)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorTreasure,  val(LOREBRIDGE_SETTINGS.blockColorTreasure)),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorEncounter, val(LOREBRIDGE_SETTINGS.blockColorEncounter)),
+    ]);
+    // The Hooks.on("updateSetting") listener in main.ts re-injects styles automatically.
+    ui.notifications.info("LoreBridge: Journal block colors saved.");
     void this._self().render({ force: false });
   }
 

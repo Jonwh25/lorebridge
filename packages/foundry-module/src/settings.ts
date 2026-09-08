@@ -56,6 +56,13 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   lorefolderPath: "lorefolderPath",
   portraitMatchRoot: "portraitMatchRoot",
   playerCharacterNames: "playerCharacterNames",
+  // Journal block accent colors
+  blockColorReadAloud: "blockColorReadAloud",
+  blockColorFlavor:    "blockColorFlavor",
+  blockColorLore:      "blockColorLore",
+  blockColorMechanics: "blockColorMechanics",
+  blockColorTreasure:  "blockColorTreasure",
+  blockColorEncounter: "blockColorEncounter",
   // Backup config — general
   backupPathNpcs: "backupPathNpcs",
   backupPathPlayers: "backupPathPlayers",
@@ -100,6 +107,12 @@ export type LoreBridgeSettings = {
   lorefolderPath: string;
   portraitMatchRoot: string;
   playerCharacterNames: string;
+  blockColorReadAloud: string;
+  blockColorFlavor: string;
+  blockColorLore: string;
+  blockColorMechanics: string;
+  blockColorTreasure: string;
+  blockColorEncounter: string;
   backupPathNpcs: string;
   backupPathPlayers: string;
   backupPathJournals: string;
@@ -421,6 +434,25 @@ export function registerLoreBridgeSettings(): void {
     default: "",
   });
 
+  // Journal block accent colors
+  for (const [key, defaultColor] of [
+    [LOREBRIDGE_SETTINGS.blockColorReadAloud, "#c8963e"],
+    [LOREBRIDGE_SETTINGS.blockColorFlavor,    "#5a7fa8"],
+    [LOREBRIDGE_SETTINGS.blockColorLore,      "#2e8a78"],
+    [LOREBRIDGE_SETTINGS.blockColorMechanics, "#9a3535"],
+    [LOREBRIDGE_SETTINGS.blockColorTreasure,  "#3a8a50"],
+    [LOREBRIDGE_SETTINGS.blockColorEncounter, "#6a3a9a"],
+  ] as const) {
+    settings.register(MODULE_ID, key, {
+      name: `Journal Block Color: ${key}`,
+      hint: "Accent color for this journal block type.",
+      scope: "world",
+      config: false,
+      type: String,
+      default: defaultColor,
+    });
+  }
+
   // Backup config — general
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs, {
     name: "Backup: Actors (NPCs) Folder",
@@ -566,6 +598,18 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     playerCharacterNames: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.playerCharacterNames) ?? "",
     ).trim(),
+    blockColorReadAloud: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorReadAloud), "#c8963e"),
+    blockColorFlavor: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorFlavor), "#5a7fa8"),
+    blockColorLore: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorLore), "#2e8a78"),
+    blockColorMechanics: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorMechanics), "#9a3535"),
+    blockColorTreasure: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorTreasure), "#3a8a50"),
+    blockColorEncounter: normalizeHexColor(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorEncounter), "#6a3a9a"),
     backupPathNpcs: normalizeBackupPath(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs), "02-actors/npcs"),
     backupPathPlayers: normalizeBackupPath(
@@ -603,4 +647,9 @@ function normalizeBackupPath(value: unknown, defaultValue: string): string {
   const raw = String(value ?? "").trim();
   if (!raw || raw.startsWith("/") || raw.includes("..")) return defaultValue;
   return raw;
+}
+
+function normalizeHexColor(value: unknown, defaultValue: string): string {
+  const raw = String(value ?? "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : defaultValue;
 }
