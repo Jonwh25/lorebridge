@@ -713,6 +713,7 @@ closeout and release-preparation change is merged in PR #368.
 Define and implement a complete LoreBridge journal block taxonomy so that AI-generated journal pages have consistent, visually distinct styling for every structured block type (read-aloud narration, flavor asides, in-world documents, mechanical call-outs, treasure summaries, and encounter notes).
 
 1. [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
+2. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
 
 All blocks use `<blockquote class="lb-{type}">` — the one block-level element ProseMirror's schema preserves reliably on save. A shared stylesheet registered in `module.json` provides accent colors, badge labels, and typography for each type. Generation prompts are updated to document the heading hierarchy (`## Scene / ### Area / #### Feature`) and the `<!-- lb:page -->` metadata comment standard, and key journal write paths (boxed text, session recap, session prep) adopt the new markup on save.
 
@@ -721,8 +722,6 @@ Success test: a GM saves AI-generated boxed text, a session recap, and a session
 ### Milestone 37 — Journal Table & NPC List Formatting
 
 Extend the LoreBridge journal block taxonomy with structured table support so that AI-generated NPC lists and data tables render with consistent, styled formatting inside Foundry journal pages.
-
-1. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
 
 Two new CSS classes extend the block taxonomy: `lb-npc-table` for two-column Name/Description NPC rosters and `lb-data-table` for flexible multi-column inventory, loot, and encounter tables. Numeric columns are right-aligned. The `propose_journal_update` MCP tool description is updated with the HTML patterns so any Claude session knows how to structure tables when generating journal content.
 
