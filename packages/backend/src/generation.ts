@@ -7,7 +7,7 @@ import type {
 } from "@lorebridge/shared/capabilities";
 import type { ProviderService } from "./provider.js";
 
-type BlockType = "read-aloud" | "lb-flavor" | "lb-lore" | "lb-stat-callout" | "lb-treasure" | "lb-encounter" | null;
+type BlockType = "read-aloud" | "lb-flavor" | "lb-lore" | "lb-stat-callout" | "lb-treasure" | "lb-encounter" | "lb-npc-table" | "lb-data-table" | null;
 
 const BLOCK_LABEL: Record<Exclude<BlockType, null>, string> = {
   "read-aloud":     '<span class="read-aloud-label">📜 Read Aloud</span>',
@@ -16,6 +16,8 @@ const BLOCK_LABEL: Record<Exclude<BlockType, null>, string> = {
   "lb-stat-callout":'<span class="lb-label">🎲 Mechanics</span>',
   "lb-treasure":    '<span class="lb-label">💎 Treasure</span>',
   "lb-encounter":   '<span class="lb-label">⚔️ Encounter</span>',
+  "lb-npc-table":   "",
+  "lb-data-table":  "",
 };
 
 const PREP_SECTION_BLOCKS: Record<string, BlockType> = {
@@ -23,7 +25,7 @@ const PREP_SECTION_BLOCKS: Record<string, BlockType> = {
   "potential scenes":   null,
   "secrets and clues":  null,
   "fantastic locations":"lb-lore",
-  "important npcs":     null,
+  "important npcs":     "lb-npc-table",
   "monsters":           "lb-stat-callout",
   "treasure":           "lb-treasure",
 };
@@ -33,6 +35,43 @@ function inlineMd(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
+function npcListToTable(lines: string[]): string {
+  const rows: string[] = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    const bullet = t.match(/^[-*]\s+(.+)/);
+    const text = bullet ? bullet[1] ?? t : t;
+    const colonIdx = text.indexOf(":");
+    if (colonIdx > 0) {
+      const name = inlineMd(text.slice(0, colonIdx).trim());
+      const desc = inlineMd(text.slice(colonIdx + 1).trim());
+      rows.push(`<tr><td>${name}</td><td>${desc}</td></tr>`);
+    } else {
+      rows.push(`<tr><td colspan="2">${inlineMd(text)}</td></tr>`);
+    }
+  }
+  if (!rows.length) return "";
+  return `<table class="lb-npc-table"><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function mdTableToDataTable(rawText: string): string {
+  const lines = rawText.trim().split("\n").filter(l => l.trim().startsWith("|"));
+  if (lines.length < 2) return `<p>${inlineMd(rawText.trim())}</p>`;
+  const headerCells = lines[0]!.split("|").map(c => c.trim()).filter(c => c);
+  const dataLines = lines.slice(2); // skip header and separator row
+  const thead = `<thead><tr>${headerCells.map(h => `<th>${inlineMd(h)}</th>`).join("")}</tr></thead>`;
+  const tbody = dataLines.map(line => {
+    const cells = line.split("|").map(c => c.trim()).filter(c => c);
+    return `<tr>${cells.map(c => {
+      const isNumeric = /^\d[\d\s\-–d+.,gcspGCSP%]*$/.test(c);
+      const style = isNumeric ? ' style="text-align:right"' : "";
+      return `<td${style}>${inlineMd(c)}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+  return `<table class="lb-data-table">${thead}<tbody>${tbody}</tbody></table>`;
 }
 
 function sectionToHtml(rawText: string, block: BlockType): string {
@@ -70,6 +109,9 @@ function sectionToHtml(rawText: string, block: BlockType): string {
   flushList();
 
   if (!block) return parts.join("");
+
+  if (block === "lb-npc-table") return npcListToTable(lines);
+  if (block === "lb-data-table") return mdTableToDataTable(rawText);
 
   const label = BLOCK_LABEL[block];
   const inner = rawText.trim().replace(/\n+/g, "<br>");

@@ -1407,6 +1407,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         "  Mechanics/DCs/rules: <blockquote class=\"lb-stat-callout\"><p><span class=\"lb-label\">🎲 Mechanics</span><br>text</p></blockquote>",
         "  Treasure/rewards:    <blockquote class=\"lb-treasure\"><p><span class=\"lb-label\">💎 Treasure</span><br>text</p></blockquote>",
         "  Encounters/monsters: <blockquote class=\"lb-encounter\"><p><span class=\"lb-label\">⚔️ Encounter</span><br>text</p></blockquote>",
+        "  NPC roster:          <table class=\"lb-npc-table\"><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td>Name</td><td>Role or notes</td></tr></tbody></table>",
+        "  Data table (loot, inventory, encounter rolls): <table class=\"lb-data-table\"><thead><tr><th>Cost</th><th>Item</th></tr></thead><tbody><tr><td style=\"text-align:right\">10 gp</td><td>Arrows (20)</td></tr></tbody></table>",
         "Use <h2> for section headers, <p> for prose, <ul>/<ol> for lists. Do not use markdown — only HTML.",
       ].join("\n"),
       inputSchema: z.object({

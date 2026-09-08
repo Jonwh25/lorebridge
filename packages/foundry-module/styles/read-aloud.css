@@ -141,6 +141,74 @@
   border-bottom: 1px solid rgba(90, 184, 112, 0.3);
 }
 
+/* ── NPC Table ──────────────────────────────────────────────────────────── */
+.journal-entry-page table.lb-npc-table,
+.editor-content       table.lb-npc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25em 0;
+  font-size: 0.88em;
+}
+.journal-entry-page table.lb-npc-table thead tr,
+.editor-content       table.lb-npc-table thead tr {
+  background: rgba(0, 0, 0, 0.35);
+  color: #ccc;
+  text-align: left;
+}
+.journal-entry-page table.lb-npc-table th,
+.editor-content       table.lb-npc-table th {
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 2px solid rgba(200, 150, 62, 0.4);
+}
+.journal-entry-page table.lb-npc-table td,
+.editor-content       table.lb-npc-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+.journal-entry-page table.lb-npc-table tbody tr:nth-child(even),
+.editor-content       table.lb-npc-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Data Table ─────────────────────────────────────────────────────────── */
+.journal-entry-page table.lb-data-table,
+.editor-content       table.lb-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25em 0;
+  font-size: 0.88em;
+}
+.journal-entry-page table.lb-data-table thead tr,
+.editor-content       table.lb-data-table thead tr {
+  background: rgba(0, 0, 0, 0.35);
+  color: #ccc;
+  text-align: left;
+}
+.journal-entry-page table.lb-data-table th,
+.editor-content       table.lb-data-table th {
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 2px solid rgba(90, 127, 168, 0.4);
+}
+.journal-entry-page table.lb-data-table td,
+.editor-content       table.lb-data-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+.journal-entry-page table.lb-data-table tbody tr:nth-child(even),
+.editor-content       table.lb-data-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 /* ── Encounter — Deep Purple ────────────────────────────────────────────── */
 .journal-entry-page blockquote.lb-encounter,
 .editor-content       blockquote.lb-encounter {
