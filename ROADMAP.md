@@ -714,6 +714,7 @@ Define and implement a complete LoreBridge journal block taxonomy so that AI-gen
 
 1. [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
 2. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
+3. [Configurable color palette for journal block types in LoreBridge settings](https://github.com/Jonwh25/lorebridge/issues/373)
 
 All blocks use `<blockquote class="lb-{type}">` — the one block-level element ProseMirror's schema preserves reliably on save. A shared stylesheet registered in `module.json` provides accent colors, badge labels, and typography for each type. Generation prompts are updated to document the heading hierarchy (`## Scene / ### Area / #### Feature`) and the `<!-- lb:page -->` metadata comment standard, and key journal write paths (boxed text, session recap, session prep) adopt the new markup on save.
 
