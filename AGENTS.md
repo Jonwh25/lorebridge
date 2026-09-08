@@ -195,8 +195,11 @@ release-ready:
 
 1. Update `README.md` for user-visible capabilities, setup changes, configuration,
    supported workflows, or other current behavior introduced during the milestone.
-2. Update `ROADMAP.md` so every completed milestone issue has a checkmark and the
-   milestone itself is visibly marked complete.
+2. Update `ROADMAP.md`: mark every closed issue ✅ under the milestone, then
+   move the milestone from `## Active` to the top of the `## Completed` table
+   (newest first) with its release version. If more issues remain open in the
+   milestone, do not move it yet — only mark the closed issues ✅ and leave the
+   milestone in `## Active` until all issues are closed.
 3. Update `CHANGELOG.md` with a complete, user-focused summary of all changes in the
    milestone, including relevant fixes, safeguards, configuration changes, and
    upgrade notes. Derive this from the milestone issues and merged PRs; do not rely
