@@ -566,7 +566,10 @@ Hooks.once("ready", () => {
   // update immediately without requiring a Foundry reload (#373).
   Hooks.on("updateSetting", (...args: unknown[]) => {
     const setting = args[0] as { key?: string } | undefined;
-    if (setting?.key && BLOCK_COLOR_KEYS.has(setting.key)) {
+    if (!setting?.key) return;
+    // Foundry Setting documents use "<moduleId>.<settingKey>" as their key.
+    const keyPart = setting.key.replace(`${MODULE_ID}.`, "");
+    if (BLOCK_COLOR_KEYS.has(keyPart)) {
       injectJournalBlockStyles();
     }
   });
