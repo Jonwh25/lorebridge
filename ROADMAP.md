@@ -712,7 +712,7 @@ closeout and release-preparation change is merged in PR #368.
 
 Define and implement a complete LoreBridge journal block taxonomy so that AI-generated journal pages have consistent, visually distinct styling for every structured block type (read-aloud narration, flavor asides, in-world documents, mechanical call-outs, treasure summaries, and encounter notes).
 
-1. [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
+1. ✅ [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
 2. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
 3. [Configurable color palette for journal block types in LoreBridge settings](https://github.com/Jonwh25/lorebridge/issues/373)
 
