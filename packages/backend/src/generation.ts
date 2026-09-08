@@ -7,6 +7,92 @@ import type {
 } from "@lorebridge/shared/capabilities";
 import type { ProviderService } from "./provider.js";
 
+type BlockType = "read-aloud" | "lb-flavor" | "lb-lore" | "lb-stat-callout" | "lb-treasure" | "lb-encounter" | null;
+
+const BLOCK_LABEL: Record<Exclude<BlockType, null>, string> = {
+  "read-aloud":     '<span class="read-aloud-label">📜 Read Aloud</span>',
+  "lb-flavor":      '<span class="lb-label">✨ Flavor</span>',
+  "lb-lore":        '<span class="lb-label">📚 Lore</span>',
+  "lb-stat-callout":'<span class="lb-label">🎲 Mechanics</span>',
+  "lb-treasure":    '<span class="lb-label">💎 Treasure</span>',
+  "lb-encounter":   '<span class="lb-label">⚔️ Encounter</span>',
+};
+
+const PREP_SECTION_BLOCKS: Record<string, BlockType> = {
+  "strong start":       "read-aloud",
+  "potential scenes":   null,
+  "secrets and clues":  null,
+  "fantastic locations":"lb-lore",
+  "important npcs":     null,
+  "monsters":           "lb-stat-callout",
+  "treasure":           "lb-treasure",
+};
+
+function inlineMd(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>");
+}
+
+function sectionToHtml(rawText: string, block: BlockType): string {
+  const lines = rawText.trim().split("\n");
+  const parts: string[] = [];
+  let listKind: "ul" | "ol" | null = null;
+  let listBuf: string[] = [];
+
+  const flushList = () => {
+    if (listBuf.length && listKind) {
+      parts.push(`<${listKind}>${listBuf.map(i => `<li>${i}</li>`).join("")}</${listKind}>`);
+      listBuf = [];
+      listKind = null;
+    }
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { flushList(); continue; }
+    const bullet = t.match(/^[-*]\s+(.+)/);
+    const numbered = t.match(/^\d+\.\s+(.+)/);
+    if (bullet) {
+      if (listKind === "ol") flushList();
+      listKind = "ul";
+      listBuf.push(inlineMd(bullet[1] ?? ""));
+    } else if (numbered) {
+      if (listKind === "ul") flushList();
+      listKind = "ol";
+      listBuf.push(inlineMd(numbered[1] ?? ""));
+    } else {
+      flushList();
+      parts.push(`<p>${inlineMd(t)}</p>`);
+    }
+  }
+  flushList();
+
+  if (!block) return parts.join("");
+
+  const label = BLOCK_LABEL[block];
+  const inner = rawText.trim().replace(/\n+/g, "<br>");
+  return `<blockquote class="${block}"><p>${label}<br>${inlineMd(inner)}</p></blockquote>`;
+}
+
+function formatSessionPrep(aiText: string): string {
+  const sections = aiText.split(/^##\s+/m).filter(s => s.trim());
+  const out: string[] = [];
+
+  for (const section of sections) {
+    const nl = section.indexOf("\n");
+    if (nl === -1) continue;
+    const header = section.slice(0, nl).trim();
+    const body = section.slice(nl + 1).trim();
+    const block = PREP_SECTION_BLOCKS[header.toLowerCase()] ?? null;
+    out.push(`<h2>${header}</h2>`);
+    out.push(sectionToHtml(body, block));
+  }
+
+  return out.join("\n");
+}
+
 export class GenerationError extends Error {
   constructor(message: string) {
     super(message);
@@ -844,10 +930,10 @@ export async function generateSessionPrep(
     "",
     "Generate a complete Lazy DM prep document with ALL of the following sections.",
     "Ground every section in the actual campaign content provided above.",
-    "Use the exact section headers shown below.",
+    "Use the EXACT section headers shown below — they must match character-for-character.",
     "",
     "## Strong Start",
-    "One specific, vivid opening scene or event that launches the session with momentum.",
+    "One specific, vivid opening scene written as read-aloud narration to the players.",
     "",
     "## Potential Scenes",
     "3-5 scenes or encounters the party might experience this session. Each is one sentence.",
@@ -862,19 +948,20 @@ export async function generateSessionPrep(
     "3-5 NPCs who might appear. For each: name, one-sentence role, and what they want.",
     "",
     "## Monsters",
-    "2-4 monsters or enemy types appropriate for this session. One sentence each.",
+    "2-4 monsters or enemy types. Include any DCs, checks, or initiative notes.",
     "",
     "## Treasure",
     "2-3 specific rewards, magic items, or valuables the party might find.",
     "",
     "Output rules:",
-    "- Use the exact section headers above (## Strong Start, etc.)",
-    "- Plain prose and bullet points only. No | characters.",
+    "- Use the exact section headers above — no additions, no renaming.",
+    "- Plain prose and bullet points only. No HTML, no | characters.",
     "- Reference actual NPC names, location names, and lore from the campaign context.",
     "- Never invent content that contradicts the provided campaign context.",
   ].join("\n");
 
-  const prep = await callAI(provider, prompt, 1500);
+  const raw = await callAI(provider, prompt, 1500);
+  const prep = formatSessionPrep(raw);
   return { prep, provider: provider.provider };
 }
 

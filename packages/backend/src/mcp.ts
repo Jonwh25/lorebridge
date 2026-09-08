@@ -1395,7 +1395,20 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     "propose_journal_update",
     {
       title: "Propose a journal page update",
-      description: "Propose a change to a Foundry VTT journal page. Returns a one-time approval token and a before/after preview. No content is modified until the GM explicitly approves the change by running `await LoreBridge.approveWrite(token)` in the Foundry browser console. Requires the 'Enable AI-Proposed Writes' world setting to be on.",
+      description: [
+        "Propose a change to a Foundry VTT journal page. Returns a one-time approval token and a before/after preview.",
+        "No content is modified until the GM explicitly approves the change by running `await LoreBridge.approveWrite(token)` in the Foundry browser console.",
+        "Requires the 'Enable AI-Proposed Writes' world setting to be on.",
+        "",
+        "When generating journal content, use these LoreBridge block types to structure different kinds of information:",
+        "  Read-aloud narration: <blockquote class=\"read-aloud\"><p><span class=\"read-aloud-label\">📜 Read Aloud</span><br>text</p></blockquote>",
+        "  Flavor/atmosphere:   <blockquote class=\"lb-flavor\"><p><span class=\"lb-label\">✨ Flavor</span><br>text</p></blockquote>",
+        "  Lore/history:        <blockquote class=\"lb-lore\"><p><span class=\"lb-label\">📚 Lore</span><br>text</p></blockquote>",
+        "  Mechanics/DCs/rules: <blockquote class=\"lb-stat-callout\"><p><span class=\"lb-label\">🎲 Mechanics</span><br>text</p></blockquote>",
+        "  Treasure/rewards:    <blockquote class=\"lb-treasure\"><p><span class=\"lb-label\">💎 Treasure</span><br>text</p></blockquote>",
+        "  Encounters/monsters: <blockquote class=\"lb-encounter\"><p><span class=\"lb-label\">⚔️ Encounter</span><br>text</p></blockquote>",
+        "Use <h2> for section headers, <p> for prose, <ul>/<ol> for lists. Do not use markdown — only HTML.",
+      ].join("\n"),
       inputSchema: z.object({
         journalId: z.string().trim().min(1).describe(
           "The Foundry journal ID (not UUID). Use search_journals or get_journal_page to find the correct ID.",

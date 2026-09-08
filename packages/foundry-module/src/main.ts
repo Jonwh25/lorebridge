@@ -363,6 +363,131 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", () => {
+  // Inject journal block taxonomy styles after all module and core CSS has loaded
+  // so this stylesheet appears last in the cascade and wins specificity ties.
+  // A static module CSS file loads before Foundry core, causing Foundry rules to
+  // override ours; a dynamically appended <style> element loads last and wins.
+  (() => {
+    const el = document.getElementById("lorebridge-journal-styles") ?? document.createElement("style");
+    el.id = "lorebridge-journal-styles";
+    el.textContent = `
+      .journal-entry-page blockquote.read-aloud,
+      .editor-content blockquote.read-aloud {
+        position: relative !important; margin: 1.25em 0 !important;
+        padding: 12px 18px 14px 18px !important;
+        background: rgba(212,168,75,0.05) !important;
+        border-left: 4px solid #c8963e !important;
+        border-top: 1px solid rgba(200,150,62,0.35) !important;
+        border-right: 1px solid rgba(200,150,62,0.15) !important;
+        border-bottom: 1px solid rgba(200,150,62,0.15) !important;
+        border-radius: 0 4px 4px 0 !important; color: #f5eedb !important;
+        font-family: Georgia, serif !important; font-style: italic !important;
+        font-size: 1.05em !important; line-height: 1.55 !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important;
+      }
+      .journal-entry-page blockquote.read-aloud .read-aloud-label,
+      .editor-content blockquote.read-aloud .read-aloud-label {
+        display: block !important; width: 100% !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-style: normal !important; font-size: 0.72rem !important;
+        font-weight: 800 !important; letter-spacing: 0.14em !important;
+        text-transform: uppercase !important; color: #e5b85c !important;
+        margin-bottom: 8px !important; padding-bottom: 4px !important;
+        border-bottom: 1px solid rgba(229,184,92,0.25) !important;
+      }
+      .journal-entry-page blockquote[class^="lb-"],
+      .editor-content blockquote[class^="lb-"] {
+        position: relative !important; margin: 1.25em 0 !important;
+        padding: 12px 18px 14px 18px !important;
+        border-radius: 0 4px 4px 0 !important; line-height: 1.55 !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important;
+      }
+      .journal-entry-page blockquote[class^="lb-"] .lb-label,
+      .editor-content blockquote[class^="lb-"] .lb-label {
+        display: block !important; width: 100% !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-style: normal !important; font-size: 0.72rem !important;
+        font-weight: 800 !important; letter-spacing: 0.14em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 8px !important; padding-bottom: 4px !important;
+      }
+      .journal-entry-page blockquote.lb-flavor,
+      .editor-content blockquote.lb-flavor {
+        background: rgba(90,127,168,0.07) !important;
+        border-left: 4px solid #5a7fa8 !important;
+        border-top: 1px solid rgba(90,127,168,0.3) !important;
+        border-right: 1px solid rgba(90,127,168,0.12) !important;
+        border-bottom: 1px solid rgba(90,127,168,0.12) !important;
+        color: #dde8f2 !important; font-family: Georgia, serif !important;
+        font-style: italic !important;
+      }
+      .journal-entry-page blockquote.lb-flavor .lb-label,
+      .editor-content blockquote.lb-flavor .lb-label {
+        color: #80afd8 !important;
+        border-bottom: 1px solid rgba(128,175,216,0.3) !important;
+      }
+      .journal-entry-page blockquote.lb-lore,
+      .editor-content blockquote.lb-lore {
+        background: rgba(46,138,120,0.07) !important;
+        border-left: 4px solid #2e8a78 !important;
+        border-top: 1px solid rgba(46,138,120,0.3) !important;
+        border-right: 1px solid rgba(46,138,120,0.12) !important;
+        border-bottom: 1px solid rgba(46,138,120,0.12) !important;
+        color: #ddf0eb !important; font-family: Georgia, serif !important;
+      }
+      .journal-entry-page blockquote.lb-lore .lb-label,
+      .editor-content blockquote.lb-lore .lb-label {
+        color: #50b8a0 !important;
+        border-bottom: 1px solid rgba(80,184,160,0.3) !important;
+      }
+      .journal-entry-page blockquote.lb-stat-callout,
+      .editor-content blockquote.lb-stat-callout {
+        background: rgba(154,53,53,0.07) !important;
+        border-left: 4px solid #9a3535 !important;
+        border-top: 1px solid rgba(154,53,53,0.3) !important;
+        border-right: 1px solid rgba(154,53,53,0.12) !important;
+        border-bottom: 1px solid rgba(154,53,53,0.12) !important;
+        color: #f0dddd !important; font-family: monospace !important;
+        font-size: 0.95em !important;
+      }
+      .journal-entry-page blockquote.lb-stat-callout .lb-label,
+      .editor-content blockquote.lb-stat-callout .lb-label {
+        color: #c85555 !important;
+        border-bottom: 1px solid rgba(200,85,85,0.3) !important;
+      }
+      .journal-entry-page blockquote.lb-treasure,
+      .editor-content blockquote.lb-treasure {
+        background: rgba(58,138,80,0.07) !important;
+        border-left: 4px solid #3a8a50 !important;
+        border-top: 1px solid rgba(58,138,80,0.3) !important;
+        border-right: 1px solid rgba(58,138,80,0.12) !important;
+        border-bottom: 1px solid rgba(58,138,80,0.12) !important;
+        color: #ddf0e3 !important;
+      }
+      .journal-entry-page blockquote.lb-treasure .lb-label,
+      .editor-content blockquote.lb-treasure .lb-label {
+        color: #5ab870 !important;
+        border-bottom: 1px solid rgba(90,184,112,0.3) !important;
+      }
+      .journal-entry-page blockquote.lb-encounter,
+      .editor-content blockquote.lb-encounter {
+        background: rgba(106,58,154,0.07) !important;
+        border-left: 4px solid #6a3a9a !important;
+        border-top: 1px solid rgba(106,58,154,0.3) !important;
+        border-right: 1px solid rgba(106,58,154,0.12) !important;
+        border-bottom: 1px solid rgba(106,58,154,0.12) !important;
+        color: #ecddf0 !important; font-family: monospace !important;
+        font-size: 0.95em !important;
+      }
+      .journal-entry-page blockquote.lb-encounter .lb-label,
+      .editor-content blockquote.lb-encounter .lb-label {
+        color: #9a68d0 !important;
+        border-bottom: 1px solid rgba(154,104,208,0.3) !important;
+      }
+    `;
+    document.head.appendChild(el);
+  })();
+
   // Register the player lore socket listener for all users so players can route
   // questions to the GM's browser via the module socket channel.
   registerPlayerLoreSocketListener();

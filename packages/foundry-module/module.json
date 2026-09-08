@@ -33,7 +33,8 @@
     "dist/main.js"
   ],
   "styles": [
-    "styles/lorebridge.css"
+    "styles/lorebridge.css",
+    "styles/read-aloud.css"
   ],
   "url": "https://github.com/Jonwh25/lorebridge",
   "manifest": "https://github.com/Jonwh25/lorebridge/releases/latest/download/module.json",
