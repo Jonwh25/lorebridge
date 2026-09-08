@@ -2,6 +2,62 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.36.0] - 2026-09-08
+
+### Added
+
+- **NPC roster tables in session prep** (#372, PR #381): the "Important NPCs"
+  section of AI-generated session prep now renders as a styled two-column
+  `<table class="lb-npc-table">` (Name | Description) instead of a prose
+  bullet list. Each NPC appears as a single row. Table header uses the Foundry
+  dark theme palette; rows have a subtle alternating tint.
+
+- **Data tables for loot and encounter content** (#372, PR #381): markdown pipe
+  tables in AI-generated journal content are converted to
+  `<table class="lb-data-table">` with variable column counts and automatic
+  right-alignment for numeric cells (GP costs, roll ranges, counts).
+
+- **Configurable journal block accent colors** (#373, PR #381): GMs can now
+  choose from 14 named accent colors for each of the six journal block types
+  (Read Aloud, Flavor, Lore, Mechanics, Treasure, Encounter) via a new
+  **Journal Colors** section in the LoreBridge settings workspace. Changes apply
+  immediately — no Foundry reload required. Each block type defaults to its
+  existing color so existing worlds are unaffected.
+
+### Changed
+
+- **Session prep NPC prompt format**: the AI is now instructed to write one
+  bullet per NPC combining role and motivation in a single sentence
+  (`- Name: description`), producing clean single-row table entries.
+
+- **Session prep max tokens raised 1500 → 2500**: prevents the Treasure section
+  from being truncated in longer prep documents.
+
+- **`propose_journal_update` tool description** updated with both NPC roster and
+  data table HTML patterns so any Claude session knows the format without extra
+  prompting.
+
+### Fixed
+
+- **Color save had no effect**: Foundry's `updateSetting` hook fires with the
+  full prefixed key (`lorebridge.blockColorReadAloud`); the internal key set
+  contained only the short form, so the re-injection call was never triggered.
+  The module prefix is now stripped before matching.
+
+- **Session prep table HTML was corrupted**: the frontend renderer only passed
+  through `<blockquote>` and `<p>` tags; `<table>`, `<thead>`, `<tr>`, and
+  `<td>` lines were re-wrapped in `<p>` tags. The pass-through now covers any
+  line starting with an HTML tag.
+
+### Upgrade notes
+
+- Update both the backend and Foundry module, then reload the Foundry browser
+  tab. No new environment variables or external dependencies are required.
+- Existing journal pages are unaffected. New session prep generations will
+  render the Important NPCs section as a table automatically.
+- Journal block colors default to the values used in previous versions; no
+  settings migration is needed.
+
 ## [0.35.0] - 2026-09-03
 
 ### Added
