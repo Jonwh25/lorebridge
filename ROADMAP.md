@@ -708,6 +708,16 @@ visibility boundary.
 All three delivered issues are merged, documented, and accepted. The v0.35.0
 closeout and release-preparation change is merged in PR #368.
 
+### Milestone 37 — Journal Table & NPC List Formatting
+
+Extend the LoreBridge journal block taxonomy with structured table support so that AI-generated NPC lists and data tables render with consistent, styled formatting inside Foundry journal pages.
+
+1. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
+
+Two new CSS classes extend the block taxonomy: `lb-npc-table` for two-column Name/Description NPC rosters and `lb-data-table` for flexible multi-column inventory, loot, and encounter tables. Numeric columns are right-aligned. The `propose_journal_update` MCP tool description is updated with the HTML patterns so any Claude session knows how to structure tables when generating journal content.
+
+Success test: an AI client generates a journal page containing an NPC roster and an inventory table; both render with header rows, alternating row backgrounds, and correct column alignment inside Foundry; opening and saving in ProseMirror does not strip or corrupt the table markup.
+
 ## Planning workflow
 
 LoreBridge uses a lightweight workflow:
