@@ -37,9 +37,9 @@ LoreBridge settings without a Foundry reload.
 
 ## Upcoming
 
-### Milestone 37 — Journal Table & NPC List Formatting
+### Milestone 37 — Unplanned
 
-*Planning in progress.*
+*Not yet planned.*
 
 ## Completed
 
