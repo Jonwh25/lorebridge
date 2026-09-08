@@ -1002,7 +1002,7 @@ export async function generateSessionPrep(
     "- Never invent content that contradicts the provided campaign context.",
   ].join("\n");
 
-  const raw = await callAI(provider, prompt, 1500);
+  const raw = await callAI(provider, prompt, 2500);
   const prep = formatSessionPrep(raw);
   return { prep, provider: provider.provider };
 }
