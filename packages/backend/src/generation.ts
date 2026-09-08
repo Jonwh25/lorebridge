@@ -987,7 +987,7 @@ export async function generateSessionPrep(
     "2-3 evocative locations. For each: name, then 3 bullet-point sensory details.",
     "",
     "## Important NPCs",
-    "3-5 NPCs who might appear. For each: name, one-sentence role, and what they want.",
+    "3-5 NPCs who might appear. One bullet per NPC, format exactly: - Name: one sentence combining their role and what they want.",
     "",
     "## Monsters",
     "2-4 monsters or enemy types. Include any DCs, checks, or initiative notes.",
