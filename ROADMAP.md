@@ -11,30 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-### Milestone 36 — Journal Block Taxonomy & Read-Aloud Styling
-
-Define and implement a complete LoreBridge journal block taxonomy so that
-AI-generated journal pages have consistent, visually distinct styling for every
-structured block type (read-aloud narration, flavor asides, in-world documents,
-mechanical call-outs, treasure summaries, and encounter notes).
-
-1. ✅ [Implement Standardized Journal Block Taxonomy for AI-Generated Content](https://github.com/Jonwh25/lorebridge/issues/370)
-2. [Structured formatting for AI-generated NPC lists and tables](https://github.com/Jonwh25/lorebridge/issues/372)
-3. [Configurable color palette for journal block types in LoreBridge settings](https://github.com/Jonwh25/lorebridge/issues/373)
-
-All blocks use `<blockquote class="lb-{type}">` — the one block-level element
-ProseMirror's schema preserves reliably on save. A shared stylesheet registered
-in `module.json` provides accent colors, badge labels, and typography for each
-type. Block label HTML is hardcoded in the backend so AI outputs plain text
-only. The `propose_journal_update` MCP tool description embeds all six block
-patterns so any Claude session knows the format without extra prompting.
-
-Success test: a GM saves AI-generated boxed text, a session recap, and a
-session prep page into Foundry; each block renders with its correct accent color
-and badge label; opening and saving those pages in ProseMirror does not strip or
-corrupt the `blockquote` tags; GMs can change block accent colors from
-LoreBridge settings without a Foundry reload.
-
 ## Upcoming
 
 ### Milestone 37 — Live Session Immersion
