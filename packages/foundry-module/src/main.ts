@@ -108,6 +108,7 @@ import { getQuestObjectives, showQuestObjectivesApprovalChat, approveQuestObject
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
 import { registerNpcMentionHook } from "./capabilities/npc-mention.js";
+import { registerCombatNarratorHook } from "./capabilities/combat-narrator.js";
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
@@ -491,6 +492,7 @@ Hooks.once("init", () => {
   registerSheetButtons();
   registerRollbackChatHook();
   registerNpcMentionHook();
+  registerCombatNarratorHook();
   Hooks.on("renderApplicationV2", (app: unknown) => {
     if (!game.user?.isGM) return;
     const appObj = app as { element?: HTMLElement; constructor?: { name?: string } };

@@ -870,6 +870,52 @@ export async function generateJournalAnswer(
 }
 
 // ---------------------------------------------------------------------------
+// Combat flavor narrator (#378)
+// ---------------------------------------------------------------------------
+
+export type CombatFlavorInput = {
+  attackerName: string;
+  targetName: string;
+  damage: number;
+  isCrit: boolean;
+  style: "dramatic" | "gritty" | "humorous" | "heroic";
+};
+
+export type CombatFlavorOutput = {
+  flavor: string;
+  provider: string;
+};
+
+const NARRATOR_STYLE_GUIDE: Record<string, string> = {
+  dramatic: "cinematic and tense, with a sense of weight and consequence",
+  gritty:   "brutal and visceral, grounded and unromantic",
+  humorous: "wry and light-hearted, with a touch of irony or absurdity",
+  heroic:   "epic and triumphant, legendary in scale",
+};
+
+export async function generateCombatFlavor(
+  provider: ProviderService,
+  input: CombatFlavorInput,
+): Promise<CombatFlavorOutput> {
+  const styleDesc = NARRATOR_STYLE_GUIDE[input.style] ?? NARRATOR_STYLE_GUIDE["dramatic"]!;
+  const critNote = input.isCrit ? " It was a devastating critical hit." : "";
+
+  const prompt = [
+    `You are narrating tabletop RPG combat in a ${styleDesc} style.`,
+    "Write exactly ONE sentence (around 20 words) in the present tense describing this attack.",
+    "Avoid stat jargon and damage numbers. Plain prose only. No markdown, no quotation marks.",
+    "",
+    `Attacker: ${input.attackerName}`,
+    `Target: ${input.targetName}${critNote}`,
+    "",
+    "Narration:",
+  ].join("\n");
+
+  const flavor = await callAI(provider, prompt, 80);
+  return { flavor: flavor.trim(), provider: provider.provider };
+}
+
+// ---------------------------------------------------------------------------
 // NPC roleplay (#99)
 // ---------------------------------------------------------------------------
 

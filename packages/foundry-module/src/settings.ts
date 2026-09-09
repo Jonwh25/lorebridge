@@ -64,6 +64,8 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   blockColorTreasure:  "blockColorTreasure",
   blockColorEncounter: "blockColorEncounter",
   ttsDefaultVoiceId: "ttsDefaultVoiceId",
+  combatNarratorMode: "combatNarratorMode",
+  combatNarratorStyle: "combatNarratorStyle",
   // Backup config — general
   backupPathNpcs: "backupPathNpcs",
   backupPathPlayers: "backupPathPlayers",
@@ -115,6 +117,8 @@ export type LoreBridgeSettings = {
   blockColorTreasure: string;
   blockColorEncounter: string;
   ttsDefaultVoiceId: string;
+  combatNarratorMode: "off" | "npcs-only" | "all";
+  combatNarratorStyle: "dramatic" | "gritty" | "humorous" | "heroic";
   backupPathNpcs: string;
   backupPathPlayers: string;
   backupPathJournals: string;
@@ -464,6 +468,26 @@ export function registerLoreBridgeSettings(): void {
     default: "",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorMode, {
+    name: "Combat Narrator Mode",
+    hint: "Off: narrator disabled. NPCs Only: fires only when the attacker is an NPC. All Combatants: fires for every hit.",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: { off: "Off", "npcs-only": "NPCs Only", all: "All Combatants" },
+    default: "off",
+  });
+
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle, {
+    name: "Combat Narrator Style",
+    hint: "Writing style for AI-generated combat flavor sentences.",
+    scope: "world",
+    config: false,
+    type: String,
+    choices: { dramatic: "Dramatic", gritty: "Gritty", humorous: "Humorous", heroic: "Heroic" },
+    default: "dramatic",
+  });
+
   // Backup config — general
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs, {
     name: "Backup: Actors (NPCs) Folder",
@@ -624,6 +648,12 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ttsDefaultVoiceId: String(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.ttsDefaultVoiceId) ?? "",
     ).trim(),
+    combatNarratorMode: normalizeCombatNarratorMode(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorMode),
+    ),
+    combatNarratorStyle: normalizeCombatNarratorStyle(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle),
+    ),
     backupPathNpcs: normalizeBackupPath(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs), "02-actors/npcs"),
     backupPathPlayers: normalizeBackupPath(
@@ -666,4 +696,17 @@ function normalizeBackupPath(value: unknown, defaultValue: string): string {
 function normalizeHexColor(value: unknown, defaultValue: string): string {
   const raw = String(value ?? "").trim();
   return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : defaultValue;
+}
+
+function normalizeCombatNarratorMode(value: unknown): "off" | "npcs-only" | "all" {
+  if (value === "npcs-only") return "npcs-only";
+  if (value === "all") return "all";
+  return "off";
+}
+
+function normalizeCombatNarratorStyle(value: unknown): "dramatic" | "gritty" | "humorous" | "heroic" {
+  if (value === "gritty") return "gritty";
+  if (value === "humorous") return "humorous";
+  if (value === "heroic") return "heroic";
+  return "dramatic";
 }
