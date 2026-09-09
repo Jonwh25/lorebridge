@@ -22,7 +22,7 @@ assigned voice. Backend dead code and stale version strings are cleaned up as pa
 of this milestone.
 
 1. ✅ [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
-2. [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
+2. ✅ [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
 3. [AI Combat Narrator: generate dramatic flavor text for combat events](https://github.com/Jonwh25/lorebridge/issues/378)
 
 Success test: a GM assigns a voice to a recurring NPC villain in the NPC
