@@ -52,20 +52,39 @@ async function playTts(actor: FoundryActor, text: string): Promise<void> {
   await audio.play();
 }
 
-async function handleDamageActor(
+async function handleActorUpdate(
   targetActor: FoundryActor,
   changes: Record<string, unknown>,
-  options: Record<string, unknown>,
+  _options: Record<string, unknown>,
 ): Promise<void> {
   if (!game.user?.isGM) return;
+
+  // Only fire during active combat
+  const combat = game.combats?.active;
+  if (!combat?.active) return;
 
   const settings = getLoreBridgeSettings();
   const mode = settings.combatNarratorMode;
   if (mode === "off") return;
 
-  const attacker = options["attacker"] as FoundryActor | undefined;
+  // Extract HP delta from nested change path: system.attributes.hp.value
+  const newHp = (
+    (changes as { system?: { attributes?: { hp?: { value?: number } } } })
+      ?.system?.attributes?.hp?.value
+  );
+  if (newHp === undefined) return;
 
-  // Skip if attacker is player-owned (ownership level 3 = owner)
+  const currentHp = (
+    (targetActor.system as { attributes?: { hp?: { value?: number } } })
+      ?.attributes?.hp?.value
+  ) ?? newHp;
+
+  const damage = currentHp - newHp;
+  if (damage <= 0) return; // healing or no change
+
+  // Attacker = combatant whose turn it currently is
+  const attacker = combat.combatant?.actor ?? undefined;
+
   if (mode === "npcs-only") {
     const ownership = attacker?.ownership ?? {};
     const isPlayerOwned = Object.entries(ownership).some(
@@ -74,27 +93,12 @@ async function handleDamageActor(
     if (!attacker || isPlayerOwned) return;
   }
 
-  // Compute damage dealt; skip healing and zero-damage events
-  let totalDamage = 0;
-  const damages = options["damages"];
-  if (Array.isArray(damages) && damages.length > 0) {
-    totalDamage = damages.reduce((sum: number, d: unknown) => {
-      const val = (d as { value?: number })?.value ?? 0;
-      return sum + Math.max(0, val);
-    }, 0);
-  } else {
-    const hpChange = ((changes as { hp?: { value?: number } })?.hp?.value) ?? 0;
-    totalDamage = Math.max(0, -hpChange);
-  }
-  if (totalDamage <= 0) return;
-
-  const isCrit = Boolean(options["critical"]);
   const attackerName = attacker?.name ?? "Unknown";
   const targetName = (targetActor as { name?: string }).name ?? "Unknown";
   const style = settings.combatNarratorStyle;
 
   try {
-    const flavor = await callCombatFlavor({ attackerName, targetName, damage: totalDamage, isCrit, style });
+    const flavor = await callCombatFlavor({ attackerName, targetName, damage, isCrit: false, style });
 
     await ChatMessage.create({
       content: `<div class="lb-combat-narrator"><em>${flavor}</em></div>`,
@@ -133,9 +137,9 @@ export function registerCombatNarratorHook(): void {
     document.head.appendChild(style);
   }
 
-  Hooks.on("dnd5e.damageActor", (target: unknown, changes: unknown, options: unknown) => {
-    void handleDamageActor(
-      target as FoundryActor,
+  Hooks.on("updateActor", (actor: unknown, changes: unknown, options: unknown) => {
+    void handleActorUpdate(
+      actor as FoundryActor,
       changes as Record<string, unknown>,
       options as Record<string, unknown>,
     );
