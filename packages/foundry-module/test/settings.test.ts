@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 49);
+  assert.equal(registrations.size, 50);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -220,6 +220,7 @@ test("reads and normalizes configured values", () => {
     blockColorMechanics: "#9a3535",
     blockColorTreasure: "#3a8a50",
     blockColorEncounter: "#6a3a9a",
+    ttsDefaultVoiceId: "",
     backupPathNpcs: "02-actors/npcs",
     backupPathPlayers: "02-actors/players",
     backupPathJournals: "07-foundry/journals",

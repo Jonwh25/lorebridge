@@ -78,10 +78,11 @@ function parseAtMention(rawContent: string): { actor: FoundryActor; message: str
 }
 
 async function playTts(actor: FoundryActor, text: string): Promise<void> {
-  const voiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
+  const actorVoiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
+  const settings = getLoreBridgeSettings();
+  const voiceId = actorVoiceId || settings.ttsDefaultVoiceId;
   if (!voiceId) return;
 
-  const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) return;
 
   const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
@@ -253,7 +254,6 @@ export function registerNpcMentionHook(): void {
 function openNpcPreambleDialog(actor: FoundryActor): void {
   const aiEnabled = actor.getFlag(MODULE_ID, "aiEnabled") === true;
   const preamble = (actor.getFlag(MODULE_ID, "preamble") as string | undefined) ?? "";
-  const voiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
 
   const content = `
     <form style="display:flex;flex-direction:column;gap:12px;padding:8px 0">
@@ -273,13 +273,9 @@ function openNpcPreambleDialog(actor: FoundryActor): void {
           Overrides the actor's biography for AI roleplay. Leave blank to use the biography instead.
         </p>
       </div>
-      <div>
-        <label style="display:block;font-weight:bold;margin-bottom:4px">ElevenLabs Voice ID <span style="font-weight:normal;opacity:0.6">(optional)</span></label>
-        <input type="text" name="voiceId" value="${voiceId}" style="width:100%;box-sizing:border-box;font-size:12px;font-family:monospace" placeholder="e.g. 21m00Tcm4TlvDq8ikWAM">
-        <p style="margin:4px 0 0;font-size:11px;opacity:0.7">
-          Copy a Voice ID from your ElevenLabs account. When set, AI responses will be spoken aloud.
-        </p>
-      </div>
+      <p style="margin:0;font-size:11px;opacity:0.7">
+        <i class="fas fa-microphone"></i> To assign an ElevenLabs voice, open the <strong>NPC Workspace</strong> and go to the Appearance section.
+      </p>
     </form>`;
 
   const dialog = new foundry.applications.api.DialogV2({
@@ -296,11 +292,9 @@ function openNpcPreambleDialog(actor: FoundryActor): void {
           const el = (dlg as { element: HTMLElement }).element;
           const enabled = el.querySelector<HTMLInputElement>("input[name='aiEnabled']")?.checked ?? false;
           const text = el.querySelector<HTMLTextAreaElement>("textarea[name='preamble']")?.value ?? "";
-          const voice = el.querySelector<HTMLInputElement>("input[name='voiceId']")?.value.trim() ?? "";
           void Promise.all([
             actor.setFlag(MODULE_ID, "aiEnabled", enabled),
             actor.setFlag(MODULE_ID, "preamble", text),
-            actor.setFlag(MODULE_ID, "voiceId", voice),
           ]).then(() => {
             ui.notifications.info(`LoreBridge: Settings saved for ${actor.name}.`);
           });

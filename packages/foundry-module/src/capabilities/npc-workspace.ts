@@ -1582,9 +1582,28 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
     private _generatingSection: NpcSection | null = null;
     private _generatingFull = false;
     private _pendingTraits: Record<string, string> | null = null;
+    private _cachedVoices: Array<{ id: string; name: string }> | null | "unavailable" = null;
 
     private _getActor(): FoundryActor | undefined {
       return game.actors.get(this.actorId) as FoundryActor | undefined;
+    }
+
+    private async _fetchVoices(): Promise<void> {
+      const settings = getLoreBridgeSettings();
+      if (!settings.backendUrl || !settings.clientToken) { this._cachedVoices = "unavailable"; return; }
+      const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
+      try {
+        const res = await fetch(`${base}v1/tts/voices`, {
+          headers: { authorization: `Bearer ${settings.clientToken}` },
+        });
+        if (res.status === 503) { this._cachedVoices = "unavailable"; return; }
+        if (!res.ok) { this._cachedVoices = "unavailable"; return; }
+        const data = await res.json() as { voices: Array<{ id: string; name: string }> };
+        this._cachedVoices = data.voices;
+      } catch {
+        this._cachedVoices = "unavailable";
+      }
+      void this.render({ force: true });
     }
 
     override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
@@ -1673,6 +1692,22 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         sectionContent = `<div class="lb-ws-fields">${fieldRows || "<p style='color:var(--color-text-light-tertiary)'>—</p>"}</div>`;
       }
 
+      // Voice picker — shown in the Appearance section, always visible (edit or view mode).
+      let voicePickerBar = "";
+      if (!isMemoriesView && section === "appearance") {
+        const currentVoiceId = (actor.getFlag("lorebridge", "voiceId") as string | undefined) ?? "";
+        if (this._cachedVoices === null) {
+          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.7"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Loading voices…</span></div>`;
+          void this._fetchVoices();
+        } else if (this._cachedVoices === "unavailable") {
+          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.5">ElevenLabs not configured</span></div>`;
+        } else {
+          const options = `<option value="">— None —</option>` +
+            this._cachedVoices.map(v => `<option value="${escHtml(v.id)}"${v.id === currentVoiceId ? " selected" : ""}>${escHtml(v.name)}</option>`).join("");
+          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><select class="lb-ws-voice-select">${options}</select></div>`;
+        }
+      }
+
       const rollTraitsBtnWs = !isMemoriesView && section === "personalityAndMotivation" && !isGeneratingAny
         ? `<button type="button" class="lb-ws-btn" data-action="rollTraits" title="Roll random 5e traits"><i class="fas fa-dice-d6"></i> Roll Traits</button>`
         : "";
@@ -1752,6 +1787,13 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           .lb-ws-btn:disabled { opacity:0.5; cursor:not-allowed; }
           .lb-ws-btn--primary { background:#4e7ac7; color:#fff; border-color:#3a5e9e; }
           .lb-ws-btn--primary:hover:not(:disabled) { background:#3a5e9e; }
+          .lb-ws-voice-bar {
+            display:flex; align-items:center; gap:8px; padding:5px 12px;
+            border-bottom:1px solid var(--color-border-dark, #444);
+            background:var(--color-bg-secondary, #2a2a2a); flex-shrink:0;
+          }
+          .lb-ws-voice-bar__label { font-size:0.8em; font-weight:bold; white-space:nowrap; }
+          .lb-ws-voice-select { flex:1; font-size:0.82em; padding:2px 4px; background:var(--color-bg-option,#252525); color:var(--color-text-primary,inherit); border:1px solid var(--color-border-dark,#555); border-radius:3px; }
         </style>
         <div class="lb-ws">
           <aside class="lb-ws-sidebar">
@@ -1769,6 +1811,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
               <h3>${isMemoriesView ? '<i class="fas fa-brain"></i> Memories' : `<i class="${meta.icon}"></i> ${meta.label}`}</h3>
               ${sectionBar}
             </div>
+            ${voicePickerBar}
             <div class="lb-ws-body">${sectionContent}</div>
           </div>
         </div>`;
@@ -1779,6 +1822,17 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       content.replaceChildren(...Array.from(result.childNodes));
       setupGenderSelectListeners(content);
       setupBackgroundSelectListeners(content);
+      const voiceSel = content.querySelector<HTMLSelectElement>(".lb-ws-voice-select");
+      if (voiceSel) {
+        voiceSel.addEventListener("change", () => {
+          const actor = this._getActor();
+          if (!actor) return;
+          void actor.setFlag("lorebridge", "voiceId", voiceSel.value).then(() => {
+            const label = voiceSel.options[voiceSel.selectedIndex]?.text ?? "";
+            ui.notifications.info(`LoreBridge: Voice set to ${label || "None"} for ${actor.name}.`);
+          });
+        });
+      }
     }
 
     override _onClickAction(event: PointerEvent, target: HTMLElement): void | Promise<void> {

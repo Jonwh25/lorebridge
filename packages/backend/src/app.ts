@@ -98,6 +98,8 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
+let voiceListCache: Array<{ id: string; name: string }> | null = null;
+
 async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
@@ -125,6 +127,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
     if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     if (github) capabilities.push("backup/github");
+    if (config.elevenLabsApiKey) capabilities.push("tts");
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled, imageProviderEnabled: imageProvider.enabled });
     return;
   }
@@ -918,6 +921,33 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const audioBuffer = await ttsResponse.arrayBuffer();
     const audio = Buffer.from(audioBuffer).toString("base64");
     sendJson(response, 200, { audio, mimeType: "audio/mpeg" });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/tts/voices") {
+    if (!authenticate(pairing, request, response)) return;
+    if (!config.elevenLabsApiKey) {
+      sendJson(response, 503, { error: { code: "tts_unavailable", message: "ElevenLabs API key is not configured on this backend." } });
+      return;
+    }
+    if (voiceListCache) {
+      sendJson(response, 200, { voices: voiceListCache });
+      return;
+    }
+    try {
+      const elRes = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: { "xi-api-key": config.elevenLabsApiKey },
+      });
+      if (!elRes.ok) {
+        sendJson(response, 502, { error: { code: "elevenlabs_error", message: `ElevenLabs returned ${elRes.status}` } });
+        return;
+      }
+      const elData = await elRes.json() as { voices: Array<{ voice_id: string; name: string }> };
+      voiceListCache = elData.voices.map(v => ({ id: v.voice_id, name: v.name }));
+      sendJson(response, 200, { voices: voiceListCache });
+    } catch (err) {
+      sendJson(response, 502, { error: { code: "elevenlabs_error", message: String(err) } });
+    }
     return;
   }
 
