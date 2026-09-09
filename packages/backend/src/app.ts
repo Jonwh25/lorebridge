@@ -33,7 +33,6 @@ import {
 } from "@lorebridge/shared/capabilities";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
-import type { BackendServices } from "./journal-service.js";
 import { PairingService } from "./pairing.js";
 import { ProviderService } from "./provider.js";
 import { ImageProviderService, ImageProviderError } from "./image-provider.js";
@@ -57,7 +56,7 @@ import { load as yamlLoad } from "js-yaml";
 import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { extractSessionEntities } from "./session-scan.js";
 
-const serviceVersion = "0.2.0";
+const serviceVersion = "0.36.0";
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
@@ -99,7 +98,7 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, services: BackendServices, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -118,16 +117,13 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const capabilities = config.pairingEnabled
       ? ["health", "identity", "pairing", "mcp"]
       : ["health", "identity", "mcp"];
-    if (services.journals) capabilities.push("searchJournals", "getJournal", "getJournalPage");
-    else {
-      if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
-      if (adapterSessions.hasCapability(GET_JOURNAL_PAGE_CAPABILITY)) capabilities.push("getJournalPage");
-      if (adapterSessions.hasCapability(SEARCH_ACTORS_CAPABILITY)) capabilities.push("searchActors");
-      if (adapterSessions.hasCapability(GET_ACTOR_CAPABILITY)) capabilities.push("getActor");
-      if (adapterSessions.hasCapability(SEARCH_SCENES_CAPABILITY)) capabilities.push("searchScenes");
-      if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
-      if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
-    }
+    if (adapterSessions.hasCapability(SEARCH_JOURNALS_CAPABILITY)) capabilities.push("searchJournals");
+    if (adapterSessions.hasCapability(GET_JOURNAL_PAGE_CAPABILITY)) capabilities.push("getJournalPage");
+    if (adapterSessions.hasCapability(SEARCH_ACTORS_CAPABILITY)) capabilities.push("searchActors");
+    if (adapterSessions.hasCapability(GET_ACTOR_CAPABILITY)) capabilities.push("getActor");
+    if (adapterSessions.hasCapability(SEARCH_SCENES_CAPABILITY)) capabilities.push("searchScenes");
+    if (adapterSessions.hasCapability(GET_SCENE_CAPABILITY)) capabilities.push("getScene");
+    if (adapterSessions.hasCapability(GET_ACTIVE_SCENE_CAPABILITY)) capabilities.push("getActiveScene");
     if (github) capabilities.push("backup/github");
     sendJson(response, 200, { service: "lorebridge-backend", version: serviceVersion, protocolVersion: "0.1", capabilities, providerEnabled: provider.enabled, imageProviderEnabled: imageProvider.enabled });
     return;
@@ -226,22 +222,18 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 400, { error: { code: "invalid_request", message: "Journal search input is invalid.", details: validation.errors } });
       return;
     }
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
     let result: unknown;
-    if (services.journals) {
-      result = await services.journals.search(validation.value);
-    } else {
-      const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
-      try {
-        result = await adapterSessions.invoke(
-          sourceId,
-          SEARCH_JOURNALS_CAPABILITY,
-          validation.value,
-        );
-      } catch (error) {
-        if (!(error instanceof AdapterInvocationError)) throw error;
-        sendAdapterInvocationError(response, error);
-        return;
-      }
+    try {
+      result = await adapterSessions.invoke(
+        sourceId,
+        SEARCH_JOURNALS_CAPABILITY,
+        validation.value,
+      );
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+      return;
     }
     const outputValidation = validateSearchJournalsOutput(result);
     if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid search output: ${outputValidation.errors.join(", ")}`);
@@ -379,22 +371,18 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     if (!authenticate(pairing, request, response)) return;
     const journalId = decodeURIComponent(journalPageMatch[1] ?? "");
     const pageId = decodeURIComponent(journalPageMatch[2] ?? "");
+    const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
     let page: unknown;
-    if (services.journals) {
-      page = await services.journals.getPage(journalId, pageId);
-    } else {
-      const sourceId = url.searchParams.get("sourceId")?.trim() || undefined;
-      try {
-        page = await adapterSessions.invoke(
-          sourceId,
-          GET_JOURNAL_PAGE_CAPABILITY,
-          { journalId, pageId },
-        );
-      } catch (error) {
-        if (!(error instanceof AdapterInvocationError)) throw error;
-        sendAdapterInvocationError(response, error);
-        return;
-      }
+    try {
+      page = await adapterSessions.invoke(
+        sourceId,
+        GET_JOURNAL_PAGE_CAPABILITY,
+        { journalId, pageId },
+      );
+    } catch (error) {
+      if (!(error instanceof AdapterInvocationError)) throw error;
+      sendAdapterInvocationError(response, error);
+      return;
     }
     if (!page) {
       sendJson(response, 404, { error: { code: "journal_page_not_found", message: "The requested journal page was not found." } });
@@ -408,20 +396,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
 
   const journalMatch = method === "GET" ? url.pathname.match(/^\/v1\/journals\/([^/]+)$/) : null;
   if (journalMatch) {
-    if (!authenticate(pairing, request, response)) return;
-    if (!services.journals) {
-      sendJson(response, 503, { error: { code: "adapter_unavailable", message: "No journal data source is connected." } });
-      return;
-    }
-    const journalId = decodeURIComponent(journalMatch[1] ?? "");
-    const journal = await services.journals.get(journalId);
-    if (!journal) {
-      sendJson(response, 404, { error: { code: "journal_not_found", message: "The requested journal was not found." } });
-      return;
-    }
-    const outputValidation = validateGetJournalOutput(journal);
-    if (!outputValidation.valid || !outputValidation.value) throw new Error(`Journal service returned invalid journal output: ${outputValidation.errors.join(", ")}`);
-    sendJson(response, 200, outputValidation.value);
+    sendJson(response, 501, { error: { code: "not_implemented", message: "GET /v1/journals/{id} is not implemented. Use GET /v1/journals/{id}/pages/{pageId} to read journal pages." } });
     return;
   }
 
@@ -1530,16 +1505,13 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
 
       // List YAML files in both subdirectories in parallel.
-      console.log(`[restore-debug] resolvedRef=${resolvedRef} folderName=${folderName}`);
       const [folderFileList, sceneFileList] = await Promise.all([
         github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/folders", resolvedRef),
         github.listDirectoryAtRef("extensions/org.ravens-eye.foundry-vtt/scenes", resolvedRef),
       ]);
-      console.log(`[restore-debug] folderFileList.length=${folderFileList.length} sceneFileList.length=${sceneFileList.length}`);
 
       const yamlFolderFiles = folderFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
       const yamlSceneFiles = sceneFileList.filter((f) => f.type === "file" && f.name.endsWith(".yaml"));
-      console.log(`[restore-debug] yamlFolderFiles=${yamlFolderFiles.length} yamlSceneFiles=${yamlSceneFiles.length}`);
 
       const warnings: string[] = [];
       const BATCH_SIZE = 5;
@@ -1594,9 +1566,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
                 foundrySourceData,
               });
             }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.log(`[restore-debug] scene parse error: ${msg}`);
+          } catch {
             warnings.push("Failed to parse a scene sidecar YAML — skipped.");
           }
         }
@@ -1874,7 +1844,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
   sendJson(response, 404, { error: { code: "route_not_found", message: "The requested LoreBridge route does not exist." } });
 }
 
-export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity, services: BackendServices = {}): Server {
+export function createLoreBridgeServer(config: BackendConfig, identity: BackendIdentity): Server {
   const pairing = new PairingService(identity, config.pairingTtlSeconds);
   const adapterSessions = new AdapterSessionRegistry();
   const provider = new ProviderService();
@@ -1886,7 +1856,7 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const github = createGitHubAdapter(config.github, undefined, config.dataDir);
   const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, provider, new AssetSearchService(config.foundryDataDir), github);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, services, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();
