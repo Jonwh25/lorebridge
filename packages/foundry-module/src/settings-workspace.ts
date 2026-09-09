@@ -73,7 +73,8 @@ type SectionId =
   | "history"
   | "backup-config"
   | "diagnostics"
-  | "advanced";
+  | "advanced"
+  | "combat";
 
 const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: "home",           label: "Home",            icon: "fas fa-house" },
@@ -84,6 +85,7 @@ const NAV_ITEMS: { id: SectionId; label: string; icon: string }[] = [
   { id: "access-safety",  label: "Access & Safety",  icon: "fas fa-shield-alt" },
   { id: "history",        label: "History",          icon: "fas fa-history" },
   { id: "backup-config",  label: "Backup Config",    icon: "fas fa-folder-open" },
+  { id: "combat",         label: "Combat",           icon: "fas fa-dragon" },
   { id: "diagnostics",    label: "Diagnostics",      icon: "fas fa-stethoscope" },
   { id: "advanced",       label: "Advanced",         icon: "fas fa-cogs" },
 ];
@@ -173,6 +175,7 @@ function buildHomeHtml(): string {
           { id: "access-safety",  icon: "fas fa-shield-alt", label: "Access & Safety",  desc: "Context profiles, player lore" },
           { id: "history",        icon: "fas fa-history",    label: "History",          desc: "Recent AI generations" },
           { id: "backup-config",  icon: "fas fa-folder-open",label: "Backup Config",    desc: "GitHub folder paths for each backup category" },
+          { id: "combat",         icon: "fas fa-dragon",     label: "Combat",           desc: "AI Combat Narrator mode and style" },
           { id: "diagnostics",    icon: "fas fa-stethoscope",label: "Diagnostics",      desc: "Check system status and copy a safe summary" },
           { id: "advanced",       icon: "fas fa-cogs",       label: "Advanced",         desc: "Portrait directory, history length" },
         ].map(({ id, icon, label, desc }) => `
@@ -314,6 +317,44 @@ function buildFeaturesHtml(): string {
       <div style="margin-top:16px;text-align:right">
         <button data-action="features-save" style="padding:6px 16px">
           <i class="fas fa-save"></i> Save Features
+        </button>
+      </div>
+    </div>`;
+}
+
+function buildCombatHtml(): string {
+  const s = getLoreBridgeSettings();
+
+  const modeOptions = [
+    { value: "off",       label: "Off",             hint: "Narrator is disabled." },
+    { value: "npcs-only", label: "NPCs Only",        hint: "Fires only when the attacker is an NPC." },
+    { value: "all",       label: "All Combatants",   hint: "Fires for every hit regardless of attacker type." },
+  ];
+  const styleOptions = [
+    { value: "dramatic",  label: "Dramatic",  hint: "Cinematic and tense, with weight and consequence." },
+    { value: "gritty",    label: "Gritty",    hint: "Brutal and visceral, grounded and unromantic." },
+    { value: "humorous",  label: "Humorous",  hint: "Wry and light-hearted, with a touch of irony." },
+    { value: "heroic",    label: "Heroic",    hint: "Epic and triumphant, legendary in scale." },
+  ];
+
+  const selectRow = (name: string, label: string, hint: string, options: { value: string; label: string; hint: string }[], current: string) => `
+    <div style="margin-bottom:18px">
+      <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">${esc(label)}</label>
+      <p style="margin:0 0 6px;font-size:0.78em;color:#888">${esc(hint)}</p>
+      <select name="${name}"
+        style="width:220px;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
+        ${options.map(o => `<option value="${o.value}"${current === o.value ? " selected" : ""}>${esc(o.label)} — ${esc(o.hint)}</option>`).join("")}
+      </select>
+    </div>`;
+
+  return `
+    <div style="padding:20px 24px">
+      ${sectionHeader("Combat", "AI Combat Narrator settings. Changes apply to the next combat hit — no reload required.")}
+      ${selectRow(LOREBRIDGE_SETTINGS.combatNarratorMode,  "Narrator Mode",  "When to generate a flavor sentence for incoming damage.", modeOptions,  s.combatNarratorMode)}
+      ${selectRow(LOREBRIDGE_SETTINGS.combatNarratorStyle, "Narrator Style", "Writing tone for the generated sentence. Can be changed mid-session.", styleOptions, s.combatNarratorStyle)}
+      <div style="margin-top:16px;text-align:right">
+        <button data-action="combat-save" style="padding:6px 16px">
+          <i class="fas fa-save"></i> Save
         </button>
       </div>
     </div>`;
@@ -628,6 +669,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       "conn-pair": LoreBridgeSettingsApp._onConnPair,
       "conn-unpair": LoreBridgeSettingsApp._onConnUnpair,
       "features-save": LoreBridgeSettingsApp._onFeaturesSave,
+      "combat-save": LoreBridgeSettingsApp._onCombatSave,
       "ai-content-save": LoreBridgeSettingsApp._onAiContentSave,
       "journal-colors-save": LoreBridgeSettingsApp._onJournalColorsSave,
       "profile-new": LoreBridgeSettingsApp._onProfileNew,
@@ -709,6 +751,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "access-safety":  return buildAccessSafetyHtml();
       case "history":       return buildHistoryHtml();
       case "backup-config": return buildBackupConfigHtml();
+      case "combat":        return buildCombatHtml();
       case "diagnostics":   return buildDiagnosticsHtml(this._diagnostics);
       case "advanced":      return buildAdvancedHtml();
     }
@@ -940,6 +983,26 @@ export class LoreBridgeSettingsApp extends AppBase {
   }
 
   // ---------------------------------------------------------------------------
+  // Combat
+  // ---------------------------------------------------------------------------
+
+  static async _onCombatSave(
+    this: LoreBridgeSettingsApp,
+    _event: PointerEvent,
+    _target: HTMLElement,
+  ): Promise<void> {
+    const api = getFoundrySettingsApi();
+    const el = this._self().element;
+    const mode  = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorMode}']`)?.value  ?? "off";
+    const style = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorStyle}']`)?.value ?? "dramatic";
+    await Promise.all([
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorMode,  mode),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle, style),
+    ]);
+    ui.notifications.info("LoreBridge: Combat settings saved.");
+    void this._self().render({ force: false });
+  }
+
   // AI & Content
   // ---------------------------------------------------------------------------
 
