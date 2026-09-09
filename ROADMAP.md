@@ -80,6 +80,22 @@ for a natural-language query that existing keyword search misses; index
 rebuild completes without blocking the adapter WebSocket; existing
 `search_campaign` behavior is unchanged.
 
+### Milestone 41 — Campaign Codex Document Management
+
+Expose controlled, GM-approved write operations for Campaign Codex records
+through the MCP interface. GMs can reorganize their CC structure — renaming
+and moving Regions, Locations, and Entries between folders, updating
+relationships between records, and setting location markers — directly from
+an AI client without leaving Foundry. Every operation follows the same
+before/after preview and GM approval chat card pattern used by
+`propose_journal_update`.
+
+1. [Campaign Codex document management: create, rename, move, and relate records via MCP](https://github.com/Jonwh25/lorebridge/issues/385)
+
+Success test: rename a CC Location record, move it to a different folder,
+and link it to a CC Region — all via MCP with GM approval in Foundry;
+rejected operations produce a clear MCP error; `npm run validate` passes.
+
 ## Completed
 
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
