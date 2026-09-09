@@ -1577,7 +1577,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
     };
 
     actorId: string = "";
-    private _selectedSection: NpcSection | "memories" = "overview";
+    private _selectedSection: NpcSection | "memories" | "voice" = "overview";
     private _editMode = false;
     private _generatingSection: NpcSection | null = null;
     private _generatingFull = false;
@@ -1622,11 +1622,12 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       const memories = getMemories(actor);
       const selectedView = this._selectedSection;
       const isMemoriesView = selectedView === "memories";
-      const section = isMemoriesView ? "overview" as NpcSection : selectedView as NpcSection;
+      const isVoiceView = selectedView === "voice";
+      const section = (isMemoriesView || isVoiceView) ? "overview" as NpcSection : selectedView as NpcSection;
       const meta = SECTION_META.find(s => s.id === section) ?? SECTION_META[0]!;
-      const sectionData = isMemoriesView ? {} : (profile[section] ?? {});
-      const isGenerating = !isMemoriesView && (this._generatingSection === section || this._generatingFull);
-      const hasContent = !isMemoriesView && sectionHasContent(sectionData);
+      const sectionData = (isMemoriesView || isVoiceView) ? {} : (profile[section] ?? {});
+      const isGenerating = !isMemoriesView && !isVoiceView && (this._generatingSection === section || this._generatingFull);
+      const hasContent = !isMemoriesView && !isVoiceView && sectionHasContent(sectionData);
       const isGeneratingAny = this._generatingSection !== null || this._generatingFull;
 
       const navItems = SECTION_META.map(s => {
@@ -1640,13 +1641,19 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
             <span class="lb-ws-nav__label"><i class="${s.icon}"></i> ${s.shortLabel}</span>
           </li>`;
       }).join("") + `
+        <li class="lb-ws-nav__item${isVoiceView ? " active" : ""}" data-action="selectSection" data-section="voice">
+          <span class="lb-ws-nav__status"><i class="fas fa-microphone" style="font-size:0.85em"></i></span>
+          <span class="lb-ws-nav__label"><i class="fas fa-microphone"></i> Voice & AI</span>
+        </li>
         <li class="lb-ws-nav__item${isMemoriesView ? " active" : ""}" data-action="selectSection" data-section="memories">
           <span class="lb-ws-nav__status"><i class="fas fa-brain" style="font-size:0.85em"></i></span>
           <span class="lb-ws-nav__label"><i class="fas fa-brain"></i> Memories${memories.length > 0 ? ` (${memories.length})` : ""}</span>
         </li>`;
 
       let sectionContent: string;
-      if (isMemoriesView) {
+      if (isVoiceView) {
+        sectionContent = this._buildVoiceContent(actor);
+      } else if (isMemoriesView) {
         sectionContent = this._buildMemoriesContent(actor, memories);
       } else if (isGenerating) {
         sectionContent = `<div class="lb-ws-generating"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Generating ${meta.label}…</div>`;
@@ -1696,27 +1703,11 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         sectionContent = `<div class="lb-ws-fields">${fieldRows || "<p style='color:var(--color-text-light-tertiary)'>—</p>"}</div>`;
       }
 
-      // Voice picker — shown in the Appearance section, always visible (edit or view mode).
-      let voicePickerBar = "";
-      if (!isMemoriesView && section === "appearance") {
-        const currentVoiceId = (actor.getFlag("lorebridge", "voiceId") as string | undefined) ?? "";
-        if (this._cachedVoices === null) {
-          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.7"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Loading voices…</span></div>`;
-          if (!this._fetchingVoices) void this._fetchVoices();
-        } else if (this._cachedVoices === "unavailable") {
-          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.5">ElevenLabs not configured</span></div>`;
-        } else {
-          const options = `<option value="">— None —</option>` +
-            this._cachedVoices.map(v => `<option value="${escHtml(v.id)}"${v.id === currentVoiceId ? " selected" : ""}>${escHtml(v.name)}</option>`).join("");
-          voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><select class="lb-ws-voice-select">${options}</select></div>`;
-        }
-      }
-
       const rollTraitsBtnWs = !isMemoriesView && section === "personalityAndMotivation" && !isGeneratingAny
         ? `<button type="button" class="lb-ws-btn" data-action="rollTraits" title="Roll random 5e traits"><i class="fas fa-dice-d6"></i> Roll Traits</button>`
         : "";
 
-      const sectionBar = (!isMemoriesView && !isGenerating && !this._editMode) ? `
+      const sectionBar = (!isMemoriesView && !isVoiceView && !isGenerating && !this._editMode) ? `
         <div class="lb-ws-section-actions">
           ${rollTraitsBtnWs}
           ${hasContent
@@ -1791,13 +1782,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           .lb-ws-btn:disabled { opacity:0.5; cursor:not-allowed; }
           .lb-ws-btn--primary { background:#4e7ac7; color:#fff; border-color:#3a5e9e; }
           .lb-ws-btn--primary:hover:not(:disabled) { background:#3a5e9e; }
-          .lb-ws-voice-bar {
-            display:flex; align-items:center; gap:8px; padding:5px 12px;
-            border-bottom:1px solid var(--color-border-dark, #444);
-            background:var(--color-bg-secondary, #2a2a2a); flex-shrink:0;
-          }
-          .lb-ws-voice-bar__label { font-size:0.8em; font-weight:bold; white-space:nowrap; }
-          .lb-ws-voice-select { flex:1; font-size:0.82em; padding:2px 4px; background:var(--color-bg-option,#252525); color:var(--color-text-primary,inherit); border:1px solid var(--color-border-dark,#555); border-radius:3px; }
+          .lb-ws-voice-select { width:100%; font-size:0.82em; padding:2px 4px; background:var(--color-bg-option,#252525); color:var(--color-text-primary,inherit); border:1px solid var(--color-border-dark,#555); border-radius:3px; }
         </style>
         <div class="lb-ws">
           <aside class="lb-ws-sidebar">
@@ -1812,10 +1797,9 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
           </aside>
           <div class="lb-ws-content">
             <div class="lb-ws-section-header">
-              <h3>${isMemoriesView ? '<i class="fas fa-brain"></i> Memories' : `<i class="${meta.icon}"></i> ${meta.label}`}</h3>
+              <h3>${isMemoriesView ? '<i class="fas fa-brain"></i> Memories' : isVoiceView ? '<i class="fas fa-microphone"></i> Voice &amp; AI' : `<i class="${meta.icon}"></i> ${meta.label}`}</h3>
               ${sectionBar}
             </div>
-            ${voicePickerBar}
             <div class="lb-ws-body">${sectionContent}</div>
           </div>
         </div>`;
@@ -1826,17 +1810,6 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       content.replaceChildren(...Array.from(result.childNodes));
       setupGenderSelectListeners(content);
       setupBackgroundSelectListeners(content);
-      const voiceSel = content.querySelector<HTMLSelectElement>(".lb-ws-voice-select");
-      if (voiceSel) {
-        voiceSel.addEventListener("change", () => {
-          const actor = this._getActor();
-          if (!actor) return;
-          void actor.setFlag("lorebridge", "voiceId", voiceSel.value).then(() => {
-            const label = voiceSel.options[voiceSel.selectedIndex]?.text ?? "";
-            ui.notifications.info(`LoreBridge: Voice set to ${label || "None"} for ${actor.name}.`);
-          });
-        });
-      }
     }
 
     override _onClickAction(event: PointerEvent, target: HTMLElement): void | Promise<void> {
@@ -1845,7 +1818,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
       if (!actor) return;
 
       if (action === "selectSection") {
-        const section = target.dataset["section"] as NpcSection | "memories";
+        const section = target.dataset["section"] as NpcSection | "memories" | "voice";
         if (section && section !== this._selectedSection) {
           this._selectedSection = section;
           this._editMode = false;
@@ -1885,6 +1858,66 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         });
         return;
       }
+      if (action === "saveVoiceSettings") {
+        const el = this.element as HTMLElement | null;
+        if (!el) return;
+        const voiceSel = el.querySelector<HTMLSelectElement>("select[name='voiceId']");
+        const aiEnabledEl = el.querySelector<HTMLInputElement>("input[name='aiEnabled']");
+        const preambleEl = el.querySelector<HTMLTextAreaElement>("textarea[name='preamble']");
+        const voiceId = voiceSel?.value ?? "";
+        const aiEnabled = aiEnabledEl?.checked ?? false;
+        const preamble = preambleEl?.value ?? "";
+        void Promise.all([
+          actor.setFlag("lorebridge", "voiceId", voiceId),
+          actor.setFlag("lorebridge", "aiEnabled", aiEnabled),
+          actor.setFlag("lorebridge", "preamble", preamble),
+        ]).then(() => {
+          ui.notifications.info(`LoreBridge: Voice & AI settings saved for ${actor.name}.`);
+        });
+        return;
+      }
+    }
+
+    private _buildVoiceContent(actor: FoundryActor): string {
+      const currentVoiceId = (actor.getFlag("lorebridge", "voiceId") as string | undefined) ?? "";
+      const aiEnabled = actor.getFlag("lorebridge", "aiEnabled") === true;
+      const preamble = (actor.getFlag("lorebridge", "preamble") as string | undefined) ?? "";
+
+      let voicePickerHtml: string;
+      if (this._cachedVoices === null) {
+        voicePickerHtml = `<span style="font-size:0.82em;opacity:0.7"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Loading voices…</span>`;
+        if (!this._fetchingVoices) void this._fetchVoices();
+      } else if (this._cachedVoices === "unavailable") {
+        voicePickerHtml = `<span style="font-size:0.82em;opacity:0.5">ElevenLabs not configured</span>`;
+      } else {
+        const options = `<option value="">— None —</option>` +
+          this._cachedVoices.map(v => `<option value="${escHtml(v.id)}"${v.id === currentVoiceId ? " selected" : ""}>${escHtml(v.name)}</option>`).join("");
+        voicePickerHtml = `<select class="lb-ws-voice-select" name="voiceId">${options}</select>`;
+      }
+
+      return `
+        <div style="display:flex;flex-direction:column;gap:16px;padding:12px">
+          <div>
+            <label style="display:block;font-weight:bold;margin-bottom:6px;font-size:0.9em"><i class="fas fa-microphone"></i> ElevenLabs Voice</label>
+            ${voicePickerHtml}
+            <p style="margin:4px 0 0;font-size:0.78em;opacity:0.6">Select the ElevenLabs voice for TTS playback when this NPC speaks in chat.</p>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--color-border-dark,#444);margin:0">
+          <div>
+            <label style="display:block;font-weight:bold;margin-bottom:6px;font-size:0.9em"><i class="fas fa-robot"></i> AI Roleplay</label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" name="aiEnabled"${aiEnabled ? " checked" : ""}>
+              Enable AI responses for this NPC
+            </label>
+            <p style="margin:0 0 10px 24px;font-size:0.78em;opacity:0.6">When enabled, players can address this NPC in chat with <code>@${escHtml(actor.name)} &lt;message&gt;</code>.</p>
+            <label style="display:block;font-weight:bold;margin-bottom:4px;font-size:0.85em">Personality Preamble</label>
+            <textarea name="preamble" rows="6" style="width:100%;box-sizing:border-box;resize:vertical;font-size:12px;font-family:inherit;background:var(--color-bg-option,#252525);color:var(--color-text-primary,inherit);border:1px solid var(--color-border-dark,#555);border-radius:3px;padding:4px 6px" placeholder="Describe this NPC's personality, knowledge, speech patterns, and secrets the AI should know…">${escHtml(preamble)}</textarea>
+            <p style="margin:4px 0 0;font-size:0.78em;opacity:0.6">Overrides the actor's biography for AI roleplay. Leave blank to use the biography instead.</p>
+          </div>
+          <div>
+            <button type="button" class="lb-ws-btn lb-ws-btn--primary" data-action="saveVoiceSettings"><i class="fas fa-save"></i> Save</button>
+          </div>
+        </div>`;
     }
 
     private _buildMemoriesContent(actor: FoundryActor, memories: NpcMemoryEntry[]): string {
