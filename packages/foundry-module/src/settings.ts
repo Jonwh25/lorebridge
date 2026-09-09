@@ -63,6 +63,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   blockColorMechanics: "blockColorMechanics",
   blockColorTreasure:  "blockColorTreasure",
   blockColorEncounter: "blockColorEncounter",
+  ttsDefaultVoiceId: "ttsDefaultVoiceId",
   // Backup config — general
   backupPathNpcs: "backupPathNpcs",
   backupPathPlayers: "backupPathPlayers",
@@ -113,6 +114,7 @@ export type LoreBridgeSettings = {
   blockColorMechanics: string;
   blockColorTreasure: string;
   blockColorEncounter: string;
+  ttsDefaultVoiceId: string;
   backupPathNpcs: string;
   backupPathPlayers: string;
   backupPathJournals: string;
@@ -453,6 +455,15 @@ export function registerLoreBridgeSettings(): void {
     });
   }
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.ttsDefaultVoiceId, {
+    name: "TTS Default Voice ID",
+    hint: "ElevenLabs voice ID used when an NPC has no voice assigned. Leave blank to disable TTS for unassigned NPCs.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "",
+  });
+
   // Backup config — general
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs, {
     name: "Backup: Actors (NPCs) Folder",
@@ -610,6 +621,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorTreasure), "#3a8a50"),
     blockColorEncounter: normalizeHexColor(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.blockColorEncounter), "#6a3a9a"),
+    ttsDefaultVoiceId: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.ttsDefaultVoiceId) ?? "",
+    ).trim(),
     backupPathNpcs: normalizeBackupPath(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs), "02-actors/npcs"),
     backupPathPlayers: normalizeBackupPath(

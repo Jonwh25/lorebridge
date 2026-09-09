@@ -107,7 +107,7 @@ import { listPlaylists, searchPlaylists } from "./capabilities/playlists.js";
 import { getQuestObjectives, showQuestObjectivesApprovalChat, approveQuestObjectivesWrite, rejectQuestObjectivesWrite, type QuestObjectivesApprovalPayload } from "./capabilities/quest-objectives.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
-import { registerNpcMentionHook, registerNpcPreambleSheetHook } from "./capabilities/npc-mention.js";
+import { registerNpcMentionHook } from "./capabilities/npc-mention.js";
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
@@ -522,7 +522,6 @@ Hooks.once("init", () => {
       ?? null;
     if (root instanceof HTMLElement) _injectMacroSidebarButton(root);
   });
-  registerNpcPreambleSheetHook();
   registerPortraitMenuHook();
   registerNpcWorkspaceMenuHook();
   registerNpcProfileSheetSection();
