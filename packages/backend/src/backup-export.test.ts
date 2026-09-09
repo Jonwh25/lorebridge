@@ -10,7 +10,6 @@ import type { AddressInfo } from "node:net";
 import { createLoreBridgeServer } from "./app.js";
 import type { BackendConfig } from "./config.js";
 import type { BackendIdentity } from "./identity.js";
-import type { BackendServices } from "./journal-service.js";
 import type { BackupFileEntry } from "@lorebridge/shared/capabilities";
 
 // ---------------------------------------------------------------------------
@@ -41,8 +40,7 @@ async function withServer(
 ): Promise<void> {
   const merged: BackendConfig = { ...BASE_CONFIG, ...config };
   void fetchFn; // reserved for future mock injection
-  const services: BackendServices = {};
-  const server = createLoreBridgeServer(merged, IDENTITY, services);
+  const server = createLoreBridgeServer(merged, IDENTITY);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as AddressInfo;
   try {

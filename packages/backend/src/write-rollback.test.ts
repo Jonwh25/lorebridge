@@ -38,7 +38,7 @@ async function pair(baseUrl: string): Promise<string> {
 }
 
 async function withServer(run: (baseUrl: string, pairingToken: string) => Promise<void>): Promise<void> {
-  const server = createLoreBridgeServer(BASE_CONFIG, IDENTITY, {});
+  const server = createLoreBridgeServer(BASE_CONFIG, IDENTITY);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${address.port}`;

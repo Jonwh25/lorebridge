@@ -136,7 +136,7 @@ function toolError(error: unknown, fallback: string) {
 function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null): McpServer {
   const server = new McpServer({
     name: "lorebridge",
-    version: "0.2.0",
+    version: "0.36.0",
   });
 
   server.registerTool(
