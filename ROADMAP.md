@@ -33,6 +33,53 @@ current version.
 
 ## Upcoming
 
+### Milestone 38 — Codebase Health
+
+Eliminate two long-standing maintenance burdens before adding more features.
+The Raven's Eye actor backup format is retired and its 735-line schema deleted;
+actor backup consolidates entirely on the plain Markdown format introduced in
+v0.29.0. Duplicated `parseContextArray` calls in `app.ts` are extracted to a
+shared helper, and `tracker-shared.ts` is renamed to reflect its true role as
+a general shared utilities module. No user-visible behavior changes.
+
+1. [Retire Raven's Eye spec and consolidate actor backup to plain Markdown format](https://github.com/Jonwh25/lorebridge/issues/375)
+2. [Code organization housekeeping: extract parseContextArray helper, restructure tracker-shared](https://github.com/Jonwh25/lorebridge/issues/376)
+
+Success test: `npm run validate` passes; actor NPC and player GitHub backup
+still produces Markdown files on the VM; no references to Raven's Eye types
+remain in the codebase.
+
+### Milestone 39 — Campaign Timeline
+
+Build an auto-maintained campaign timeline that extracts major events from
+session logs (NPC deaths, quest completions, faction shifts, location
+discoveries, notable player actions) and displays them as a scrollable
+chronological timeline in an ApplicationV2 dialog. The timeline is backed by
+a GitHub-committed `lore/timeline.json` file and is accessible from the
+Session Command Center.
+
+1. [Campaign Timeline / In-World Chronicle: auto-maintained chronological event log](https://github.com/Jonwh25/lorebridge/issues/380)
+
+Success test: running "Update Timeline" after a session log is created
+extracts and persists new events; the timeline dialog displays events in
+chronological order filterable by type; `timeline.json` is included in the
+GitHub backup.
+
+### Milestone 40 — Semantic Search
+
+Replace keyword-based campaign search with vector/embedding search so AI
+clients can answer natural-language queries across journals, actors, and
+session logs. Initial implementation uses the hybrid Option C approach:
+keyword search remains the default and semantic search is opt-in once an
+embedding provider is configured.
+
+1. [Semantic / embedding-based campaign search for MCP tools](https://github.com/Jonwh25/lorebridge/issues/377)
+
+Success test: `search_campaign_semantic` MCP tool returns relevant results
+for a natural-language query that existing keyword search misses; index
+rebuild completes without blocking the adapter WebSocket; existing
+`search_campaign` behavior is unchanged.
+
 ## Completed
 
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
