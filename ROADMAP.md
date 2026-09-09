@@ -11,8 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-## Upcoming
-
 ### Milestone 37 — Live Session Immersion
 
 Bring AI-generated audio and narration directly into the live session experience.
@@ -23,7 +21,7 @@ combat events (hits, crits, kills) and can read it aloud using the attacker's
 assigned voice. Backend dead code and stale version strings are cleaned up as part
 of this milestone.
 
-1. [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
+1. ✅ [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
 2. [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
 3. [AI Combat Narrator: generate dramatic flavor text for combat events](https://github.com/Jonwh25/lorebridge/issues/378)
 
@@ -32,6 +30,8 @@ Workspace; during combat, a critical hit by that NPC triggers a flavor sentence
 spoken aloud in the villain's assigned voice; the GM can toggle the narrator off
 mid-session without a Foundry reload; backend `/health` returns the correct
 current version.
+
+## Upcoming
 
 ## Completed
 
