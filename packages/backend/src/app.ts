@@ -942,8 +942,10 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
         sendJson(response, 502, { error: { code: "elevenlabs_error", message: `ElevenLabs returned ${elRes.status}` } });
         return;
       }
-      const elData = await elRes.json() as { voices: Array<{ voice_id: string; name: string }> };
-      voiceListCache = elData.voices.map(v => ({ id: v.voice_id, name: v.name }));
+      const elData = await elRes.json() as { voices: Array<{ voice_id: string; name: string; category?: string }> };
+      voiceListCache = elData.voices
+        .filter(v => v.category !== "premade")
+        .map(v => ({ id: v.voice_id, name: v.name }));
       sendJson(response, 200, { voices: voiceListCache });
     } catch (err) {
       sendJson(response, 502, { error: { code: "elevenlabs_error", message: String(err) } });
