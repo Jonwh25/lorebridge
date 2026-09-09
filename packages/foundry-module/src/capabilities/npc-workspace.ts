@@ -1583,27 +1583,31 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
     private _generatingFull = false;
     private _pendingTraits: Record<string, string> | null = null;
     private _cachedVoices: Array<{ id: string; name: string }> | null | "unavailable" = null;
+    private _fetchingVoices = false;
 
     private _getActor(): FoundryActor | undefined {
       return game.actors.get(this.actorId) as FoundryActor | undefined;
     }
 
     private async _fetchVoices(): Promise<void> {
-      const settings = getLoreBridgeSettings();
-      if (!settings.backendUrl || !settings.clientToken) { this._cachedVoices = "unavailable"; return; }
-      const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
+      if (this._fetchingVoices) return;
+      this._fetchingVoices = true;
       try {
+        const settings = getLoreBridgeSettings();
+        if (!settings.backendUrl || !settings.clientToken) { this._cachedVoices = "unavailable"; return; }
+        const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
         const res = await fetch(`${base}v1/tts/voices`, {
           headers: { authorization: `Bearer ${settings.clientToken}` },
         });
-        if (res.status === 503) { this._cachedVoices = "unavailable"; return; }
         if (!res.ok) { this._cachedVoices = "unavailable"; return; }
         const data = await res.json() as { voices: Array<{ id: string; name: string }> };
         this._cachedVoices = data.voices;
       } catch {
         this._cachedVoices = "unavailable";
+      } finally {
+        this._fetchingVoices = false;
+        void this.render({ force: true });
       }
-      void this.render({ force: true });
     }
 
     override async _renderHTML(_context: Record<string, unknown>, _options: unknown): Promise<HTMLElement> {
@@ -1698,7 +1702,7 @@ function _buildNpcWorkspaceClass(windowTitle: string) {
         const currentVoiceId = (actor.getFlag("lorebridge", "voiceId") as string | undefined) ?? "";
         if (this._cachedVoices === null) {
           voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.7"><i class="fas fa-spinner" style="animation:lb-ws-spin 1s linear infinite"></i> Loading voices…</span></div>`;
-          void this._fetchVoices();
+          if (!this._fetchingVoices) void this._fetchVoices();
         } else if (this._cachedVoices === "unavailable") {
           voicePickerBar = `<div class="lb-ws-voice-bar"><span class="lb-ws-voice-bar__label"><i class="fas fa-microphone"></i> Voice</span><span style="font-size:0.8em;opacity:0.5">ElevenLabs not configured</span></div>`;
         } else {
