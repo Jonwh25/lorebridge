@@ -11,8 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-## Upcoming
-
 ### Milestone 38 — Codebase Health
 
 Eliminate two long-standing maintenance burdens before adding more features.
@@ -28,6 +26,8 @@ a general shared utilities module. No user-visible behavior changes.
 Success test: `npm run validate` passes; actor NPC and player GitHub backup
 still produces Markdown files on the VM; no references to Raven's Eye types
 remain in the codebase.
+
+## Upcoming
 
 ### Milestone 39 — Campaign Timeline
 
