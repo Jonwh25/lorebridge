@@ -119,7 +119,7 @@ export type LoreBridgeSettings = {
   blockColorEncounter: string;
   ttsDefaultVoiceId: string;
   combatNarratorMode: "off" | "npcs-only" | "all";
-  combatNarratorStyle: "dramatic" | "gritty" | "humorous" | "heroic";
+  combatNarratorStyle: "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror";
   combatNarratorVoiceId: string;
   backupPathNpcs: string;
   backupPathPlayers: string;
@@ -486,7 +486,7 @@ export function registerLoreBridgeSettings(): void {
     scope: "world",
     config: false,
     type: String,
-    choices: { dramatic: "Dramatic", gritty: "Gritty", humorous: "Humorous", heroic: "Heroic" },
+    choices: { dramatic: "Dramatic", gritty: "Gritty", humorous: "Humorous", heroic: "Heroic", "gothic-horror": "Gothic Horror" },
     default: "dramatic",
   });
 
@@ -718,9 +718,10 @@ function normalizeCombatNarratorMode(value: unknown): "off" | "npcs-only" | "all
   return "off";
 }
 
-function normalizeCombatNarratorStyle(value: unknown): "dramatic" | "gritty" | "humorous" | "heroic" {
+function normalizeCombatNarratorStyle(value: unknown): "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror" {
   if (value === "gritty") return "gritty";
   if (value === "humorous") return "humorous";
   if (value === "heroic") return "heroic";
+  if (value === "gothic-horror") return "gothic-horror";
   return "dramatic";
 }

@@ -879,7 +879,7 @@ export type CombatFlavorInput = {
   damage: number;
   isCrit: boolean;
   isKillingBlow: boolean;
-  style: "dramatic" | "gritty" | "humorous" | "heroic";
+  style: "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror";
 };
 
 export type CombatFlavorOutput = {
@@ -888,10 +888,11 @@ export type CombatFlavorOutput = {
 };
 
 const NARRATOR_STYLE_GUIDE: Record<string, string> = {
-  dramatic: "cinematic and tense, with a sense of weight and consequence",
-  gritty:   "brutal and visceral, grounded and unromantic",
-  humorous: "wry and light-hearted, with a touch of irony or absurdity",
-  heroic:   "epic and triumphant, legendary in scale",
+  dramatic:      "cinematic and tense, with a sense of weight and consequence",
+  gritty:        "brutal and visceral, grounded and unromantic",
+  humorous:      "wry and light-hearted, with a touch of irony or absurdity",
+  heroic:        "epic and triumphant, legendary in scale",
+  "gothic-horror": "dark and foreboding, steeped in dread and the macabre — evoking the cold shadow of mortality and ancient evil",
 };
 
 export async function generateCombatFlavor(

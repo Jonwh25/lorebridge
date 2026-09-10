@@ -347,10 +347,11 @@ function buildCombatHtml(voices: Array<{ id: string; name: string }> | "unavaila
     { value: "all",       label: "All Combatants",   hint: "Fires for every hit regardless of attacker type." },
   ];
   const styleOptions = [
-    { value: "dramatic",  label: "Dramatic",  hint: "Cinematic and tense, with weight and consequence." },
-    { value: "gritty",    label: "Gritty",    hint: "Brutal and visceral, grounded and unromantic." },
-    { value: "humorous",  label: "Humorous",  hint: "Wry and light-hearted, with a touch of irony." },
-    { value: "heroic",    label: "Heroic",    hint: "Epic and triumphant, legendary in scale." },
+    { value: "dramatic",     label: "Dramatic",     hint: "Cinematic and tense, with weight and consequence." },
+    { value: "gritty",       label: "Gritty",       hint: "Brutal and visceral, grounded and unromantic." },
+    { value: "humorous",     label: "Humorous",     hint: "Wry and light-hearted, with a touch of irony." },
+    { value: "heroic",       label: "Heroic",       hint: "Epic and triumphant, legendary in scale." },
+    { value: "gothic-horror",label: "Gothic Horror", hint: "Dark and foreboding, steeped in dread and the macabre." },
   ];
 
   const selectRow = (name: string, label: string, hint: string, options: { value: string; label: string; hint: string }[], current: string) => `

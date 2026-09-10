@@ -901,9 +901,9 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const isCrit        = typeof body["isCrit"]        === "boolean" ? body["isCrit"]        : false;
     const isKillingBlow = typeof body["isKillingBlow"] === "boolean" ? body["isKillingBlow"] : false;
     const rawStyle = typeof body["style"]  === "string"  ? body["style"]   : "dramatic";
-    const style = (["dramatic", "gritty", "humorous", "heroic"].includes(rawStyle)
+    const style = (["dramatic", "gritty", "humorous", "heroic", "gothic-horror"].includes(rawStyle)
       ? rawStyle
-      : "dramatic") as "dramatic" | "gritty" | "humorous" | "heroic";
+      : "dramatic") as "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror";
     if (!attackerName || !targetName) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include non-empty attackerName and targetName strings." } });
       return;
