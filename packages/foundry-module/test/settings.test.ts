@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 50);
+  assert.equal(registrations.size, 53);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -159,6 +159,17 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backupPathCcNpcs)?.default, "02-actors/cc-npcs");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backupPathCcQuests)?.default, "03-quests/cc-quests");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.backupPathCcRegions)?.default, "04-world/cc-regions");
+
+  // Combat Narrator
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorMode)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorMode)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorMode)?.default, "off");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.default, "dramatic");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.default, "");
 });
 
 test("reads and normalizes configured values", () => {
@@ -233,6 +244,9 @@ test("reads and normalizes configured values", () => {
     backupPathCcNpcs: "02-actors/cc-npcs",
     backupPathCcQuests: "03-quests/cc-quests",
     backupPathCcRegions: "04-world/cc-regions",
+    combatNarratorMode: "off",
+    combatNarratorStyle: "dramatic",
+    combatNarratorVoiceId: "",
   });
 });
 

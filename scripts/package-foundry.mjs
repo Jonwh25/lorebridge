@@ -23,6 +23,7 @@ await mkdir(path.join(stagingRoot, "templates"), { recursive: true });
 await cp(manifestPath, path.join(stagingRoot, "module.json"));
 await cp(path.join(moduleRoot, "dist", "main.js"), path.join(stagingRoot, "dist", "main.js"));
 await cp(path.join(moduleRoot, "styles", "lorebridge.css"), path.join(stagingRoot, "styles", "lorebridge.css"));
+await cp(path.join(moduleRoot, "styles", "read-aloud.css"), path.join(stagingRoot, "styles", "read-aloud.css"));
 await cp(path.join(moduleRoot, "templates", "context-profiles.hbs"), path.join(stagingRoot, "templates", "context-profiles.hbs"));
 await cp(manifestPath, path.join(releaseRoot, "module.json"));
 
