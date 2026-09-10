@@ -30,6 +30,15 @@ Foundry documents or provider credentials.
   Assistant without exposing hidden campaign material.
 - Generate session preparation, boxed text, roll tables, NPC profiles, D&D 5e
   stat blocks, portraits, and in-character dialogue inside Foundry.
+- Assign a distinct ElevenLabs voice to each NPC from the NPC Workspace so
+  read-aloud text and combat flavor are spoken in a consistent,
+  character-appropriate voice. TTS falls back to a world-level default when no
+  per-NPC voice is assigned.
+- Enable the **AI Combat Narrator** to automatically generate short dramatic
+  flavor sentences for hits, crits, and killing blows during active combat.
+  Choose from five narrative styles (Dramatic, Gritty, Humorous, Heroic, Gothic
+  Horror) and a dedicated narrator voice. Mode and style can be changed
+  mid-session without a Foundry reload.
 - From any MCP client, generate a complete D&D 5e NPC, a custom item (weapon,
   spell, feat, consumable, equipment, background, race, class, subclass, and
   more), or a balanced encounter and push it into Foundry through GM approval
@@ -104,7 +113,8 @@ or rebuilding, native search and content scanners remain available.
 | Campaign retrieval | World summary; folder-aware journal, actor, scene, item, macro, roll-table, and playlist discovery; compendium, asset, chat, combat, and session-log retrieval; `list_folders` and `browse_folder` for navigating nested folder trees; `get_item` for bounded D&D 5e item stats; full content loading for compendium entries (Item, Actor, JournalEntry, JournalEntryPage) |
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables. Session prep renders a structured **Lazy DM Prep** journal with styled block types: read-aloud narration, flavor asides, lore entries, mechanics callouts, treasure summaries, encounter notes, NPC roster tables, and data tables. GMs can customize the accent color for each block type from **LoreBridge Settings → Journal Colors** with changes applying live — no Foundry reload needed |
-| NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, optional voice responses, and persistent memory that accumulates from live roleplay |
+| NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, per-NPC ElevenLabs voice assignment (Voice & AI sidebar in the NPC Workspace), optional voice responses, and persistent memory that accumulates from live roleplay |
+| AI Combat Narrator | Automatically generates short dramatic flavor sentences for hits, crits, and killing blows during active combat; five narrative styles including Gothic Horror; dedicated narrator voice; mode and style changeable mid-session without reload; player-owned PCs addressed by first name only |
 | External world building | `generate_npc`/`create_actor`/`update_actor` for NPC creation and editing; `generate_item`/`create_item`/`update_item` for 12 D&D 5e item types (weapon, spell, feat, consumable, equipment, loot, tool, background, race, container, class, subclass); `generate_encounter`/`create_encounter` for balanced encounter building with token placement; `update_scene` for scene property edits — all from an MCP client without opening Foundry |
 | Campaign Codex integration | Optional NPC Dossier widgets with four structured sidebar tabs and native GM secrets; quest objective retrieval and GM-approved checklist replacements; incremental Markdown export with committed/unchanged counts |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |

@@ -11,26 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-### Milestone 37 — Live Session Immersion
-
-Bring AI-generated audio and narration directly into the live session experience.
-Per-NPC voice profiles let GMs assign a distinct ElevenLabs voice to each NPC so
-read-aloud text and combat flavor are spoken in a consistent, character-appropriate
-voice. The AI Combat Narrator generates a short dramatic sentence for significant
-combat events (hits, crits, kills) and can read it aloud using the attacker's
-assigned voice. Backend dead code and stale version strings are cleaned up as part
-of this milestone.
-
-1. ✅ [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
-2. ✅ [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
-3. [AI Combat Narrator: generate dramatic flavor text for combat events](https://github.com/Jonwh25/lorebridge/issues/378)
-
-Success test: a GM assigns a voice to a recurring NPC villain in the NPC
-Workspace; during combat, a critical hit by that NPC triggers a flavor sentence
-spoken aloud in the villain's assigned voice; the GM can toggle the narrator off
-mid-session without a Foundry reload; backend `/health` returns the correct
-current version.
-
 ## Upcoming
 
 ### Milestone 38 — Codebase Health
@@ -97,6 +77,12 @@ and link it to a CC Region — all via MCP with GM approval in Foundry;
 rejected operations produce a clear MCP error; `npm run validate` passes.
 
 ## Completed
+
+### Milestone 37 — Live Session Immersion (v0.37.0)
+
+1. ✅ [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
+2. ✅ [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
+3. ✅ [AI Combat Narrator: generate dramatic flavor text for combat events](https://github.com/Jonwh25/lorebridge/issues/378)
 
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
 

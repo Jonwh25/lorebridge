@@ -2,6 +2,90 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.37.0] - 2026-09-10
+
+### Added
+
+- **Per-NPC voice profiles** (#379, PR #384): GMs can now assign a distinct
+  ElevenLabs voice to each NPC directly from the NPC Workspace. A new **Voice
+  & AI** sidebar section consolidates voice selection, the AI-enabled toggle,
+  and the personality preamble textarea under a single Save button. Voices are
+  fetched lazily from the backend on first view and cached for the session. The
+  voice assignment is stored as an actor flag and used whenever that NPC speaks
+  via TTS. When no NPC-level voice is assigned, TTS falls back to the
+  world-level default voice.
+
+- **AI Combat Narrator** (#378, PR #386): automatically generates a short
+  (~20-word) dramatic flavor sentence for significant combat events — normal
+  hits, critical hits, and killing blows. The narrator is driven by a new
+  `POST /v1/generate/combat-flavor` backend endpoint and fires from a
+  `preUpdateActor` Foundry hook that computes HP delta before the write and
+  skips healing and zero-damage events.
+
+  Three new world settings control the narrator without requiring a Foundry
+  reload:
+  - **Mode** — `Off`, `NPCs Only`, or `All Combatants`
+  - **Style** — `Dramatic`, `Gritty`, `Humorous`, `Heroic`, or `Gothic Horror`
+    (tuned for Curse of Strahd-style dark campaigns)
+  - **Narrator Voice** — an ElevenLabs voice dedicated to the narrator; leave
+    empty to display text only without TTS
+
+  A dedicated **Combat** settings page in LoreBridge Settings exposes all three
+  dropdowns. Player-owned PC actors are referred to by first name only
+  ("Syrren"); NPCs use their full name ("Gibbering Mouther"). Killing blows
+  generate a distinct finality-toned sentence. Narrator flavor appears in chat
+  as a styled dark-red `.lb-combat-narrator` card.
+
+### Changed
+
+- **NPC Workspace Voice & AI section**: the per-actor voice picker, AI-enabled
+  checkbox, and preamble textarea are now consolidated in one sidebar section
+  with a single Save button, replacing the earlier separate Preamble menu entry
+  in the actor sheet header controls.
+
+- **ElevenLabs voice cache TTL**: the session-level voice list cache is now
+  bounded to a 5-minute TTL (previously unbounded) so newly added voices appear
+  without restarting the backend.
+
+### Fixed
+
+- **`styles/read-aloud.css` missing from release archive**: `package-foundry.mjs`
+  and `verify-release-archive.mjs` were not including this stylesheet in the
+  release zip or CI verification. Both scripts are corrected; the file is now
+  packaged and verified.
+
+- **NPC full-name truncation on GM-owned actors**: GM ownership level (3) was
+  being treated as non-GM ownership in the first-name logic, causing NPC names
+  to be shortened. Fixed to apply first-name treatment only to actors whose
+  primary owner is a non-GM player.
+
+### Backend
+
+- **Remove `JournalService` dead code** (#374, PR #383): `journal-service.ts`
+  deleted; all `services.journals` branches removed from `app.ts` (always
+  `undefined` in production); `GET /v1/journals/{id}` replaced with a clear
+  501 Not Implemented response.
+
+- **Remove `[restore-debug]` console.log calls** (#374, PR #383): four debug
+  `console.log` statements in the scene-restore handler have been removed.
+
+- **Sync stale version strings** (#374, PR #383): `serviceVersion` in `app.ts`
+  and the `McpServer` version in `mcp.ts` updated from stale `"0.2.0"` to the
+  current release version.
+
+### Upgrade notes
+
+- Update both the backend and Foundry module, then reload the Foundry browser
+  tab. No new environment variables are required for the Combat Narrator unless
+  you want TTS narration, which requires `ELEVENLABS_API_KEY` on the backend.
+- The ElevenLabs Starter plan (not the free tier) is required for API voice
+  access.
+- Existing NPC Workspace settings are preserved. The Per-NPC voice picker now
+  lives in the Voice & AI sidebar section; the "Configure NPC Preamble" entry
+  has been removed from the actor sheet header controls.
+- The Combat Narrator is off by default. Enable it in **LoreBridge Settings →
+  Combat** and choose a Mode, Style, and optionally a Narrator Voice.
+
 ## [0.36.0] - 2026-09-08
 
 ### Added
