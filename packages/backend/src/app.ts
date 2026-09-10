@@ -99,6 +99,8 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
 }
 
 let voiceListCache: Array<{ id: string; name: string }> | null = null;
+let voiceListCachedAt = 0;
+const VOICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
@@ -963,7 +965,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       sendJson(response, 503, { error: { code: "tts_unavailable", message: "ElevenLabs API key is not configured on this backend." } });
       return;
     }
-    if (voiceListCache) {
+    if (voiceListCache && Date.now() - voiceListCachedAt < VOICE_CACHE_TTL_MS) {
       sendJson(response, 200, { voices: voiceListCache });
       return;
     }
@@ -979,6 +981,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       voiceListCache = elData.voices
         .filter(v => v.category !== "premade")
         .map(v => ({ id: v.voice_id, name: v.name }));
+      voiceListCachedAt = Date.now();
       sendJson(response, 200, { voices: voiceListCache });
     } catch (err) {
       sendJson(response, 502, { error: { code: "elevenlabs_error", message: String(err) } });
