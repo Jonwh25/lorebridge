@@ -7,6 +7,7 @@ async function callCombatFlavor(ctx: {
   targetName: string;
   damage: number;
   isCrit: boolean;
+  isKillingBlow: boolean;
   style: string;
 }): Promise<string> {
   const settings = getLoreBridgeSettings();
@@ -92,12 +93,13 @@ async function handleActorUpdate(
     if (!attacker || isPlayerOwned) return;
   }
 
+  const isKillingBlow = newHp <= 0;
   const attackerName = attacker?.name ?? "Unknown";
   const targetName = (targetActor as { name?: string }).name ?? "Unknown";
   const style = settings.combatNarratorStyle;
 
   try {
-    const flavor = await callCombatFlavor({ attackerName, targetName, damage, isCrit: false, style });
+    const flavor = await callCombatFlavor({ attackerName, targetName, damage, isCrit: false, isKillingBlow, style });
 
     await ChatMessage.create({
       content: `<div class="lb-combat-narrator"><em>${flavor}</em></div>`,

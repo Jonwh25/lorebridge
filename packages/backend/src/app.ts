@@ -896,7 +896,8 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const attackerName = typeof body["attackerName"] === "string" ? body["attackerName"].trim() : "";
     const targetName   = typeof body["targetName"]   === "string" ? body["targetName"].trim()   : "";
     const damage  = typeof body["damage"]  === "number"  ? body["damage"]  : 0;
-    const isCrit  = typeof body["isCrit"]  === "boolean" ? body["isCrit"]  : false;
+    const isCrit        = typeof body["isCrit"]        === "boolean" ? body["isCrit"]        : false;
+    const isKillingBlow = typeof body["isKillingBlow"] === "boolean" ? body["isKillingBlow"] : false;
     const rawStyle = typeof body["style"]  === "string"  ? body["style"]   : "dramatic";
     const style = (["dramatic", "gritty", "humorous", "heroic"].includes(rawStyle)
       ? rawStyle
@@ -910,7 +911,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       return;
     }
     try {
-      const result = await generateCombatFlavor(provider, { attackerName, targetName, damage, isCrit, style });
+      const result = await generateCombatFlavor(provider, { attackerName, targetName, damage, isCrit, isKillingBlow, style });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {

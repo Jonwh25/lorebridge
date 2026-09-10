@@ -878,6 +878,7 @@ export type CombatFlavorInput = {
   targetName: string;
   damage: number;
   isCrit: boolean;
+  isKillingBlow: boolean;
   style: "dramatic" | "gritty" | "humorous" | "heroic";
 };
 
@@ -898,15 +899,19 @@ export async function generateCombatFlavor(
   input: CombatFlavorInput,
 ): Promise<CombatFlavorOutput> {
   const styleDesc = NARRATOR_STYLE_GUIDE[input.style] ?? NARRATOR_STYLE_GUIDE["dramatic"]!;
-  const critNote = input.isCrit ? " It was a devastating critical hit." : "";
+  const eventNote = input.isKillingBlow
+    ? " This blow reduced the target to zero hit points — they are defeated."
+    : input.isCrit ? " It was a devastating critical hit." : "";
 
   const prompt = [
     `You are narrating tabletop RPG combat in a ${styleDesc} style.`,
-    "Write exactly ONE sentence (around 20 words) in the present tense describing this attack.",
+    input.isKillingBlow
+      ? "Write exactly ONE sentence (around 20 words) in the present tense describing the killing blow that defeats the target."
+      : "Write exactly ONE sentence (around 20 words) in the present tense describing this attack.",
     "Avoid stat jargon and damage numbers. Plain prose only. No markdown, no quotation marks.",
     "",
     `Attacker: ${input.attackerName}`,
-    `Target: ${input.targetName}${critNote}`,
+    `Target: ${input.targetName}${eventNote}`,
     "",
     "Narration:",
   ].join("\n");
