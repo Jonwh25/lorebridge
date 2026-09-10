@@ -11,22 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-### Milestone 38 — Codebase Health
-
-Eliminate two long-standing maintenance burdens before adding more features.
-The Raven's Eye actor backup format is retired and its 735-line schema deleted;
-actor backup consolidates entirely on the plain Markdown format introduced in
-v0.29.0. Duplicated `parseContextArray` calls in `app.ts` are extracted to a
-shared helper, and `tracker-shared.ts` is renamed to reflect its true role as
-a general shared utilities module. No user-visible behavior changes.
-
-1. [Retire Raven's Eye spec and consolidate actor backup to plain Markdown format](https://github.com/Jonwh25/lorebridge/issues/375)
-2. [Code organization housekeeping: extract parseContextArray helper, restructure tracker-shared](https://github.com/Jonwh25/lorebridge/issues/376)
-
-Success test: `npm run validate` passes; actor NPC and player GitHub backup
-still produces Markdown files on the VM; no references to Raven's Eye types
-remain in the codebase.
-
 ## Upcoming
 
 ### Milestone 39 — Campaign Timeline

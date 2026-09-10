@@ -2,6 +2,27 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.38.0] - 2026-09-10
+
+### Removed
+
+- **Ravens Eye schema retired** (#375, PR #388): Deleted `ravens-eye.ts`
+  (735-line YAML sidecar spec), `backup-actors.ts`, `restore-scenes.ts`, and
+  `backup-yaml.ts`. All journal, scene, and roll table backups now emit plain
+  Markdown only. The `/lb backup actors` and `/lb restore scenes` chat commands
+  are removed. `actors` is removed from `BackupDocumentType`. No Ravens Eye
+  types, flags, or schema remain in the codebase.
+
+### Changed
+
+- **Code organization housekeeping** (#376, PR #388): Extracted
+  `parseContextArray()` helper from three duplicate call sites in `app.ts`.
+  Split HTTP helpers (`postBackend`, `buildBackendUrl`) into
+  `utils/backend-client.ts` and file I/O helpers (`readLoreJson`,
+  `writeLoreJson`, `backupLoreFile`) into `utils/foundry-io.ts`; remaining
+  utilities stay in `tracker-shared.ts`. Documented `LOREBRIDGE_PAIRING_ENABLED`
+  and related backend environment variables in `docs/LIVE_DEPLOYMENT.md`.
+
 ## [0.37.0] - 2026-09-10
 
 ### Added
