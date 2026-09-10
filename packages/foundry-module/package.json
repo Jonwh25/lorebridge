@@ -1,6 +1,6 @@
 {
   "name": "@lorebridge/foundry-module",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@lorebridge/shared": "0.36.0"
+    "@lorebridge/shared": "0.37.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
