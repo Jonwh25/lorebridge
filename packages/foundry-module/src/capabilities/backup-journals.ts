@@ -78,6 +78,7 @@ export async function exportJournalFolder(
   }
 
   // Serialize each journal entry to plain Markdown.
+  const usedSlugs = new Map<string, number>();
   for (const journal of journals) {
     const pages = Array.from(journal.pages);
     const textContent: string[] = [];
@@ -104,8 +105,13 @@ export async function exportJournalFolder(
       continue;
     }
 
+    const baseSlug = slugify(journal.name);
+    const count = usedSlugs.get(baseSlug) ?? 0;
+    usedSlugs.set(baseSlug, count + 1);
+    const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+
     const body = textContent.join("\n\n");
-    files.push({ path: `entry/${slugify(journal.name)}.md`, content: `# ${journal.name}\n\n${body}\n` });
+    files.push({ path: `entry/${slug}.md`, content: `# ${journal.name}\n\n${body}\n` });
   }
 
   return { files, warnings };

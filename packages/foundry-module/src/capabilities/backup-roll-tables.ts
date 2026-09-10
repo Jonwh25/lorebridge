@@ -75,6 +75,7 @@ export async function exportRollTableFolder(
     );
   }
 
+  const usedSlugs = new Map<string, number>();
   for (const table of tables) {
     const rawData = (table as unknown as RollTableWithData).toObject();
     const results = (rawData.results as Array<Record<string, unknown>> | undefined) ?? [];
@@ -88,9 +89,14 @@ export async function exportRollTableFolder(
       }
     }
 
+    const baseSlug = slugify(table.name);
+    const count = usedSlugs.get(baseSlug) ?? 0;
+    usedSlugs.set(baseSlug, count + 1);
+    const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+
     const formula = table.formula ?? "";
     files.push({
-      path: `random-table/${slugify(table.name)}.md`,
+      path: `random-table/${slug}.md`,
       content: `# ${table.name}\n\nFormula: \`${formula}\`\n\n_Foundry roll table backup._\n`,
     });
   }

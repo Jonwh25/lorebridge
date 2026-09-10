@@ -84,6 +84,7 @@ export async function exportSceneFolder(
     );
   }
 
+  const usedSlugs = new Map<string, number>();
   for (const scene of scenes) {
     const rawSceneData = (scene as unknown as SceneWithData).toObject();
     const { background } = rawSceneData as { background?: Record<string, unknown> };
@@ -92,8 +93,13 @@ export async function exportSceneFolder(
       warnings.push(`Asset inventoried (not exported): ${backgroundSrc} (scene "${scene.name}")`);
     }
 
+    const baseSlug = slugify(scene.name);
+    const count = usedSlugs.get(baseSlug) ?? 0;
+    usedSlugs.set(baseSlug, count + 1);
+    const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
+
     files.push({
-      path: `place/${slugify(scene.name)}.md`,
+      path: `place/${slug}.md`,
       content: `# ${scene.name}\n\n_Foundry scene backup._\n`,
     });
   }
