@@ -11,24 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-## Upcoming
-
-### Milestone 39 — Campaign Timeline
-
-Build an auto-maintained campaign timeline that extracts major events from
-session logs (NPC deaths, quest completions, faction shifts, location
-discoveries, notable player actions) and displays them as a scrollable
-chronological timeline in an ApplicationV2 dialog. The timeline is backed by
-a GitHub-committed `lore/timeline.json` file and is accessible from the
-Session Command Center.
-
-1. [Campaign Timeline / In-World Chronicle: auto-maintained chronological event log](https://github.com/Jonwh25/lorebridge/issues/380)
-
-Success test: running "Update Timeline" after a session log is created
-extracts and persists new events; the timeline dialog displays events in
-chronological order filterable by type; `timeline.json` is included in the
-GitHub backup.
-
 ### Milestone 40 — Semantic Search
 
 Replace keyword-based campaign search with vector/embedding search so AI

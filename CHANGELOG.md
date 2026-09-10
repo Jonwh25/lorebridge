@@ -2,6 +2,33 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.39.0] - 2026-09-10
+
+### Added
+
+- **Campaign Timeline tracker** (#380, PR #389): Extracts major story events
+  from session logs using AI and maintains a chronological `campaign_timeline.json`
+  in the campaign lore folder. Supports eight event types — NPC Death, Quest
+  Complete, Quest Start, Faction Shift, Location Discovered, Major Decision,
+  Item Acquired, Notable Combat — plus a catch-all Other type. Each event
+  records title, description, session number, optional in-world date, real
+  session date, involved actor names, and location.
+
+  New controls in the **Session Command Center → Session Trackers** section:
+  - **All** — processes every session log page and extracts timeline events
+  - **Latest** — processes only the most recent session log page
+  - **View Timeline** — opens the Campaign Timeline viewer: a scrollable,
+    colour-coded event list filterable by event type, with session numbers
+    shown on each card
+
+  The **Post-Session Checklist** includes a new **Campaign Timeline** step
+  (checked by default) so the timeline is updated automatically as part of
+  the end-of-session workflow.
+
+  Both extraction paths show a preview dialog before writing, and
+  `campaign_timeline.json` is included in the existing lore-files GitHub
+  backup flow. First run with no existing file is handled gracefully.
+
 ## [0.38.0] - 2026-09-10
 
 ### Removed
