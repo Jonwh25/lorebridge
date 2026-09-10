@@ -197,12 +197,12 @@ release-ready:
    supported workflows, or other current behavior introduced during the milestone.
 2. Update `ROADMAP.md`: mark every closed issue ✅ under the milestone. Once
    all issues in the milestone are closed, remove the milestone section from
-   `## Active` entirely — completed work is recorded in `CHANGELOG.md`, not
-   the roadmap. If issues remain open, leave the milestone in `## Active` and
-   only mark the closed ones ✅. Then promote the first `### Milestone …`
-   section from `## Upcoming` into `## Active` so the next milestone is
-   always visible as the current focus; leave the remaining upcoming milestones
-   under `## Upcoming`.
+   `ROADMAP.md` entirely — completed milestones are recorded in `CHANGELOG.md`,
+   not the roadmap; do not move them to a `## Completed` section. If issues
+   remain open, leave the milestone in `## Active` and only mark the closed
+   ones ✅. Then promote the first `### Milestone …` section from `## Upcoming`
+   into `## Active` so the next milestone is always visible as the current
+   focus; leave the remaining upcoming milestones under `## Upcoming`.
 3. Update `CHANGELOG.md` with a complete, user-focused summary of all changes in the
    milestone, including relevant fixes, safeguards, configuration changes, and
    upgrade notes. Derive this from the milestone issues and merged PRs; do not rely

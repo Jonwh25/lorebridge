@@ -76,14 +76,6 @@ Success test: rename a CC Location record, move it to a different folder,
 and link it to a CC Region — all via MCP with GM approval in Foundry;
 rejected operations produce a clear MCP error; `npm run validate` passes.
 
-## Completed
-
-### Milestone 37 — Live Session Immersion (v0.37.0)
-
-1. ✅ [Backend dead code & cleanup: remove JournalService stub, debug logs, stale version strings](https://github.com/Jonwh25/lorebridge/issues/374)
-2. ✅ [Per-NPC voice profiles: assign ElevenLabs voices to NPC dossiers](https://github.com/Jonwh25/lorebridge/issues/379)
-3. ✅ [AI Combat Narrator: generate dramatic flavor text for combat events](https://github.com/Jonwh25/lorebridge/issues/378)
-
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
 
 ## Planning workflow
