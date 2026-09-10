@@ -66,6 +66,7 @@ export const LOREBRIDGE_SETTINGS = Object.freeze({
   ttsDefaultVoiceId: "ttsDefaultVoiceId",
   combatNarratorMode: "combatNarratorMode",
   combatNarratorStyle: "combatNarratorStyle",
+  combatNarratorVoiceId: "combatNarratorVoiceId",
   // Backup config — general
   backupPathNpcs: "backupPathNpcs",
   backupPathPlayers: "backupPathPlayers",
@@ -119,6 +120,7 @@ export type LoreBridgeSettings = {
   ttsDefaultVoiceId: string;
   combatNarratorMode: "off" | "npcs-only" | "all";
   combatNarratorStyle: "dramatic" | "gritty" | "humorous" | "heroic";
+  combatNarratorVoiceId: string;
   backupPathNpcs: string;
   backupPathPlayers: string;
   backupPathJournals: string;
@@ -488,6 +490,15 @@ export function registerLoreBridgeSettings(): void {
     default: "dramatic",
   });
 
+  settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorVoiceId, {
+    name: "Combat Narrator Voice ID",
+    hint: "ElevenLabs voice ID for the narrator. Leave blank to disable narrator TTS.",
+    scope: "world",
+    config: false,
+    type: String,
+    default: "",
+  });
+
   // Backup config — general
   settings.register(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs, {
     name: "Backup: Actors (NPCs) Folder",
@@ -653,6 +664,9 @@ export function getLoreBridgeSettings(): LoreBridgeSettings {
     ),
     combatNarratorStyle: normalizeCombatNarratorStyle(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle),
+    ),
+    combatNarratorVoiceId: String(
+      settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorVoiceId) ?? "",
     ),
     backupPathNpcs: normalizeBackupPath(
       settings.get(MODULE_ID, LOREBRIDGE_SETTINGS.backupPathNpcs), "02-actors/npcs"),

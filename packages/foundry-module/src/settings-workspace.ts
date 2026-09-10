@@ -322,7 +322,23 @@ function buildFeaturesHtml(): string {
     </div>`;
 }
 
-function buildCombatHtml(): string {
+async function fetchVoicesForSettings(): Promise<Array<{ id: string; name: string }> | "unavailable"> {
+  try {
+    const s = getLoreBridgeSettings();
+    if (!s.backendUrl || !s.clientToken) return "unavailable";
+    const base = s.backendUrl.endsWith("/") ? s.backendUrl : `${s.backendUrl}/`;
+    const res = await fetch(`${base}v1/tts/voices`, {
+      headers: { authorization: `Bearer ${s.clientToken}` },
+    });
+    if (!res.ok) return "unavailable";
+    const data = await res.json() as { voices: Array<{ id: string; name: string }> };
+    return data.voices;
+  } catch {
+    return "unavailable";
+  }
+}
+
+function buildCombatHtml(voices: Array<{ id: string; name: string }> | "unavailable"): string {
   const s = getLoreBridgeSettings();
 
   const modeOptions = [
@@ -352,6 +368,20 @@ function buildCombatHtml(): string {
       ${sectionHeader("Combat", "AI Combat Narrator settings. Changes apply to the next combat hit — no reload required.")}
       ${selectRow(LOREBRIDGE_SETTINGS.combatNarratorMode,  "Narrator Mode",  "When to generate a flavor sentence for incoming damage.", modeOptions,  s.combatNarratorMode)}
       ${selectRow(LOREBRIDGE_SETTINGS.combatNarratorStyle, "Narrator Style", "Writing tone for the generated sentence. Can be changed mid-session.", styleOptions, s.combatNarratorStyle)}
+
+      <div style="margin-bottom:18px">
+        <label style="font-size:0.85em;font-weight:bold;display:block;margin-bottom:4px">Narrator Voice</label>
+        <p style="margin:0 0 6px;font-size:0.78em;color:#888">ElevenLabs voice used to speak narrator lines. Select "Off" to disable narrator TTS.</p>
+        ${voices === "unavailable"
+          ? `<p style="font-size:0.8em;color:#888;font-style:italic">Backend not connected — configure connection first.</p>
+             <input type="hidden" name="${LOREBRIDGE_SETTINGS.combatNarratorVoiceId}" value="${esc(s.combatNarratorVoiceId)}">`
+          : `<select name="${LOREBRIDGE_SETTINGS.combatNarratorVoiceId}"
+               style="width:280px;padding:5px 8px;border:1px solid #555;border-radius:4px;background:#2a2a2a;color:#ddd">
+               <option value=""${!s.combatNarratorVoiceId ? " selected" : ""}>Off (no TTS)</option>
+               ${voices.map(v => `<option value="${esc(v.id)}"${s.combatNarratorVoiceId === v.id ? " selected" : ""}>${esc(v.name)}</option>`).join("")}
+             </select>`}
+      </div>
+
       <div style="margin-top:16px;text-align:right">
         <button data-action="combat-save" style="padding:6px 16px">
           <i class="fas fa-save"></i> Save
@@ -751,7 +781,7 @@ export class LoreBridgeSettingsApp extends AppBase {
       case "access-safety":  return buildAccessSafetyHtml();
       case "history":       return buildHistoryHtml();
       case "backup-config": return buildBackupConfigHtml();
-      case "combat":        return buildCombatHtml();
+      case "combat":        return buildCombatHtml(await fetchVoicesForSettings());
       case "diagnostics":   return buildDiagnosticsHtml(this._diagnostics);
       case "advanced":      return buildAdvancedHtml();
     }
@@ -993,11 +1023,14 @@ export class LoreBridgeSettingsApp extends AppBase {
   ): Promise<void> {
     const api = getFoundrySettingsApi();
     const el = this._self().element;
-    const mode  = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorMode}']`)?.value  ?? "off";
-    const style = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorStyle}']`)?.value ?? "dramatic";
+    const mode    = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorMode}']`)?.value  ?? "off";
+    const style   = el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorStyle}']`)?.value ?? "dramatic";
+    const voiceId = (el.querySelector<HTMLSelectElement>(`select[name='${LOREBRIDGE_SETTINGS.combatNarratorVoiceId}']`)
+                  ?? el.querySelector<HTMLInputElement>(`input[name='${LOREBRIDGE_SETTINGS.combatNarratorVoiceId}']`))?.value ?? "";
     await Promise.all([
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorMode,  mode),
-      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle, style),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorMode,    mode),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorStyle,   style),
+      api.set(MODULE_ID, LOREBRIDGE_SETTINGS.combatNarratorVoiceId, voiceId),
     ]);
     ui.notifications.info("LoreBridge: Combat settings saved.");
     void this._self().render({ force: false });

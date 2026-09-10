@@ -30,10 +30,9 @@ async function callCombatFlavor(ctx: {
   return data.flavor;
 }
 
-async function playTts(actor: FoundryActor, text: string): Promise<void> {
+async function playTts(text: string): Promise<void> {
   const settings = getLoreBridgeSettings();
-  const actorVoiceId = (actor.getFlag(MODULE_ID, "voiceId") as string | undefined) ?? "";
-  const voiceId = actorVoiceId || settings.ttsDefaultVoiceId;
+  const voiceId = settings.combatNarratorVoiceId;
   if (!voiceId || !settings.backendUrl || !settings.clientToken) return;
 
   const base = settings.backendUrl.endsWith("/") ? settings.backendUrl : `${settings.backendUrl}/`;
@@ -106,11 +105,9 @@ async function handleActorUpdate(
       flags: { [MODULE_ID]: { type: "combat-narrator", attackerName, targetName } },
     });
 
-    if (attacker) {
-      void playTts(attacker, flavor).catch((err: unknown) => {
-        console.warn("LoreBridge | Combat narrator TTS failed:", err);
-      });
-    }
+    void playTts(flavor).catch((err: unknown) => {
+      console.warn("LoreBridge | Combat narrator TTS failed:", err);
+    });
   } catch (err) {
     ui.notifications.warn(
       `LoreBridge Combat Narrator: ${err instanceof Error ? err.message : String(err)}`,

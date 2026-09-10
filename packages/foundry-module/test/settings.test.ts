@@ -51,7 +51,7 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(menus.size, 1);
   assert.equal(menus.get("workspace")?.restricted, true);
 
-  assert.equal(registrations.size, 52);
+  assert.equal(registrations.size, 53);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.default, true);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.campaignCodexEnabled)?.config, false);
@@ -167,6 +167,9 @@ test("registers safe world and client scoped defaults", () => {
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.scope, "world");
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.config, false);
   assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorStyle)?.default, "dramatic");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.scope, "world");
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.config, false);
+  assert.equal(registrations.get(LOREBRIDGE_SETTINGS.combatNarratorVoiceId)?.default, "");
 });
 
 test("reads and normalizes configured values", () => {
@@ -243,6 +246,7 @@ test("reads and normalizes configured values", () => {
     backupPathCcRegions: "04-world/cc-regions",
     combatNarratorMode: "off",
     combatNarratorStyle: "dramatic",
+    combatNarratorVoiceId: "",
   });
 });
 
