@@ -55,9 +55,12 @@ async function playTts(text: string): Promise<void> {
 function narratorName(actor: FoundryActor | undefined, fallbackName: string): string {
   const name = (actor as { name?: string } | undefined)?.name ?? fallbackName;
   const ownership = actor?.ownership ?? {};
-  const isPlayerOwned = Object.entries(ownership).some(
-    ([userId, level]) => userId !== "default" && level === 3,
-  );
+  const isPlayerOwned = Object.entries(ownership).some(([userId, level]) => {
+    if (userId === "default" || level !== 3) return false;
+    const user = (game.users as Iterable<{ id: string; isGM: boolean }> | undefined);
+    const found = user ? [...user].find(u => u.id === userId) : undefined;
+    return found !== undefined && !found.isGM;
+  });
   return isPlayerOwned ? name.split(" ")[0] ?? name : name;
 }
 
