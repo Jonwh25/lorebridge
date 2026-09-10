@@ -52,6 +52,15 @@ async function playTts(text: string): Promise<void> {
   await audio.play();
 }
 
+function narratorName(actor: FoundryActor | undefined, fallbackName: string): string {
+  const name = (actor as { name?: string } | undefined)?.name ?? fallbackName;
+  const ownership = actor?.ownership ?? {};
+  const isPlayerOwned = Object.entries(ownership).some(
+    ([userId, level]) => userId !== "default" && level === 3,
+  );
+  return isPlayerOwned ? name.split(" ")[0] ?? name : name;
+}
+
 async function handleActorUpdate(
   targetActor: FoundryActor,
   changes: Record<string, unknown>,
@@ -94,8 +103,8 @@ async function handleActorUpdate(
   }
 
   const isKillingBlow = newHp <= 0;
-  const attackerName = attacker?.name ?? "Unknown";
-  const targetName = (targetActor as { name?: string }).name ?? "Unknown";
+  const attackerName = narratorName(attacker, "Unknown");
+  const targetName = narratorName(targetActor, "Unknown");
   const style = settings.combatNarratorStyle;
 
   try {
