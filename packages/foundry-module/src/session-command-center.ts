@@ -1,6 +1,6 @@
 import { getLoreBridgeSettings } from "./settings.js";
 import { escHtml } from "./utils/html.js";
-import { postBackend } from "./capabilities/tracker-shared.js";
+import { postBackend } from "./utils/backend-client.js";
 import { checkCampaignHealth } from "./capabilities/health-check.js";
 import { handleSessionCleanup } from "./capabilities/session-cleanup.js";
 import { removeNonGmUsers } from "./capabilities/session-tools.js";

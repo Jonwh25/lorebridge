@@ -3,7 +3,7 @@ import { addHistoryEntry } from "../generation-history.js";
 import { type NpcMemoryEntry, getMemories, deleteMemory, clearMemories } from "./npc-mention.js";
 import { getActorDossierCache, getDossierSummaryText } from "./campaign-codex-widget.js";
 import { escHtml } from "../utils/html.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 
 // ---------------------------------------------------------------------------
 // Types — mirror the backend NpcProfileSections model

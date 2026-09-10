@@ -44,6 +44,24 @@ pm2 logs lorebridge-backend --lines 20 --nostream
 A code-only restart does not need `--update-env` because the ecosystem
 environment did not change.
 
+## Required backend environment variables
+
+The following variables must be set in the ecosystem config for the backend to
+function correctly. All values shown are placeholders; never commit real secrets.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `LOREBRIDGE_PORT` | Yes | Port the backend listens on (e.g. `3210`). |
+| `LOREBRIDGE_HOST` | No | Bind address; defaults to `127.0.0.1`. |
+| `LOREBRIDGE_DATA_DIR` | Yes | Path to the backend data directory (e.g. `/data/lorebridge-data`). |
+| `LOREBRIDGE_FOUNDRY_DATA_DIR` | No | Path to the Foundry data directory; enables local asset scanning. |
+| `LOREBRIDGE_PAIRING_ENABLED` | Yes* | Set to `"true"` to enable the client pairing flow. Without this, no client can pair and all authenticated endpoints return 401. |
+| `LOREBRIDGE_PAIRING_TTL_SECONDS` | No | Pairing code lifetime; defaults to `300`. |
+
+\* New deployments silently run in no-pairing mode if `LOREBRIDGE_PAIRING_ENABLED` is
+omitted — no error is shown, but all pairing attempts fail. Always set it to
+`"true"` in the ecosystem config.
+
 ## Change backend environment variables
 
 Edit the server-owned ecosystem config:

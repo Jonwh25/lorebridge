@@ -12,9 +12,8 @@ import {
   extractFromSession,
   type SessionLogPage,
 } from "./session-log-pipeline.js";
+import { readLoreJson, writeLoreJson } from "../utils/foundry-io.js";
 import {
-  readLoreJson,
-  writeLoreJson,
   getJournalsInFolder,
   findMatchingJournal,
   findSubfolderId,

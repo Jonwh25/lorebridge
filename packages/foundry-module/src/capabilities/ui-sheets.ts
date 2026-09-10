@@ -1,6 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { addHistoryEntry } from "../generation-history.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 import { searchCampaign } from "./search-campaign.js";
 import { runCreateSessionLog } from "./session-log-creator.js";
 import type { CampaignSearchMatch } from "@lorebridge/shared/capabilities";

@@ -209,7 +209,6 @@ export function validateProtocolMessage(value: unknown): ValidationResult<Protoc
 
 export * from "./contract.js";
 export * from "./adapter-session.js";
-export * from "./ravens-eye.js";
 export * from "./capabilities/journals.js";
 export * from "./capabilities/actors.js";
 export * from "./capabilities/scenes.js";

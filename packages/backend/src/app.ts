@@ -98,6 +98,19 @@ function sendAdapterInvocationError(response: ServerResponse, error: AdapterInvo
   });
 }
 
+type ContextItem = { type: string; name: string; excerpt: string };
+
+function parseContextArray(body: unknown): ContextItem[] {
+  if (!Array.isArray(body)) return [];
+  return (body as unknown[]).filter(
+    (c): c is ContextItem =>
+      typeof c === "object" && c !== null &&
+      typeof (c as Record<string, unknown>)["type"] === "string" &&
+      typeof (c as Record<string, unknown>)["name"] === "string" &&
+      typeof (c as Record<string, unknown>)["excerpt"] === "string",
+  );
+}
+
 let voiceListCache: Array<{ id: string; name: string }> | null = null;
 let voiceListCachedAt = 0;
 const VOICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -996,15 +1009,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const sessionContent = typeof body["sessionContent"] === "string" ? body["sessionContent"] : "";
     const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
     const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
-    const context = Array.isArray(body["context"])
-      ? (body["context"] as unknown[]).filter(
-          (c): c is { type: string; name: string; excerpt: string } =>
-            typeof c === "object" && c !== null &&
-            typeof (c as Record<string, unknown>)["type"] === "string" &&
-            typeof (c as Record<string, unknown>)["name"] === "string" &&
-            typeof (c as Record<string, unknown>)["excerpt"] === "string",
-        )
-      : [];
+    const context = parseContextArray(body["context"]);
     if (!provider.enabled) {
       sendJson(response, 503, { error: { code: "provider_unavailable", message: "No AI provider is configured on this backend." } });
       return;
@@ -1028,15 +1033,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const description = typeof body["description"] === "string" ? body["description"].trim() : "";
     const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
     const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
-    const context = Array.isArray(body["context"])
-      ? (body["context"] as unknown[]).filter(
-          (c): c is { type: string; name: string; excerpt: string } =>
-            typeof c === "object" && c !== null &&
-            typeof (c as Record<string, unknown>)["type"] === "string" &&
-            typeof (c as Record<string, unknown>)["name"] === "string" &&
-            typeof (c as Record<string, unknown>)["excerpt"] === "string",
-        )
-      : [];
+    const context = parseContextArray(body["context"]);
     if (!description) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty description string." } });
       return;
@@ -1065,15 +1062,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const count = typeof body["count"] === "number" && body["count"] > 0 ? Math.min(body["count"], 10) : 5;
     const worldName = typeof body["worldName"] === "string" ? body["worldName"] : "Unknown World";
     const tone = typeof body["tone"] === "string" ? body["tone"] : "neutral";
-    const context = Array.isArray(body["context"])
-      ? (body["context"] as unknown[]).filter(
-          (c): c is { type: string; name: string; excerpt: string } =>
-            typeof c === "object" && c !== null &&
-            typeof (c as Record<string, unknown>)["type"] === "string" &&
-            typeof (c as Record<string, unknown>)["name"] === "string" &&
-            typeof (c as Record<string, unknown>)["excerpt"] === "string",
-        )
-      : [];
+    const context = parseContextArray(body["context"]);
     if (!locationDescription) {
       sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty locationDescription string." } });
       return;
