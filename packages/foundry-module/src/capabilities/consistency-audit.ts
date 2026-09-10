@@ -9,7 +9,7 @@ import {
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 import { getActiveProfile, getProfileFilter, hasStaleFolderRefs, type ProfileDocTypeFilter } from "./context-profile.js";
-import { buildBackendUrl } from "./tracker-shared.js";
+import { buildBackendUrl } from "../utils/backend-client.js";
 import { isPlayerVisible } from "./visibility.js";
 
 // ---------------------------------------------------------------------------

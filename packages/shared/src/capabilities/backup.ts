@@ -19,7 +19,7 @@ export interface BackupFileEntry {
 }
 
 /** All document types that can be backed up. */
-export type BackupDocumentType = "journals" | "scenes" | "actors" | "rolltables";
+export type BackupDocumentType = "journals" | "scenes" | "rolltables";
 
 /**
  * Input to POST /v1/backup/github/export.
@@ -73,7 +73,7 @@ export interface RestoreFolderEntry {
 /** A scene entry returned by the restore plan endpoint. */
 export interface RestoreSceneEntry {
   sidecarId: string;
-  /** Matches the `placeRavensEyeId` flag on the Foundry scene document. */
+  /** Stable place ID stored on the Foundry scene document flag. */
   placeId: string;
   folderSidecarId?: string;
   sceneName: string;
@@ -121,9 +121,9 @@ export function validateBackupExportInput(value: unknown): ValidationResult<Back
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ["input must be an object"] };
 
-  const validTypes: BackupDocumentType[] = ["journals", "scenes", "actors", "rolltables"];
+  const validTypes: BackupDocumentType[] = ["journals", "scenes", "rolltables"];
   if (!validTypes.includes(value.type as BackupDocumentType)) {
-    errors.push('type must be "journals", "scenes", "actors", or "rolltables"');
+    errors.push('type must be "journals", "scenes", or "rolltables"');
   }
   if (!isNonEmptyString(value.folderName)) errors.push("folderName must be a non-empty string");
   if (typeof value.preview !== "boolean") errors.push("preview must be a boolean");
@@ -162,9 +162,9 @@ export function validateBackupExportOutput(value: unknown): ValidationResult<Bac
   if (!isRecord(value)) return { valid: false, errors: ["output must be an object"] };
 
   if (typeof value.preview !== "boolean") errors.push("preview must be a boolean");
-  const validTypes: BackupDocumentType[] = ["journals", "scenes", "actors", "rolltables"];
+  const validTypes: BackupDocumentType[] = ["journals", "scenes", "rolltables"];
   if (!validTypes.includes(value.type as BackupDocumentType)) {
-    errors.push('type must be "journals", "scenes", "actors", or "rolltables"');
+    errors.push('type must be "journals", "scenes", or "rolltables"');
   }
   if (!isNonEmptyString(value.folderName)) errors.push("folderName must be a non-empty string");
   if (!Array.isArray(value.files)) errors.push("files must be an array");

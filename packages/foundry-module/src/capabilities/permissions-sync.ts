@@ -7,8 +7,8 @@
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
+import { readLoreJson } from "../utils/foundry-io.js";
 import {
-  readLoreJson,
   getJournalsInFolder,
   findMatchingJournal,
   confirmDialog,

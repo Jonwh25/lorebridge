@@ -1,6 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 import { htmlToMarkdown } from "../utils/html.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 

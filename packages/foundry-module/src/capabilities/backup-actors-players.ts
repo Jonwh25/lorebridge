@@ -1,6 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 import { promptFolderSelection } from "../utils/backup-folder-picker.js";
 import { buildFolderMap, buildPickerFolders, expandFolderIds, folderPath } from "../utils/folder-tree.js";

@@ -354,7 +354,7 @@ describe("GitHubAdapter.listCommits", () => {
 describe("GitHubAdapter.createBackupCommit", () => {
   const files: BackupFile[] = [
     { path: "entries/npc.md", content: "# Strahd\n\nVampire lord." },
-    { path: "ravens-eye.yaml", content: "specification: 0.1.0-experimental\n" },
+    { path: "entry/world-lore.md", content: "# World Lore\n\nContent\n" },
   ];
 
   function makeCommitFetch(overrides: Record<string, unknown> = {}): MockFetch {

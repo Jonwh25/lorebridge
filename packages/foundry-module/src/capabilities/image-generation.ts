@@ -1,5 +1,5 @@
 import { getLoreBridgeSettings } from "../settings.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 
 type ImageResult = { base64: string; mimeType: string; prompt: string };
 

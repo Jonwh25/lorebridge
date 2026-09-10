@@ -1,6 +1,6 @@
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 
 type MacroDoc = { name: string; command: string; type: string; scope?: string };

@@ -64,8 +64,7 @@ async function pair(baseUrl: string): Promise<string> {
 }
 
 const SAMPLE_FILES: BackupFileEntry[] = [
-  { path: "ravens-eye.yaml", content: "specification: 0.1.0-experimental\n" },
-  { path: "entry/world-lore.md", content: "---\nid: entry:abc\n---\nContent\n" },
+  { path: "entry/world-lore.md", content: "# World Lore\n\nContent\n" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -164,7 +163,7 @@ describe("POST /v1/backup/github/export — input validation", () => {
     });
   });
 
-  it("accepts actors as a valid type (503 expected without GitHub config)", async () => {
+  it("rejects actors as an invalid type (400 expected)", async () => {
     await withServer(async (baseUrl) => {
       const token = await pair(baseUrl);
       const res = await fetch(`${baseUrl}/v1/backup/github/export`, {
@@ -180,7 +179,7 @@ describe("POST /v1/backup/github/export — input validation", () => {
           files: SAMPLE_FILES,
         }),
       });
-      assert.equal(res.status, 503);
+      assert.equal(res.status, 400);
     });
   });
 
@@ -349,12 +348,12 @@ describe("validateBackupExportInput", () => {
     const { validateBackupExportInput } = await import(
       "@lorebridge/shared/capabilities"
     );
-    for (const type of ["journals", "scenes", "actors", "rolltables"]) {
+    for (const type of ["journals", "scenes", "rolltables"]) {
       const result = validateBackupExportInput({
         type,
         folderName: "Test Folder",
         preview: true,
-        files: [{ path: "ravens-eye.yaml", content: "specification: 0.1.0-experimental\n" }],
+        files: [{ path: "entry/world-lore.md", content: "# World Lore\n\nContent\n" }],
       });
       assert.equal(result.valid, true, `Expected type "${type}" to be valid`);
     }

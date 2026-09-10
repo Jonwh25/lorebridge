@@ -15,9 +15,8 @@ import {
 } from "./session-log-pipeline.js";
 import type { NpcDossierData } from "./campaign-codex-widget.js";
 import { makeDefaultDossierData } from "./campaign-codex-widget.js";
+import { readLoreJson, writeLoreJson } from "../utils/foundry-io.js";
 import {
-  readLoreJson,
-  writeLoreJson,
   getJournalsInFolder,
   findMatchingJournal,
   parseJsonFromAi,

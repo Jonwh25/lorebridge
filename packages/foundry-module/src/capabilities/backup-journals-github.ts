@@ -1,11 +1,11 @@
 /**
  * Simple Markdown journal backup to GitHub (#307).
- * Distinct from backup-journals.ts (Raven's Eye fidelity backup).
+ * Distinct from backup-journals.ts (folder backup via chat command).
  */
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 import { plainText } from "../utils/html.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
 import { promptFolderSelection } from "../utils/backup-folder-picker.js";

@@ -1,5 +1,5 @@
 import { addHistoryEntry } from "../generation-history.js";
-import { postBackend } from "./tracker-shared.js";
+import { postBackend } from "../utils/backend-client.js";
 
 const MODULE_ID = "lorebridge";
 

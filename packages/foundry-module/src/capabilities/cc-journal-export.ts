@@ -13,7 +13,8 @@
 
 import { getLoreBridgeSettings } from "../settings.js";
 import { requireFoundryGm } from "./errors.js";
-import { postBackend, buildBackendUrl, escHtml, showResultDialog } from "./tracker-shared.js";
+import { postBackend, buildBackendUrl } from "../utils/backend-client.js";
+import { escHtml, showResultDialog } from "./tracker-shared.js";
 import { buildFolderMap, collectSubtreeIds, type FoundryFolder } from "./backup-folders.js";
 import { plainText, htmlToMarkdown } from "../utils/html.js";
 import { BackupProgressDialog } from "../utils/backup-progress.js";
