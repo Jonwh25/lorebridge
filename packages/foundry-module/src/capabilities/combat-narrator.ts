@@ -137,7 +137,8 @@ export function registerCombatNarratorHook(): void {
     document.head.appendChild(style);
   }
 
-  Hooks.on("updateActor", (actor: unknown, changes: unknown, options: unknown) => {
+  // preUpdateActor: actor still holds old HP, changes holds the incoming new value
+  Hooks.on("preUpdateActor", (actor: unknown, changes: unknown, options: unknown) => {
     void handleActorUpdate(
       actor as FoundryActor,
       changes as Record<string, unknown>,
