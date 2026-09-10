@@ -20,6 +20,11 @@ import {
   initializeRegionVisitTracker,
   updateRegionVisitsFromLatest,
 } from "./capabilities/tracker-region-visits.js";
+import {
+  initializeTimelineTracker,
+  updateTimelineFromLatest,
+  openTimelineViewer,
+} from "./capabilities/tracker-timeline.js";
 import { matchPortraits } from "./capabilities/portrait-matcher.js";
 import { syncPermissions } from "./capabilities/permissions-sync.js";
 import { runExportCCJournals } from "./capabilities/cc-journal-export.js";
@@ -227,6 +232,7 @@ function _trackersHtml(): string {
     { label: "NPC Encounters", initAction: "tracker-npc-encounters-init", currentAction: "tracker-npc-encounters-current" },
     { label: "Quest Status", initAction: "tracker-quest-status-init", currentAction: "tracker-quest-status-current" },
     { label: "Region Visits", initAction: "tracker-region-visits-init", currentAction: "tracker-region-visits-current" },
+    { label: "Timeline", initAction: "tracker-timeline-init", currentAction: "tracker-timeline-current" },
   ];
   const rows = trackers
     .map(
@@ -245,7 +251,10 @@ function _trackersHtml(): string {
       <th style="padding:2px">Latest</th>
     </tr></thead>
     <tbody>${rows}</tbody>
-  </table>`;
+  </table>
+  <div style="margin-top:0.4rem">
+    <button type="button" class="lb-scc__action-btn" data-action="tracker-timeline-view" title="Open the campaign timeline viewer"><i class="fas fa-scroll"></i> View Timeline</button>
+  </div>`;
 }
 
 function _githubBackupsHtml(): string {
@@ -474,6 +483,9 @@ class SessionCommandCenter extends _AppBase {
     if (action === "tracker-quest-status-current") { void updateQuestStatusFromLatest(); return; }
     if (action === "tracker-region-visits-init") { void initializeRegionVisitTracker(); return; }
     if (action === "tracker-region-visits-current") { void updateRegionVisitsFromLatest(); return; }
+    if (action === "tracker-timeline-init") { void initializeTimelineTracker(); return; }
+    if (action === "tracker-timeline-current") { void updateTimelineFromLatest(); return; }
+    if (action === "tracker-timeline-view") { void openTimelineViewer(); return; }
     // GitHub backup actions
     if (action === "backup-npcs") { void runBackupActorsNpcs(); return; }
     if (action === "backup-players") { void runBackupActorsPlayers(); return; }

@@ -12,6 +12,7 @@ import { updateNpcStatusFromLatest } from "./tracker-npc-status.js";
 import { updateNpcEncountersFromLatest } from "./tracker-npc-encounters.js";
 import { updateQuestStatusFromLatest } from "./tracker-quest-status.js";
 import { updateRegionVisitsFromLatest } from "./tracker-region-visits.js";
+import { updateTimelineFromLatest } from "./tracker-timeline.js";
 import { syncPermissionsCore, type PermissionsSyncResult } from "./permissions-sync.js";
 import { showResultDialog, escHtml } from "./tracker-shared.js";
 
@@ -25,6 +26,7 @@ type ChecklistConfig = {
   runNpcEncounters: boolean;
   runQuestStatus: boolean;
   runRegionVisits: boolean;
+  runTimeline: boolean;
   runPermissionsSync: boolean;
 };
 
@@ -37,6 +39,7 @@ async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig
       ["lb-npc-encounters", "NPC Encounters", true],
       ["lb-quest-status", "Quest Status", true],
       ["lb-region-visits", "Region Visits", true],
+      ["lb-timeline", "Campaign Timeline", true],
       ["lb-perms-sync", "Permissions Sync", true],
     ];
 
@@ -85,6 +88,7 @@ async function showSetupDialog(detectedSession: number): Promise<ChecklistConfig
               runNpcEncounters: get("lb-npc-encounters"),
               runQuestStatus: get("lb-quest-status"),
               runRegionVisits: get("lb-region-visits"),
+              runTimeline: get("lb-timeline"),
               runPermissionsSync: get("lb-perms-sync"),
             });
           },
@@ -183,6 +187,7 @@ export async function runPostSessionChecklist(): Promise<void> {
     { label: "NPC Encounters",enabled: config.runNpcEncounters, fn: updateNpcEncountersFromLatest },
     { label: "Quest Status",  enabled: config.runQuestStatus,   fn: updateQuestStatusFromLatest },
     { label: "Region Visits", enabled: config.runRegionVisits,  fn: updateRegionVisitsFromLatest },
+    { label: "Campaign Timeline", enabled: config.runTimeline, fn: updateTimelineFromLatest },
   ];
 
   const stepResults: Array<{ label: string; result: StepResult }> = [];
