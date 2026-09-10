@@ -197,8 +197,8 @@ release-ready:
    supported workflows, or other current behavior introduced during the milestone.
 2. Update `ROADMAP.md`: mark every closed issue ✅ under the milestone. Once
    all issues in the milestone are closed, remove the milestone section from
-   `ROADMAP.md` entirely — completed milestones are recorded in `CHANGELOG.md`,
-   not the roadmap; do not move them to a `## Completed` section. If issues
+   `## Active` and do not add it to `## Completed` — completed milestones are
+   recorded in `CHANGELOG.md`, not the roadmap. If issues
    remain open, leave the milestone in `## Active` and only mark the closed
    ones ✅. Then promote the first `### Milestone …` section from `## Upcoming`
    into `## Active` so the next milestone is always visible as the current

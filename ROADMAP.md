@@ -76,6 +76,8 @@ Success test: rename a CC Location record, move it to a different folder,
 and link it to a CC Region — all via MCP with GM approval in Foundry;
 rejected operations produce a clear MCP error; `npm run validate` passes.
 
+## Completed
+
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
 
 ## Planning workflow
