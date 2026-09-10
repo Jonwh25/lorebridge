@@ -9,6 +9,7 @@ const required = [
   "module.json",
   "dist/main.js",
   "styles/lorebridge.css",
+  "styles/read-aloud.css",
   "templates/context-profiles.hbs",
 ];
 const missing = required.filter((f) => !data.includes(f));
