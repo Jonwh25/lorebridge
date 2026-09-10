@@ -16,7 +16,10 @@ When creating GitHub issues, follow the **GitHub issue creation** policy in
 requirements.
 After implementing code, follow the **Live testing handoff** policy in
 `AGENTS.md`. Always provide the tailored commands and manual acceptance test; do
-not wait for the user to ask for testing instructions.
+not wait for the user to ask for testing instructions. The VM does not
+automatically know about new remote branches — every handoff command block MUST
+start with `git fetch origin` before any `git checkout`. Never generate deploy
+commands from memory; always derive them from the template in `AGENTS.md`.
 Before giving PM2, backend environment, or Azure deployment commands, read
 [`docs/LIVE_DEPLOYMENT.md`](docs/LIVE_DEPLOYMENT.md). Treat its paths and PM2
 ecosystem config as canonical, distinguish code restarts from environment reloads,
