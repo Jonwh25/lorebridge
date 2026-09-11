@@ -11,23 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-### Milestone 40 — Semantic Search
-
-Replace keyword-based campaign search with vector/embedding search so AI
-clients can answer natural-language queries across journals, actors, and
-session logs. Initial implementation uses the hybrid Option C approach:
-keyword search remains the default and semantic search is opt-in once an
-embedding provider is configured.
-
-1. ✅ [Semantic / embedding-based campaign search for MCP tools](https://github.com/Jonwh25/lorebridge/issues/377)
-2. [Incremental index updates — only re-embed changed/new documents](https://github.com/Jonwh25/lorebridge/issues/392)
-
-Success test: `search_campaign_semantic` MCP tool returns relevant results
-for a natural-language query that existing keyword search misses; index
-rebuild completes without blocking the adapter WebSocket; existing
-`search_campaign` behavior is unchanged; incremental rebuild with no changes
-makes zero embedding API calls.
-
 ### Milestone 41 — Campaign Codex Document Management
 
 Expose controlled, GM-approved write operations for Campaign Codex records
