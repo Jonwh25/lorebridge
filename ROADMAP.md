@@ -20,11 +20,13 @@ keyword search remains the default and semantic search is opt-in once an
 embedding provider is configured.
 
 1. [Semantic / embedding-based campaign search for MCP tools](https://github.com/Jonwh25/lorebridge/issues/377)
+2. [Incremental index updates — only re-embed changed/new documents](https://github.com/Jonwh25/lorebridge/issues/392)
 
 Success test: `search_campaign_semantic` MCP tool returns relevant results
 for a natural-language query that existing keyword search misses; index
 rebuild completes without blocking the adapter WebSocket; existing
-`search_campaign` behavior is unchanged.
+`search_campaign` behavior is unchanged; incremental rebuild with no changes
+makes zero embedding API calls.
 
 ### Milestone 41 — Campaign Codex Document Management
 
