@@ -243,3 +243,39 @@ Future write capabilities will be separately named and require:
 - permission checks
 - audit records
 - bounded rollback where supported
+
+### `exportForEmbedding`
+
+Exports all journal pages and actor descriptions as plain text items suitable for generating embeddings. Each item carries a stable UUID, document type (`journal` | `actor`), human-readable name, and normalized plain text (HTML stripped, capped at 4,000 characters). Used internally by `rebuild_semantic_index`; not directly exposed as an MCP tool.
+
+Typical result fields:
+
+- source ID and name
+- list of `EmbeddingItem` objects: uuid, documentType, name, text
+
+### `searchCampaignSemantic` (Milestone 40)
+
+Searches journals and actors using natural-language vector similarity (semantic search). Requires an embedding provider — either OpenAI (`OPENAI_API_KEY`) or Ollama (`OLLAMA_BASE_URL`) — and a previously built index (see `rebuild_semantic_index`). Anthropic is not supported as an embedding provider.
+
+Input:
+
+- `query` — natural-language description of what you are looking for
+- `limit` — maximum results to return (1–20, default 10)
+- `types` — document types to include: `journal`, `actor`, or both (default both)
+- `sourceId` — target source; omit when only one world is connected
+
+Typical result fields:
+
+- query (echoed)
+- list of `SemanticSearchResult` objects: uuid, documentType, name, excerpt (up to 200 chars), cosine similarity score (0–1)
+
+AI clients should follow up with `resolve_uuid` on returned UUIDs to fetch full document content.
+
+### `rebuildSemanticIndex` (Milestone 40)
+
+Builds or rebuilds the embedding index on disk (`semantic-index.json` in the backend data directory). Exports all content via `exportForEmbedding`, computes embeddings in batches, and persists the result atomically. A rebuild replaces the existing index. Requires an embedding provider.
+
+Typical result fields:
+
+- `itemsIndexed` — number of documents stored in the new index
+- `durationMs` — total time in milliseconds

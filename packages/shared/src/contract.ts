@@ -48,6 +48,7 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   getItem: "getItem",
   listFolders: "listFolders",
   browseFolder: "browseFolder",
+  exportForEmbedding: "exportForEmbedding",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({

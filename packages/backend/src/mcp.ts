@@ -83,6 +83,8 @@ import {
   validateListFoldersOutput,
   validateBrowseFolderOutput,
   FOLDER_SUPPORTED_TYPES,
+  EXPORT_FOR_EMBEDDING_CAPABILITY,
+  validateExportForEmbeddingOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -91,8 +93,9 @@ import {
 import { type WriteRegistry } from "./write-registry.js";
 import { type QuestObjectivesWriteRegistry } from "./quest-objectives-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, GenerationError } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, GenerationError } from "./generation.js";
 import type { ItemType } from "./generation.js";
+import { EmbeddingIndexService } from "./embedding-index.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
 import { AssetSearchService } from "./asset-search.js";
 import { type GitHubAdapter } from "./github-adapter.js";
@@ -122,6 +125,8 @@ const searchAssetsToolName = "search_assets";
 const searchRollTablesToolName = "search_roll_tables";
 const listPlaylistsToolName = "list_playlists";
 const searchPlaylistsToolName = "search_playlists";
+const searchCampaignSemanticToolName = "search_campaign_semantic";
+const rebuildSemanticIndexToolName = "rebuild_semantic_index";
 
 function toolError(error: unknown, fallback: string) {
   return {
@@ -133,7 +138,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.36.0",
@@ -2702,6 +2707,104 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  // ---------------------------------------------------------------------------
+  // Semantic search (Milestone 40)
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    searchCampaignSemanticToolName,
+    {
+      title: "Semantic search across the Foundry campaign",
+      description: "Search journals and actors in a connected Foundry VTT world using natural-language vector similarity. Returns documents that are semantically relevant even when they contain none of the exact query words. Requires an embedding provider (OPENAI_API_KEY or OLLAMA_BASE_URL) and a previously built index (run rebuild_semantic_index first). Complements search_campaign, which uses keyword matching.",
+      inputSchema: z.object({
+        query: z.string().trim().min(1).describe("Natural-language description of what you are looking for."),
+        limit: z.number().int().min(1).max(20).optional().describe("Maximum results to return. Defaults to 10."),
+        types: z.array(z.enum(["journal", "actor"])).min(1).max(2).optional().describe("Document types to include. Defaults to both: journal, actor."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ query, limit = 10, types, sourceId: _sourceId }) => {
+      try {
+        if (provider.provider === "anthropic" || !provider.enabled) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
+          };
+        }
+        if (!embeddingIndex.isLoaded) await embeddingIndex.load();
+        if (embeddingIndex.entryCount === 0) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: JSON.stringify({ error: "Semantic index is empty. Run rebuild_semantic_index first." }) }],
+          };
+        }
+        const [queryEmbedding] = await callEmbedding(provider, [query]);
+        if (!queryEmbedding) throw new Error("Embedding API returned no vector for the query.");
+        const hits = embeddingIndex.query(queryEmbedding, limit, types);
+        const output = {
+          query: query.trim(),
+          results: hits.map(({ entry, score }) => ({
+            uuid: entry.uuid,
+            documentType: entry.documentType,
+            name: entry.name,
+            excerpt: entry.excerpt,
+            score: Math.round(score * 10000) / 10000,
+          })),
+        };
+        return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not perform semantic campaign search.");
+      }
+    },
+  );
+
+  server.registerTool(
+    rebuildSemanticIndexToolName,
+    {
+      title: "Rebuild the semantic search index",
+      description: "Export all journal pages and actor descriptions from the connected Foundry world, compute embeddings via the configured provider, and write the index to disk. Required before search_campaign_semantic can return results. Rebuilding replaces the previous index. Requires an embedding provider (OPENAI_API_KEY or OLLAMA_BASE_URL).",
+      inputSchema: z.object({
+        types: z.array(z.enum(["journal", "actor"])).min(1).max(2).optional().describe("Document types to include in the index. Defaults to both: journal, actor."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ types, sourceId }) => {
+      try {
+        if (provider.provider === "anthropic" || !provider.enabled) {
+          return {
+            isError: true,
+            content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
+          };
+        }
+        const started = Date.now();
+        const raw = await adapterSessions.invoke(
+          sourceId,
+          EXPORT_FOR_EMBEDDING_CAPABILITY,
+          types ? { types } : {},
+          30_000,
+        );
+        const validation = validateExportForEmbeddingOutput(raw);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError(
+            "INTERNAL_ERROR",
+            "The Foundry adapter returned invalid export-for-embedding results.",
+            false,
+            { validationErrors: validation.errors },
+          );
+        }
+        const { items } = validation.value;
+        await embeddingIndex.rebuild(items, (texts) => callEmbedding(provider, texts));
+        const durationMs = Date.now() - started;
+        const output = { itemsIndexed: embeddingIndex.entryCount, durationMs };
+        return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
+      } catch (error) {
+        return toolError(error, "LoreBridge could not rebuild the semantic index.");
+      }
+    },
+  );
+
   return server;
 }
 
@@ -2717,9 +2820,12 @@ export function createLoreBridgeMcpHandler(
   provider: ProviderService,
   assets = new AssetSearchService(),
   github: GitHubAdapter | null = null,
+  dataDir = ".lorebridge",
 ): McpRequestHandler {
+  const embeddingIndex = new EmbeddingIndexService(dataDir);
+  void embeddingIndex.load();
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),

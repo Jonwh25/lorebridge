@@ -72,6 +72,8 @@ import {
   LIST_FOLDERS_DECLARATION,
   BROWSE_FOLDER_CAPABILITY,
   BROWSE_FOLDER_DECLARATION,
+  EXPORT_FOR_EMBEDDING_CAPABILITY,
+  EXPORT_FOR_EMBEDDING_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
@@ -111,6 +113,7 @@ import { registerNpcMentionHook } from "./capabilities/npc-mention.js";
 import { registerCombatNarratorHook } from "./capabilities/combat-narrator.js";
 import { registerPortraitMenuHook } from "./capabilities/image-generation.js";
 import { registerNpcWorkspaceMenuHook, registerNpcProfileSheetSection } from "./capabilities/npc-workspace.js";
+import { exportForEmbedding } from "./capabilities/export-for-embedding.js";
 import { registerCampaignCodexWidget } from "./capabilities/campaign-codex-widget.js";
 import { registerHotbarDistributeListener, registerSidebarHooks, openBulkCreateDialog, openHotbarDistributeDialog } from "./capabilities/session-tools.js";
 import { registerPlayerActorImportSheetHook } from "./capabilities/player-actor-import.js";
@@ -682,6 +685,7 @@ Hooks.once("ready", () => {
           GET_ITEM_DECLARATION,
           LIST_FOLDERS_DECLARATION,
           BROWSE_FOLDER_DECLARATION,
+          EXPORT_FOR_EMBEDDING_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -827,6 +831,9 @@ Hooks.once("ready", () => {
           if (request.capability === BROWSE_FOLDER_CAPABILITY) {
             return browseFolder(request.input as Parameters<typeof browseFolder>[0]);
           }
+          if (request.capability === EXPORT_FOR_EMBEDDING_CAPABILITY) {
+            return exportForEmbedding(request.input as Parameters<typeof exportForEmbedding>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -948,6 +955,7 @@ Hooks.once("ready", () => {
       [GET_ITEM_CAPABILITY]: getItem,
       [LIST_FOLDERS_CAPABILITY]: listFolders,
       [BROWSE_FOLDER_CAPABILITY]: browseFolder,
+      [EXPORT_FOR_EMBEDDING_CAPABILITY]: exportForEmbedding,
       approveQuestObjectivesWrite,
       rejectQuestObjectivesWrite,
       approveWrite,

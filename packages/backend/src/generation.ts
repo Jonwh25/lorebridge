@@ -215,6 +215,73 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, bas
 }
 
 // ---------------------------------------------------------------------------
+// Embedding API
+// ---------------------------------------------------------------------------
+
+const EMBEDDING_BATCH_SIZE = 100;
+
+export async function callEmbedding(provider: ProviderService, texts: string[]): Promise<number[][]> {
+  if (!provider.enabled) {
+    throw new GenerationError("No AI provider is configured on the backend.");
+  }
+  if (provider.provider === "anthropic") {
+    throw new GenerationError("Anthropic does not provide an embeddings API. Configure OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search.");
+  }
+  if (provider.provider === "openai") {
+    if (!provider.apiKey) throw new GenerationError("OpenAI API key is missing.");
+    return callOpenAIEmbedding(provider.apiKey, texts, provider.baseUrl);
+  }
+  if (provider.provider === "ollama") {
+    const baseUrl = (provider.baseUrl ?? "http://localhost:11434").replace(/\/$/, "");
+    const model = provider.model ?? "nomic-embed-text";
+    return callOllamaEmbedding(baseUrl, model, texts);
+  }
+  throw new GenerationError(`Unsupported provider for embeddings: ${provider.provider}`);
+}
+
+async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: string): Promise<number[][]> {
+  const url = baseUrl
+    ? `${baseUrl.replace(/\/$/, "")}/embeddings`
+    : "https://api.openai.com/v1/embeddings";
+  const results: number[][] = [];
+  for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
+    const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ model: "text-embedding-3-small", input: batch }),
+    });
+    if (!response.ok) {
+      throw new GenerationError(`OpenAI embeddings API error: ${response.status} ${response.statusText}`);
+    }
+    const body = await response.json() as { data: Array<{ embedding: number[]; index: number }> };
+    const sorted = body.data.slice().sort((a, b) => a.index - b.index);
+    results.push(...sorted.map(d => d.embedding));
+  }
+  return results;
+}
+
+async function callOllamaEmbedding(baseUrl: string, model: string, texts: string[]): Promise<number[][]> {
+  const results: number[][] = [];
+  for (const text of texts) {
+    const response = await fetch(`${baseUrl}/api/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, prompt: text }),
+    });
+    if (!response.ok) {
+      throw new GenerationError(`Ollama embeddings API error: ${response.status} ${response.statusText}`);
+    }
+    const body = await response.json() as { embedding: number[] };
+    results.push(body.embedding);
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Session extraction
 // ---------------------------------------------------------------------------
 
