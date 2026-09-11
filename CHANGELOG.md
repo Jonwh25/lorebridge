@@ -2,6 +2,48 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.40.0] - 2026-09-11
+
+### Added
+
+- **Semantic / embedding-based campaign search** (#377, PR #391): New MCP tool
+  `search_campaign_semantic` performs vector-similarity search across journals,
+  actors, and session logs using a configurable embedding provider. Returns
+  cosine-similarity scores (0.0–1.0) alongside document excerpts and source
+  citations. Semantic search is opt-in and fully non-breaking — `search_campaign`
+  keyword search is unchanged and remains the default.
+
+  The index is built and maintained from MCP with `rebuild_semantic_index`:
+  full rebuild processes the entire campaign in the background without blocking
+  the Foundry adapter WebSocket; batch progress and retry-with-backoff are
+  logged to the backend console. The WebSocket `maxPayload` limit was raised
+  from 64 KB to 64 MB to support large worlds.
+
+  Supported embedding providers (configured via backend environment variables):
+  - **Ollama** (`OLLAMA_BASE_URL`): local, no API key required; recommended
+    model is `nomic-embed-text` (768-dimensional)
+  - **OpenAI-compatible** (`OPENAI_API_KEY` + optional `OPENAI_BASE_URL`):
+    uses the `/v1/embeddings` endpoint
+
+  Production acceptance on a 1,893-item COS world: semantic queries return
+  scores 0.65–0.70 using Ollama `nomic-embed-text`; existing `search_campaign`
+  behavior unchanged.
+
+- **Incremental semantic index updates** (#392, PR #393): `rebuild_semantic_index`
+  now accepts an `incremental` flag (default `false`). Incremental mode computes
+  a SHA-256 content hash for each document and re-embeds only documents whose
+  hash has changed since the last index build. A formatting-only change produces
+  zero embedding API calls; a prose edit to one document out of 1,893 produces
+  one embedding call (~1.3 s total vs. 25+ minutes for a full rebuild).
+
+### Upgrade notes
+
+Semantic search requires no changes for existing users. It is opt-in: install
+an embedding provider (Ollama `nomic-embed-text` is recommended for local,
+cost-free embeddings), set `OLLAMA_BASE_URL` in your backend environment, and
+call `rebuild_semantic_index` once. Subsequent index maintenance can use
+`incremental: true`.
+
 ## [0.39.0] - 2026-09-10
 
 ### Added

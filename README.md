@@ -21,6 +21,15 @@ Foundry documents or provider credentials.
   playlists, compendiums, session logs, combat, chat, and linked campaign
   sources, with optional folder-scoped search and step-by-step folder navigation
   via `list_folders` and `browse_folder`.
+- Run natural-language semantic searches across journals, actors, and session
+  logs with `search_campaign_semantic` once an embedding provider (Ollama
+  `nomic-embed-text` or an OpenAI-compatible embeddings endpoint) is configured.
+  Semantic search answers conceptual questions that keyword search misses and
+  returns scored results. Rebuild or incrementally update the vector index from
+  an MCP client with `rebuild_semantic_index`; incremental mode re-embeds only
+  changed documents (~1–2 s for a single-document update) while a full rebuild
+  processes the entire campaign in the background without blocking the Foundry
+  connection.
 - Get source citations and stable Foundry identifiers with bounded results.
   Retrieve a world item's full D&D 5e mechanical data — weapon, spell, feat,
   consumable, equipment, and more — with `get_item`. Inspect a character or
@@ -106,11 +115,19 @@ passed through LoreBridge permissions, Context Profiles, compendium exclusions,
 result limits, excerpts, ranking, and source attribution. If Spotlight is empty
 or rebuilding, native search and content scanners remain available.
 
+When an embedding provider is configured, `search_campaign_semantic` layers
+vector/embedding search on top of the keyword pipeline so natural-language
+queries surface relevant documents even when they share no words with the query.
+The semantic index is built and maintained directly from MCP with
+`rebuild_semantic_index`; incremental mode detects changes by content hash and
+re-embeds only what changed.
+
 ## Major capabilities
 
 | Area | Highlights |
 | --- | --- |
 | Campaign retrieval | World summary; folder-aware journal, actor, scene, item, macro, roll-table, and playlist discovery; compendium, asset, chat, combat, and session-log retrieval; `list_folders` and `browse_folder` for navigating nested folder trees; `get_item` for bounded D&D 5e item stats; full content loading for compendium entries (Item, Actor, JournalEntry, JournalEntryPage) |
+| Semantic search | `search_campaign_semantic` — natural-language vector search across journals, actors, and session logs with cosine-similarity scores; requires an embedding provider (Ollama `nomic-embed-text` recommended, or any OpenAI-compatible embeddings endpoint). `rebuild_semantic_index` — build or refresh the vector index in the background; `incremental: true` re-embeds only changed documents using content-hash detection (~1–2 s for a single document vs. full rebuild) |
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables. Session prep renders a structured **Lazy DM Prep** journal with styled block types: read-aloud narration, flavor asides, lore entries, mechanics callouts, treasure summaries, encounter notes, NPC roster tables, and data tables. GMs can customize the accent color for each block type from **LoreBridge Settings → Journal Colors** with changes applying live — no Foundry reload needed |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, per-NPC ElevenLabs voice assignment (Voice & AI sidebar in the NPC Workspace), optional voice responses, and persistent memory that accumulates from live roleplay |
