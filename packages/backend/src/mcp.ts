@@ -2798,6 +2798,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       rebuildTracker.error = null;
 
       const cfg = embeddingConfig;
+      const providerLabel = cfg.provider === "ollama" ? `ollama (${cfg.model} @ ${cfg.baseUrl})` : `openai (text-embedding-3-small)`;
+      console.log(`[lorebridge] Semantic index rebuild queued using ${providerLabel}`);
       void (async () => {
         try {
           const raw = await adapterSessions.invoke(
