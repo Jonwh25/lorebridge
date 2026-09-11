@@ -251,20 +251,33 @@ async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: st
   const results: number[][] = [];
   for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ model: "text-embedding-3-small", input: batch }),
-    });
-    if (!response.ok) {
-      throw new GenerationError(`OpenAI embeddings API error: ${response.status} ${response.statusText}`);
+    let delayMs = 1000;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model: "text-embedding-3-small", input: batch }),
+      });
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get("retry-after") ?? 0);
+        await new Promise<void>((r) => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delayMs));
+        delayMs = Math.min(delayMs * 2, 60_000);
+        continue;
+      }
+      if (!response.ok) {
+        throw new GenerationError(`OpenAI embeddings API error: ${response.status} ${response.statusText}`);
+      }
+      const body = await response.json() as { data: Array<{ embedding: number[]; index: number }> };
+      const sorted = body.data.slice().sort((a, b) => a.index - b.index);
+      results.push(...sorted.map(d => d.embedding));
+      break;
     }
-    const body = await response.json() as { data: Array<{ embedding: number[]; index: number }> };
-    const sorted = body.data.slice().sort((a, b) => a.index - b.index);
-    results.push(...sorted.map(d => d.embedding));
+    if (i + EMBEDDING_BATCH_SIZE < texts.length) {
+      await new Promise<void>((r) => setTimeout(r, 200));
+    }
   }
   return results;
 }
