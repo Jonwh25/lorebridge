@@ -81,10 +81,15 @@ export class EmbeddingIndexService {
     embedFn: (texts: string[]) => Promise<number[][]>,
     batchSize = 50,
   ): Promise<void> {
+    const total = items.length;
+    const totalBatches = Math.ceil(total / batchSize);
+    console.log(`[lorebridge] Semantic index rebuild starting: ${total} items in ${totalBatches} batches`);
     const newEntries: IndexEntry[] = [];
     for (let i = 0; i < items.length; i += batchSize) {
+      const batchNum = Math.floor(i / batchSize) + 1;
       const batch = items.slice(i, i + batchSize);
       const texts = batch.map((item) => item.text || item.name);
+      console.log(`[lorebridge] Embedding batch ${batchNum}/${totalBatches} (items ${i + 1}–${Math.min(i + batchSize, total)}/${total})`);
       const embeddings = await embedFn(texts);
       for (let j = 0; j < batch.length; j++) {
         const item = batch[j]!;
