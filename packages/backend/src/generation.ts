@@ -225,13 +225,13 @@ export type EmbeddingProvider =
   | { provider: "ollama"; baseUrl: string; model: string };
 
 export function getEmbeddingConfig(env: NodeJS.ProcessEnv = process.env): EmbeddingProvider | null {
-  const openaiKey = env.OPENAI_API_KEY?.trim();
-  if (openaiKey) {
-    return { provider: "openai", apiKey: openaiKey, baseUrl: env.OPENAI_BASE_URL?.trim() || undefined };
-  }
   const ollamaUrl = env.OLLAMA_BASE_URL?.trim();
   if (ollamaUrl) {
     return { provider: "ollama", baseUrl: ollamaUrl.replace(/\/$/, ""), model: env.OLLAMA_MODEL?.trim() || "nomic-embed-text" };
+  }
+  const openaiKey = env.OPENAI_API_KEY?.trim();
+  if (openaiKey) {
+    return { provider: "openai", apiKey: openaiKey, baseUrl: env.OPENAI_BASE_URL?.trim() || undefined };
   }
   return null;
 }
