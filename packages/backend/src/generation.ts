@@ -218,7 +218,7 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, bas
 // Embedding API
 // ---------------------------------------------------------------------------
 
-const EMBEDDING_BATCH_SIZE = 100;
+const EMBEDDING_BATCH_SIZE = 20;
 
 export type EmbeddingProvider =
   | { provider: "openai"; apiKey: string; baseUrl: string | undefined }
@@ -252,6 +252,7 @@ async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: st
   for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
     let delayMs = 1000;
+    let succeeded = false;
     for (let attempt = 0; attempt < 6; attempt++) {
       const response = await fetch(url, {
         method: "POST",
@@ -273,10 +274,14 @@ async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: st
       const body = await response.json() as { data: Array<{ embedding: number[]; index: number }> };
       const sorted = body.data.slice().sort((a, b) => a.index - b.index);
       results.push(...sorted.map(d => d.embedding));
+      succeeded = true;
       break;
     }
+    if (!succeeded) {
+      throw new GenerationError("OpenAI embeddings API error: rate limit exceeded after 6 retries");
+    }
     if (i + EMBEDDING_BATCH_SIZE < texts.length) {
-      await new Promise<void>((r) => setTimeout(r, 200));
+      await new Promise<void>((r) => setTimeout(r, 2000));
     }
   }
   return results;
