@@ -138,7 +138,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null, rebuildTracker: RebuildTracker): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.36.0",
@@ -2734,9 +2734,12 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         }
         if (!embeddingIndex.isLoaded) await embeddingIndex.load();
         if (embeddingIndex.entryCount === 0) {
+          const rebuildMsg = rebuildTracker.running
+            ? ` A rebuild is currently in progress (${Math.round((Date.now() - (rebuildTracker.startedAt ?? Date.now())) / 1000)}s elapsed). Try again in a few minutes.`
+            : " Run rebuild_semantic_index first.";
           return {
             isError: true,
-            content: [{ type: "text", text: JSON.stringify({ error: "Semantic index is empty. Run rebuild_semantic_index first." }) }],
+            content: [{ type: "text", text: JSON.stringify({ error: `Semantic index is empty.${rebuildMsg}` }) }],
           };
         }
         const [queryEmbedding] = await callEmbedding(embeddingConfig, [query]);
@@ -2763,7 +2766,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     rebuildSemanticIndexToolName,
     {
       title: "Rebuild the semantic search index",
-      description: "Export all journal pages and actor descriptions from the connected Foundry world, compute embeddings via the configured provider, and write the index to disk. Required before search_campaign_semantic can return results. Rebuilding replaces the previous index. Requires an embedding provider (OPENAI_API_KEY or OLLAMA_BASE_URL).",
+      description: "Export all journal pages and actor descriptions from the connected Foundry world, compute embeddings via the configured provider, and write the index to disk. Returns immediately — the rebuild runs in the background and can take several minutes for large worlds. Call search_campaign_semantic to check if results are available, or call rebuild_semantic_index again to check status. Requires an embedding provider (OPENAI_API_KEY or OLLAMA_BASE_URL).",
       inputSchema: z.object({
         types: z.array(z.enum(["journal", "actor"])).min(1).max(2).optional().describe("Document types to include in the index. Defaults to both: journal, actor."),
         sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one Foundry world is connected."),
@@ -2771,37 +2774,60 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     async ({ types, sourceId }) => {
-      try {
-        if (!embeddingConfig) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
-          };
-        }
-        const started = Date.now();
-        const raw = await adapterSessions.invoke(
-          sourceId,
-          EXPORT_FOR_EMBEDDING_CAPABILITY,
-          types ? { types } : {},
-          30_000,
-        );
-        const validation = validateExportForEmbeddingOutput(raw);
-        if (!validation.valid || !validation.value) {
-          throw new AdapterInvocationError(
-            "INTERNAL_ERROR",
-            "The Foundry adapter returned invalid export-for-embedding results.",
-            false,
-            { validationErrors: validation.errors },
-          );
-        }
-        const { items } = validation.value;
-        await embeddingIndex.rebuild(items, (texts) => callEmbedding(embeddingConfig, texts));
-        const durationMs = Date.now() - started;
-        const output = { itemsIndexed: embeddingIndex.entryCount, durationMs };
-        return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
-      } catch (error) {
-        return toolError(error, "LoreBridge could not rebuild the semantic index.");
+      if (!embeddingConfig) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
+        };
       }
+      if (rebuildTracker.running) {
+        const elapsedSec = rebuildTracker.startedAt ? Math.round((Date.now() - rebuildTracker.startedAt) / 1000) : 0;
+        const output = { status: "running", elapsedSeconds: elapsedSec, message: `Index rebuild is already in progress (${elapsedSec}s elapsed). Call search_campaign_semantic in a few minutes to check if results are available.` };
+        return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
+      }
+      if (rebuildTracker.error) {
+        const err = rebuildTracker.error;
+        rebuildTracker.error = null;
+        const output = { status: "error", message: `Previous rebuild failed: ${err}. Starting a new rebuild now.` };
+        // fall through to start a new rebuild — don't return early
+        void output;
+      }
+
+      rebuildTracker.running = true;
+      rebuildTracker.startedAt = Date.now();
+      rebuildTracker.error = null;
+
+      const cfg = embeddingConfig;
+      void (async () => {
+        try {
+          const raw = await adapterSessions.invoke(
+            sourceId,
+            EXPORT_FOR_EMBEDDING_CAPABILITY,
+            types ? { types } : {},
+            120_000,
+          );
+          const validation = validateExportForEmbeddingOutput(raw);
+          if (!validation.valid || !validation.value) {
+            throw new AdapterInvocationError(
+              "INTERNAL_ERROR",
+              "The Foundry adapter returned invalid export-for-embedding results.",
+              false,
+              { validationErrors: validation.errors },
+            );
+          }
+          await embeddingIndex.rebuild(validation.value.items, (texts) => callEmbedding(cfg, texts));
+          console.log(`[lorebridge] Semantic index rebuilt: ${embeddingIndex.entryCount} items in ${Date.now() - (rebuildTracker.startedAt ?? Date.now())}ms`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          rebuildTracker.error = msg;
+          console.error("[lorebridge] Semantic index rebuild failed:", msg);
+        } finally {
+          rebuildTracker.running = false;
+        }
+      })();
+
+      const output = { status: "started", message: "Index rebuild started in the background. This takes several minutes for large worlds. Call search_campaign_semantic in a few minutes to try a search, or call rebuild_semantic_index again to check status." };
+      return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
     },
   );
 
@@ -2811,6 +2837,12 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
 export interface McpRequestHandler {
   handle(request: IncomingMessage, response: ServerResponse): Promise<void>;
   close(): Promise<void>;
+}
+
+interface RebuildTracker {
+  running: boolean;
+  startedAt: number | null;
+  error: string | null;
 }
 
 export function createLoreBridgeMcpHandler(
@@ -2825,8 +2857,9 @@ export function createLoreBridgeMcpHandler(
   const embeddingIndex = new EmbeddingIndexService(dataDir);
   void embeddingIndex.load();
   const embeddingConfig = getEmbeddingConfig();
+  const rebuildTracker: RebuildTracker = { running: false, startedAt: null, error: null };
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex, embeddingConfig),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex, embeddingConfig, rebuildTracker),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
