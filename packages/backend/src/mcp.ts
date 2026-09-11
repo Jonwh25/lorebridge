@@ -2769,11 +2769,12 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       description: "Export all journal pages and actor descriptions from the connected Foundry world, compute embeddings via the configured provider, and write the index to disk. Returns immediately — the rebuild runs in the background and can take several minutes for large worlds. Call search_campaign_semantic to check if results are available, or call rebuild_semantic_index again to check status. Requires an embedding provider (OPENAI_API_KEY or OLLAMA_BASE_URL).",
       inputSchema: z.object({
         types: z.array(z.enum(["journal", "actor"])).min(1).max(2).optional().describe("Document types to include in the index. Defaults to both: journal, actor."),
+        incremental: z.boolean().optional().describe("When true, only re-embed documents that are new or whose content changed since the last rebuild. Unchanged documents are kept as-is and deleted documents are removed. Much faster for small updates to large worlds. Defaults to false (full rebuild)."),
         sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one Foundry world is connected."),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ types, sourceId }) => {
+    async ({ types, incremental, sourceId }) => {
       if (!embeddingConfig) {
         return {
           isError: true,
@@ -2799,7 +2800,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
 
       const cfg = embeddingConfig;
       const providerLabel = cfg.provider === "ollama" ? `ollama (${cfg.model} @ ${cfg.baseUrl})` : `openai (text-embedding-3-small)`;
-      console.log(`[lorebridge] Semantic index rebuild queued using ${providerLabel}`);
+      const modeLabel = incremental ? "incremental" : "full";
+      console.log(`[lorebridge] Semantic index ${modeLabel} rebuild queued using ${providerLabel}`);
       void (async () => {
         try {
           const raw = await adapterSessions.invoke(
@@ -2817,8 +2819,8 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
               { validationErrors: validation.errors },
             );
           }
-          await embeddingIndex.rebuild(validation.value.items, (texts) => callEmbedding(cfg, texts));
-          console.log(`[lorebridge] Semantic index rebuilt: ${embeddingIndex.entryCount} items in ${Date.now() - (rebuildTracker.startedAt ?? Date.now())}ms`);
+          await embeddingIndex.rebuild(validation.value.items, (texts) => callEmbedding(cfg, texts), 50, incremental ?? false);
+          console.log(`[lorebridge] Semantic index ${modeLabel} rebuild complete: ${embeddingIndex.entryCount} items in ${Date.now() - (rebuildTracker.startedAt ?? Date.now())}ms`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           rebuildTracker.error = msg;
@@ -2828,7 +2830,9 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         }
       })();
 
-      const output = { status: "started", message: "Index rebuild started in the background. This takes several minutes for large worlds. Call search_campaign_semantic in a few minutes to try a search, or call rebuild_semantic_index again to check status." };
+      const output = incremental
+        ? { status: "started", message: "Incremental index update started in the background. Only new or changed documents will be re-embedded. Should complete quickly for small updates. Call search_campaign_semantic in a minute to check results." }
+        : { status: "started", message: "Full index rebuild started in the background. This takes several minutes for large worlds. Call search_campaign_semantic in a few minutes to try a search, or call rebuild_semantic_index again to check status." };
       return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
     },
   );

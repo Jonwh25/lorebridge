@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { EmbeddingItem, EmbeddingDocumentType } from "@lorebridge/shared/capabilities";
@@ -10,7 +11,12 @@ export interface IndexEntry {
   documentType: EmbeddingDocumentType;
   name: string;
   excerpt: string;
+  contentHash?: string;
   embedding: number[];
+}
+
+function hashContent(text: string): string {
+  return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 interface IndexFile {
@@ -80,7 +86,13 @@ export class EmbeddingIndexService {
     items: EmbeddingItem[],
     embedFn: (texts: string[]) => Promise<number[][]>,
     batchSize = 50,
+    incremental = false,
   ): Promise<void> {
+    if (incremental && this.entries !== null) {
+      await this.#rebuildIncremental(items, embedFn, batchSize);
+      return;
+    }
+
     const total = items.length;
     const totalBatches = Math.ceil(total / batchSize);
     console.log(`[lorebridge] Semantic index rebuild starting: ${total} items in ${totalBatches} batches`);
@@ -100,10 +112,72 @@ export class EmbeddingIndexService {
           documentType: item.documentType,
           name: item.name,
           excerpt: (item.text || item.name).slice(0, SNIPPET_CHARS),
+          contentHash: hashContent(item.text || item.name),
           embedding,
         });
       }
     }
+    this.entries = newEntries;
+    await this.save();
+  }
+
+  async #rebuildIncremental(
+    items: EmbeddingItem[],
+    embedFn: (texts: string[]) => Promise<number[][]>,
+    batchSize: number,
+  ): Promise<void> {
+    const existingMap = new Map<string, IndexEntry>();
+    for (const entry of this.entries!) {
+      existingMap.set(entry.uuid, entry);
+    }
+
+    const inputUuids = new Set(items.map((i) => i.uuid));
+    const removed = (this.entries!).filter((e) => !inputUuids.has(e.uuid)).length;
+
+    const toEmbed: Array<{ item: EmbeddingItem; hash: string }> = [];
+    const kept: IndexEntry[] = [];
+
+    for (const item of items) {
+      const hash = hashContent(item.text || item.name);
+      const existing = existingMap.get(item.uuid);
+      if (existing?.contentHash === hash) {
+        kept.push(existing);
+      } else {
+        toEmbed.push({ item, hash });
+      }
+    }
+
+    console.log(
+      `[lorebridge] Incremental index update: ${toEmbed.length} to embed, ${kept.length} unchanged, ${removed} removed`,
+    );
+
+    const newEntries: IndexEntry[] = [...kept];
+
+    if (toEmbed.length > 0) {
+      const total = toEmbed.length;
+      const totalBatches = Math.ceil(total / batchSize);
+      for (let i = 0; i < toEmbed.length; i += batchSize) {
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const batch = toEmbed.slice(i, i + batchSize);
+        const texts = batch.map((x) => x.item.text || x.item.name);
+        console.log(`[lorebridge] Embedding batch ${batchNum}/${totalBatches} (items ${i + 1}–${Math.min(i + batchSize, total)}/${total})`);
+        const embeddings = await embedFn(texts);
+        for (let j = 0; j < batch.length; j++) {
+          const { item, hash } = batch[j]!;
+          const embedding = embeddings[j];
+          if (!embedding) continue;
+          newEntries.push({
+            uuid: item.uuid,
+            documentType: item.documentType,
+            name: item.name,
+            excerpt: (item.text || item.name).slice(0, SNIPPET_CHARS),
+            contentHash: hash,
+            embedding,
+          });
+        }
+      }
+    }
+
     this.entries = newEntries;
     await this.save();
   }
