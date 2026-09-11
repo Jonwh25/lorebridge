@@ -91,3 +91,82 @@ test("EmbeddingIndexService: rebuild replaces previous index", async () => {
     assert.ok(svc.query([1, 0], 5).every((r) => r.entry.uuid.startsWith("new")));
   });
 });
+
+test("EmbeddingIndexService incremental: no-op when all items unchanged", async () => {
+  await withTempDir(async (dir) => {
+    const svc = new EmbeddingIndexService(dir);
+    const items = [
+      { uuid: "u1", documentType: "journal" as const, name: "Page", text: "content unchanged" },
+      { uuid: "u2", documentType: "actor" as const, name: "Actor", text: "bio unchanged" },
+    ];
+    await svc.rebuild(items, makeEmbedFn(2));
+    assert.equal(svc.entryCount, 2);
+
+    let embedCallCount = 0;
+    const trackingEmbedFn = async (texts: string[]) => {
+      embedCallCount += texts.length;
+      return texts.map(() => [0, 1]);
+    };
+    await svc.rebuild(items, trackingEmbedFn, 50, true);
+    assert.equal(svc.entryCount, 2);
+    assert.equal(embedCallCount, 0, "zero embedding API calls when nothing changed");
+  });
+});
+
+test("EmbeddingIndexService incremental: embeds new item, keeps existing", async () => {
+  await withTempDir(async (dir) => {
+    const svc = new EmbeddingIndexService(dir);
+    const initial = [
+      { uuid: "u1", documentType: "journal" as const, name: "Page", text: "original" },
+    ];
+    await svc.rebuild(initial, makeEmbedFn(2));
+    assert.equal(svc.entryCount, 1);
+
+    let embeddedTexts: string[] = [];
+    const trackingEmbedFn = async (texts: string[]) => {
+      embeddedTexts.push(...texts);
+      return texts.map(() => [1, 0]);
+    };
+    const withNew = [
+      ...initial,
+      { uuid: "u2", documentType: "actor" as const, name: "New Actor", text: "new bio" },
+    ];
+    await svc.rebuild(withNew, trackingEmbedFn, 50, true);
+    assert.equal(svc.entryCount, 2);
+    assert.deepEqual(embeddedTexts, ["new bio"], "only the new item was embedded");
+  });
+});
+
+test("EmbeddingIndexService incremental: re-embeds changed item", async () => {
+  await withTempDir(async (dir) => {
+    const svc = new EmbeddingIndexService(dir);
+    const original = { uuid: "u1", documentType: "journal" as const, name: "Page", text: "original text" };
+    await svc.rebuild([original], makeEmbedFn(2));
+
+    let embeddedTexts: string[] = [];
+    const trackingEmbedFn = async (texts: string[]) => {
+      embeddedTexts.push(...texts);
+      return texts.map(() => [1, 0]);
+    };
+    const changed = { ...original, text: "updated text" };
+    await svc.rebuild([changed], trackingEmbedFn, 50, true);
+    assert.equal(svc.entryCount, 1);
+    assert.deepEqual(embeddedTexts, ["updated text"], "changed item was re-embedded");
+  });
+});
+
+test("EmbeddingIndexService incremental: removes deleted items", async () => {
+  await withTempDir(async (dir) => {
+    const svc = new EmbeddingIndexService(dir);
+    const items = [
+      { uuid: "u1", documentType: "journal" as const, name: "Keep", text: "keep this" },
+      { uuid: "u2", documentType: "actor" as const, name: "Delete", text: "delete this" },
+    ];
+    await svc.rebuild(items, makeEmbedFn(2));
+    assert.equal(svc.entryCount, 2);
+
+    await svc.rebuild([items[0]!], async () => [], 50, true);
+    assert.equal(svc.entryCount, 1);
+    assert.equal(svc.query([1, 0], 5)[0]?.entry.uuid, "u1");
+  });
+});

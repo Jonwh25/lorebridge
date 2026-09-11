@@ -273,9 +273,15 @@ AI clients should follow up with `resolve_uuid` on returned UUIDs to fetch full 
 
 ### `rebuildSemanticIndex` (Milestone 40)
 
-Builds or rebuilds the embedding index on disk (`semantic-index.json` in the backend data directory). Exports all content via `exportForEmbedding`, computes embeddings in batches, and persists the result atomically. A rebuild replaces the existing index. Requires an embedding provider.
+Builds or rebuilds the embedding index on disk (`semantic-index.json` in the backend data directory). Exports all content via `exportForEmbedding`, computes embeddings in batches, and persists the result atomically. Requires an embedding provider. Returns immediately — the rebuild runs in the background.
+
+Input:
+
+- `incremental` — when `true`, only re-embed documents that are new or whose content has changed since the last rebuild; unchanged documents are kept and deleted documents are removed. Defaults to `false` (full rebuild). Use `incremental: true` after adding or editing a small number of documents to avoid re-embedding the entire world.
+- `types` — document types to include: `journal`, `actor`, or both (default both)
+- `sourceId` — target source; omit when only one world is connected
 
 Typical result fields:
 
-- `itemsIndexed` — number of documents stored in the new index
-- `durationMs` — total time in milliseconds
+- `status` — `"started"` (rebuild running in background), `"running"` (already in progress), or `"error"`
+- `message` — human-readable status description
