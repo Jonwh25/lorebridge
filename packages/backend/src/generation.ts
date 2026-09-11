@@ -220,23 +220,28 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, bas
 
 const EMBEDDING_BATCH_SIZE = 100;
 
-export async function callEmbedding(provider: ProviderService, texts: string[]): Promise<number[][]> {
-  if (!provider.enabled) {
-    throw new GenerationError("No AI provider is configured on the backend.");
+export type EmbeddingProvider =
+  | { provider: "openai"; apiKey: string; baseUrl: string | undefined }
+  | { provider: "ollama"; baseUrl: string; model: string };
+
+export function getEmbeddingConfig(env: NodeJS.ProcessEnv = process.env): EmbeddingProvider | null {
+  const openaiKey = env.OPENAI_API_KEY?.trim();
+  if (openaiKey) {
+    return { provider: "openai", apiKey: openaiKey, baseUrl: env.OPENAI_BASE_URL?.trim() || undefined };
   }
-  if (provider.provider === "anthropic") {
-    throw new GenerationError("Anthropic does not provide an embeddings API. Configure OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search.");
+  const ollamaUrl = env.OLLAMA_BASE_URL?.trim();
+  if (ollamaUrl) {
+    return { provider: "ollama", baseUrl: ollamaUrl.replace(/\/$/, ""), model: env.OLLAMA_MODEL?.trim() || "nomic-embed-text" };
   }
-  if (provider.provider === "openai") {
-    if (!provider.apiKey) throw new GenerationError("OpenAI API key is missing.");
-    return callOpenAIEmbedding(provider.apiKey, texts, provider.baseUrl);
+  return null;
+}
+
+export async function callEmbedding(embeddingProvider: EmbeddingProvider, texts: string[]): Promise<number[][]> {
+  if (embeddingProvider.provider === "openai") {
+    return callOpenAIEmbedding(embeddingProvider.apiKey, texts, embeddingProvider.baseUrl);
   }
-  if (provider.provider === "ollama") {
-    const baseUrl = (provider.baseUrl ?? "http://localhost:11434").replace(/\/$/, "");
-    const model = provider.model ?? "nomic-embed-text";
-    return callOllamaEmbedding(baseUrl, model, texts);
-  }
-  throw new GenerationError(`Unsupported provider for embeddings: ${provider.provider}`);
+  const { baseUrl, model } = embeddingProvider;
+  return callOllamaEmbedding(baseUrl, model, texts);
 }
 
 async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: string): Promise<number[][]> {

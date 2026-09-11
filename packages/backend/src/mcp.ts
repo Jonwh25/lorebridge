@@ -93,7 +93,7 @@ import {
 import { type WriteRegistry } from "./write-registry.js";
 import { type QuestObjectivesWriteRegistry } from "./quest-objectives-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, GenerationError } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, getEmbeddingConfig, GenerationError, type EmbeddingProvider } from "./generation.js";
 import type { ItemType } from "./generation.js";
 import { EmbeddingIndexService } from "./embedding-index.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
@@ -138,7 +138,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.36.0",
@@ -2726,7 +2726,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
     async ({ query, limit = 10, types, sourceId: _sourceId }) => {
       try {
-        if (provider.provider === "anthropic" || !provider.enabled) {
+        if (!embeddingConfig) {
           return {
             isError: true,
             content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
@@ -2739,7 +2739,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
             content: [{ type: "text", text: JSON.stringify({ error: "Semantic index is empty. Run rebuild_semantic_index first." }) }],
           };
         }
-        const [queryEmbedding] = await callEmbedding(provider, [query]);
+        const [queryEmbedding] = await callEmbedding(embeddingConfig, [query]);
         if (!queryEmbedding) throw new Error("Embedding API returned no vector for the query.");
         const hits = embeddingIndex.query(queryEmbedding, limit, types);
         const output = {
@@ -2772,7 +2772,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
     async ({ types, sourceId }) => {
       try {
-        if (provider.provider === "anthropic" || !provider.enabled) {
+        if (!embeddingConfig) {
           return {
             isError: true,
             content: [{ type: "text", text: JSON.stringify({ error: "No embedding provider configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL to enable semantic search." }) }],
@@ -2795,7 +2795,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
           );
         }
         const { items } = validation.value;
-        await embeddingIndex.rebuild(items, (texts) => callEmbedding(provider, texts));
+        await embeddingIndex.rebuild(items, (texts) => callEmbedding(embeddingConfig, texts));
         const durationMs = Date.now() - started;
         const output = { itemsIndexed: embeddingIndex.entryCount, durationMs };
         return { content: [{ type: "text", text: JSON.stringify(output) }], structuredContent: output };
@@ -2824,8 +2824,9 @@ export function createLoreBridgeMcpHandler(
 ): McpRequestHandler {
   const embeddingIndex = new EmbeddingIndexService(dataDir);
   void embeddingIndex.load();
+  const embeddingConfig = getEmbeddingConfig();
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex, embeddingConfig),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
