@@ -223,7 +223,7 @@ export function attachAdapterSessionServer(
   pairing: PairingService,
   registry: AdapterSessionRegistry,
 ): void {
-  const webSockets = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+  const webSockets = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 * 1024 });
 
   server.on("upgrade", (request, socket, head) => {
     const url = new URL(request.url ?? "/", "http://localhost");

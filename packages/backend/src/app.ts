@@ -1911,7 +1911,7 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const combatWrites = new CombatWriteRegistry();
   const questObjectivesWrites = new QuestObjectivesWriteRegistry();
   const github = createGitHubAdapter(config.github, undefined, config.dataDir);
-  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, provider, new AssetSearchService(config.foundryDataDir), github);
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, provider, new AssetSearchService(config.foundryDataDir), github, config.dataDir);
   const server = createServer((request, response) => {
     void handleRequest(config, identity, pairing, adapterSessions, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);

@@ -27,3 +27,5 @@ export * from "./capabilities/item-writes.js";
 export * from "./capabilities/encounter-writes.js";
 export * from "./capabilities/quest-objectives.js";
 export * from "./capabilities/folders.js";
+export * from "./capabilities/search-campaign-semantic.js";
+export * from "./capabilities/export-for-embedding.js";

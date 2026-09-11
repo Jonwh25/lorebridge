@@ -215,6 +215,94 @@ async function callOpenAI(apiKey: string, prompt: string, maxTokens: number, bas
 }
 
 // ---------------------------------------------------------------------------
+// Embedding API
+// ---------------------------------------------------------------------------
+
+const EMBEDDING_BATCH_SIZE = 10;
+
+export type EmbeddingProvider =
+  | { provider: "openai"; apiKey: string; baseUrl: string | undefined }
+  | { provider: "ollama"; baseUrl: string; model: string };
+
+export function getEmbeddingConfig(env: NodeJS.ProcessEnv = process.env): EmbeddingProvider | null {
+  const ollamaUrl = env.OLLAMA_BASE_URL?.trim();
+  if (ollamaUrl) {
+    return { provider: "ollama", baseUrl: ollamaUrl.replace(/\/$/, ""), model: env.OLLAMA_MODEL?.trim() || "nomic-embed-text" };
+  }
+  const openaiKey = env.OPENAI_API_KEY?.trim();
+  if (openaiKey) {
+    return { provider: "openai", apiKey: openaiKey, baseUrl: env.OPENAI_BASE_URL?.trim() || undefined };
+  }
+  return null;
+}
+
+export async function callEmbedding(embeddingProvider: EmbeddingProvider, texts: string[]): Promise<number[][]> {
+  if (embeddingProvider.provider === "openai") {
+    return callOpenAIEmbedding(embeddingProvider.apiKey, texts, embeddingProvider.baseUrl);
+  }
+  const { baseUrl, model } = embeddingProvider;
+  return callOllamaEmbedding(baseUrl, model, texts);
+}
+
+async function callOpenAIEmbedding(apiKey: string, texts: string[], baseUrl?: string): Promise<number[][]> {
+  const url = baseUrl
+    ? `${baseUrl.replace(/\/$/, "")}/embeddings`
+    : "https://api.openai.com/v1/embeddings";
+  const results: number[][] = [];
+  for (let i = 0; i < texts.length; i += EMBEDDING_BATCH_SIZE) {
+    const batch = texts.slice(i, i + EMBEDDING_BATCH_SIZE);
+    let delayMs = 1000;
+    let succeeded = false;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model: "text-embedding-3-small", input: batch }),
+      });
+      if (response.status === 429) {
+        const retryAfter = Number(response.headers.get("retry-after") ?? 0);
+        await new Promise<void>((r) => setTimeout(r, retryAfter > 0 ? retryAfter * 1000 : delayMs));
+        delayMs = Math.min(delayMs * 2, 60_000);
+        continue;
+      }
+      if (!response.ok) {
+        throw new GenerationError(`OpenAI embeddings API error: ${response.status} ${response.statusText}`);
+      }
+      const body = await response.json() as { data: Array<{ embedding: number[]; index: number }> };
+      const sorted = body.data.slice().sort((a, b) => a.index - b.index);
+      results.push(...sorted.map(d => d.embedding));
+      succeeded = true;
+      break;
+    }
+    if (!succeeded) {
+      throw new GenerationError("OpenAI embeddings API error: rate limit exceeded after 6 retries");
+    }
+    await new Promise<void>((r) => setTimeout(r, 5000));
+  }
+  return results;
+}
+
+async function callOllamaEmbedding(baseUrl: string, model: string, texts: string[]): Promise<number[][]> {
+  const results: number[][] = [];
+  for (const text of texts) {
+    const response = await fetch(`${baseUrl}/api/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, prompt: text }),
+    });
+    if (!response.ok) {
+      throw new GenerationError(`Ollama embeddings API error: ${response.status} ${response.statusText}`);
+    }
+    const body = await response.json() as { embedding: number[] };
+    results.push(body.embedding);
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Session extraction
 // ---------------------------------------------------------------------------
 
