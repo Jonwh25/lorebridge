@@ -52,6 +52,13 @@ Foundry documents or provider credentials.
   spell, feat, consumable, equipment, background, race, class, subclass, and
   more), or a balanced encounter and push it into Foundry through GM approval
   without opening the Foundry UI.
+- Populate Campaign Codex NPC Dossier tabs from an MCP client with
+  `generate_npc_dossier_roleplay`, `generate_npc_dossier_overview`, and
+  `generate_npc_dossier_knowledge`. Each tool generates structured AI content
+  for its respective dossier tab (Roleplaying, Overview, or Knowledge) and
+  routes it through the standard GM approval dialog before writing. Generate
+  faction overviews, goals, history, structure, and adventure hooks into
+  Campaign Codex Group journals with `generate_faction`.
 - Review AI-proposed journal changes with a diff, explicit GM approval, and
   rollback support.
 - Read Campaign Codex quest objectives and propose additions, edits, completion,
@@ -133,7 +140,7 @@ re-embeds only what changed.
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, per-NPC ElevenLabs voice assignment (Voice & AI sidebar in the NPC Workspace), optional voice responses, and persistent memory that accumulates from live roleplay |
 | AI Combat Narrator | Automatically generates short dramatic flavor sentences for hits, crits, and killing blows during active combat; five narrative styles including Gothic Horror; dedicated narrator voice; mode and style changeable mid-session without reload; player-owned PCs addressed by first name only |
 | External world building | `generate_npc`/`create_actor`/`update_actor` for NPC creation and editing; `generate_item`/`create_item`/`update_item` for 12 D&D 5e item types (weapon, spell, feat, consumable, equipment, loot, tool, background, race, container, class, subclass); `generate_encounter`/`create_encounter` for balanced encounter building with token placement; `update_scene` for scene property edits — all from an MCP client without opening Foundry |
-| Campaign Codex integration | Optional NPC Dossier widgets with four structured sidebar tabs and native GM secrets; quest objective retrieval and GM-approved checklist replacements; incremental Markdown export with committed/unchanged counts |
+| Campaign Codex integration | Optional NPC Dossier widgets with four structured sidebar tabs and native GM secrets; AI generation for all three dossier tabs (`generate_npc_dossier_roleplay`, `generate_npc_dossier_overview`, `generate_npc_dossier_knowledge`) and for Group/Faction journals (`generate_faction`) — each routes through the standard GM approval dialog; quest objective retrieval and GM-approved checklist replacements; incremental Markdown export with committed/unchanged counts |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, configurable per-category GitHub backups with folder hierarchy, and AI session log tracking (NPC status, encounters, quest progress, region visits, campaign timeline) with automatic player permission sync |
