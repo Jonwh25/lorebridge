@@ -50,6 +50,7 @@ rejected operations produce a clear MCP error; `npm run validate` passes.
 ## Future / Unscheduled
 
 - [Audit and rationalize npcProfile actor fields vs Campaign Codex journal fields](https://github.com/Jonwh25/lorebridge/issues/401) — decide which actor-side NPC fields to keep, retire, or migrate to CC journal dossier now that M41 establishes the journal as the canonical write target; requires M41 complete before design work begins.
+- [Combat narrator: spectacular narration for critical hits (nat 20) and fumbles (nat 1)](https://github.com/Jonwh25/lorebridge/issues/395) — detect nat 20 / nat 1 via the dnd5e.rollAttack hook and produce tonally distinct crit and fumble narration per narrator style; fumbles fire without an HP change.
 
 ## Completed
 
