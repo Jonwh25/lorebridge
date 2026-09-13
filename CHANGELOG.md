@@ -2,6 +2,58 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.41.0] - 2026-09-12
+
+### Added
+
+- **NPC Dossier AI generation — Roleplaying tab** (#396, PR #402): New MCP tool
+  `generate_npc_dossier_roleplay` fills the Campaign Codex NPC Dossier Roleplaying
+  tab via AI. Populated fields: tagline, first impression, voice/speech patterns,
+  conversational approach, at-the-table tips, and character goals. Follows the
+  standard write-registry approval flow (MCP → AI → GM approval dialog in Foundry
+  → \`setFlag\`).
+
+- **NPC Dossier AI generation — Overview tab** (#397, PR #402): New MCP tool
+  `generate_npc_dossier_overview` fills the Campaign Codex NPC Dossier Overview
+  tab via AI. Populated fields: profile tagline, summary bullet points, NPC
+  relationships (referencing other CC entries by name), secrets, and
+  player-visible knowledge summary.
+
+- **NPC Dossier AI generation — Knowledge tab** (#398, PR #402): New MCP tool
+  `generate_npc_dossier_knowledge` fills the Campaign Codex NPC Dossier Knowledge
+  tab via AI. Populated fields: `conditionalInfo` (information shared only under
+  specific conditions), `qa` (Q&A pairs for common player questions), `knowledge`
+  array (topics the NPC knows), and `knowledgeLimits` (what the NPC will not or
+  cannot reveal). Token budget raised from 1 000 to 1 500 to prevent JSON
+  truncation on the knowledge array.
+
+- **getNpcDossierContext Foundry capability** (#399, PR #402): New adapter
+  capability reads CC NPC journal flags, the linked actor's `npcProfile` data, and
+  dossier identity fields (race, class/occupation) to build a unified AI generation
+  context object shared by all three dossier generation tools. Ensures AI-generated
+  dossier content is consistent with NPC Profile fields the GM already approved.
+
+- **Faction / Group AI generation** (#400, PR #402): New MCP tool
+  `generate_faction` fills Campaign Codex Group journals via AI. Populated fields:
+  overview page HTML (written to the CC journal's overview page), goals, history,
+  structure/hierarchy, reputation, secrets, and adventure hooks. Validates that the
+  target journal is a CC Group type before generating; secrets are gated behind the
+  same GM approval as all other fields.
+
+### Fixed
+
+- NPC Dossier knowledge fields were incorrectly nested under a `knowledge` sub-key
+  in the CC journal flags; they are now written at the `npcDossier` root level to
+  match the Campaign Codex schema.
+
+### Notes
+
+- Live acceptance tested on production Foundry against Curse of Strahd: Ismark
+  Kolyanovich (all three NPC dossier tabs) and Tser Pool Vistani (faction journal).
+  All four MCP tools passed on first production run.
+- `npm run validate`: 103 unit tests + 12 release tests, 0 failures, all type
+  checks clean.
+
 ## [0.40.0] - 2026-09-11
 
 ### Added

@@ -11,26 +11,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Active
 
-### Milestone 41 — Campaign Codex AI Field Coverage
-
-Extend LoreBridge AI generation to cover Campaign Codex fields not yet
-populated by AI. GMs can trigger AI generation directly from CC NPC sheet
-tabs (Roleplaying, Overview, Knowledge) to fill fields that previously
-required manual entry. Overlapping fields between the NPC Profile workspace
-and the NPC Dossier widget are kept in sync. A new faction generation
-capability covers CC Group journals.
-
-1. [Sync npcProfile AI-generated fields into npcDossier on generation](https://github.com/Jonwh25/lorebridge/issues/399)
-2. [AI generation for NPC Dossier roleplay fields](https://github.com/Jonwh25/lorebridge/issues/396)
-3. [AI generation for NPC Dossier overview fields](https://github.com/Jonwh25/lorebridge/issues/397)
-4. [AI generation for NPC Dossier knowledge tab fields](https://github.com/Jonwh25/lorebridge/issues/398)
-5. [AI generation for Campaign Codex Factions/Groups](https://github.com/Jonwh25/lorebridge/issues/400)
-
-Success test: open a CC NPC sheet, trigger AI generation on each of the
-three dossier tabs, and verify all fields are populated; the linked actor's
-identity fields match the dossier; generate a faction journal and confirm
-structured fields are stored; `npm run validate` passes.
-
 ### Milestone 42 — Campaign Codex MCP Write Operations
 
 Expose controlled, GM-approved write operations for Campaign Codex records
@@ -53,6 +33,14 @@ rejected operations produce a clear MCP error; `npm run validate` passes.
 - [Combat narrator: spectacular narration for critical hits (nat 20) and fumbles (nat 1)](https://github.com/Jonwh25/lorebridge/issues/395) — detect nat 20 / nat 1 via the dnd5e.rollAttack hook and produce tonally distinct crit and fumble narration per narrator style; fumbles fire without an HP change.
 
 ## Completed
+
+### Milestone 41 — Campaign Codex AI Field Coverage ✅
+
+- [x] [Sync npcProfile AI-generated fields into npcDossier on generation](https://github.com/Jonwh25/lorebridge/issues/399)
+- [x] [AI generation for NPC Dossier roleplay fields](https://github.com/Jonwh25/lorebridge/issues/396)
+- [x] [AI generation for NPC Dossier overview fields](https://github.com/Jonwh25/lorebridge/issues/397)
+- [x] [AI generation for NPC Dossier knowledge tab fields](https://github.com/Jonwh25/lorebridge/issues/398)
+- [x] [AI generation for Campaign Codex Factions/Groups](https://github.com/Jonwh25/lorebridge/issues/400)
 
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
 
