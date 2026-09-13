@@ -7,6 +7,7 @@ async function callCombatFlavor(ctx: {
   targetName: string;
   damage: number;
   isCrit: boolean;
+  isFumble: boolean;
   isKillingBlow: boolean;
   style: string;
 }): Promise<string> {
@@ -29,6 +30,63 @@ async function callCombatFlavor(ctx: {
   }
   const data = (await response.json()) as { flavor: string };
   return data.flavor;
+}
+
+type DiceResult = { active?: boolean; discarded?: boolean; rerolled?: boolean; result: number };
+type AttackRoll = { dice?: Array<{ faces?: number; results?: DiceResult[] }> };
+type PendingCritical = { expiresAt: number };
+
+const pendingCriticals = new Map<string, PendingCritical>();
+const CRITICAL_RESULT_TTL_MS = 2_000;
+
+export function getAttackOutcome(rolls: unknown): "critical" | "fumble" | undefined {
+  if (!Array.isArray(rolls)) return undefined;
+  for (const roll of rolls as AttackRoll[]) {
+    for (const die of roll.dice ?? []) {
+      if (die.faces !== 20) continue;
+      for (const result of die.results ?? []) {
+        if (result.active === false || result.discarded || result.rerolled) continue;
+        if (result.result === 20) return "critical";
+        if (result.result === 1) return "fumble";
+      }
+    }
+  }
+  return undefined;
+}
+
+function combatActorId(actor: FoundryActor | undefined): string | undefined {
+  const id = (actor as { id?: unknown } | undefined)?.id;
+  return typeof id === "string" && id.length > 0 ? id : undefined;
+}
+
+function isEligibleNarratorAttack(attacker: FoundryActor | undefined): boolean {
+  const settings = getLoreBridgeSettings();
+  if (settings.combatNarratorMode === "off") return false;
+  if (settings.combatNarratorMode !== "npcs-only") return true;
+  const ownership = attacker?.ownership ?? {};
+  return Boolean(attacker) && !Object.entries(ownership).some(
+    ([userId, level]) => userId !== "default" && level === 3,
+  );
+}
+
+async function postNarration(ctx: {
+  attackerName: string;
+  targetName: string;
+  damage: number;
+  isCrit: boolean;
+  isFumble: boolean;
+  isKillingBlow: boolean;
+  style: string;
+}): Promise<void> {
+  const flavor = await callCombatFlavor(ctx);
+  await ChatMessage.create({
+    content: `<div class="lb-combat-narrator"><em>${flavor}</em></div>`,
+    speaker: { alias: "Narrator" },
+    flags: { [MODULE_ID]: { type: "combat-narrator", attackerName: ctx.attackerName, targetName: ctx.targetName } },
+  });
+  void playTts(flavor).catch((err: unknown) => {
+    console.warn("LoreBridge | Combat narrator TTS failed:", err);
+  });
 }
 
 async function playTts(text: string): Promise<void> {
@@ -75,9 +133,7 @@ async function handleActorUpdate(
   const combat = game.combats?.active;
   if (!combat?.active) return;
 
-  const settings = getLoreBridgeSettings();
-  const mode = settings.combatNarratorMode;
-  if (mode === "off") return;
+  if (!isEligibleNarratorAttack(combat.combatant?.actor ?? undefined)) return;
 
   // Extract HP delta from nested change path: system.attributes.hp.value
   const newHp = (
@@ -97,30 +153,50 @@ async function handleActorUpdate(
   // Attacker = combatant whose turn it currently is
   const attacker = combat.combatant?.actor ?? undefined;
 
-  if (mode === "npcs-only") {
-    const ownership = attacker?.ownership ?? {};
-    const isPlayerOwned = Object.entries(ownership).some(
-      ([userId, level]) => userId !== "default" && level === 3,
-    );
-    if (!attacker || isPlayerOwned) return;
-  }
-
   const isKillingBlow = newHp <= 0;
   const attackerName = narratorName(attacker, "Unknown");
   const targetName = narratorName(targetActor, "Unknown");
-  const style = settings.combatNarratorStyle;
+  const style = getLoreBridgeSettings().combatNarratorStyle;
+  const attackerId = combatActorId(attacker);
+  const pendingCritical = attackerId ? pendingCriticals.get(attackerId) : undefined;
+  const isCrit = Boolean(pendingCritical && pendingCritical.expiresAt >= Date.now());
+  if (attackerId) pendingCriticals.delete(attackerId);
 
   try {
-    const flavor = await callCombatFlavor({ attackerName, targetName, damage, isCrit: false, isKillingBlow, style });
+    await postNarration({ attackerName, targetName, damage, isCrit, isFumble: false, isKillingBlow, style });
+  } catch (err) {
+    ui.notifications.warn(
+      `LoreBridge Combat Narrator: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
 
-    await ChatMessage.create({
-      content: `<div class="lb-combat-narrator"><em>${flavor}</em></div>`,
-      speaker: { alias: "Narrator" },
-      flags: { [MODULE_ID]: { type: "combat-narrator", attackerName, targetName } },
-    });
+async function handleAttackRoll(rolls: unknown, data: unknown): Promise<void> {
+  if (!game.user?.isGM) return;
+  const combat = game.combats?.active;
+  if (!combat?.active) return;
 
-    void playTts(flavor).catch((err: unknown) => {
-      console.warn("LoreBridge | Combat narrator TTS failed:", err);
+  const subject = (data as { subject?: { actor?: FoundryActor; item?: { actor?: FoundryActor } } } | undefined)?.subject;
+  const attacker = subject?.actor ?? subject?.item?.actor;
+  if (!attacker || !isEligibleNarratorAttack(attacker)) return;
+  const outcome = getAttackOutcome(rolls);
+  if (!outcome) return;
+
+  if (outcome === "critical") {
+    const attackerId = combatActorId(attacker);
+    if (attackerId) pendingCriticals.set(attackerId, { expiresAt: Date.now() + CRITICAL_RESULT_TTL_MS });
+    return;
+  }
+
+  try {
+    await postNarration({
+      attackerName: narratorName(attacker, "Unknown"),
+      targetName: "",
+      damage: 0,
+      isCrit: false,
+      isFumble: true,
+      isKillingBlow: false,
+      style: getLoreBridgeSettings().combatNarratorStyle,
     });
   } catch (err) {
     ui.notifications.warn(
@@ -155,5 +231,8 @@ export function registerCombatNarratorHook(): void {
       changes as Record<string, unknown>,
       options as Record<string, unknown>,
     );
+  });
+  Hooks.on("dnd5e.postRollAttack", (rolls: unknown, data: unknown) => {
+    void handleAttackRoll(rolls, data);
   });
 }
