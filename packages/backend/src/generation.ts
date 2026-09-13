@@ -2261,3 +2261,482 @@ export async function auditConsistency(
 
   return { findings, model: provider.provider };
 }
+
+// ---------------------------------------------------------------------------
+// NPC Dossier context helper
+// ---------------------------------------------------------------------------
+
+type NpcProfileSectionsRaw = Record<string, Record<string, string>>;
+
+function buildNpcDossierContext(
+  journalName: string,
+  ccRace: string | undefined,
+  ccClass: string | undefined,
+  ccOccupation: string | undefined,
+  linkedActorName: string | undefined,
+  npcProfile: NpcProfileSectionsRaw | undefined,
+): string {
+  const parts: string[] = [`NPC: ${journalName}`];
+  if (linkedActorName && linkedActorName !== journalName) parts.push(`Actor name: ${linkedActorName}`);
+  if (ccRace) parts.push(`Race: ${ccRace}`);
+  if (ccClass) parts.push(`Class/Role: ${ccClass}`);
+  if (ccOccupation) parts.push(`Occupation: ${ccOccupation}`);
+
+  if (npcProfile) {
+    const overview = npcProfile["overview"] ?? {};
+    const personality = npcProfile["personalityAndMotivation"] ?? {};
+    const appearance = npcProfile["appearance"] ?? {};
+    const secrets = npcProfile["secretsAndStory"] ?? {};
+    const relationships = npcProfile["relationships"] ?? {};
+    const history = npcProfile["history"] ?? {};
+    const gameplay = npcProfile["gameplay"] ?? {};
+    const gender = npcProfile["gender"] ?? {};
+
+    for (const [label, data] of [
+      ["Overview", overview], ["Gender", gender], ["Appearance", appearance],
+      ["Personality & Motivation", personality], ["Secrets & Story", secrets],
+      ["Relationships", relationships], ["History", history], ["Gameplay", gameplay],
+    ] as Array<[string, Record<string, string>]>) {
+      const entries = Object.entries(data)
+        .filter(([, v]) => v && v.trim())
+        .map(([k, v]) => `  ${k}: ${v}`)
+        .join("\n");
+      if (entries) parts.push(`\n${label}:\n${entries}`);
+    }
+  }
+
+  return parts.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// NPC Dossier Roleplay generation (#396)
+// ---------------------------------------------------------------------------
+
+export type NpcDossierRoleplayInput = {
+  journalName: string;
+  ccRace?: string;
+  ccClass?: string;
+  ccOccupation?: string;
+  linkedActorName?: string;
+  npcProfile?: NpcProfileSectionsRaw;
+};
+
+export type NpcDossierGoalGenerated = {
+  id: string;
+  goal: string;
+  questReference: string;
+};
+
+export type NpcDossierRoleplayOutput = {
+  tagline: string;
+  firstImpression: string;
+  voiceOrSpeech: string;
+  conversationalApproach: string;
+  atTheTable: string;
+  goals: NpcDossierGoalGenerated[];
+  provider: string;
+};
+
+export async function generateNpcDossierRoleplay(
+  provider: ProviderService,
+  input: NpcDossierRoleplayInput,
+): Promise<NpcDossierRoleplayOutput> {
+  const context = buildNpcDossierContext(
+    input.journalName, input.ccRace, input.ccClass, input.ccOccupation,
+    input.linkedActorName, input.npcProfile,
+  );
+
+  const prompt = [
+    "You are a creative game master assistant generating NPC Dossier Roleplay tab data for a tabletop RPG.",
+    "Use the NPC information below to generate consistent, flavorful roleplay content.",
+    "",
+    "NPC Information:",
+    context,
+    "",
+    "Generate the Roleplay tab fields. Return ONLY a valid JSON object with these exact fields:",
+    "{",
+    '  "tagline": "<One-line character descriptor, e.g. A weary knight haunted by duty>",',
+    '  "firstImpression": "<What the party sees/feels on first meeting — 2-3 sentences>",',
+    '  "voiceOrSpeech": "<Accent, cadence, speech quirks — 1-2 sentences>",',
+    '  "conversationalApproach": "<One word or short phrase: Guarded, Effusive, Cryptic, Blunt, Warm, etc.>",',
+    '  "atTheTable": "<GM bullet notes for running this NPC — 2-4 practical tips, newline-separated>",',
+    '  "goals": [{"goal": "<goal text>", "questReference": ""}]',
+    "}",
+    "",
+    "Rules:",
+    "- Be specific and consistent with the NPC information above.",
+    "- tagline: a single memorable line, under 15 words.",
+    "- goals: 1-3 short-term or long-term goals the NPC is actively pursuing.",
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 800);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError("AI returned unexpected format for NPC dossier roleplay.");
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError("AI returned invalid JSON for NPC dossier roleplay.");
+  }
+
+  const goals = Array.isArray(parsed["goals"])
+    ? (parsed["goals"] as unknown[]).filter(g => typeof g === "object" && g !== null).map((g, i) => {
+        const gobj = g as Record<string, unknown>;
+        return {
+          id: `gen-${Date.now()}-${i}`,
+          goal: typeof gobj["goal"] === "string" ? gobj["goal"].trim() : "",
+          questReference: typeof gobj["questReference"] === "string" ? gobj["questReference"].trim() : "",
+        };
+      }).filter(g => g.goal)
+    : [];
+
+  return {
+    tagline: typeof parsed["tagline"] === "string" ? parsed["tagline"].trim() : "",
+    firstImpression: typeof parsed["firstImpression"] === "string" ? parsed["firstImpression"].trim() : "",
+    voiceOrSpeech: typeof parsed["voiceOrSpeech"] === "string" ? parsed["voiceOrSpeech"].trim() : "",
+    conversationalApproach: typeof parsed["conversationalApproach"] === "string" ? parsed["conversationalApproach"].trim() : "",
+    atTheTable: typeof parsed["atTheTable"] === "string" ? parsed["atTheTable"].trim() : "",
+    goals,
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// NPC Dossier Overview generation (#397)
+// ---------------------------------------------------------------------------
+
+export type NpcDossierRelationshipGenerated = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+export type NpcDossierSecretGenerated = {
+  id: string;
+  heading: string;
+  text: string;
+};
+
+export type NpcDossierOverviewInput = NpcDossierRoleplayInput;
+
+export type NpcDossierOverviewOutput = {
+  profileTagline: string;
+  bullets: string[];
+  relationships: NpcDossierRelationshipGenerated[];
+  secrets: NpcDossierSecretGenerated[];
+  playerKnowledgeTitle: string;
+  playerKnowledge: string;
+  provider: string;
+};
+
+export async function generateNpcDossierOverview(
+  provider: ProviderService,
+  input: NpcDossierOverviewInput,
+): Promise<NpcDossierOverviewOutput> {
+  const context = buildNpcDossierContext(
+    input.journalName, input.ccRace, input.ccClass, input.ccOccupation,
+    input.linkedActorName, input.npcProfile,
+  );
+
+  const prompt = [
+    "You are a creative game master assistant generating NPC Dossier Overview tab data for a tabletop RPG.",
+    "Use the NPC information below to generate consistent, flavorful content.",
+    "",
+    "NPC Information:",
+    context,
+    "",
+    "Generate the Overview tab fields. Return ONLY a valid JSON object with these exact fields:",
+    "{",
+    '  "profileTagline": "<Short one-liner for the profile tab, under 12 words>",',
+    '  "bullets": ["<quick-reference GM bullet 1>", "<bullet 2>", "<bullet 3>"],',
+    '  "relationships": [{"name": "<person/group name>", "description": "<one sentence relationship>"}],',
+    '  "secrets": [{"heading": "<short heading>", "text": "<GM-only secret body text>"}],',
+    '  "playerKnowledgeTitle": "<Title for the player-visible NPC summary>",',
+    '  "playerKnowledge": "<Player-facing description — 2-4 sentences at appropriate knowledge level>"',
+    "}",
+    "",
+    "Rules:",
+    "- bullets: 3-5 quick GM-reference points about this NPC.",
+    "- relationships: 2-4 named relationships drawn from the Relationships section if present; invent plausible ones if absent.",
+    "- secrets: 1-3 GM-only secrets, drawn from secretsAndStory if present.",
+    "- playerKnowledge: write only what a player character might actually know — no GM secrets.",
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 900);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError("AI returned unexpected format for NPC dossier overview.");
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError("AI returned invalid JSON for NPC dossier overview.");
+  }
+
+  const relationships = Array.isArray(parsed["relationships"])
+    ? (parsed["relationships"] as unknown[]).filter(r => typeof r === "object" && r !== null).map((r, i) => {
+        const robj = r as Record<string, unknown>;
+        return {
+          id: `gen-${Date.now()}-${i}`,
+          name: typeof robj["name"] === "string" ? robj["name"].trim() : "",
+          description: typeof robj["description"] === "string" ? robj["description"].trim() : "",
+        };
+      }).filter(r => r.name)
+    : [];
+
+  const secrets = Array.isArray(parsed["secrets"])
+    ? (parsed["secrets"] as unknown[]).filter(s => typeof s === "object" && s !== null).map((s, i) => {
+        const sobj = s as Record<string, unknown>;
+        return {
+          id: `gen-${Date.now()}-${i}`,
+          heading: typeof sobj["heading"] === "string" ? sobj["heading"].trim() : "",
+          text: typeof sobj["text"] === "string" ? sobj["text"].trim() : "",
+        };
+      }).filter(s => s.heading || s.text)
+    : [];
+
+  const bullets = Array.isArray(parsed["bullets"])
+    ? (parsed["bullets"] as unknown[]).filter((b): b is string => typeof b === "string" && b.trim().length > 0).map(b => b.trim())
+    : [];
+
+  return {
+    profileTagline: typeof parsed["profileTagline"] === "string" ? parsed["profileTagline"].trim() : "",
+    bullets,
+    relationships,
+    secrets,
+    playerKnowledgeTitle: typeof parsed["playerKnowledgeTitle"] === "string" ? parsed["playerKnowledgeTitle"].trim() : "",
+    playerKnowledge: typeof parsed["playerKnowledge"] === "string" ? parsed["playerKnowledge"].trim() : "",
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// NPC Dossier Knowledge generation (#398)
+// ---------------------------------------------------------------------------
+
+export type NpcDossierConditionalGenerated = {
+  id: string;
+  trigger: string;
+  response: string;
+  consequence: string;
+  relatedUuid: string;
+  visibility: "normal";
+};
+
+export type NpcDossierQaGenerated = {
+  id: string;
+  question: string;
+  answer: string;
+  visibility: "normal";
+  relatedSourceUuid: string;
+};
+
+export type NpcDossierKnowledgeItemGenerated = {
+  id: string;
+  statement: string;
+  topicOrCategory: string;
+  quality: "knows" | "believes" | "rumor";
+  sourceUuid: string;
+};
+
+export type NpcDossierKnowledgeInput = NpcDossierRoleplayInput;
+
+export type NpcDossierKnowledgeOutput = {
+  conditionalInfo: NpcDossierConditionalGenerated[];
+  qa: NpcDossierQaGenerated[];
+  knowledge: NpcDossierKnowledgeItemGenerated[];
+  knowledgeLimits: string;
+  provider: string;
+};
+
+export async function generateNpcDossierKnowledge(
+  provider: ProviderService,
+  input: NpcDossierKnowledgeInput,
+): Promise<NpcDossierKnowledgeOutput> {
+  const context = buildNpcDossierContext(
+    input.journalName, input.ccRace, input.ccClass, input.ccOccupation,
+    input.linkedActorName, input.npcProfile,
+  );
+
+  const prompt = [
+    "You are a creative game master assistant generating NPC Dossier Knowledge tab data for a tabletop RPG.",
+    "Use the NPC information below to generate consistent, contextually appropriate content.",
+    "",
+    "NPC Information:",
+    context,
+    "",
+    "Generate the Knowledge tab fields. Return ONLY a valid JSON object with these exact fields:",
+    "{",
+    '  "conditionalInfo": [{"trigger": "<situation or topic>", "response": "<what NPC says/does>", "consequence": ""}],',
+    '  "qa": [{"question": "<likely player question>", "answer": "<NPC response in their voice>"}],',
+    '  "knowledge": [{"statement": "<knowledge statement>", "topicOrCategory": "<topic>", "quality": "knows"}],',
+    '  "knowledgeLimits": "<Free text: what this NPC cannot or will not tell the players>"',
+    "}",
+    "",
+    "Rules:",
+    "- conditionalInfo: 2-4 trigger→response pairs drawn from the NPC's secrets and conversational approach.",
+    "- qa: 3-5 scripted answers to predictable player questions based on the NPC's role.",
+    "- knowledge: 3-6 knowledge statements reflecting occupation, region, and social class. quality: 'knows', 'believes', or 'rumor'.",
+    "- knowledgeLimits: reflect the NPC's disposition and any hidden agenda — what they refuse to reveal.",
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 1000);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError("AI returned unexpected format for NPC dossier knowledge.");
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError("AI returned invalid JSON for NPC dossier knowledge.");
+  }
+
+  const ts = Date.now();
+
+  const conditionalInfo = Array.isArray(parsed["conditionalInfo"])
+    ? (parsed["conditionalInfo"] as unknown[]).filter(c => typeof c === "object" && c !== null).map((c, i) => {
+        const cobj = c as Record<string, unknown>;
+        return {
+          id: `gen-${ts}-c${i}`,
+          trigger: typeof cobj["trigger"] === "string" ? cobj["trigger"].trim() : "",
+          response: typeof cobj["response"] === "string" ? cobj["response"].trim() : "",
+          consequence: typeof cobj["consequence"] === "string" ? cobj["consequence"].trim() : "",
+          relatedUuid: "",
+          visibility: "normal" as const,
+        };
+      }).filter(c => c.trigger || c.response)
+    : [];
+
+  const qa = Array.isArray(parsed["qa"])
+    ? (parsed["qa"] as unknown[]).filter(q => typeof q === "object" && q !== null).map((q, i) => {
+        const qobj = q as Record<string, unknown>;
+        return {
+          id: `gen-${ts}-q${i}`,
+          question: typeof qobj["question"] === "string" ? qobj["question"].trim() : "",
+          answer: typeof qobj["answer"] === "string" ? qobj["answer"].trim() : "",
+          visibility: "normal" as const,
+          relatedSourceUuid: "",
+        };
+      }).filter(q => q.question || q.answer)
+    : [];
+
+  const knowledge = Array.isArray(parsed["knowledge"])
+    ? (parsed["knowledge"] as unknown[]).filter(k => typeof k === "object" && k !== null).map((k, i) => {
+        const kobj = k as Record<string, unknown>;
+        const quality = ["knows", "believes", "rumor", "mistaken"].includes(String(kobj["quality"]))
+          ? (kobj["quality"] as "knows" | "believes" | "rumor")
+          : "knows";
+        return {
+          id: `gen-${ts}-k${i}`,
+          statement: typeof kobj["statement"] === "string" ? kobj["statement"].trim() : "",
+          topicOrCategory: typeof kobj["topicOrCategory"] === "string" ? kobj["topicOrCategory"].trim() : "",
+          quality,
+          sourceUuid: "",
+        };
+      }).filter(k => k.statement)
+    : [];
+
+  return {
+    conditionalInfo,
+    qa,
+    knowledge,
+    knowledgeLimits: typeof parsed["knowledgeLimits"] === "string" ? parsed["knowledgeLimits"].trim() : "",
+    provider: provider.provider,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Faction / Group generation (#400)
+// ---------------------------------------------------------------------------
+
+export type FactionGenerationInput = {
+  journalName: string;
+  region?: string;
+  campaignTone?: string;
+  linkedNpcNames?: string[];
+  existingPageContent?: string;
+};
+
+export type FactionProfileData = {
+  goals: string;
+  history: string;
+  structure: string;
+  publicReputation: string;
+  secrets: string;
+  hooks: string;
+};
+
+export type FactionGenerationOutput = {
+  pageHtml: string;
+  factionProfile: FactionProfileData;
+  provider: string;
+};
+
+export async function generateFactionProfile(
+  provider: ProviderService,
+  input: FactionGenerationInput,
+): Promise<FactionGenerationOutput> {
+  const contextParts: string[] = [`Faction/Group: ${input.journalName}`];
+  if (input.region) contextParts.push(`Region: ${input.region}`);
+  if (input.campaignTone) contextParts.push(`Tone: ${input.campaignTone}`);
+  if (input.linkedNpcNames && input.linkedNpcNames.length > 0) {
+    contextParts.push(`Known members: ${input.linkedNpcNames.join(", ")}`);
+  }
+  if (input.existingPageContent) {
+    contextParts.push(`Existing description:\n${input.existingPageContent.slice(0, 500)}`);
+  }
+
+  const prompt = [
+    "You are a creative game master assistant generating a Campaign Codex faction/group profile for a tabletop RPG.",
+    "",
+    "Faction Information:",
+    contextParts.join("\n"),
+    "",
+    "Generate the faction profile. Return ONLY a valid JSON object with these exact fields:",
+    "{",
+    '  "pageHtml": "<Overview description as plain HTML paragraphs (use <p> tags only, no headings)>",',
+    '  "goals": "<Short and long-term goals — 2-4 sentences>",',
+    '  "history": "<Founding story and key past events — 3-5 sentences>",',
+    '  "structure": "<Leadership type, ranks, internal culture — 2-3 sentences>",',
+    '  "publicReputation": "<How the world sees them — 2-3 sentences>",',
+    '  "secrets": "<Hidden agendas, internal conflicts — 2-4 sentences>",',
+    '  "hooks": "<2-3 adventure hooks involving this faction, newline-separated>"',
+    "}",
+    "",
+    "Rules:",
+    "- pageHtml: 2-3 paragraph overview suitable for display in a Foundry journal. HTML only, no markdown.",
+    "- Each field is plain text (no HTML) except pageHtml.",
+    "- Be specific and evocative — this faction should feel like a real part of the campaign world.",
+    "- Return only the JSON object, nothing else.",
+  ].join("\n");
+
+  const raw = await callAI(provider, prompt, 1200);
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new GenerationError("AI returned unexpected format for faction profile.");
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    throw new GenerationError("AI returned invalid JSON for faction profile.");
+  }
+
+  const str = (k: string) => typeof parsed[k] === "string" ? (parsed[k] as string).trim() : "";
+
+  return {
+    pageHtml: str("pageHtml") || `<p>${input.journalName}</p>`,
+    factionProfile: {
+      goals: str("goals"),
+      history: str("history"),
+      structure: str("structure"),
+      publicReputation: str("publicReputation"),
+      secrets: str("secrets"),
+      hooks: str("hooks"),
+    },
+    provider: provider.provider,
+  };
+}
