@@ -166,6 +166,31 @@ async function callAI(provider: ProviderService, prompt: string, maxTokens = 512
   throw new GenerationError(`Unsupported provider: ${provider.provider}`);
 }
 
+// Repair common JSON truncation artifacts so JSON.parse has a better chance of succeeding.
+// Handles: trailing commas before ] or }, unclosed string at end, unclosed arrays/objects.
+function repairJson(raw: string): string {
+  // Remove trailing commas before closing brackets/braces
+  let s = raw.replace(/,\s*([\]}])/g, "$1");
+  // Count unclosed braces and brackets; close them in reverse order
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  for (const ch of s) {
+    if (escape) { escape = false; continue; }
+    if (ch === "\\" && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  // If we ended mid-string, close it
+  if (inString) s += '"';
+  // Close any still-open structures
+  for (let i = stack.length - 1; i >= 0; i--) s += stack[i];
+  return s;
+}
+
 async function callAnthropic(apiKey: string, prompt: string, maxTokens: number): Promise<string> {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -2584,13 +2609,15 @@ export async function generateNpcDossierKnowledge(
     "- Return only the JSON object, nothing else.",
   ].join("\n");
 
-  const raw = await callAI(provider, prompt, 1000);
+  const raw = await callAI(provider, prompt, 1500);
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new GenerationError("AI returned unexpected format for NPC dossier knowledge.");
 
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    // Repair common truncation artifacts: trailing commas before ] or }, unclosed arrays/objects
+    const repaired = repairJson(jsonMatch[0]);
+    parsed = JSON.parse(repaired) as Record<string, unknown>;
   } catch {
     throw new GenerationError("AI returned invalid JSON for NPC dossier knowledge.");
   }
