@@ -47,6 +47,10 @@ Success test: rename a CC Location record, move it to a different folder,
 and link it to a CC Region — all via MCP with GM approval in Foundry;
 rejected operations produce a clear MCP error; `npm run validate` passes.
 
+## Future / Unscheduled
+
+- [Audit and rationalize npcProfile actor fields vs Campaign Codex journal fields](https://github.com/Jonwh25/lorebridge/issues/401) — decide which actor-side NPC fields to keep, retire, or migrate to CC journal dossier now that M41 establishes the journal as the canonical write target; requires M41 complete before design work begins.
+
 ## Completed
 
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
