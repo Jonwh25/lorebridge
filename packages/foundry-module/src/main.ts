@@ -74,6 +74,10 @@ import {
   BROWSE_FOLDER_DECLARATION,
   EXPORT_FOR_EMBEDDING_CAPABILITY,
   EXPORT_FOR_EMBEDDING_DECLARATION,
+  GET_NPC_DOSSIER_CONTEXT_CAPABILITY,
+  GET_NPC_DOSSIER_CONTEXT_DECLARATION,
+  GET_FACTION_CONTEXT_CAPABILITY,
+  GET_FACTION_CONTEXT_DECLARATION,
 } from "@lorebridge/shared/capabilities";
 import { LOREBRIDGE_EVENTS, LOREBRIDGE_PROTOCOL_VERSION } from "@lorebridge/shared";
 
@@ -107,6 +111,7 @@ import { showEncounterCreateApprovalDialog, showSceneUpdateApprovalDialog } from
 import type { ActorCreateApprovalPayload, ActorUpdateApprovalPayload, ItemCreateApprovalPayload, ItemUpdateApprovalPayload, EncounterCreateApprovalPayload, SceneUpdateApprovalPayload } from "@lorebridge/shared/capabilities";
 import { listPlaylists, searchPlaylists } from "./capabilities/playlists.js";
 import { getQuestObjectives, showQuestObjectivesApprovalChat, approveQuestObjectivesWrite, rejectQuestObjectivesWrite, type QuestObjectivesApprovalPayload } from "./capabilities/quest-objectives.js";
+import { getNpcDossierContext, getFactionContext, showNpcDossierApprovalDialog, showFactionProfileApprovalDialog, approveNpcDossierWrite, rejectNpcDossierWrite, approveFactionProfileWrite, rejectFactionProfileWrite, type NpcDossierApprovalPayload, type FactionProfileApprovalPayload } from "./capabilities/npc-dossier-generation.js";
 import { registerChatCommand } from "./capabilities/ui-chat.js";
 import { registerPlayerLoreSocketListener } from "./capabilities/player-lore.js";
 import { registerNpcMentionHook } from "./capabilities/npc-mention.js";
@@ -686,6 +691,8 @@ Hooks.once("ready", () => {
           LIST_FOLDERS_DECLARATION,
           BROWSE_FOLDER_DECLARATION,
           EXPORT_FOR_EMBEDDING_DECLARATION,
+          GET_NPC_DOSSIER_CONTEXT_DECLARATION,
+          GET_FACTION_CONTEXT_DECLARATION,
         ],
       };
       adapterTransport = new LoreBridgeAdapterTransport(
@@ -834,6 +841,12 @@ Hooks.once("ready", () => {
           if (request.capability === EXPORT_FOR_EMBEDDING_CAPABILITY) {
             return exportForEmbedding(request.input as Parameters<typeof exportForEmbedding>[0]);
           }
+          if (request.capability === GET_NPC_DOSSIER_CONTEXT_CAPABILITY) {
+            return getNpcDossierContext(request.input as Parameters<typeof getNpcDossierContext>[0]);
+          }
+          if (request.capability === GET_FACTION_CONTEXT_CAPABILITY) {
+            return getFactionContext(request.input as Parameters<typeof getFactionContext>[0]);
+          }
           throw new LoreBridgeCapabilityError(
             "CAPABILITY_UNAVAILABLE",
             `Foundry capability ${request.capability} is not remotely available.`,
@@ -873,6 +886,12 @@ Hooks.once("ready", () => {
           }
           if (event.event === LOREBRIDGE_EVENTS.questObjectivesApprovalRequired) {
             void showQuestObjectivesApprovalChat(event.payload as QuestObjectivesApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.npcDossierApprovalRequired) {
+            void showNpcDossierApprovalDialog(event.payload as NpcDossierApprovalPayload);
+          }
+          if (event.event === LOREBRIDGE_EVENTS.factionProfileApprovalRequired) {
+            void showFactionProfileApprovalDialog(event.payload as FactionProfileApprovalPayload);
           }
         },
       );
@@ -956,8 +975,14 @@ Hooks.once("ready", () => {
       [LIST_FOLDERS_CAPABILITY]: listFolders,
       [BROWSE_FOLDER_CAPABILITY]: browseFolder,
       [EXPORT_FOR_EMBEDDING_CAPABILITY]: exportForEmbedding,
+      [GET_NPC_DOSSIER_CONTEXT_CAPABILITY]: getNpcDossierContext,
+      [GET_FACTION_CONTEXT_CAPABILITY]: getFactionContext,
       approveQuestObjectivesWrite,
       rejectQuestObjectivesWrite,
+      approveNpcDossierWrite,
+      rejectNpcDossierWrite,
+      approveFactionProfileWrite,
+      rejectFactionProfileWrite,
       approveWrite,
       rejectWrite,
       rollbackWrite,

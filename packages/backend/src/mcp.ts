@@ -85,6 +85,10 @@ import {
   FOLDER_SUPPORTED_TYPES,
   EXPORT_FOR_EMBEDDING_CAPABILITY,
   validateExportForEmbeddingOutput,
+  GET_NPC_DOSSIER_CONTEXT_CAPABILITY,
+  GET_FACTION_CONTEXT_CAPABILITY,
+  validateGetNpcDossierContextOutput,
+  validateGetFactionContextOutput,
 } from "@lorebridge/shared/capabilities";
 import {
   AdapterInvocationError,
@@ -92,8 +96,10 @@ import {
 } from "./adapter-sessions.js";
 import { type WriteRegistry } from "./write-registry.js";
 import { type QuestObjectivesWriteRegistry } from "./quest-objectives-registry.js";
+import { type NpcDossierWriteRegistry } from "./npc-dossier-registry.js";
+import { type FactionProfileWriteRegistry } from "./faction-profile-registry.js";
 import { type ProviderService } from "./provider.js";
-import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, getEmbeddingConfig, GenerationError, type EmbeddingProvider } from "./generation.js";
+import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, getEmbeddingConfig, GenerationError, generateNpcDossierRoleplay, generateNpcDossierOverview, generateNpcDossierKnowledge, generateFactionProfile, type EmbeddingProvider } from "./generation.js";
 import type { ItemType } from "./generation.js";
 import { EmbeddingIndexService } from "./embedding-index.js";
 import { LOREBRIDGE_EVENTS } from "@lorebridge/shared";
@@ -138,7 +144,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null, rebuildTracker: RebuildTracker): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, npcDossierWrites: NpcDossierWriteRegistry, factionProfileWrites: FactionProfileWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null, rebuildTracker: RebuildTracker): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.36.0",
@@ -2837,6 +2843,176 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  // ---------------------------------------------------------------------------
+  // NPC Dossier generation tools (#396, #397, #398)
+  // ---------------------------------------------------------------------------
+
+  const npcDossierContextSchema = z.object({
+    journalId: z.string().trim().min(1).describe("Campaign Codex NPC journal entry ID."),
+    rationale: z.string().min(1).describe("Why you are generating this content. Shown in the GM approval dialog."),
+    sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+  });
+
+  server.registerTool(
+    "generate_npc_dossier_roleplay",
+    {
+      title: "Generate NPC Dossier — Roleplay tab",
+      description: "Generate roleplay tab fields (tagline, first impression, voice, conversational approach, at-the-table tips, goals) for a Campaign Codex NPC journal. Sends a GM approval request to Foundry — no change is made until the GM explicitly approves. Reads linked actor npcProfile for context. Requires Campaign Codex and 'Enable AI-Proposed Writes' to be on.",
+      inputSchema: npcDossierContextSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ journalId, rationale, sourceId }) => {
+      try {
+        const contextResult = await adapterSessions.invoke(sourceId, GET_NPC_DOSSIER_CONTEXT_CAPABILITY, { journalId });
+        const validation = validateGetNpcDossierContextOutput(contextResult);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid NPC dossier context.", false, { validationErrors: validation.errors });
+        }
+        const { context } = validation.value;
+        const journalName = context.journalName;
+        const genInput: import("./generation.js").NpcDossierRoleplayInput = { journalName: context.journalName };
+        if (context.ccRace) genInput.ccRace = context.ccRace;
+        if (context.ccClass) genInput.ccClass = context.ccClass;
+        if (context.ccOccupation) genInput.ccOccupation = context.ccOccupation;
+        if (context.linkedActorName) genInput.linkedActorName = context.linkedActorName;
+        if (context.npcProfile) genInput.npcProfile = context.npcProfile as Record<string, Record<string, string>>;
+        const generated = await generateNpcDossierRoleplay(provider, genInput);
+        const { provider: _p, ...proposedFields } = generated;
+        const entry = npcDossierWrites.register({ journalId, journalName, tab: "roleplay", proposedFields, rationale, sourceId });
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.npcDossierApprovalRequired, {
+          token: entry.token, journalId, journalName, tab: "roleplay", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(),
+        });
+        const preview = { token: entry.token, journalId, journalName, tab: "roleplay", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(), instruction: `NPC dossier roleplay approval sent to Foundry. To approve manually: await LoreBridge.approveNpcDossierWrite("${entry.token}")` };
+        return { content: [{ type: "text", text: JSON.stringify(preview) }], structuredContent: preview };
+      } catch (error) {
+        return toolError(error, "Failed to generate NPC dossier roleplay content.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_npc_dossier_overview",
+    {
+      title: "Generate NPC Dossier — Overview tab",
+      description: "Generate overview tab fields (profile tagline, bullet points, relationships, secrets, player knowledge) for a Campaign Codex NPC journal. Sends a GM approval request to Foundry — no change is made until the GM explicitly approves. Requires Campaign Codex and 'Enable AI-Proposed Writes' to be on.",
+      inputSchema: npcDossierContextSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ journalId, rationale, sourceId }) => {
+      try {
+        const contextResult = await adapterSessions.invoke(sourceId, GET_NPC_DOSSIER_CONTEXT_CAPABILITY, { journalId });
+        const validation = validateGetNpcDossierContextOutput(contextResult);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid NPC dossier context.", false, { validationErrors: validation.errors });
+        }
+        const { context } = validation.value;
+        const journalName = context.journalName;
+        const genInput: import("./generation.js").NpcDossierOverviewInput = { journalName: context.journalName };
+        if (context.ccRace) genInput.ccRace = context.ccRace;
+        if (context.ccClass) genInput.ccClass = context.ccClass;
+        if (context.ccOccupation) genInput.ccOccupation = context.ccOccupation;
+        if (context.linkedActorName) genInput.linkedActorName = context.linkedActorName;
+        if (context.npcProfile) genInput.npcProfile = context.npcProfile as Record<string, Record<string, string>>;
+        const generated = await generateNpcDossierOverview(provider, genInput);
+        const { provider: _p, ...proposedFields } = generated;
+        const entry = npcDossierWrites.register({ journalId, journalName, tab: "overview", proposedFields, rationale, sourceId });
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.npcDossierApprovalRequired, {
+          token: entry.token, journalId, journalName, tab: "overview", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(),
+        });
+        const preview = { token: entry.token, journalId, journalName, tab: "overview", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(), instruction: `NPC dossier overview approval sent to Foundry. To approve manually: await LoreBridge.approveNpcDossierWrite("${entry.token}")` };
+        return { content: [{ type: "text", text: JSON.stringify(preview) }], structuredContent: preview };
+      } catch (error) {
+        return toolError(error, "Failed to generate NPC dossier overview content.");
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_npc_dossier_knowledge",
+    {
+      title: "Generate NPC Dossier — Knowledge tab",
+      description: "Generate knowledge tab fields (conditional info, scripted Q&A, knowledge statements, knowledge limits) for a Campaign Codex NPC journal. Sends a GM approval request to Foundry — no change is made until the GM explicitly approves. Requires Campaign Codex and 'Enable AI-Proposed Writes' to be on.",
+      inputSchema: npcDossierContextSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ journalId, rationale, sourceId }) => {
+      try {
+        const contextResult = await adapterSessions.invoke(sourceId, GET_NPC_DOSSIER_CONTEXT_CAPABILITY, { journalId });
+        const validation = validateGetNpcDossierContextOutput(contextResult);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid NPC dossier context.", false, { validationErrors: validation.errors });
+        }
+        const { context } = validation.value;
+        const journalName = context.journalName;
+        const genInput: import("./generation.js").NpcDossierKnowledgeInput = { journalName: context.journalName };
+        if (context.ccRace) genInput.ccRace = context.ccRace;
+        if (context.ccClass) genInput.ccClass = context.ccClass;
+        if (context.ccOccupation) genInput.ccOccupation = context.ccOccupation;
+        if (context.linkedActorName) genInput.linkedActorName = context.linkedActorName;
+        if (context.npcProfile) genInput.npcProfile = context.npcProfile as Record<string, Record<string, string>>;
+        const generated = await generateNpcDossierKnowledge(provider, genInput);
+        const { provider: _p, ...proposedFields } = generated;
+        const entry = npcDossierWrites.register({ journalId, journalName, tab: "knowledge", proposedFields, rationale, sourceId });
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.npcDossierApprovalRequired, {
+          token: entry.token, journalId, journalName, tab: "knowledge", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(),
+        });
+        const preview = { token: entry.token, journalId, journalName, tab: "knowledge", proposedFields, rationale, expiresAt: entry.expiresAt.toISOString(), instruction: `NPC dossier knowledge approval sent to Foundry. To approve manually: await LoreBridge.approveNpcDossierWrite("${entry.token}")` };
+        return { content: [{ type: "text", text: JSON.stringify(preview) }], structuredContent: preview };
+      } catch (error) {
+        return toolError(error, "Failed to generate NPC dossier knowledge content.");
+      }
+    },
+  );
+
+  // ---------------------------------------------------------------------------
+  // Faction profile generation tool (#400)
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "generate_faction",
+    {
+      title: "Generate faction / group profile",
+      description: "Generate a full faction or group profile for a Campaign Codex journal: overview page HTML, goals, history, structure, public reputation, secrets, and adventure hooks. Sends a GM approval request to Foundry — no change is made until the GM explicitly approves. Requires Campaign Codex and 'Enable AI-Proposed Writes' to be on.",
+      inputSchema: z.object({
+        journalId: z.string().trim().min(1).describe("Campaign Codex faction/group journal entry ID."),
+        rationale: z.string().min(1).describe("Why you are generating this faction profile. Shown in the GM approval dialog."),
+        sourceId: z.string().trim().min(1).optional().describe("LoreBridge source identifier. Omit when exactly one compatible Foundry world is connected."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ journalId, rationale, sourceId }) => {
+      try {
+        const contextResult = await adapterSessions.invoke(sourceId, GET_FACTION_CONTEXT_CAPABILITY, { journalId });
+        const validation = validateGetFactionContextOutput(contextResult);
+        if (!validation.valid || !validation.value) {
+          throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned invalid faction context.", false, { validationErrors: validation.errors });
+        }
+        const { context } = validation.value;
+        const journalName = context.journalName;
+        const genInput: import("./generation.js").FactionGenerationInput = { journalName: context.journalName };
+        if (context.pageContent) genInput.existingPageContent = context.pageContent;
+        const generated = await generateFactionProfile(provider, genInput);
+        const regParams: Parameters<typeof factionProfileWrites.register>[0] = {
+          journalId,
+          journalName,
+          proposedPageContent: generated.pageHtml,
+          proposedFactionProfile: generated.factionProfile as Record<string, unknown>,
+          rationale,
+          sourceId,
+        };
+        if (context.pageId) regParams.pageId = context.pageId;
+        const entry = factionProfileWrites.register(regParams);
+        adapterSessions.sendEvent(sourceId, LOREBRIDGE_EVENTS.factionProfileApprovalRequired, {
+          token: entry.token, journalId, journalName, ...(context.pageId ? { pageId: context.pageId } : {}), proposedPageContent: generated.pageHtml, proposedFactionProfile: generated.factionProfile, rationale, expiresAt: entry.expiresAt.toISOString(),
+        });
+        const preview = { token: entry.token, journalId, journalName, ...(context.pageId ? { pageId: context.pageId } : {}), proposedPageContent: generated.pageHtml, proposedFactionProfile: generated.factionProfile, rationale, expiresAt: entry.expiresAt.toISOString(), instruction: `Faction profile approval sent to Foundry. To approve manually: await LoreBridge.approveFactionProfileWrite("${entry.token}")` };
+        return { content: [{ type: "text", text: JSON.stringify(preview) }], structuredContent: preview };
+      } catch (error) {
+        return toolError(error, "Failed to generate faction profile.");
+      }
+    },
+  );
+
   return server;
 }
 
@@ -2855,6 +3031,8 @@ export function createLoreBridgeMcpHandler(
   adapterSessions: AdapterSessionRegistry,
   writes: WriteRegistry,
   questObjectivesWrites: QuestObjectivesWriteRegistry,
+  npcDossierWrites: NpcDossierWriteRegistry,
+  factionProfileWrites: FactionProfileWriteRegistry,
   provider: ProviderService,
   assets = new AssetSearchService(),
   github: GitHubAdapter | null = null,
@@ -2865,7 +3043,7 @@ export function createLoreBridgeMcpHandler(
   const embeddingConfig = getEmbeddingConfig();
   const rebuildTracker: RebuildTracker = { running: false, startedAt: null, error: null };
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, questObjectivesWrites, provider, assets, github, embeddingIndex, embeddingConfig, rebuildTracker),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, npcDossierWrites, factionProfileWrites, provider, assets, github, embeddingIndex, embeddingConfig, rebuildTracker),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),

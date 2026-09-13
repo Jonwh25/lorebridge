@@ -49,6 +49,8 @@ export const LOREBRIDGE_CAPABILITIES = Object.freeze({
   listFolders: "listFolders",
   browseFolder: "browseFolder",
   exportForEmbedding: "exportForEmbedding",
+  getNpcDossierContext: "getNpcDossierContext",
+  getFactionContext: "getFactionContext",
 } as const);
 
 export const LOREBRIDGE_EVENTS = Object.freeze({
@@ -64,6 +66,8 @@ export const LOREBRIDGE_EVENTS = Object.freeze({
   encounterCreateApprovalRequired: "encounter.create.approval.required",
   sceneUpdateApprovalRequired: "scene.update.approval.required",
   questObjectivesApprovalRequired: "quest.objectives.approval.required",
+  npcDossierApprovalRequired: "npc.dossier.approval.required",
+  factionProfileApprovalRequired: "faction.profile.approval.required",
   capabilityChanged: "capability.changed",
 } as const);
 

@@ -29,3 +29,4 @@ export * from "./capabilities/quest-objectives.js";
 export * from "./capabilities/folders.js";
 export * from "./capabilities/search-campaign-semantic.js";
 export * from "./capabilities/export-for-embedding.js";
+export * from "./capabilities/npc-dossier-generation.js";
