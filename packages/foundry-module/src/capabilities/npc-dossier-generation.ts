@@ -240,9 +240,16 @@ async function _applyNpcDossierWrite(data: ApproveNpcDossierResult): Promise<voi
   }
 
   const existing = (journal.getFlag("lorebridge", "npcDossier") ?? {}) as Record<string, unknown>;
-  const existingTab = (existing[tab] ?? {}) as Record<string, unknown>;
-  const updatedTab = { ...existingTab, ...proposedFields };
-  const updatedDossier = { ...existing, [tab]: updatedTab };
+  // The knowledge tab's fields (conditionalInfo, qa, knowledge[], knowledgeLimits) live at the
+  // npcDossier root in Campaign Codex's schema — not nested under a "knowledge" sub-key.
+  let updatedDossier: Record<string, unknown>;
+  if (tab === "knowledge") {
+    updatedDossier = { ...existing, ...proposedFields };
+  } else {
+    const existingTab = (existing[tab] ?? {}) as Record<string, unknown>;
+    const updatedTab = { ...existingTab, ...proposedFields };
+    updatedDossier = { ...existing, [tab]: updatedTab };
+  }
 
   await journal.setFlag("lorebridge", "npcDossier", updatedDossier);
   console.info(`LoreBridge | NPC dossier ${tab} tab updated for "${journalName}" (${journalId})`);
