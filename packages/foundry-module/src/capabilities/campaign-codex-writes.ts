@@ -54,7 +54,7 @@ function renderProposal(payload: CampaignCodexWriteApprovalPayload): string {
       <div class="lb-combat-approval__change"><div><strong>Before</strong><p>${esc(payload.beforeSummary)}</p></div><div><strong>After</strong><p>${esc(payload.afterSummary)}</p></div></div>
       <p class="hint">${esc(payload.rationale)}</p>
     </div>
-    <footer><button type="button" data-action="reject" data-token="${esc(payload.token)}"><i class="fas fa-times"></i> Reject</button><button type="button" data-action="approve" data-token="${esc(payload.token)}"><i class="fas fa-check"></i> Approve Once</button></footer>
+    <footer><button type="button" data-action="reject" data-token="${esc(payload.token)}" style="padding:4px 12px;background:#3a1a1a;color:#cf6f6f;border:1px solid #6a3a3a;border-radius:3px;cursor:pointer;"><i class="fas fa-times"></i> Reject</button><button type="button" data-action="approve" data-token="${esc(payload.token)}" style="padding:4px 12px;background:#1a3a1a;color:#6fcf6f;border:1px solid #3a6a3a;border-radius:3px;cursor:pointer;"><i class="fas fa-check"></i> Approve Once</button></footer>
   </section>`;
 }
 
