@@ -2,6 +2,38 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.42.0] - 2026-09-14
+
+### Added
+
+- **Campaign Codex document management** (#385, PR #405): New
+  `manage_campaign_codex` MCP tool previews and sends one controlled operation
+  at a time for GM approval. It can create and rename JournalEntry folders,
+  rename and move Campaign Codex journal records, link a Location to a Region,
+  and place a Location marker on a scene. The resizable Foundry approval queue
+  shows the proposed before/after state and uses explicit approve and reject
+  actions.
+
+- **Critical-hit and fumble combat narration** (#395, PR #404): The AI Combat
+  Narrator now recognizes active natural-20 critical hits and natural-1 attack
+  fumbles. Critical narration waits for the matching HP result so it can name
+  the target and outcome; fumbles narrate an attacker-focused mishap even when
+  there is no HP change.
+
+### Security
+
+- Campaign Codex approvals require an active GM, **Enable AI-Proposed Writes**,
+  and an active Campaign Codex module. Each approval token is single-use and
+  expires after five minutes. LoreBridge rechecks the relevant Foundry state
+  immediately before writing, so a changed record is rejected without mutation.
+
+### Upgrade notes
+
+- Update both the backend and Foundry module, then reload Foundry and reconnect
+  the MCP client to discover `manage_campaign_codex`. Campaign Codex document
+  operations do not have rollback support; request a fresh, explicit operation
+  if a correction is needed.
+
 ## [0.41.0] - 2026-09-12
 
 ### Added

@@ -9,32 +9,22 @@ GitHub Issues are the source of truth for planned work. This file tracks active
 and upcoming milestones. Completed milestone details live in
 [CHANGELOG.md](CHANGELOG.md), newest first.
 
-## Active
-
-### Milestone 42 — Campaign Codex MCP Write Operations
-
-Expose controlled, GM-approved write operations for Campaign Codex records
-through the MCP interface. GMs can reorganize their CC structure — renaming
-and moving Regions, Locations, and Entries between folders, updating
-relationships between records, and setting location markers — directly from
-an AI client without leaving Foundry. Every operation follows the same
-before/after preview and GM approval chat card pattern used by
-`propose_journal_update`.
-
-1. [Campaign Codex document management: create, rename, move, and relate records via MCP](https://github.com/Jonwh25/lorebridge/issues/385)
-2. ✅ [Combat narrator: spectacular narration for critical hits (nat 20) and fumbles (nat 1)](https://github.com/Jonwh25/lorebridge/issues/395)
-
-Success test: rename a CC Location record, move it to a different folder,
-and link it to a CC Region — all via MCP with GM approval in Foundry;
-rejected operations produce a clear MCP error; nat 20 fires spectacular
-crit narration and nat 1 fires fumble narration per narrator style;
-`npm run validate` passes.
-
 ## Future / Unscheduled
 
 - [Audit and rationalize npcProfile actor fields vs Campaign Codex journal fields](https://github.com/Jonwh25/lorebridge/issues/401) — decide which actor-side NPC fields to keep, retire, or migrate to CC journal dossier now that M41 establishes the journal as the canonical write target; requires M41 complete before design work begins.
 
 ## Completed
+
+### Milestone 42 — Campaign Codex MCP Write Operations ✅
+
+- [x] [Campaign Codex document management: create, rename, move, and relate records via MCP](https://github.com/Jonwh25/lorebridge/issues/385)
+- [x] [Combat narrator: spectacular narration for critical hits (nat 20) and fumbles (nat 1)](https://github.com/Jonwh25/lorebridge/issues/395)
+
+Delivered a controlled Campaign Codex MCP management tool with GM approval,
+before/after previews, five-minute one-use tokens, and stale-state protection.
+Also adds elevated narration for natural-20 critical hits and attacker-focused
+natural-1 fumbles during active combat. See [CHANGELOG.md](CHANGELOG.md) for
+release details.
 
 ### Milestone 41 — Campaign Codex AI Field Coverage ✅
 

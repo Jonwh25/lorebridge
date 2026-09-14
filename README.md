@@ -59,6 +59,10 @@ Foundry documents or provider credentials.
   routes it through the standard GM approval dialog before writing. Generate
   faction overviews, goals, history, structure, and adventure hooks into
   Campaign Codex Group journals with `generate_faction`.
+- Use `manage_campaign_codex` to preview one Campaign Codex folder, record,
+  Location-to-Region relationship, or Location marker operation and send it to
+  a GM for approval. Every operation is single-use, expires after five minutes,
+  and is rechecked against the current Foundry state before it writes.
 - Review AI-proposed journal changes with a diff, explicit GM approval, and
   rollback support.
 - Read Campaign Codex quest objectives and propose additions, edits, completion,
@@ -138,9 +142,9 @@ re-embeds only what changed.
 | Connected knowledge | Cross-type search, UUID resolution, related-document traversal, citations, and Context Profiles |
 | Foundry assistance | `/lb` questions, journal Q&A, session preparation, NPC roleplay, world-building generators, and roll tables. Session prep renders a structured **Lazy DM Prep** journal with styled block types: read-aloud narration, flavor asides, lore entries, mechanics callouts, treasure summaries, encounter notes, NPC roster tables, and data tables. GMs can customize the accent color for each block type from **LoreBridge Settings → Journal Colors** with changes applying live — no Foundry reload needed |
 | NPC creation | Profiles, native D&D 5e field synchronization, stat blocks, portraits, generation history, per-NPC ElevenLabs voice assignment (Voice & AI sidebar in the NPC Workspace), optional voice responses, and persistent memory that accumulates from live roleplay |
-| AI Combat Narrator | Automatically generates short dramatic flavor sentences for hits, crits, and killing blows during active combat; five narrative styles including Gothic Horror; dedicated narrator voice; mode and style changeable mid-session without reload; player-owned PCs addressed by first name only |
+| AI Combat Narrator | Automatically generates short dramatic flavor sentences for hits, natural-20 critical hits, natural-1 fumbles, and killing blows during active combat; five narrative styles including Gothic Horror; dedicated narrator voice; mode and style changeable mid-session without reload; player-owned PCs addressed by first name only |
 | External world building | `generate_npc`/`create_actor`/`update_actor` for NPC creation and editing; `generate_item`/`create_item`/`update_item` for 12 D&D 5e item types (weapon, spell, feat, consumable, equipment, loot, tool, background, race, container, class, subclass); `generate_encounter`/`create_encounter` for balanced encounter building with token placement; `update_scene` for scene property edits — all from an MCP client without opening Foundry |
-| Campaign Codex integration | Optional NPC Dossier widgets with four structured sidebar tabs and native GM secrets; AI generation for all three dossier tabs (`generate_npc_dossier_roleplay`, `generate_npc_dossier_overview`, `generate_npc_dossier_knowledge`) and for Group/Faction journals (`generate_faction`) — each routes through the standard GM approval dialog; quest objective retrieval and GM-approved checklist replacements; incremental Markdown export with committed/unchanged counts |
+| Campaign Codex integration | Optional NPC Dossier widgets with four structured sidebar tabs and native GM secrets; AI generation for all three dossier tabs (`generate_npc_dossier_roleplay`, `generate_npc_dossier_overview`, `generate_npc_dossier_knowledge`) and for Group/Faction journals (`generate_faction`) — each routes through the standard GM approval dialog; `manage_campaign_codex` for GM-approved folder, record, Location-to-Region, and map-marker operations; quest objective retrieval and GM-approved checklist replacements; incremental Markdown export with committed/unchanged counts |
 | Player Lore | GM-published, permission-checked public answers from an explicit journal allowlist |
 | Controlled writes | Previewed journal updates plus opt-in combat turn, initiative, and encounter-ending proposals with single-use GM approval, conflict checks, diffs, and rollback where supported |
 | Campaign operations | Health checks, consistency audits, post-session cleanup, recaps, configurable per-category GitHub backups with folder hierarchy, and AI session log tracking (NPC status, encounters, quest progress, region visits, campaign timeline) with automatic player permission sync |
