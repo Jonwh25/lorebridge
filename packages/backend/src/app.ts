@@ -52,6 +52,7 @@ import { CombatWriteRegistry, CombatWriteTokenError } from "./combat-write-regis
 import { QuestObjectivesWriteRegistry, QuestObjectivesTokenError } from "./quest-objectives-registry.js";
 import { NpcDossierWriteRegistry, NpcDossierTokenError } from "./npc-dossier-registry.js";
 import { FactionProfileWriteRegistry, FactionProfileTokenError } from "./faction-profile-registry.js";
+import { CampaignCodexWriteRegistry, CampaignCodexWriteTokenError } from "./campaign-codex-write-registry.js";
 import { AssetSearchService } from "./asset-search.js";
 import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitHubAdapter } from "./github-adapter.js";
 import { load as yamlLoad } from "js-yaml";
@@ -117,7 +118,7 @@ let voiceListCache: Array<{ id: string; name: string }> | null = null;
 let voiceListCachedAt = 0;
 const VOICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, npcDossierWrites: NpcDossierWriteRegistry, factionProfileWrites: FactionProfileWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(config: BackendConfig, identity: BackendIdentity, pairing: PairingService, adapterSessions: AdapterSessionRegistry, provider: ProviderService, imageProvider: ImageProviderService, mcp: McpRequestHandler, writes: WriteRegistry, audit: AuditRegistry, combatWrites: CombatWriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, npcDossierWrites: NpcDossierWriteRegistry, factionProfileWrites: FactionProfileWriteRegistry, campaignCodexWrites: CampaignCodexWriteRegistry, github: GitHubAdapter | null, request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const url = new URL(request.url ?? "/", "http://localhost");
 
@@ -494,6 +495,15 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       }
       throw error;
     }
+    return;
+  }
+
+  if (method === "POST" && (url.pathname === "/v1/cc-write/reject" || url.pathname === "/v1/cc-write/approve")) {
+    if (!authenticate(pairing, request, response)) return;
+    const body = await readJson(request); const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    if (!token) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } }); return; }
+    try { const entry = campaignCodexWrites.consume(token); if (url.pathname.endsWith("/reject")) { sendJson(response, 200, { rejected: true }); } else { sendJson(response, 200, entry); } }
+    catch (error) { if (error instanceof CampaignCodexWriteTokenError) { sendJson(response, error.reason === "not_found" ? 404 : 410, { error: { code: `campaign_codex_token_${error.reason}`, message: error.message } }); return; } throw error; }
     return;
   }
 
@@ -2014,10 +2024,11 @@ export function createLoreBridgeServer(config: BackendConfig, identity: BackendI
   const questObjectivesWrites = new QuestObjectivesWriteRegistry();
   const npcDossierWrites = new NpcDossierWriteRegistry();
   const factionProfileWrites = new FactionProfileWriteRegistry();
+  const campaignCodexWrites = new CampaignCodexWriteRegistry();
   const github = createGitHubAdapter(config.github, undefined, config.dataDir);
-  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, npcDossierWrites, factionProfileWrites, provider, new AssetSearchService(config.foundryDataDir), github, config.dataDir);
+  const mcp = createLoreBridgeMcpHandler(adapterSessions, writes, questObjectivesWrites, npcDossierWrites, factionProfileWrites, campaignCodexWrites, provider, new AssetSearchService(config.foundryDataDir), github, config.dataDir);
   const server = createServer((request, response) => {
-    void handleRequest(config, identity, pairing, adapterSessions, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, npcDossierWrites, factionProfileWrites, github, request, response).catch((error) => {
+    void handleRequest(config, identity, pairing, adapterSessions, provider, imageProvider, mcp, writes, audit, combatWrites, questObjectivesWrites, npcDossierWrites, factionProfileWrites, campaignCodexWrites, github, request, response).catch((error) => {
       console.error("LoreBridge request failed", error);
       if (!response.headersSent) sendJson(response, error instanceof SyntaxError ? 400 : 500, { error: { code: error instanceof SyntaxError ? "invalid_json" : "internal_error", message: "LoreBridge could not process the request." } });
       else response.end();

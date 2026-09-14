@@ -98,6 +98,8 @@ import { type WriteRegistry } from "./write-registry.js";
 import { type QuestObjectivesWriteRegistry } from "./quest-objectives-registry.js";
 import { type NpcDossierWriteRegistry } from "./npc-dossier-registry.js";
 import { type FactionProfileWriteRegistry } from "./faction-profile-registry.js";
+import { type CampaignCodexWriteRegistry } from "./campaign-codex-write-registry.js";
+import { PREVIEW_CAMPAIGN_CODEX_WRITE_CAPABILITY, validateCampaignCodexWritePreview, type CampaignCodexWriteOperation } from "@lorebridge/shared/capabilities";
 import { type ProviderService } from "./provider.js";
 import { generateRollTable, generateNpcStatBlock, generateItem, generateEncounter, generateSceneUpdate, callEmbedding, getEmbeddingConfig, GenerationError, generateNpcDossierRoleplay, generateNpcDossierOverview, generateNpcDossierKnowledge, generateFactionProfile, type EmbeddingProvider } from "./generation.js";
 import type { ItemType } from "./generation.js";
@@ -144,7 +146,7 @@ function toolError(error: unknown, fallback: string) {
   };
 }
 
-function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, npcDossierWrites: NpcDossierWriteRegistry, factionProfileWrites: FactionProfileWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null, rebuildTracker: RebuildTracker): McpServer {
+function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegistry, questObjectivesWrites: QuestObjectivesWriteRegistry, npcDossierWrites: NpcDossierWriteRegistry, factionProfileWrites: FactionProfileWriteRegistry, campaignCodexWrites: CampaignCodexWriteRegistry, provider: ProviderService, assets: AssetSearchService, github: GitHubAdapter | null, embeddingIndex: EmbeddingIndexService, embeddingConfig: EmbeddingProvider | null, rebuildTracker: RebuildTracker): McpServer {
   const server = new McpServer({
     name: "lorebridge",
     version: "0.36.0",
@@ -3013,6 +3015,33 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
     },
   );
 
+  server.registerTool(
+    "manage_campaign_codex",
+    {
+      title: "Manage Campaign Codex records",
+      description: "Preview one Campaign Codex folder, record, relationship, or map-marker operation and send it to Foundry for GM approval. No write occurs until the GM approves it.",
+      inputSchema: z.object({
+        action: z.enum(["create_folder", "rename_folder", "move_record", "rename_record", "set_location_marker", "update_relationship"]),
+        name: z.string().optional(), parentFolderId: z.string().optional(), folderId: z.string().optional(), newName: z.string().optional(),
+        documentType: z.literal("JournalEntry").optional(), documentId: z.string().optional(), targetFolderId: z.string().optional(),
+        locationId: z.string().optional(), sceneId: z.string().optional(), x: z.number().optional(), y: z.number().optional(),
+        sourceType: z.literal("JournalEntry").optional(), sourceId: z.string().optional(), relation: z.literal("location_region").optional(), targetType: z.literal("JournalEntry").optional(), targetId: z.string().optional(),
+        rationale: z.string().min(1), sourceIdHint: z.string().optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ rationale, sourceIdHint, ...raw }) => {
+      try {
+        const previewRaw = await adapterSessions.invoke(sourceIdHint, PREVIEW_CAMPAIGN_CODEX_WRITE_CAPABILITY, raw as CampaignCodexWriteOperation);
+        const validated = validateCampaignCodexWritePreview(previewRaw);
+        if (!validated.valid || !validated.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid Campaign Codex preview.", false, { validationErrors: validated.errors });
+        const entry = campaignCodexWrites.register(validated.value, rationale);
+        adapterSessions.sendEvent(sourceIdHint, LOREBRIDGE_EVENTS.campaignCodexWriteApprovalRequired, { ...entry, expiresAt: entry.expiresAt.toISOString() });
+        return { content: [{ type: "text", text: JSON.stringify({ ...entry, expiresAt: entry.expiresAt.toISOString(), instruction: "A GM approval request was sent to Foundry." }) }] };
+      } catch (error) { return toolError(error, "LoreBridge could not preview the Campaign Codex operation."); }
+    },
+  );
+
   return server;
 }
 
@@ -3033,6 +3062,7 @@ export function createLoreBridgeMcpHandler(
   questObjectivesWrites: QuestObjectivesWriteRegistry,
   npcDossierWrites: NpcDossierWriteRegistry,
   factionProfileWrites: FactionProfileWriteRegistry,
+  campaignCodexWrites: CampaignCodexWriteRegistry,
   provider: ProviderService,
   assets = new AssetSearchService(),
   github: GitHubAdapter | null = null,
@@ -3043,7 +3073,7 @@ export function createLoreBridgeMcpHandler(
   const embeddingConfig = getEmbeddingConfig();
   const rebuildTracker: RebuildTracker = { running: false, startedAt: null, error: null };
   const handler = createMcpHandler(
-    () => createServer(adapterSessions, writes, questObjectivesWrites, npcDossierWrites, factionProfileWrites, provider, assets, github, embeddingIndex, embeddingConfig, rebuildTracker),
+    () => createServer(adapterSessions, writes, questObjectivesWrites, npcDossierWrites, factionProfileWrites, campaignCodexWrites, provider, assets, github, embeddingIndex, embeddingConfig, rebuildTracker),
     {
       legacy: "stateless",
       onerror: (error) => console.error("LoreBridge MCP request failed", error),
