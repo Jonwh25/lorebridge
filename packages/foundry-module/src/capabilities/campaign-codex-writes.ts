@@ -2,9 +2,12 @@ import { type CampaignCodexWriteOperation, type CampaignCodexWritePreview, PREVI
 import { LoreBridgeCapabilityError, requireFoundryGm } from "./errors.js";
 import { getLoreBridgeSettings } from "../settings.js";
 import { type JournalWithOps } from "./tracker-shared.js";
+import { ApprovalQueuePanel } from "../approval-queue-panel.js";
 
 export type CampaignCodexWriteApprovalPayload = CampaignCodexWritePreview & { token: string; rationale: string; expiresAt: string };
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const pending = new Map<string, CampaignCodexWriteApprovalPayload>();
+let panel: CampaignCodexWriteApprovalPanel | null = null;
 const hash = (s: string) => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return `fnv1a-${(h >>> 0).toString(16)}`; };
 const journal = (id?: string): JournalWithOps => { const value = game.journal.get(String(id ?? "")); if (!value) throw new LoreBridgeCapabilityError("NOT_FOUND", `Journal '${id}' was not found.`); return value as unknown as JournalWithOps; };
 const folder = (id?: string) => { const value = game.folders.get(String(id ?? "")); if (!value || value.type !== "JournalEntry") throw new LoreBridgeCapabilityError("NOT_FOUND", `Journal folder '${id}' was not found.`); return value; };
@@ -41,7 +44,42 @@ export async function approveCampaignCodexWrite(token: string): Promise<void> { 
   else if (op.action === "rename_record") await (journal(op.documentId) as any).update({ name: op.newName!.trim() });
   else if (op.action === "set_location_marker") { const entry = journal(op.locationId); const scene = game.scenes.get(op.sceneId!)!; await (scene as any).createEmbeddedDocuments("Note", [{ entryId: entry.id, x: op.x!, y: op.y!, icon: "icons/svg/book.svg", text: entry.name }]); }
   else { const location = journal(op.sourceId); const region = journal(op.targetId); const locationData = requireCc(location); const regionData = requireCc(region); for (const candidate of Array.from(game.journal).map(value => value as unknown as JournalWithOps)) { if (candidate.getFlag("campaign-codex", "type") !== "region") continue; const data = requireCc(candidate); if (Array.isArray(data.linkedLocations) && candidate.id !== region.id) { data.linkedLocations = data.linkedLocations.filter(uuid => uuid !== location.uuid); await candidate.setFlag("campaign-codex", "data", data); } } regionData.linkedLocations = [...new Set([...(Array.isArray(regionData.linkedLocations) ? regionData.linkedLocations as string[] : []), location.uuid])]; locationData.parentRegion = region.uuid; await region.setFlag("campaign-codex", "data", regionData); await location.setFlag("campaign-codex", "data", locationData); }
-  ui.notifications.info("LoreBridge: Campaign Codex write approved and applied.");
 }
 export async function rejectCampaignCodexWrite(token: string): Promise<void> { requireFoundryGm("rejectCampaignCodexWrite"); await post("/v1/cc-write/reject", token); }
-export async function showCampaignCodexWriteApproval(payload: CampaignCodexWriteApprovalPayload): Promise<void> { if (!game.user?.isGM) return; const content = `<p><strong>${esc(payload.beforeSummary)}</strong></p><p>→ ${esc(payload.afterSummary)}</p><p>${esc(payload.rationale)}</p>`; await (foundry.applications.api.DialogV2 as any).wait({ window: { title: "LoreBridge Campaign Codex approval" }, content, buttons: [{ action: "approve", label: "Approve", callback: () => approveCampaignCodexWrite(payload.token) }, { action: "reject", label: "Reject", callback: () => rejectCampaignCodexWrite(payload.token) }] }); }
+
+function renderProposal(payload: CampaignCodexWriteApprovalPayload): string {
+  return `<section class="lb-combat-approval" data-token="${esc(payload.token)}">
+    <header><strong>Campaign Codex — ${esc(payload.operation.action.replaceAll("_", " "))}</strong><span>Expires ${esc(new Date(payload.expiresAt).toLocaleTimeString())}</span></header>
+    <div class="lb-combat-approval__body">
+      <div class="lb-combat-approval__change"><div><strong>Before</strong><p>${esc(payload.beforeSummary)}</p></div><div><strong>After</strong><p>${esc(payload.afterSummary)}</p></div></div>
+      <p class="hint">${esc(payload.rationale)}</p>
+    </div>
+    <footer><button type="button" data-action="reject" data-token="${esc(payload.token)}"><i class="fas fa-times"></i> Reject</button><button type="button" data-action="approve" data-token="${esc(payload.token)}"><i class="fas fa-check"></i> Approve Once</button></footer>
+  </section>`;
+}
+
+class CampaignCodexWriteApprovalPanel extends ApprovalQueuePanel {
+  static override DEFAULT_OPTIONS = { id: "lorebridge-campaign-codex-write-approval", classes: ["lorebridge-approval-queue", "lorebridge-campaign-codex-write-approval"], window: { title: "LoreBridge — Campaign Codex Approval", resizable: true }, position: { width: 560, height: 460 } };
+  protected override renderApprovalQueueHtml(): string { return [...pending.values()].map(renderProposal).join("") || "<p>No pending Campaign Codex proposals.</p>"; }
+  override _onClickAction(_event: PointerEvent, target: HTMLElement): void { const token = target.dataset.token; if (!token) return; if (target.dataset.action === "approve") void finish(token, true, this); if (target.dataset.action === "reject") void finish(token, false, this); }
+}
+
+async function finish(token: string, approved: boolean, app: CampaignCodexWriteApprovalPanel): Promise<void> {
+  const proposal = pending.get(token); if (!proposal) return;
+  try {
+    if (approved) await approveCampaignCodexWrite(token);
+    else await rejectCampaignCodexWrite(token);
+    pending.delete(token);
+    ui.notifications.info(approved ? "LoreBridge: Campaign Codex write approved and applied." : "LoreBridge: Campaign Codex proposal rejected.");
+  } catch (error) {
+    ui.notifications.error(`LoreBridge: Campaign Codex approval failed — ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (pending.size === 0) { await app.close(); panel = null; } else await app.render({ force: true });
+}
+
+export async function showCampaignCodexWriteApproval(payload: CampaignCodexWriteApprovalPayload): Promise<void> {
+  if (!game.user?.isGM || !payload.token || Number.isNaN(Date.parse(payload.expiresAt))) return;
+  pending.set(payload.token, payload);
+  if (!panel || !panel.rendered) { panel = new CampaignCodexWriteApprovalPanel(); await panel.render({ force: true }); }
+  else { await panel.render({ force: true }); panel.bringToFront(); }
+}
