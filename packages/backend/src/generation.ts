@@ -991,6 +991,7 @@ export type CombatFlavorInput = {
   targetName: string;
   damage: number;
   isCrit: boolean;
+  isFumble: boolean;
   isKillingBlow: boolean;
   style: "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror";
 };
@@ -1008,18 +1009,19 @@ const NARRATOR_STYLE_GUIDE: Record<string, string> = {
   "gothic-horror": "dark and foreboding, steeped in dread and the macabre — evoking the cold shadow of mortality and ancient evil",
 };
 
-export async function generateCombatFlavor(
-  provider: ProviderService,
-  input: CombatFlavorInput,
-): Promise<CombatFlavorOutput> {
+export function createCombatFlavorPrompt(input: CombatFlavorInput): string {
   const styleDesc = NARRATOR_STYLE_GUIDE[input.style] ?? NARRATOR_STYLE_GUIDE["dramatic"]!;
-  const eventNote = input.isKillingBlow
-    ? " This blow reduced the target to zero hit points — they are defeated."
-    : input.isCrit ? " It was a devastating critical hit." : "";
+  const eventNote = input.isFumble
+    ? " This was a natural 1 fumble; the attacker embarrasses themself, never the target."
+    : input.isKillingBlow
+      ? " This blow reduced the target to zero hit points — they are defeated."
+      : input.isCrit ? " It was a spectacular, fate-defying natural 20 critical hit." : "";
 
-  const prompt = [
+  return [
     `You are narrating tabletop RPG combat in a ${styleDesc} style.`,
-    input.isKillingBlow
+    input.isFumble
+      ? "Write exactly ONE sentence (around 20 words) in the present tense describing the attacker's humiliating fumble, slip, or mishap."
+      : input.isKillingBlow
       ? "Write exactly ONE sentence (around 20 words) in the present tense describing the killing blow that defeats the target."
       : "Write exactly ONE sentence (around 20 words) in the present tense describing this attack.",
     "Avoid stat jargon and damage numbers. Plain prose only. No markdown, no quotation marks.",
@@ -1029,7 +1031,13 @@ export async function generateCombatFlavor(
     "",
     "Narration:",
   ].join("\n");
+}
 
+export async function generateCombatFlavor(
+  provider: ProviderService,
+  input: CombatFlavorInput,
+): Promise<CombatFlavorOutput> {
+  const prompt = createCombatFlavorPrompt(input);
   const flavor = await callAI(provider, prompt, 80);
   return { flavor: flavor.trim(), provider: provider.provider };
 }

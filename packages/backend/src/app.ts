@@ -1013,13 +1013,14 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
     const targetName   = typeof body["targetName"]   === "string" ? body["targetName"].trim()   : "";
     const damage  = typeof body["damage"]  === "number"  ? body["damage"]  : 0;
     const isCrit        = typeof body["isCrit"]        === "boolean" ? body["isCrit"]        : false;
+    const isFumble      = typeof body["isFumble"]      === "boolean" ? body["isFumble"]      : false;
     const isKillingBlow = typeof body["isKillingBlow"] === "boolean" ? body["isKillingBlow"] : false;
     const rawStyle = typeof body["style"]  === "string"  ? body["style"]   : "dramatic";
     const style = (["dramatic", "gritty", "humorous", "heroic", "gothic-horror"].includes(rawStyle)
       ? rawStyle
       : "dramatic") as "dramatic" | "gritty" | "humorous" | "heroic" | "gothic-horror";
-    if (!attackerName || !targetName) {
-      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include non-empty attackerName and targetName strings." } });
+    if (!attackerName || (!isFumble && !targetName)) {
+      sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty attackerName and, except for fumbles, targetName strings." } });
       return;
     }
     if (!provider.enabled) {
@@ -1027,7 +1028,7 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
       return;
     }
     try {
-      const result = await generateCombatFlavor(provider, { attackerName, targetName, damage, isCrit, isKillingBlow, style });
+      const result = await generateCombatFlavor(provider, { attackerName, targetName, damage, isCrit, isFumble, isKillingBlow, style });
       sendJson(response, 200, result);
     } catch (error) {
       if (error instanceof GenerationError) {
