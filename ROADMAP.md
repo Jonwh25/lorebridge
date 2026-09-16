@@ -14,15 +14,6 @@ and upcoming milestones. Completed milestone details live in
 - [Audit and rationalize npcProfile actor fields vs Campaign Codex journal fields](https://github.com/Jonwh25/lorebridge/issues/401) — decide which actor-side NPC fields to keep, retire, or migrate to CC journal dossier now that M41 establishes the journal as the canonical write target; requires M41 complete before design work begins.
 
 ## Completed
-
-### Milestone 41 — Campaign Codex AI Field Coverage ✅
-
-- [x] [Sync npcProfile AI-generated fields into npcDossier on generation](https://github.com/Jonwh25/lorebridge/issues/399)
-- [x] [AI generation for NPC Dossier roleplay fields](https://github.com/Jonwh25/lorebridge/issues/396)
-- [x] [AI generation for NPC Dossier overview fields](https://github.com/Jonwh25/lorebridge/issues/397)
-- [x] [AI generation for NPC Dossier knowledge tab fields](https://github.com/Jonwh25/lorebridge/issues/398)
-- [x] [AI generation for Campaign Codex Factions/Groups](https://github.com/Jonwh25/lorebridge/issues/400)
-
 See [CHANGELOG.md](CHANGELOG.md) for all released versions.
 
 ## Planning workflow
