@@ -15,17 +15,6 @@ and upcoming milestones. Completed milestone details live in
 
 ## Completed
 
-### Milestone 42 — Campaign Codex MCP Write Operations ✅
-
-- [x] [Campaign Codex document management: create, rename, move, and relate records via MCP](https://github.com/Jonwh25/lorebridge/issues/385)
-- [x] [Combat narrator: spectacular narration for critical hits (nat 20) and fumbles (nat 1)](https://github.com/Jonwh25/lorebridge/issues/395)
-
-Delivered a controlled Campaign Codex MCP management tool with GM approval,
-before/after previews, five-minute one-use tokens, and stale-state protection.
-Also adds elevated narration for natural-20 critical hits and attacker-focused
-natural-1 fumbles during active combat. See [CHANGELOG.md](CHANGELOG.md) for
-release details.
-
 ### Milestone 41 — Campaign Codex AI Field Coverage ✅
 
 - [x] [Sync npcProfile AI-generated fields into npcDossier on generation](https://github.com/Jonwh25/lorebridge/issues/399)
