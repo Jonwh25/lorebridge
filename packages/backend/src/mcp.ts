@@ -3036,7 +3036,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
         const validated = validateCampaignCodexWritePreview(previewRaw);
         if (!validated.valid || !validated.value) throw new AdapterInvocationError("INTERNAL_ERROR", "The Foundry adapter returned an invalid Campaign Codex preview.", false, { validationErrors: validated.errors });
         const entry = campaignCodexWrites.register(validated.value, rationale);
-        adapterSessions.sendEvent(sourceIdHint, LOREBRIDGE_EVENTS.campaignCodexWriteApprovalRequired, { ...entry, expiresAt: entry.expiresAt.toISOString() });
+        adapterSessions.sendEvent(validated.value.sourceId, LOREBRIDGE_EVENTS.campaignCodexWriteApprovalRequired, { ...entry, expiresAt: entry.expiresAt.toISOString() });
         return { content: [{ type: "text", text: JSON.stringify({ ...entry, expiresAt: entry.expiresAt.toISOString(), instruction: "A GM approval request was sent to Foundry." }) }] };
       } catch (error) { return toolError(error, "LoreBridge could not preview the Campaign Codex operation."); }
     },

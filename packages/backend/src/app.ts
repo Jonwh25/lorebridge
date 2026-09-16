@@ -505,10 +505,16 @@ async function handleRequest(config: BackendConfig, identity: BackendIdentity, p
 
   if (method === "POST" && (url.pathname === "/v1/cc-write/reject" || url.pathname === "/v1/cc-write/approve")) {
     if (!authenticate(pairing, request, response)) return;
-    const body = await readJson(request); const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    const body = await readJson(request);
+    const token = typeof body["token"] === "string" ? body["token"].trim() : "";
+    const callerSourceId = typeof body["sourceId"] === "string" ? body["sourceId"].trim() : "";
     if (!token) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty token string." } }); return; }
-    try { const entry = campaignCodexWrites.consume(token); if (url.pathname.endsWith("/reject")) { sendJson(response, 200, { rejected: true }); } else { sendJson(response, 200, entry); } }
-    catch (error) { if (error instanceof CampaignCodexWriteTokenError) { sendJson(response, error.reason === "not_found" ? 404 : 410, { error: { code: `campaign_codex_token_${error.reason}`, message: error.message } }); return; } throw error; }
+    if (!callerSourceId) { sendJson(response, 400, { error: { code: "invalid_request", message: "Request body must include a non-empty sourceId string." } }); return; }
+    try {
+      if (url.pathname.endsWith("/reject")) { campaignCodexWrites.rejectVerified(token, callerSourceId); sendJson(response, 200, { rejected: true }); }
+      else { const entry = campaignCodexWrites.verifyAndConsume(token, callerSourceId); sendJson(response, 200, entry); }
+    }
+    catch (error) { if (error instanceof CampaignCodexWriteTokenError) { sendJson(response, error.reason === "not_found" ? 404 : error.reason === "source_mismatch" ? 403 : 410, { error: { code: `campaign_codex_token_${error.reason}`, message: error.message } }); return; } throw error; }
     return;
   }
 

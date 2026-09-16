@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/client";
 import {
   createResponseEnvelope,
+  LOREBRIDGE_EVENTS,
   LOREBRIDGE_PROTOCOL_VERSION,
   type AdapterWelcomeMessage,
   type RequestEnvelope,
@@ -600,6 +601,133 @@ test("MCP endpoint requires pairing and exposes live Foundry tools", async () =>
     if (webSocket && webSocket.readyState !== WebSocket.CLOSED) {
       await new Promise<void>((resolve) => webSocket!.once("close", () => resolve()));
     }
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+  }
+});
+
+test("manage_campaign_codex sends approval event only to the previewing world", async () => {
+  const server = createLoreBridgeServer(config, identity);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const wsUrl = baseUrl.replace(/^http/, "ws") + "/v1/adapter";
+
+  const token = await pair(baseUrl);
+
+  // Connect adapter for world-a (will handle the preview request).
+  const wsA = new WebSocket(wsUrl);
+  const worldASourceId = "foundry:world-a";
+  const eventsReceivedByA: string[] = [];
+
+  await new Promise<void>((resolve, reject) => {
+    wsA.once("error", reject);
+    wsA.once("open", () => {
+      wsA.send(JSON.stringify({
+        kind: "adapter.hello",
+        protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+        token,
+        registration: {
+          adapterId: "foundry-vtt-a",
+          adapterType: "foundry",
+          adapterVersion: "0.1.0",
+          protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+          sources: [{ sourceId: worldASourceId, adapterId: "foundry-vtt-a", sourceType: "foundry-world", name: "World A" }],
+          capabilities: [{ name: "previewCampaignCodexWrite", mode: "write", version: "0.1", requiresApproval: true }],
+        },
+      }));
+    });
+    wsA.once("message", () => resolve());
+  });
+
+  wsA.on("message", (data) => {
+    const msg = JSON.parse(data.toString()) as { kind: string; event?: string; correlationId?: string; messageId?: string; input?: unknown };
+    if (msg.kind === "event") {
+      eventsReceivedByA.push(msg.event ?? "");
+      return;
+    }
+    if (msg.kind !== "request" || !msg.correlationId || !msg.messageId) return;
+    // Respond to previewCampaignCodexWrite with a valid preview.
+    wsA.send(JSON.stringify(createResponseEnvelope(
+      { messageId: msg.messageId, correlationId: msg.correlationId },
+      {
+        operation: (msg.input as { action: string }),
+        beforeSummary: "Folder Root.",
+        afterSummary: "Create folder 'Test'.",
+        fingerprint: "fnv1a-abc",
+        sourceId: worldASourceId,
+        sourceName: "World A",
+      },
+    )));
+  });
+
+  // Connect adapter for world-b (should never receive the approval event).
+  const wsB = new WebSocket(wsUrl);
+  const worldBSourceId = "foundry:world-b";
+  const eventsReceivedByB: string[] = [];
+
+  await new Promise<void>((resolve, reject) => {
+    wsB.once("error", reject);
+    wsB.once("open", () => {
+      wsB.send(JSON.stringify({
+        kind: "adapter.hello",
+        protocolVersion: LOREBRIDGE_PROTOCOL_VERSION,
+        token,
+        registration: {
+          adapterId: "foundry-vtt-b",
+          adapterType: "foundry",
+          adapterVersion: "0.1.0",
+          protocolVersions: [LOREBRIDGE_PROTOCOL_VERSION],
+          sources: [{ sourceId: worldBSourceId, adapterId: "foundry-vtt-b", sourceType: "foundry-world", name: "World B" }],
+          capabilities: [{ name: "previewCampaignCodexWrite", mode: "write", version: "0.1", requiresApproval: true }],
+        },
+      }));
+    });
+    wsB.once("message", () => resolve());
+  });
+
+  wsB.on("message", (data) => {
+    const msg = JSON.parse(data.toString()) as { kind: string; event?: string; correlationId?: string; messageId?: string };
+    if (msg.kind === "event") eventsReceivedByB.push(msg.event ?? "");
+  });
+
+  let mcpClient: Client | undefined;
+  try {
+    // Call manage_campaign_codex targeting world-a via MCP over HTTP.
+    const mcpToken = await pair(baseUrl);
+    const mcpTransport = new StreamableHTTPClientTransport(
+      new URL(`${baseUrl}/mcp`),
+      { authProvider: { token: async () => mcpToken } },
+    );
+    mcpClient = new Client({ name: "lorebridge-two-world-test", version: "1.0.0" });
+    await mcpClient.connect(mcpTransport);
+    const toolResult = await mcpClient.callTool({
+      name: "manage_campaign_codex",
+      arguments: {
+        action: "create_folder",
+        name: "Test",
+        rationale: "Two-world regression test",
+        sourceIdHint: worldASourceId,
+      },
+    });
+    assert.equal(toolResult.isError, undefined);
+
+    // Give WebSocket messages a moment to arrive.
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
+    assert.ok(eventsReceivedByA.includes(LOREBRIDGE_EVENTS.campaignCodexWriteApprovalRequired),
+      "World A adapter should receive the approval event");
+    assert.equal(eventsReceivedByB.length, 0,
+      "World B adapter must not receive any event");
+  } finally {
+    await mcpClient?.close().catch(() => undefined);
+    wsA.close(); wsB.close();
+    await Promise.all([wsA, wsB].map((ws) =>
+      ws.readyState === WebSocket.CLOSED
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => ws.once("close", resolve)),
+    ));
     await new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
     });
