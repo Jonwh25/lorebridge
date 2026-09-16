@@ -21,23 +21,41 @@ async function fixture(overrides = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "lorebridge-pretag-"));
   temporaryRoots.push(root);
   const moduleRoot = path.join(root, "packages", "foundry-module");
+  const backendRoot = path.join(root, "packages", "backend");
+  const sharedRoot = path.join(root, "packages", "shared");
   await mkdir(moduleRoot, { recursive: true });
+  await mkdir(backendRoot, { recursive: true });
+  await mkdir(sharedRoot, { recursive: true });
   const versions = {
     root: VERSION,
     lock: VERSION,
     lockRoot: VERSION,
     lockFoundry: VERSION,
+    lockBackend: VERSION,
+    lockShared: VERSION,
     foundry: VERSION,
     manifest: VERSION,
+    backend: VERSION,
+    shared: VERSION,
     ...overrides.versions,
   };
   await writeFile(path.join(root, "package.json"), JSON.stringify({ version: versions.root }));
-  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({ version: versions.lock, packages: { "": { version: versions.lockRoot }, "packages/foundry-module": { version: versions.lockFoundry } } }));
+  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({
+    version: versions.lock,
+    packages: {
+      "": { version: versions.lockRoot },
+      "packages/foundry-module": { version: versions.lockFoundry },
+      "packages/backend": { version: versions.lockBackend },
+      "packages/shared": { version: versions.lockShared },
+    },
+  }));
   await writeFile(path.join(moduleRoot, "package.json"), JSON.stringify({ version: versions.foundry }));
   await writeFile(path.join(moduleRoot, "module.json"), JSON.stringify({
     version: versions.manifest,
     download: overrides.download ?? `https://github.com/Jonwh25/lorebridge/releases/download/v${VERSION}/lorebridge.zip`,
   }));
+  await writeFile(path.join(backendRoot, "package.json"), JSON.stringify({ version: versions.backend }));
+  await writeFile(path.join(sharedRoot, "package.json"), JSON.stringify({ version: versions.shared }));
   await writeFile(path.join(root, "CHANGELOG.md"), overrides.changelog ?? `# Changelog\n\n## [${VERSION}] - 2026-09-02\n`);
   return root;
 }
@@ -115,7 +133,7 @@ for (const scenario of [
 }
 
 test("rejects every synchronized version source independently", async () => {
-  for (const key of ["root", "lock", "lockRoot", "lockFoundry", "foundry", "manifest"]) {
+  for (const key of ["root", "lock", "lockRoot", "lockFoundry", "lockBackend", "lockShared", "foundry", "manifest", "backend", "shared"]) {
     const root = await fixture({ versions: { [key]: "9.9.9" } });
     const fake = fakeRunner();
     await assert.rejects(

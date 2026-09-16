@@ -58,8 +58,13 @@ import { createGitHubAdapter, GitHubAdapterError, resolveCampaignPath, type GitH
 import { load as yamlLoad } from "js-yaml";
 import type { RestoreScenesOutput, RestoreFolderEntry, RestoreSceneEntry, DeleteBackupScenesOutput } from "@lorebridge/shared/capabilities";
 import { extractSessionEntities } from "./session-scan.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-const serviceVersion = "0.36.0";
+const { version: serviceVersion } = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
+) as { version: string };
 
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
