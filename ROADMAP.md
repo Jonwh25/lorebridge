@@ -14,7 +14,7 @@ and upcoming milestones. Completed milestone details live in
 Correctness and hygiene bugs identified after M42.
 
 1. [Bind Campaign Codex approval events to the resolved Foundry world](https://github.com/Jonwh25/lorebridge/issues/407)
-2. [Derive backend serviceVersion from package.json at build time](https://github.com/Jonwh25/lorebridge/issues/408)
+2. ✅ [Derive backend serviceVersion from package.json at build time](https://github.com/Jonwh25/lorebridge/issues/408)
 
 Success test: with two Foundry worlds connected, a Campaign Codex proposal
 in world A produces an approval card only in world A; the backend health
