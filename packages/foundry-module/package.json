@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@lorebridge/shared": "0.37.0"
+    "@lorebridge/shared": "0.42.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

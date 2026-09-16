@@ -9,7 +9,7 @@ GitHub Issues are the source of truth for planned work. This file tracks active
 and upcoming milestones. Completed milestone details live in
 [CHANGELOG.md](CHANGELOG.md), newest first.
 
-## Milestone 43 — Bug Fixes
+## Milestone 43 — Bug Fixes *(active)*
 
 Correctness and hygiene bugs identified after M42.
 

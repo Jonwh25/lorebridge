@@ -118,13 +118,25 @@ export async function validateReleaseFiles(root, version) {
     path.join(root, "packages", "foundry-module", "module.json"),
     "Foundry module.json",
   );
+  const backendPackage = await readJson(
+    path.join(root, "packages", "backend", "package.json"),
+    "backend package.json",
+  );
+  const sharedPackage = await readJson(
+    path.join(root, "packages", "shared", "package.json"),
+    "shared package.json",
+  );
 
   assertVersion(rootPackage.version, version, "Root package.json");
   assertVersion(lockfile.version, version, "Package-lock root");
   assertVersion(lockfile.packages?.[""]?.version, version, "Package-lock workspace root");
   assertVersion(lockfile.packages?.["packages/foundry-module"]?.version, version, "Package-lock Foundry workspace");
+  assertVersion(lockfile.packages?.["packages/backend"]?.version, version, "Package-lock backend workspace");
+  assertVersion(lockfile.packages?.["packages/shared"]?.version, version, "Package-lock shared workspace");
   assertVersion(foundryPackage.version, version, "Foundry package.json");
   assertVersion(manifest.version, version, "Foundry module.json");
+  assertVersion(backendPackage.version, version, "backend package.json");
+  assertVersion(sharedPackage.version, version, "shared package.json");
 
   const expectedDownload = `https://github.com/Jonwh25/lorebridge/releases/download/v${version}/lorebridge.zip`;
   if (manifest.download !== expectedDownload) {
