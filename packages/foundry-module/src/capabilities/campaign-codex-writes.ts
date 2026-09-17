@@ -29,7 +29,7 @@ export function previewCampaignCodexWrite(operation: CampaignCodexWriteOperation
     case "update_relationship": { const source = journal(operation.sourceId); const target = journal(operation.targetId); requireCc(source, "location"); requireCc(target, "region"); const sourceData = requireCc(source); const targetData = requireCc(target); beforeSummary = `Location '${source.name}' parent: ${String(sourceData.parentRegion ?? "none")}; Region '${target.name}' locations: ${Array.isArray(targetData.linkedLocations) ? targetData.linkedLocations.length : 0}.`; afterSummary = `Link '${source.name}' to Region '${target.name}'.`; fingerprintSource = `${source.uuid}:${String(sourceData.parentRegion ?? "")}:${target.uuid}:${JSON.stringify(targetData.linkedLocations ?? [])}`; break; }
     default: throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Unsupported Campaign Codex operation.");
   }
-  return { operation, beforeSummary, afterSummary, fingerprint: hash(fingerprintSource), sourceId: game.world?.id ?? "unknown", sourceName: game.world?.title ?? "Unknown World" };
+  return { operation, beforeSummary, afterSummary, fingerprint: hash(fingerprintSource), sourceId: `foundry:${game.world?.id ?? "unknown"}`, sourceName: game.world?.title ?? "Unknown World" };
 }
 async function post(path: string, token: string): Promise<CampaignCodexWriteApprovalPayload> {
   const settings = getLoreBridgeSettings();
@@ -80,8 +80,8 @@ async function finish(token: string, approved: boolean, app: CampaignCodexWriteA
 
 export async function showCampaignCodexWriteApproval(payload: CampaignCodexWriteApprovalPayload): Promise<void> {
   if (!game.user?.isGM || !payload.token || Number.isNaN(Date.parse(payload.expiresAt))) return;
-  const worldId = game.world?.id ?? "unknown";
-  if (payload.sourceId && payload.sourceId !== "unknown" && payload.sourceId !== worldId) return;
+  const worldId = `foundry:${game.world?.id ?? "unknown"}`;
+  if (payload.sourceId && payload.sourceId !== "foundry:unknown" && payload.sourceId !== worldId) return;
   pending.set(payload.token, payload);
   if (!panel || !panel.rendered) { panel = new CampaignCodexWriteApprovalPanel(); await panel.render({ force: true }); }
   else { await panel.render({ force: true }); panel.bringToFront(); }
