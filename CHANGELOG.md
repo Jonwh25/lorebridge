@@ -2,6 +2,40 @@
 
 All notable changes to LoreBridge are documented here.
 
+## [0.43.0] - 2026-09-17
+
+### Added
+
+- **`delete_folder` action in `manage_campaign_codex`** (#411, PR #412): The
+  `manage_campaign_codex` MCP tool now accepts `action: "delete_folder"`. The
+  GM approval dialog previews the folder name and child journal count. On
+  approval, child journals are moved to the top level and the folder is removed.
+
+### Fixed
+
+- **Campaign Codex approval events now routed to the correct world** (#407,
+  PR #410): When two or more Foundry worlds are connected, the GM approval
+  dialog for `manage_campaign_codex` now appears only in the world that
+  originated the preview. Previously, `sendEvent` used `sourceIdHint`
+  (which can be `undefined`) and broadcast to every connected adapter.
+  The fix passes `validated.value.sourceId` from the Foundry preview response
+  to `sendEvent`, and adds a `foundry:` prefix throughout so the event's
+  source ID matches the adapter's registered source ID exactly. The
+  approve/reject endpoints now also require and verify the caller's `sourceId`,
+  returning 403 if it does not match the token.
+
+- **Backend version endpoint now reports the correct version** (#408, PR #409):
+  The `serviceVersion` reported by `GET /health` was hardcoded. It is now read
+  from `packages/backend/package.json` at build time so it always matches the
+  deployed release. The pre-tag readiness script was extended to catch future
+  version drift across all workspace packages.
+
+### Upgrade notes
+
+- Update both the backend and the Foundry module. After reloading Foundry, the
+  approval dialog for `manage_campaign_codex` will only appear in the world
+  that requested the operation. No configuration changes are required.
+
 ## [0.42.0] - 2026-09-14
 
 ### Added
