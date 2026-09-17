@@ -29,12 +29,13 @@ export function previewCampaignCodexWrite(operation: CampaignCodexWriteOperation
     case "update_relationship": { const source = journal(operation.sourceId); const target = journal(operation.targetId); requireCc(source, "location"); requireCc(target, "region"); const sourceData = requireCc(source); const targetData = requireCc(target); beforeSummary = `Location '${source.name}' parent: ${String(sourceData.parentRegion ?? "none")}; Region '${target.name}' locations: ${Array.isArray(targetData.linkedLocations) ? targetData.linkedLocations.length : 0}.`; afterSummary = `Link '${source.name}' to Region '${target.name}'.`; fingerprintSource = `${source.uuid}:${String(sourceData.parentRegion ?? "")}:${target.uuid}:${JSON.stringify(targetData.linkedLocations ?? [])}`; break; }
     default: throw new LoreBridgeCapabilityError("INVALID_REQUEST", "Unsupported Campaign Codex operation.");
   }
-  return { operation, beforeSummary, afterSummary, fingerprint: hash(fingerprintSource), sourceId: game.world?.id ?? "unknown", sourceName: game.world?.title ?? "Unknown World" };
+  return { operation, beforeSummary, afterSummary, fingerprint: hash(fingerprintSource), sourceId: `foundry:${game.world?.id ?? "unknown"}`, sourceName: game.world?.title ?? "Unknown World" };
 }
 async function post(path: string, token: string): Promise<CampaignCodexWriteApprovalPayload> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) throw new LoreBridgeCapabilityError("CAPABILITY_UNAVAILABLE", "LoreBridge backend pairing is required.");
-  const response = await fetch(`${settings.backendUrl.replace(/\/$/, "")}${path}`, { method: "POST", headers: { authorization: `Bearer ${settings.clientToken}`, "content-type": "application/json" }, body: JSON.stringify({ token }) });
+  const sourceId = `foundry:${game.world?.id ?? "unknown"}`;
+  const response = await fetch(`${settings.backendUrl.replace(/\/$/, "")}${path}`, { method: "POST", headers: { authorization: `Bearer ${settings.clientToken}`, "content-type": "application/json" }, body: JSON.stringify({ token, sourceId }) });
   const body = await response.json().catch(() => ({})); if (!response.ok) throw new LoreBridgeCapabilityError(response.status === 410 ? "NOT_FOUND" : "INTERNAL_ERROR", (body as { error?: { message?: string } }).error?.message ?? "Campaign Codex approval failed."); return body as CampaignCodexWriteApprovalPayload;
 }
 export async function approveCampaignCodexWrite(token: string): Promise<void> { requireFoundryGm("approveCampaignCodexWrite"); if (!getLoreBridgeSettings().writesEnabled) throw new LoreBridgeCapabilityError("CAPABILITY_UNAVAILABLE", "Enable AI-Proposed Writes first."); const proposal = await post("/v1/cc-write/approve", token); const current = previewCampaignCodexWrite(proposal.operation); if (current.fingerprint !== proposal.fingerprint) throw new LoreBridgeCapabilityError("INVALID_REQUEST", "The Campaign Codex record changed after preview; no write was made."); const op = proposal.operation;
@@ -79,6 +80,8 @@ async function finish(token: string, approved: boolean, app: CampaignCodexWriteA
 
 export async function showCampaignCodexWriteApproval(payload: CampaignCodexWriteApprovalPayload): Promise<void> {
   if (!game.user?.isGM || !payload.token || Number.isNaN(Date.parse(payload.expiresAt))) return;
+  const worldId = `foundry:${game.world?.id ?? "unknown"}`;
+  if (payload.sourceId && payload.sourceId !== "foundry:unknown" && payload.sourceId !== worldId) return;
   pending.set(payload.token, payload);
   if (!panel || !panel.rendered) { panel = new CampaignCodexWriteApprovalPanel(); await panel.render({ force: true }); }
   else { await panel.render({ force: true }); panel.bringToFront(); }
