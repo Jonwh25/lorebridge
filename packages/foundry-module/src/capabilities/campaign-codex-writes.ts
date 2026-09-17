@@ -34,7 +34,7 @@ export function previewCampaignCodexWrite(operation: CampaignCodexWriteOperation
 async function post(path: string, token: string): Promise<CampaignCodexWriteApprovalPayload> {
   const settings = getLoreBridgeSettings();
   if (!settings.backendUrl || !settings.clientToken) throw new LoreBridgeCapabilityError("CAPABILITY_UNAVAILABLE", "LoreBridge backend pairing is required.");
-  const sourceId = game.world?.id ?? "unknown";
+  const sourceId = `foundry:${game.world?.id ?? "unknown"}`;
   const response = await fetch(`${settings.backendUrl.replace(/\/$/, "")}${path}`, { method: "POST", headers: { authorization: `Bearer ${settings.clientToken}`, "content-type": "application/json" }, body: JSON.stringify({ token, sourceId }) });
   const body = await response.json().catch(() => ({})); if (!response.ok) throw new LoreBridgeCapabilityError(response.status === 410 ? "NOT_FOUND" : "INTERNAL_ERROR", (body as { error?: { message?: string } }).error?.message ?? "Campaign Codex approval failed."); return body as CampaignCodexWriteApprovalPayload;
 }
