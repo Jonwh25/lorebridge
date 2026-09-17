@@ -2,7 +2,7 @@ import type { CapabilityDeclaration, ValidationResult } from "../index.js";
 
 export const PREVIEW_CAMPAIGN_CODEX_WRITE_CAPABILITY = "previewCampaignCodexWrite" as const;
 export const PREVIEW_CAMPAIGN_CODEX_WRITE_DECLARATION: CapabilityDeclaration = { name: PREVIEW_CAMPAIGN_CODEX_WRITE_CAPABILITY, mode: "read", version: "0.1" };
-export type CampaignCodexWriteAction = "create_folder" | "rename_folder" | "move_record" | "rename_record" | "set_location_marker" | "update_relationship";
+export type CampaignCodexWriteAction = "create_folder" | "rename_folder" | "delete_folder" | "move_record" | "rename_record" | "set_location_marker" | "update_relationship";
 export type CampaignCodexWriteOperation = {
   action: CampaignCodexWriteAction;
   name?: string; parentFolderId?: string; folderId?: string; newName?: string;

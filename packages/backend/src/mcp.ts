@@ -3021,7 +3021,7 @@ function createServer(adapterSessions: AdapterSessionRegistry, writes: WriteRegi
       title: "Manage Campaign Codex records",
       description: "Preview one Campaign Codex folder, record, relationship, or map-marker operation and send it to Foundry for GM approval. No write occurs until the GM approves it.",
       inputSchema: z.object({
-        action: z.enum(["create_folder", "rename_folder", "move_record", "rename_record", "set_location_marker", "update_relationship"]),
+        action: z.enum(["create_folder", "rename_folder", "delete_folder", "move_record", "rename_record", "set_location_marker", "update_relationship"]),
         name: z.string().optional(), parentFolderId: z.string().optional(), folderId: z.string().optional(), newName: z.string().optional(),
         documentType: z.literal("JournalEntry").optional(), documentId: z.string().optional(), targetFolderId: z.string().optional(),
         locationId: z.string().optional(), sceneId: z.string().optional(), x: z.number().optional(), y: z.number().optional(),
