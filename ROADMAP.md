@@ -13,7 +13,7 @@ and upcoming milestones. Completed milestone details live in
 
 Correctness and hygiene bugs identified after M42.
 
-1. [Bind Campaign Codex approval events to the resolved Foundry world](https://github.com/Jonwh25/lorebridge/issues/407)
+1. ✅ [Bind Campaign Codex approval events to the resolved Foundry world](https://github.com/Jonwh25/lorebridge/issues/407)
 2. ✅ [Derive backend serviceVersion from package.json at build time](https://github.com/Jonwh25/lorebridge/issues/408)
 3. [Add delete_folder action to manage_campaign_codex](https://github.com/Jonwh25/lorebridge/issues/411)
 
